@@ -336,13 +336,23 @@ DB_PORT=5432
           >
             .env (متغیرهای محرمانه محیطی)
           </button>
+          <button
+            onClick={() => setActiveSubTab('routes')}
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
+              activeSubTab === 'routes'
+                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
+                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+            }`}
+          >
+            Independent Routes (تغییرات جدید)
+          </button>
         </div>
 
         {/* Code Viewer */}
         <CodeViewer
-          code={activeSubTab === 'settings' ? settingsCode : activeSubTab === 'urls' ? urlsCode : envCode}
-          filename={activeSubTab === 'settings' ? 'azarakhsh_project/settings.py' : activeSubTab === 'urls' ? 'azarakhsh_project/urls.py' : '.env'}
-          badge={activeSubTab === 'settings' ? 'Core Settings' : activeSubTab === 'urls' ? 'Main URLs' : 'Environment Secrets'}
+          code={activeSubTab === 'settings' ? settingsCode : activeSubTab === 'urls' ? urlsCode : activeSubTab === 'env' ? envCode : '/* برای مدیریت مستقل مسیرهای فرانت‌اند در جنگو، از TemplateView استفاده کنید:\n\n1. در urls.py:\n   path("shopmanage/", TemplateView.as_view(template_name="shopmanage.html")),\n   path("azarakhsh/", TemplateView.as_view(template_name="azarakhsh.html")),\n\n2. مطمئن شوید که فایل‌های build شده React در مسیر static جنگو قرار گرفته‌اند. */'}
+          filename={activeSubTab === 'settings' ? 'azarakhsh_project/settings.py' : activeSubTab === 'urls' ? 'azarakhsh_project/urls.py' : activeSubTab === 'env' ? '.env' : 'IndependentRoutes.txt'}
+          badge={activeSubTab === 'settings' ? 'Core Settings' : activeSubTab === 'urls' ? 'Main URLs' : activeSubTab === 'env' ? 'Environment Secrets' : 'Independent Routes Docs'}
         />
       </div>
 

@@ -58,6 +58,8 @@ import { LivePriceTable } from './components/LivePriceTable';
 import { NotificationModal } from './components/NotificationModal';
 import { PwaInstallGuide } from './components/PwaInstallGuide';
 import { AccountingPosPanel } from './components/shopmanage/AccountingPosPanel';
+import { AzarakhshApiDocs } from './azarakhsh/AzarakhshApiDocs';
+import { ShopManageLayout } from './components/shopmanage/ShopManageLayout';
 import { HeroBannerSlider } from './components/HeroBannerSlider';
 import { syncWithDjangoApi } from './services/djangoApi';
 import { generatePriceListPdf } from './utils/pdfGenerator';
@@ -87,9 +89,14 @@ export default function App() {
   }, []);
 
   // Handle URL navigation
+  const isShopManage = window.location.pathname.includes('/shopmanage');
+  const isAzarakhsh = window.location.pathname.includes('/azarakhsh');
   useEffect(() => {
-    if (window.location.pathname.includes('/shopmanage')) {
+    if (isShopManage) {
       setActiveTab('accounting-pos');
+    }
+    if (isAzarakhsh) {
+      setActiveTab('azarakhsh-docs');
     }
   }, []);
 
@@ -436,6 +443,24 @@ export default function App() {
   const cartTotalCartons = cartItems.reduce((acc, curr) => curr.unit === 'carton' ? acc + curr.quantity : acc, 0);
   const cartTotalBoxes = cartItems.reduce((acc, curr) => curr.unit === 'box' ? acc + curr.quantity : acc, 0);
 
+  if (isShopManage) {
+    return (
+      <ShopManageLayout onReturnToApp={() => window.location.href = '/'}>
+        <AccountingPosPanel
+          products={products}
+          onUpdateProductsStock={setProducts}
+          onReturnToStore={() => window.location.href = '/'}
+        />
+      </ShopManageLayout>
+    );
+  }
+
+  if (isAzarakhsh) {
+    return (
+      <AzarakhshApiDocs onReturnToApp={() => window.location.href = '/'} />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white transition-colors duration-200">
       
@@ -696,16 +721,7 @@ export default function App() {
           )
         )}
 
-        {/* TAB 8: Accounting POS */}
-        {activeTab === 'accounting-pos' && (
-          <AccountingPosPanel
-            products={products}
-            onUpdateProductsStock={setProducts}
-            onReturnToStore={() => setActiveTab('catalog')}
-          />
-        )}
-
-        {/* TAB 4: Contact and Support Form (Replacing WebSocket) */}
+                {/* TAB 4: Contact and Support Form (Replacing WebSocket) */}
         {activeTab === 'contact' && (
           <ContactAndSupport
             showToast={showToast}

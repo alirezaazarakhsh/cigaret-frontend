@@ -40,6 +40,7 @@ interface BannerSlide {
   secondaryBtnText: string;
   secondaryBtnAction: 'live-prices' | 'invoice' | 'catalog' | 'pdf' | 'iqos' | 'shipping';
   bgGradient: string;
+  imageUrl: string; // New field for background image
   tagline: string;
   statNumber: string;
   statLabel: string;
@@ -59,7 +60,8 @@ const SLIDES: BannerSlide[] = [
     primaryBtnAction: 'live-prices',
     secondaryBtnText: 'دانلود لیست کامل قیمت‌ها (PDF)',
     secondaryBtnAction: 'pdf',
-    bgGradient: 'from-blue-900 via-indigo-900 to-slate-900 text-white',
+    bgGradient: 'from-blue-900/80 via-indigo-900/80 to-slate-900/80 text-white',
+    imageUrl: 'https://images.unsplash.com/photo-1603969409447-ba8655d815ad?q=80&w=2070&auto=format&fit=crop',
     tagline: 'انبار مرکزی جنت‌آباد • تحویل فوری',
     statNumber: '۱۰۰٪',
     statLabel: 'اصالت بار و تضمین سلامت'
@@ -77,7 +79,8 @@ const SLIDES: BannerSlide[] = [
     primaryBtnAction: 'iqos',
     secondaryBtnText: 'صدور پیش‌فاکتور رسمی',
     secondaryBtnAction: 'invoice',
-    bgGradient: 'from-teal-950 via-slate-900 to-indigo-950 text-white',
+    bgGradient: 'from-teal-950/80 via-slate-900/80 to-indigo-950/80 text-white',
+    imageUrl: 'https://images.unsplash.com/photo-1598454233710-c48833152771?q=80&w=2070&auto=format&fit=crop',
     tagline: 'تجهیزات مدرن دخانیات • SmartCore Induction',
     statNumber: '۴۸+',
     statLabel: 'تنوع فلیور و مدل فعال'
@@ -95,7 +98,8 @@ const SLIDES: BannerSlide[] = [
     primaryBtnAction: 'shipping',
     secondaryBtnText: 'استعلام تعرفه کرایه‌ها',
     secondaryBtnAction: 'shipping',
-    bgGradient: 'from-slate-900 via-blue-950 to-slate-900 text-white',
+    bgGradient: 'from-slate-900/80 via-blue-950/80 to-slate-900/80 text-white',
+    imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2070&auto=format&fit=crop',
     tagline: 'پوشش ۳۱ استان • رهگیری بیجک',
     statNumber: '۲۴h',
     statLabel: 'میانگین زمان تحویل به باربری'
@@ -113,7 +117,8 @@ const SLIDES: BannerSlide[] = [
     primaryBtnAction: 'invoice',
     secondaryBtnText: 'مشاهده نرخ لحظه‌ای بازار',
     secondaryBtnAction: 'live-prices',
-    bgGradient: 'from-indigo-950 via-slate-900 to-sky-950 text-white',
+    bgGradient: 'from-indigo-950/80 via-slate-900/80 to-sky-950/80 text-white',
+    imageUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=2070&auto=format&fit=crop',
     tagline: 'حسابداری اتوماتیک • سیستم فاکتور رسمی',
     statNumber: '۴.۵٪',
     statLabel: 'بیشترین سقف تخفیف پلکانی'
@@ -176,13 +181,23 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
       {/* Slide Container */}
       <div className={`relative min-h-[380px] sm:min-h-[440px] lg:min-h-[480px] bg-gradient-to-br ${activeSlide.bgGradient} p-6 sm:p-10 lg:p-14 flex flex-col justify-between transition-colors duration-700`}>
         
+        {/* Background Image Layer */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src={activeSlide.imageUrl} 
+            alt={activeSlide.title} 
+            className="w-full h-full object-cover opacity-20"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-black/60 to-black/30" />
+        </div>
+
         {/* Background Decorative Elements */}
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.25),rgba(255,255,255,0))] pointer-events-none" />
-        <div className="absolute -left-20 -bottom-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -right-20 -top-20 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(120,119,198,0.25),rgba(255,255,255,0))] pointer-events-none z-10" />
+        <div className="absolute -left-20 -bottom-20 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none z-10" />
+        <div className="absolute -right-20 -top-20 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none z-10" />
 
         {/* Top Header Bar inside Banner */}
-        <div className="relative z-10 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+        <div className="relative z-20 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
           <div className="flex items-center gap-2.5">
             <span className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-black border backdrop-blur-md shadow-xs ${activeSlide.badgeColor}`}>
               <activeSlide.badgeIcon className="w-3.5 h-3.5" />
