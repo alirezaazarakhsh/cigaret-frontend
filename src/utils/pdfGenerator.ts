@@ -42,7 +42,7 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
   printContainer.style.padding = '24px';
   printContainer.style.boxSizing = 'border-box';
   printContainer.style.overflow = 'hidden';
-  printContainer.style.direction = 'rtl'; // Standard RTL direction
+  printContainer.style.direction = 'ltr'; // Outermost MUST be LTR to avoid bounding box bugs in html-to-image
   
   const todayStr = new Date().toLocaleDateString('fa-IR');
   const timeStr = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
@@ -52,7 +52,7 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
     : products.filter(p => p.brand === brandFilter);
 
   printContainer.innerHTML = `
-    <div dir="rtl" style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 14px; padding: 20px; background: #ffffff;">
+    <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 14px; padding: 20px; background: #ffffff;">
       <div>
         <!-- Header Table -->
         <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #dbeafe; padding-bottom: 14px; margin-bottom: 16px; direction: rtl; text-align: right;">
@@ -133,11 +133,24 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
 
   document.body.appendChild(printContainer);
 
+  const originalBodyWidth = document.body.style.width;
+  const originalBodyMinWidth = document.body.style.minWidth;
+  const originalBodyOverflow = document.body.style.overflow;
+  const originalHtmlWidth = document.documentElement.style.width;
+  const originalHtmlMinWidth = document.documentElement.style.minWidth;
+
   try {
+    // Force a wide viewport container during capture so mobile/iframe users don't get truncated images
+    document.body.style.width = '1000px';
+    document.body.style.minWidth = '1000px';
+    document.body.style.overflow = 'visible';
+    document.documentElement.style.width = '1000px';
+    document.documentElement.style.minWidth = '1000px';
+
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 150));
 
     const imgData = await toJpeg(printContainer, {
       quality: 0.98,
@@ -158,6 +171,13 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
     window.print();
     return false;
   } finally {
+    // Restore original sizing
+    document.body.style.width = originalBodyWidth;
+    document.body.style.minWidth = originalBodyMinWidth;
+    document.body.style.overflow = originalBodyOverflow;
+    document.documentElement.style.width = originalHtmlWidth;
+    document.documentElement.style.minWidth = originalHtmlMinWidth;
+
     if (document.body.contains(printContainer)) {
       document.body.removeChild(printContainer);
     }
@@ -181,28 +201,28 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
   printContainer.style.padding = '24px';
   printContainer.style.boxSizing = 'border-box';
   printContainer.style.overflow = 'hidden';
-  printContainer.style.direction = 'rtl'; // Standard RTL direction
+  printContainer.style.direction = 'ltr'; // Outermost MUST be LTR to avoid bounding box bugs in html-to-image
 
   const trackingCode = invoice.trackingCode || invoice.orderId;
 
   printContainer.innerHTML = `
-    <div dir="rtl" style="width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 14px; padding: 20px; background: #ffffff;">
+    <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 14px; padding: 20px; background: #ffffff;">
       <div>
         <!-- Header Table -->
-        <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #dbeafe; padding-bottom: 14px; margin-bottom: 16px; direction: rtl; text-align: right;">
+        <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #dbeafe; padding-bottom: 10px; margin-bottom: 12px; direction: rtl; text-align: right;">
           <tr>
-            <td style="text-align: right; vertical-align: top; padding-bottom: 14px;">
-              <div style="font-size: 18px; font-weight: 900; color: #1e3a8a; margin-bottom: 6px;">
-                پیش‌فاکتور رسمی فروش عمده دخانیات ${config.companyName}
+            <td style="text-align: right; vertical-align: top; padding-bottom: 10px;">
+              <div style="font-size: 15px; font-weight: 900; color: #1e3a8a; margin-bottom: 4px; white-space: nowrap;">
+                صورتحساب فروش کالا و خدمات (پیش‌فاکتور رسمی)
               </div>
-              <div style="font-size: 11px; color: #2563eb; font-weight: bold; margin-bottom: 4px;">
-                توزیع و پخش سراسری کارتن و باکس پلمپ | انبار مرکزی جنت‌آباد تهران
+              <div style="font-size: 11px; color: #475569; font-weight: bold; margin-bottom: 4px;">
+                سامانه پخش سراسری دخانیات و کالای مصرفی ${config.companyName}
               </div>
               <div style="font-size: 10px; color: #475569;">
-                تلفن سفارش و ترابری باربری: <strong style="color: #1d4ed8;">۰۹۱۲۰۷۵۹۴۱۹</strong>
+                تلفن سفارش و ترابری باربری: <strong style="color: #1d4ed8; direction: ltr; display: inline-block;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong>
               </div>
             </td>
-            <td style="text-align: left; vertical-align: top; padding-bottom: 14px; font-size: 10.5px; color: #334155; line-height: 1.7; width: 220px;">
+            <td style="text-align: left; vertical-align: top; padding-bottom: 10px; font-size: 10.5px; color: #334155; line-height: 1.7; width: 220px;">
               <div><strong>شماره پیش‌فاکتور:</strong> <span style="font-family: monospace; font-weight: bold; color: #1e40af;">${invoice.orderId}</span></div>
               <div><strong>کد رهگیری بار:</strong> <span style="font-family: monospace; font-weight: bold; color: #047857;">${trackingCode}</span></div>
               <div><strong>تاریخ صدور:</strong> ${invoice.createdAt}</div>
@@ -210,6 +230,22 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
             </td>
           </tr>
         </table>
+
+        <!-- Credentials Row (Dynamic) -->
+        ${(config.showNationalIdInvoice || config.showEconomicCodeInvoice || config.showActivityTypeInvoice || config.showTransportPhoneInvoice) ? `
+          <table style="width: 100%; border-collapse: collapse; background: #0f172a; color: #ffffff; border-radius: 8px; margin-bottom: 12px; font-size: 9.5px; direction: rtl; text-align: right;">
+            <tr>
+              <td style="padding: 6px 10px; text-align: center; font-weight: 500;">
+                <div style="display: flex; justify-content: space-around; width: 100%;">
+                  ${config.showNationalIdInvoice ? `<div style="margin-left: 10px;">شناسه ملی: <strong style="color: #f59e0b; font-family: monospace;">${config.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</strong></div>` : ''}
+                  ${config.showEconomicCodeInvoice ? `<div style="margin-left: 10px;">کد اقتصادی: <strong style="color: #f59e0b; font-family: monospace;">${config.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</strong></div>` : ''}
+                  ${config.showActivityTypeInvoice ? `<div style="margin-left: 10px;">نوع فعالیت: <strong style="color: #f59e0b;">${config.activityTypeCompany || 'پخش عمده دخانیات'}</strong></div>` : ''}
+                  ${config.showTransportPhoneInvoice ? `<div>تلفن ترابری: <strong style="color: #f59e0b; font-family: monospace; direction: ltr; display: inline-block;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>` : ''}
+                </div>
+              </td>
+            </tr>
+          </table>
+        ` : ''}
 
         <!-- Customer Grid Table -->
         <table style="width: 100%; border-collapse: collapse; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; margin-bottom: 14px; font-size: 11px; direction: rtl; text-align: right;">
@@ -271,7 +307,7 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
               <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 6px; font-size: 10.5px;">شرایط و قوانین تحویل بار:</div>
               <div>• کلیه بارها با بسته‌بندی پلمپ شرکتی و هولوگرام تضمین اصالت ${config.companyName} تحویل داده می‌شود.</div>
               <div>• ارسال بار بلافاصله پس از تسویه حواله از طریق باربری‌های معتبر (وطن، جهانگیر و تیپاکس) انجام می‌پذیرد.</div>
-              <div>• شماره تماس هماهنگی ترابری و دریافت اطلاعات بیجک: <strong style="color: #1d4ed8;">۰۹۱۲۰۷۵۹۴۱۹</strong></div>
+              <div>• شماره تماس هماهنگی ترابری و دریافت اطلاعات بیجک: <strong style="color: #1d4ed8;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>
             </td>
             <!-- Financial Totals Box -->
             <td style="width: 300px; text-align: right; vertical-align: top;">
@@ -326,11 +362,24 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
 
   document.body.appendChild(printContainer);
 
+  const originalBodyWidth = document.body.style.width;
+  const originalBodyMinWidth = document.body.style.minWidth;
+  const originalBodyOverflow = document.body.style.overflow;
+  const originalHtmlWidth = document.documentElement.style.width;
+  const originalHtmlMinWidth = document.documentElement.style.minWidth;
+
   try {
+    // Force a wide viewport container during capture so mobile/iframe users don't get truncated images
+    document.body.style.width = '1000px';
+    document.body.style.minWidth = '1000px';
+    document.body.style.overflow = 'visible';
+    document.documentElement.style.width = '1000px';
+    document.documentElement.style.minWidth = '1000px';
+
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 150));
 
     const imgData = await toJpeg(printContainer, {
       quality: 0.98,
@@ -351,6 +400,13 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
     window.print();
     return false;
   } finally {
+    // Restore original sizing
+    document.body.style.width = originalBodyWidth;
+    document.body.style.minWidth = originalBodyMinWidth;
+    document.body.style.overflow = originalBodyOverflow;
+    document.documentElement.style.width = originalHtmlWidth;
+    document.documentElement.style.minWidth = originalHtmlMinWidth;
+
     if (document.body.contains(printContainer)) {
       document.body.removeChild(printContainer);
     }

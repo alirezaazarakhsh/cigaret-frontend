@@ -89,6 +89,14 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
   const [contractTextInput, setContractTextInput] = useState(config.visitorContractText || '');
   const [siteHeroTitleInput, setSiteHeroTitleInput] = useState(config.siteHeroTitle || '');
   const [siteHeroDescInput, setSiteHeroDescInput] = useState(config.siteHeroDesc || '');
+  const [nationalIdCompanyInput, setNationalIdCompanyInput] = useState(config.nationalIdCompany || '');
+  const [economicCodeCompanyInput, setEconomicCodeCompanyInput] = useState(config.economicCodeCompany || '');
+  const [activityTypeCompanyInput, setActivityTypeCompanyInput] = useState(config.activityTypeCompany || '');
+  const [transportPhoneCompanyInput, setTransportPhoneCompanyInput] = useState(config.transportPhoneCompany || '');
+  const [showNationalIdInvoiceInput, setShowNationalIdInvoiceInput] = useState(config.showNationalIdInvoice ?? true);
+  const [showEconomicCodeInvoiceInput, setShowEconomicCodeInvoiceInput] = useState(config.showEconomicCodeInvoice ?? true);
+  const [showActivityTypeInvoiceInput, setShowActivityTypeInvoiceInput] = useState(config.showActivityTypeInvoice ?? true);
+  const [showTransportPhoneInvoiceInput, setShowTransportPhoneInvoiceInput] = useState(config.showTransportPhoneInvoice ?? true);
   const [settingsSaveSuccess, setSettingsSaveSuccess] = useState(false);
 
   React.useEffect(() => {
@@ -102,6 +110,14 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
       setContractTextInput(config.visitorContractText || '');
       setSiteHeroTitleInput(config.siteHeroTitle || '');
       setSiteHeroDescInput(config.siteHeroDesc || '');
+      setNationalIdCompanyInput(config.nationalIdCompany || '');
+      setEconomicCodeCompanyInput(config.economicCodeCompany || '');
+      setActivityTypeCompanyInput(config.activityTypeCompany || '');
+      setTransportPhoneCompanyInput(config.transportPhoneCompany || '');
+      setShowNationalIdInvoiceInput(config.showNationalIdInvoice ?? true);
+      setShowEconomicCodeInvoiceInput(config.showEconomicCodeInvoice ?? true);
+      setShowActivityTypeInvoiceInput(config.showActivityTypeInvoice ?? true);
+      setShowTransportPhoneInvoiceInput(config.showTransportPhoneInvoice ?? true);
     }
   }, [config]);
 
@@ -118,6 +134,14 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
       visitorContractText: contractTextInput,
       siteHeroTitle: siteHeroTitleInput,
       siteHeroDesc: siteHeroDescInput,
+      nationalIdCompany: nationalIdCompanyInput,
+      economicCodeCompany: economicCodeCompanyInput,
+      activityTypeCompany: activityTypeCompanyInput,
+      transportPhoneCompany: transportPhoneCompanyInput,
+      showNationalIdInvoice: showNationalIdInvoiceInput,
+      showEconomicCodeInvoice: showEconomicCodeInvoiceInput,
+      showActivityTypeInvoice: showActivityTypeInvoiceInput,
+      showTransportPhoneInvoice: showTransportPhoneInvoiceInput,
     });
     setSettingsSaveSuccess(true);
     setTimeout(() => setSettingsSaveSuccess(false), 3000);
@@ -916,6 +940,108 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
                     placeholder="حساب ترابری و تدارکات سوین"
                   />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* مشخصات قانونی و ترابری فاکتور رسمی */}
+          <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <h3 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-500" />
+              مشخصات شناسایی و ترابری فروشنده در پیش‌فاکتور (قابلیت فعال/غیرفعال‌سازی)
+            </h3>
+            
+            <p className="text-[11px] text-slate-500">
+              این مشخصات در بخش مشخصات فروشنده پیش‌فاکتور رسمی قرار می‌گیرند. نمایش هر یک را می‌توانید با چک‌باکس مربوطه کنترل کنید.
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">شناسه ملی فروشنده:</label>
+                  <label className="flex items-center gap-1.5 text-[10px] text-slate-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showNationalIdInvoiceInput}
+                      onChange={(e) => setShowNationalIdInvoiceInput(e.target.checked)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                    />
+                    نمایش در فاکتور
+                  </label>
+                </div>
+                <input
+                  type="text"
+                  value={nationalIdCompanyInput}
+                  onChange={(e) => setNationalIdCompanyInput(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden"
+                  placeholder="۱۰۱۰۳۸۵۲۹۱۰"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">کد اقتصادی فروشنده:</label>
+                  <label className="flex items-center gap-1.5 text-[10px] text-slate-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showEconomicCodeInvoiceInput}
+                      onChange={(e) => setShowEconomicCodeInvoiceInput(e.target.checked)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                    />
+                    نمایش در فاکتور
+                  </label>
+                </div>
+                <input
+                  type="text"
+                  value={economicCodeCompanyInput}
+                  onChange={(e) => setEconomicCodeCompanyInput(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden"
+                  placeholder="۴۱۱۴۹۸۷۵۳۱۱۹"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">نوع فعالیت:</label>
+                  <label className="flex items-center gap-1.5 text-[10px] text-slate-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showActivityTypeInvoiceInput}
+                      onChange={(e) => setShowActivityTypeInvoiceInput(e.target.checked)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                    />
+                    نمایش در فاکتور
+                  </label>
+                </div>
+                <input
+                  type="text"
+                  value={activityTypeCompanyInput}
+                  onChange={(e) => setActivityTypeCompanyInput(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden"
+                  placeholder="پخش عمده دخانیات"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300">تلفن هماهنگی و ترابری:</label>
+                  <label className="flex items-center gap-1.5 text-[10px] text-slate-500 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={showTransportPhoneInvoiceInput}
+                      onChange={(e) => setShowTransportPhoneInvoiceInput(e.target.checked)}
+                      className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5"
+                    />
+                    نمایش در فاکتور
+                  </label>
+                </div>
+                <input
+                  type="text"
+                  value={transportPhoneCompanyInput}
+                  onChange={(e) => setTransportPhoneCompanyInput(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden"
+                  placeholder="۰۹۱۲۰۷۵۹۴۱۹"
+                />
               </div>
             </div>
           </div>

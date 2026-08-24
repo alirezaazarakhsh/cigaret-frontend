@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   FileText, 
   Download, 
@@ -123,6 +123,31 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
   const [bankRefCode, setBankRefCode] = useState<string>('');
   const [senderCardLast4, setSenderCardLast4] = useState<string>('');
   const [orderSubmittedSuccess, setOrderSubmittedSuccess] = useState<boolean>(false);
+
+  // State for direct inline product addition
+  const [selectedAddProduct, setSelectedAddProduct] = useState<CigaretteProduct | null>(null);
+  const [addUnit, setAddUnit] = useState<'carton' | 'box'>('carton');
+  const [addQuantity, setAddQuantity] = useState<number>(1);
+  const [productSearchTerm, setProductSearchTerm] = useState<string>('');
+  const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+
+  const filteredSuggestions = useMemo(() => {
+    if (!productSearchTerm) return [];
+    return (availableProducts || []).filter(p => 
+      p.nameFa.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+      p.nameEn.toLowerCase().includes(productSearchTerm.toLowerCase()) ||
+      p.brand.toLowerCase().includes(productSearchTerm.toLowerCase())
+    ).slice(0, 5);
+  }, [availableProducts, productSearchTerm]);
+
+  const handleAddProductInline = () => {
+    if (selectedAddProduct && onAddToCart) {
+      onAddToCart(selectedAddProduct, addUnit, addQuantity);
+      setSelectedAddProduct(null);
+      setProductSearchTerm('');
+      setAddQuantity(1);
+    }
+  };
 
   const bankAccountInfo = {
     bankName: 'بانک‌های مجاز تسویه حساب',
@@ -412,11 +437,11 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                         <Building2 className="w-8 h-8 text-amber-400" />
                       </div>
                       <div>
-                        <h2 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight flex items-center gap-2">
+                        <h2 className="text-sm sm:text-base md:text-lg font-black text-slate-900 tracking-tight flex items-center gap-2 whitespace-nowrap">
                           <span>صورتحساب فروش کالا و خدمات (پیش‌فاکتور رسمی)</span>
                         </h2>
-                        <p className="text-xs text-slate-600 font-bold mt-0.5">
-                          سامانه پخش سراسری دخانیات و کالای مصرفی {djangoConfig.companyName} (سهامی خاص)
+                        <p className="text-[10px] sm:text-xs text-slate-600 font-bold mt-0.5">
+                          سامانه پخش سراسری دخانیات و کالای مصرفی {djangoConfig.companyName}
                         </p>
                       </div>
                     </div>
@@ -430,12 +455,22 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                   </div>
 
                   {/* Seller Official Credentials Bar */}
-                  <div className="bg-slate-900 text-white p-3 rounded-2xl text-[11px] grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-medium">
-                    <div>شناسه ملی: <strong className="text-amber-300 font-mono">۱۰۱۰۳۸۵۲۹۱۰</strong></div>
-                    <div>کد اقتصادی: <strong className="text-amber-300 font-mono">۴۱۱۴۹۸۷۵۳۱۱۹</strong></div>
-                    <div>نوع فعالیت: <strong className="text-amber-300">پخش عمده دخانیات</strong></div>
-                    <div>تلفن ترابری: <strong className="text-amber-300 font-mono" dir="ltr">۰۹۱۲۰۷۵۹۴۱۹</strong></div>
-                  </div>
+                  {(djangoConfig.showNationalIdInvoice || djangoConfig.showEconomicCodeInvoice || djangoConfig.showActivityTypeInvoice || djangoConfig.showTransportPhoneInvoice) ? (
+                    <div className="bg-slate-900 text-white p-2.5 rounded-2xl text-[10px] sm:text-[11px] grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-medium">
+                      {djangoConfig.showNationalIdInvoice && (
+                        <div>شناسه ملی: <strong className="text-amber-300 font-mono">{djangoConfig.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</strong></div>
+                      )}
+                      {djangoConfig.showEconomicCodeInvoice && (
+                        <div>کد اقتصادی: <strong className="text-amber-300 font-mono">{djangoConfig.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</strong></div>
+                      )}
+                      {djangoConfig.showActivityTypeInvoice && (
+                        <div>نوع فعالیت: <strong className="text-amber-300">{djangoConfig.activityTypeCompany || 'پخش عمده دخانیات'}</strong></div>
+                      )}
+                      {djangoConfig.showTransportPhoneInvoice && (
+                        <div>تلفن ترابری: <strong className="text-amber-300 font-mono" dir="ltr">{djangoConfig.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>
+                      )}
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Seller & Buyer Details Parallel Grid */}
@@ -451,7 +486,12 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                       <span className="text-[10px] text-slate-500 font-normal">شعبه انبار مرکزی</span>
                     </div>
                     <div><span className="text-slate-500">نشانی دفتر/انبار:</span> تهران، کهریزک، ۶۰ متری شورآباد، شهرک دخانیات</div>
-                    <div><span className="text-slate-500">تلفن هماهنگی بارگیری:</span> <strong dir="ltr" className="font-mono text-blue-700">۰۹۱۲۰۷۵۹۴۱۹</strong></div>
+                    <div>
+                      <span className="text-slate-500">تلفن هماهنگی بارگیری:</span>{' '}
+                      <strong dir="ltr" className="font-mono text-blue-700">
+                        {djangoConfig.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}
+                      </strong>
+                    </div>
                     <div><span className="text-slate-500">محل تحویل بار:</span> انبار مرکزی شورآباد / انبار تحویل حضوری</div>
                   </div>
 
@@ -475,6 +515,105 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                     <div><span className="text-slate-500">نشانی دقیق:</span> <span>{customer.address || 'تحویل درب باربری'}</span></div>
                   </div>
 
+                </div>
+
+                {/* Quick Add Product - ONLY VISIBLE ON SCREEN, HIDDEN IN PRINT/PDF */}
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 print:hidden space-y-3 relative z-30">
+                  <div className="font-black text-slate-800 text-xs flex items-center gap-1.5">
+                    <Plus className="w-4 h-4 text-blue-600" />
+                    افزودن مستقیم کالا به این پیش‌فاکتور (بدون ترک صفحه):
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3 items-end">
+                    {/* Product Search Box */}
+                    <div className="flex-grow relative w-full">
+                      <label className="block text-[10px] font-bold text-slate-600 mb-1">نام کالا یا برند سیگار:</label>
+                      <input
+                        type="text"
+                        placeholder="جستجو و انتخاب کالا از کاتالوگ..."
+                        value={productSearchTerm}
+                        onChange={(e) => {
+                          setProductSearchTerm(e.target.value);
+                          setIsDropdownOpen(true);
+                          if (selectedAddProduct && e.target.value !== selectedAddProduct.nameFa) {
+                            setSelectedAddProduct(null);
+                          }
+                        }}
+                        onFocus={() => setIsDropdownOpen(true)}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:border-blue-600 focus:outline-none placeholder:font-normal placeholder:text-slate-400"
+                      />
+                      
+                      {/* Suggestions Backdrop Overlay */}
+                      {isDropdownOpen && filteredSuggestions.length > 0 && (
+                        <div 
+                          className="fixed inset-0 z-40 cursor-default" 
+                          onClick={() => setIsDropdownOpen(false)}
+                        />
+                      )}
+                      
+                      {/* Suggestion Dropdown */}
+                      {isDropdownOpen && filteredSuggestions.length > 0 && (
+                        <div className="absolute right-0 left-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100">
+                          {filteredSuggestions.map((prod) => (
+                            <button
+                              key={prod.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedAddProduct(prod);
+                                setProductSearchTerm(prod.nameFa);
+                                setIsDropdownOpen(false);
+                              }}
+                              className="w-full text-right px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between text-xs"
+                            >
+                              <div>
+                                <span className="font-black text-slate-900">{prod.nameFa}</span>
+                                <span className="text-[10px] text-slate-400 mr-2">({prod.brand})</span>
+                              </div>
+                              <div className="text-left font-mono text-blue-700 font-bold">
+                                {formatNumberFa(prod.cartonPrice)} تومان
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Unit Select */}
+                    <div className="w-full sm:w-36 shrink-0">
+                      <label className="block text-[10px] font-bold text-slate-600 mb-1">واحد سفارش:</label>
+                      <select
+                        value={addUnit}
+                        onChange={(e) => setAddUnit(e.target.value as 'carton' | 'box')}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:border-blue-600 focus:outline-none"
+                      >
+                        <option value="carton">کارتن (۵۰ باکس)</option>
+                        <option value="box">باکس (تکی)</option>
+                      </select>
+                    </div>
+
+                    {/* Quantity Input */}
+                    <div className="w-full sm:w-24 shrink-0">
+                      <label className="block text-[10px] font-bold text-slate-600 mb-1">تعداد:</label>
+                      <input
+                        type="number"
+                        min={1}
+                        value={addQuantity}
+                        onChange={(e) => setAddQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 text-center focus:border-blue-600 focus:outline-none"
+                      />
+                    </div>
+
+                    {/* Add Button */}
+                    <button
+                      type="button"
+                      disabled={!selectedAddProduct}
+                      onClick={handleAddProductInline}
+                      className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 text-white font-black px-6 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shrink-0 h-[38px]"
+                    >
+                      <Plus className="w-4 h-4" />
+                      افزودن کالا
+                    </button>
+                  </div>
                 </div>
 
                 {/* Items Table */}

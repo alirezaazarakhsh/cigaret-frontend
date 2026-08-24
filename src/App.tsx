@@ -190,6 +190,14 @@ export default function App() {
           visitorContractText: defaultContract,
           siteHeroTitle: defaultHeroTitle,
           siteHeroDesc: defaultHeroDesc,
+          nationalIdCompany: '۱۰۱۰۳۸۵۲۹۱۰',
+          economicCodeCompany: '۴۱۱۴۹۸۷۵۳۱۱۹',
+          activityTypeCompany: 'پخش عمده دخانیات',
+          transportPhoneCompany: '۰۹۱۲۰۷۵۹۴۱۹',
+          showNationalIdInvoice: true,
+          showEconomicCodeInvoice: true,
+          showActivityTypeInvoice: true,
+          showTransportPhoneInvoice: true,
           ...parsed
         };
       } catch (e) {
@@ -214,6 +222,14 @@ export default function App() {
       visitorContractText: defaultContract,
       siteHeroTitle: defaultHeroTitle,
       siteHeroDesc: defaultHeroDesc,
+      nationalIdCompany: '۱۰۱۰۳۸۵۲۹۱۰',
+      economicCodeCompany: '۴۱۱۴۹۸۷۵۳۱۱۹',
+      activityTypeCompany: 'پخش عمده دخانیات',
+      transportPhoneCompany: '۰۹۱۲۰۷۵۹۴۱۹',
+      showNationalIdInvoice: true,
+      showEconomicCodeInvoice: true,
+      showActivityTypeInvoice: true,
+      showTransportPhoneInvoice: true,
     };
   });
 
@@ -711,6 +727,7 @@ export default function App() {
               onRemoveItem={handleRemoveCartItem}
               onClearCart={handleClearCart}
               onAddToCart={handleAddToCart}
+              onGoToCatalog={() => setActiveTab('catalog')}
               availableProducts={products}
               currentUser={currentUser}
               onOpenTracking={(trackingCode) => {

@@ -19,6 +19,7 @@
     text-align: right;
     scroll-behavior: smooth;
     font-family: 'Samim', sans-serif !important;
+    font-size: 14px; /* Slightly smaller base font size */
   }
 
   body {
@@ -29,6 +30,7 @@
     background-color: #f8fafc;
     color: #0f172a;
     transition: background-color 0.2s ease, color 0.2s ease;
+    font-size: 0.925rem; /* Reduced base size */
   }
 
   .dark body,

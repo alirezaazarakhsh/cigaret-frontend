@@ -275,6 +275,14 @@ export interface DjangoCrmConfig {
   visitorContractText?: string; // متن قرارداد ویزیتورها قابل مدیریت از بک‌اند
   siteHeroTitle?: string; // عنوان هیرو سایت
   siteHeroDesc?: string;  // متن توضیحات هیرو سایت
+  nationalIdCompany?: string; // شناسه ملی شرکت/فروشگاه
+  economicCodeCompany?: string; // کد اقتصادی شرکت/فروشگاه
+  activityTypeCompany?: string; // نوع فعالیت
+  transportPhoneCompany?: string; // تلفن ترابری و هماهنگی بار
+  showNationalIdInvoice?: boolean; // نمایش شناسه ملی در فاکتور
+  showEconomicCodeInvoice?: boolean; // نمایش کد اقتصادی در فاکتور
+  showActivityTypeInvoice?: boolean; // نمایش نوع فعالیت در فاکتور
+  showTransportPhoneInvoice?: boolean; // نمایش تلفن ترابری در فاکتور
 }
 
 export interface ApiEndpointSpec {
