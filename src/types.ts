@@ -1,3 +1,39 @@
+export interface PosSaleItem {
+  product: CigaretteProduct;
+  unit: 'carton' | 'box' | 'pack';
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+}
+
+export interface PosReceiptInvoice {
+  id: string;
+  receiptNumber: string;
+  createdAt: string;
+  customerName: string;
+  customerPhone?: string;
+  items: PosSaleItem[];
+  subtotal: number;
+  discountAmount: number;
+  finalTotal: number;
+  paymentMethod: 'pos_terminal' | 'cash' | 'cheque' | 'credit';
+  terminalRefNumber?: string;
+  notes?: string;
+  cashier: string;
+}
+
+export interface StockAdjustmentLog {
+  id: string;
+  productId: string;
+  productName: string;
+  type: 'sale_pos' | 'sale_wholesale' | 'stock_in' | 'adjustment' | 'damage';
+  deltaCartons: number;
+  deltaBoxes: number;
+  finalStockCartons: number;
+  date: string;
+  note?: string;
+}
+
 export type NavigationTab = 
   | 'catalog' 
   | 'user-panel'
@@ -8,6 +44,7 @@ export type NavigationTab =
   | 'blog' 
   | 'django-crm'
   | 'django-docs'
+  | 'accounting-pos'
   | 'invoice'
   | 'chat-support';
 
@@ -103,10 +140,10 @@ export interface CigaretteProduct {
   image: string;
   barcode: string;
   flavor?: string;
-  badge?: 'پرفروش' | 'بار تازه' | 'وارداتی اصل' | 'تخفیف تیراژ' | 'موجودی محدود' | 'بار تازه سوین' | 'جدید';
+  badge?: 'پرفروش' | 'بار تازه' | 'وارداتی اصل' | 'تخفیف تیراژ' | 'موجودی محدود' | 'بار تازه سوین' | 'جدید' | string;
   priceTrend?: 'stable' | 'up' | 'down'; // نوسان قیمت لحظه‌ای
   lastPriceUpdate: string; // آخرین زمان بروزرسانی نرخ
-  hologram: 'شرکتی اصل' | 'سفارش دبی' | 'اورجینال اروپایی' | 'تولید داخل' | 'اورجینال';
+  hologram: 'شرکتی اصل' | 'سفارش دبی' | 'اورجینال اروپایی' | 'تولید داخل' | 'اورجینال' | string;
   tierDiscounts: WholesaleTierDiscount[];
   description: string;
   isAvailable: boolean;

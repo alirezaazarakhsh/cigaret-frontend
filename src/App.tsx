@@ -46,7 +46,6 @@ import { INITIAL_RETAIL_SHOPS } from './data/retailShops';
 import { Header } from './components/Header';
 import { ProductCard } from './components/ProductCard';
 import { ProductModal } from './components/ProductModal';
-import { DjangoApiPanel } from './components/DjangoApiPanel';
 import { ProformaInvoicePage } from './components/ProformaInvoicePage';
 import { CartDrawer } from './components/CartDrawer';
 import { InvoiceModal } from './components/InvoiceModal';
@@ -58,14 +57,15 @@ import { UserProfilePanel } from './components/UserProfilePanel';
 import { LivePriceTable } from './components/LivePriceTable';
 import { NotificationModal } from './components/NotificationModal';
 import { PwaInstallGuide } from './components/PwaInstallGuide';
-import { SashaApiDocs } from './sasha/SashaApiDocs';
+import { AccountingPosPanel } from './components/shopmanage/AccountingPosPanel';
+import { HeroBannerSlider } from './components/HeroBannerSlider';
 import { syncWithDjangoApi } from './services/djangoApi';
 import { generatePriceListPdf } from './utils/pdfGenerator';
 import { formatToman, formatNumberFa } from './utils/formatters';
 
 const CATEGORIES: { id: CigaretteCategory; label: string }[] = [
   { id: 'all', label: 'همه دسته‌ها' },
-  { id: 'cigarettes', label: 'سیگارهای اورجینال و شرکتی (مارلبرو / وینستون / سوبرانی)' },
+  { id: 'cigarettes', label: 'سیگارهای اورجینال و شرکتی (مارلبرو / وینستون / سوبرانی / کنت / اسه)' },
   { id: 'iqos_devices', label: 'دستگاه‌های ایکاس (IQOS ILUMA Prime / ONE)' },
   { id: 'iqos_heets', label: 'استیک‌های تیریا و هیتس (IQOS TEREA)' },
   { id: 'pods_vapes', label: 'پاد سیستم، ویپ و سالت نیکوتین (GeekVape / Nasty)' },
@@ -75,35 +75,6 @@ const CATEGORIES: { id: CigaretteCategory; label: string }[] = [
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<NavigationTab>('catalog');
-  const [isSashaRoute, setIsSashaRoute] = useState<boolean>(() => {
-    try {
-      const path = window.location.pathname.toLowerCase();
-      const hash = window.location.hash.toLowerCase();
-      return path.startsWith('/sasha') || path.includes('sasha') || hash.includes('sasha');
-    } catch {
-      return false;
-    }
-  });
-
-  useEffect(() => {
-    const handleLocationCheck = () => {
-      try {
-        const path = window.location.pathname.toLowerCase();
-        const hash = window.location.hash.toLowerCase();
-        if (path.startsWith('/sasha') || path.includes('sasha') || hash.includes('sasha')) {
-          setIsSashaRoute(true);
-        }
-      } catch {}
-    };
-
-    handleLocationCheck();
-    window.addEventListener('popstate', handleLocationCheck);
-    window.addEventListener('hashchange', handleLocationCheck);
-    return () => {
-      window.removeEventListener('popstate', handleLocationCheck);
-      window.removeEventListener('hashchange', handleLocationCheck);
-    };
-  }, []);
   
   // Ensure strict light mode on mount and clear any dark mode persistence
   useEffect(() => {
@@ -113,6 +84,13 @@ export default function App() {
     } catch {}
     document.documentElement.classList.remove('dark');
     document.body.classList.remove('dark');
+  }, []);
+
+  // Handle URL navigation
+  useEffect(() => {
+    if (window.location.pathname.includes('/shopmanage')) {
+      setActiveTab('accounting-pos');
+    }
   }, []);
 
   // User Profile Authentication State (Phone based)
@@ -458,20 +436,6 @@ export default function App() {
   const cartTotalCartons = cartItems.reduce((acc, curr) => curr.unit === 'carton' ? acc + curr.quantity : acc, 0);
   const cartTotalBoxes = cartItems.reduce((acc, curr) => curr.unit === 'box' ? acc + curr.quantity : acc, 0);
 
-  if (isSashaRoute || activeTab === 'django-docs') {
-    return (
-      <SashaApiDocs
-        onReturnToApp={() => {
-          setIsSashaRoute(false);
-          setActiveTab('catalog');
-          try {
-            window.history.pushState({}, '', '/');
-          } catch {}
-        }}
-      />
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white transition-colors duration-200">
       
@@ -491,20 +455,11 @@ export default function App() {
         cartTotalCartons={cartTotalCartons}
         cartTotalBoxes={cartTotalBoxes}
         onOpenCart={() => setIsCartOpen(true)}
-        isDjangoConnected={djangoConfig.status === 'connected'}
-        onQuickSyncDjango={handleSyncDjango}
-        isSyncingDjango={djangoConfig.status === 'connecting'}
         currentUser={currentUser}
         onLogout={handleLogoutUser}
         unreadNotificationsCount={unreadNotifCount}
         onOpenNotifications={() => setIsNotifModalOpen(true)}
         onOpenInstallGuide={() => setIsPwaModalOpen(true)}
-        onOpenSashaDocs={() => {
-          setIsSashaRoute(true);
-          try {
-            window.history.pushState({}, '', '/sasha');
-          } catch {}
-        }}
       />
 
       {/* Main App Body */}
@@ -514,49 +469,13 @@ export default function App() {
         {activeTab === 'catalog' && (
           <div className="space-y-6 animate-in fade-in duration-200">
             
-            {/* Wholesale Light Hero Banner */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 relative overflow-hidden shadow-xs">
-              <div className="max-w-3xl space-y-2.5 relative z-10">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black">
-                  <Flame className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
-                  سامانه پخش مستقیم از انبار مرکزی جنت‌آباد {djangoConfig.companyName || 'سوین'}
-                </div>
-                <h1 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
-                  {djangoConfig.siteHeroTitle || 'سامانه پخش عمده دخانیات سوین با نرخ روز کارتن و باکس'}
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
-                  {djangoConfig.siteHeroDesc || 'عرضه دست‌اول و مستقیم انواع سیگارهای اصل سوئیس، اروپا، شرکتی و دستگاه‌های IQOS با هولوگرام معتبر، صدور مستقیم پیش‌فاکتور رسمی با هزینه باربری، واریز فیش بانکی و پنل اختصاصی بنکداری.'}
-                </p>
-
-                <div className="flex flex-wrap items-center gap-2.5 pt-2">
-                  <button
-                    onClick={() => setActiveTab('live-prices')}
-                    className="px-4 py-2.5 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-black flex items-center gap-2 transition-all shadow-md shadow-blue-600/20"
-                  >
-                    <TrendingUp className="w-4 h-4" />
-                    تابلوی نرخ لحظه‌ای بازار
-                  </button>
-
-                  {currentUser && (
-                    <button
-                      onClick={() => setActiveTab('invoice')}
-                      className="px-4 py-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 text-xs font-black flex items-center gap-2 transition-colors"
-                    >
-                      <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      صدور پیش‌فاکتور رسمی
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => generatePriceListPdf(products, 'all')}
-                    className="px-4 py-2.5 rounded-2xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-2 transition-colors active:scale-95 border border-slate-700"
-                  >
-                    <Download className="w-4 h-4 text-blue-400" />
-                    دانلود PDF لیست نرخ سوین
-                  </button>
-                </div>
-              </div>
-            </div>
+            {/* Spacious Premium Hero Banner Slider */}
+            <HeroBannerSlider
+              products={products}
+              currentUser={currentUser}
+              onNavigateTab={(tab) => setActiveTab(tab)}
+              onSelectCategory={(cat) => setSelectedCategory(cat)}
+            />
 
             {/* Wholesale Features Highlights */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
@@ -588,29 +507,39 @@ export default function App() {
             </div>
 
             {/* Filter & Search Bar */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 space-y-4 shadow-xs">
-              <div className="flex flex-col sm:flex-row gap-3 items-center justify-between">
+            {/* Search, Filter & Categories */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+              <div className="flex flex-col md:flex-row gap-3.5 items-stretch md:items-center justify-between">
                 
-                {/* Search Input */}
-                <div className="relative w-full sm:w-80">
+                {/* Search Input (Wide & Spacious) */}
+                <div className="relative flex-1 min-w-[280px] sm:min-w-[380px]">
                   <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    placeholder="جستجوی نام سیگار، برند، مبدأ یا بارکد..."
+                    placeholder="جستجوی نام سیگار، برند، کشور مبدأ یا بارکد کالا..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pr-10 pl-3 py-2.5 text-xs text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:border-blue-500 font-medium"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pr-10 pl-9 py-3 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-950 font-medium transition-all shadow-xs"
                   />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                      title="پاک کردن جستجو"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
 
                 {/* Brand & Sort Selectors */}
-                <div className="flex items-center gap-2 w-full sm:w-auto overflow-x-auto">
+                <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="text-xs text-slate-500 dark:text-slate-400 font-bold">برند:</span>
                     <select
                       value={selectedBrand}
                       onChange={(e) => setSelectedBrand(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs rounded-2xl px-3 py-2.5 focus:outline-hidden focus:border-blue-500 font-bold"
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm rounded-2xl px-3.5 py-3 focus:outline-hidden focus:border-blue-500 font-bold cursor-pointer"
                     >
                       <option value="all">همه برندها</option>
                       {uniqueBrands.filter(b => b !== 'all').map(brand => (
@@ -624,7 +553,7 @@ export default function App() {
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs rounded-2xl px-3 py-2.5 focus:outline-hidden focus:border-blue-500 font-bold"
+                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm rounded-2xl px-3.5 py-3 focus:outline-hidden focus:border-blue-500 font-bold cursor-pointer"
                     >
                       <option value="featured">پیش‌فرض (پرفروش‌ترین‌ها)</option>
                       <option value="price-asc">ارزان‌ترین نرخ کارتن</option>
@@ -767,6 +696,15 @@ export default function App() {
           )
         )}
 
+        {/* TAB 8: Accounting POS */}
+        {activeTab === 'accounting-pos' && (
+          <AccountingPosPanel
+            products={products}
+            onUpdateProductsStock={setProducts}
+            onReturnToStore={() => setActiveTab('catalog')}
+          />
+        )}
+
         {/* TAB 4: Contact and Support Form (Replacing WebSocket) */}
         {activeTab === 'contact' && (
           <ContactAndSupport
@@ -790,20 +728,6 @@ export default function App() {
         {/* TAB 7: Order and Fleet Tracking */}
         {activeTab === 'tracking' && (
           <OrderTracking onSelectProduct={() => setActiveTab('catalog')} />
-        )}
-
-        {/* TAB 8: Django CRM & Architecture Code Panel */}
-        {activeTab === 'django-crm' && (
-          <DjangoApiPanel
-            config={djangoConfig}
-            onUpdateConfig={(cfg) => {
-              setDjangoConfig(cfg);
-              localStorage.setItem('django_crm_config', JSON.stringify(cfg));
-            }}
-            onSyncWithDjango={handleSyncDjango}
-            onAddNewProduct={handleAddNewProduct}
-            productsCount={products.length}
-          />
         )}
 
       </main>
@@ -873,17 +797,6 @@ export default function App() {
               <button onClick={() => setActiveTab('contact')} className="hover:text-blue-600 transition-colors">فرم تماس</button>
               <button onClick={() => setActiveTab('shipping')} className="hover:text-blue-600 transition-colors">باربری و کرایه</button>
               <button onClick={() => setActiveTab('blog')} className="hover:text-blue-600 transition-colors">مقالات خواندنی</button>
-              <button 
-                onClick={() => {
-                  setIsSashaRoute(true);
-                  try {
-                    window.history.pushState({}, '', '/sasha');
-                  } catch {}
-                }} 
-                className="text-blue-600 font-black hover:underline transition-colors"
-              >
-                مستندات جنگو (/sasha)
-              </button>
             </div>
           </div>
 

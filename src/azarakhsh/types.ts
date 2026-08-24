@@ -1,6 +1,7 @@
-export type SashaSectionId = 
+export type AzarakhshSectionId = 
   | 'zero-to-hero'
   | 'django-config'
+  | 'site-settings'
   | 'swagger-redoc'
   | 'auth-users'
   | 'categories'
@@ -13,12 +14,16 @@ export type SashaSectionId =
 
 export type CodeTab = 'models' | 'admin' | 'serializers' | 'views' | 'urls' | 'notes';
 
+export type DocGroup = 'setup' | 'config' | 'auth' | 'catalog' | 'commerce' | 'support';
+
 export interface DocSectionMeta {
-  id: SashaSectionId;
+  id: AzarakhshSectionId;
   title: string;
   titleEn: string;
   description: string;
   badge?: string;
   iconName: string;
   appFolder?: string;
+  group: DocGroup;
+  groupTitle: string;
 }

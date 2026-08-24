@@ -1,5 +1,23 @@
 import { CigaretteProduct } from '../types';
 
+import marlboroGoldImg from '../assets/images/marlboro_gold_pack_1787595069142.jpg';
+import marlboroRedImg from '../assets/images/marlboro_red_pack_1787595080142.jpg';
+import winstonBlueImg from '../assets/images/winston_blue_pack_1787595089917.jpg';
+import sobranieBlackImg from '../assets/images/sobranie_black_pack_1787595100772.jpg';
+import kentHdImg from '../assets/images/kent_hd_pack_1787595283320.jpg';
+import esseChangeImg from '../assets/images/esse_change_pack_1787595295268.jpg';
+import captainDarkCremaImg from '../assets/images/captain_black_dark_crema_1787595308321.jpg';
+import iqosPrimeImg from '../assets/images/iqos_iluma_prime_1787595115254.jpg';
+import iqosOneImg from '../assets/images/iqos_iluma_one_1787595126422.jpg';
+import tereaSilverImg from '../assets/images/iqos_terea_silver_pack_1787595179003.jpg';
+import tereaAmberImg from '../assets/images/iqos_terea_amber_pack_1787595190621.jpg';
+import geekvapePodImg from '../assets/images/geekvape_wenax_pod_1787595244922.jpg';
+import nastyCushmanImg from '../assets/images/nasty_cushman_mango_1787595257395.jpg';
+import captainPouchImg from '../assets/images/captain_black_pouch_1787595220721.jpg';
+import cohibaCigarImg from '../assets/images/cohiba_cigar_box_1787595207881.jpg';
+import goldenVirginiaImg from '../assets/images/golden_virginia_pouch_1787595232295.jpg';
+import clipperCaseImg from '../assets/images/clipper_lighter_case_1787595270472.jpg';
+
 export const CIGARETTE_PRODUCTS: CigaretteProduct[] = [
   {
     id: 'marlboro-gold-ch',
@@ -18,14 +36,14 @@ export const CIGARETTE_PRODUCTS: CigaretteProduct[] = [
     boxesPerCarton: 50,
     stockCartons: 85,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80',
+    image: marlboroGoldImg,
     barcode: '7610111245012',
     badge: 'پرفروش',
     priceTrend: 'stable',
     lastPriceUpdate: 'امروز ۱۰:۳۰',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 3, discountPercentage: 2, label: '۳ تا ۴ کارتن (۲٪ تخفیف)' },
       { minCartons: 5, discountPercentage: 4, label: '۵ تا ۹ کارتن (۴٪ تخفیف)' },
       { minCartons: 10, discountPercentage: 7, label: '۱۰ کارتن به بالا (۷٪ تخفیف تجاری)' },
@@ -49,14 +67,14 @@ tierDiscounts: [
     boxesPerCarton: 50,
     stockCartons: 120,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1541689592655-f5f52825a3b8?auto=format&fit=crop&w=600&q=80',
+    image: marlboroRedImg,
     barcode: '7610111245029',
     badge: 'بار تازه',
     priceTrend: 'up',
     lastPriceUpdate: 'امروز ۱۱:۱۵',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 3, discountPercentage: 2.5, label: '۳ تا ۴ کارتن (۲.۵٪)' },
       { minCartons: 5, discountPercentage: 5, label: '۵ تا ۹ کارتن (۵٪)' },
       { minCartons: 10, discountPercentage: 8, label: '۱۰ کارتن به بالا (۸٪)' },
@@ -80,19 +98,49 @@ tierDiscounts: [
     boxesPerCarton: 50,
     stockCartons: 210,
     moq: 2,
-    image: 'https://images.unsplash.com/photo-1563245372-f21724e3856d?auto=format&fit=crop&w=600&q=80',
+    image: winstonBlueImg,
     barcode: '4033100112348',
     badge: 'تخفیف تیراژ',
     priceTrend: 'stable',
     lastPriceUpdate: 'امروز ۱۰:۰۰',
     hologram: 'شرکتی اصل',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 5, discountPercentage: 3, label: '۵ تا ۹ کارتن (۳٪)' },
       { minCartons: 10, discountPercentage: 6, label: '۱۰ تا ۱۹ کارتن (۶٪)' },
       { minCartons: 20, discountPercentage: 9, label: '۲۰ کارتن به بالا (۹٪)' },
     ],
     description: 'وینستون کامپکت آبی پرمصرف‌ترین سیگار بازار با تضمین گردش فروش سریع و حاشیه سود مطمئن برای بنکداران.'
+  },
+  {
+    id: 'kent-hd-white',
+    djangoId: 105,
+    nameFa: 'کنت اچ‌دی ۴ نقره‌ای (Kent HD White)',
+    nameEn: 'Kent HD 4 White Micro Core',
+    brand: 'Kent',
+    category: 'cigarettes',
+    origin: 'ایران شرکتی / BAT',
+    tar: '4 mg',
+    nicotine: '0.4 mg',
+    boxPrice: 950000,
+    baseBoxPrice: 950000,
+    cartonPrice: 45500000,
+    baseCartonPrice: 45500000,
+    boxesPerCarton: 50,
+    stockCartons: 140,
+    moq: 1,
+    image: kentHdImg,
+    barcode: '5000328901234',
+    badge: 'پرفروش',
+    priceTrend: 'stable',
+    lastPriceUpdate: 'امروز ۱۰:۱۵',
+    hologram: 'شرکتی اصل',
+    isAvailable: true,
+    tierDiscounts: [
+      { minCartons: 3, discountPercentage: 2, label: '۳ تا ۵ کارتن (۲٪)' },
+      { minCartons: 6, discountPercentage: 5, label: '۶ کارتن به بالا (۵٪)' },
+    ],
+    description: 'کنت اچ‌دی سفید فیلتر ۳ تکه با کام‌دهی لایت، عطر توتون ملایم و کیفیت یکدست شرکتی.'
   },
   {
     id: 'sobranie-black-russian',
@@ -111,18 +159,78 @@ tierDiscounts: [
     boxesPerCarton: 50,
     stockCartons: 28,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80',
+    image: sobranieBlackImg,
     barcode: '5000328198765',
     badge: 'وارداتی اصل',
     priceTrend: 'stable',
     lastPriceUpdate: 'دیروز ۱۶:۰۰',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 2, discountPercentage: 2.5, label: '۲ تا ۴ کارتن (۲.۵٪)' },
       { minCartons: 5, discountPercentage: 5, label: '۵ کارتن به بالا (۵٪)' },
     ],
     description: 'لوکس‌ترین سیگار تشریفاتی با کاغذ سیاه مات، فیلتر زرورق طلا و توتون معطر اشرافی.'
+  },
+  {
+    id: 'esse-change-slim',
+    djangoId: 108,
+    nameFa: 'اسه چنج پاور اسلیم (کپسول‌دار نعنایی Esse Change)',
+    nameEn: 'Esse Change Slim Flavor Capsule',
+    brand: 'Esse',
+    category: 'cigarettes',
+    origin: 'کره جنوبی (KT&G)',
+    tar: '4 mg',
+    nicotine: '0.3 mg',
+    boxPrice: 1250000,
+    baseBoxPrice: 1250000,
+    cartonPrice: 59500000,
+    baseCartonPrice: 59500000,
+    boxesPerCarton: 50,
+    stockCartons: 95,
+    moq: 1,
+    image: esseChangeImg,
+    barcode: '8801111928374',
+    badge: 'کپسول دار',
+    priceTrend: 'up',
+    lastPriceUpdate: 'امروز ۱۰:۴۵',
+    hologram: 'اورجینال شرکتی',
+    isAvailable: true,
+    tierDiscounts: [
+      { minCartons: 3, discountPercentage: 2, label: '۳ تا ۵ کارتن (۲٪)' },
+      { minCartons: 6, discountPercentage: 4.5, label: '۶ کارتن به بالا (۴.۵٪)' },
+    ],
+    description: 'سیگار باریک اسه با کپسول طعم‌یاب خنک‌کننده در فیلتر، بسیار پرطرفدار در بازارهای تهران و شهرستان.'
+  },
+  {
+    id: 'captain-black-dark-crema-cigar',
+    djangoId: 107,
+    nameFa: 'کاپیتان بلک دارک کرما (شکلاتی معطر)',
+    nameEn: 'Captain Black Dark Crema Little Cigars',
+    brand: 'Captain Black',
+    category: 'cigarettes',
+    origin: 'آمریکا / اروپا',
+    tar: '8 mg',
+    nicotine: '0.7 mg',
+    boxPrice: 1650000,
+    baseBoxPrice: 1650000,
+    cartonPrice: 79000000,
+    baseCartonPrice: 79000000,
+    boxesPerCarton: 50,
+    stockCartons: 65,
+    moq: 1,
+    image: captainDarkCremaImg,
+    barcode: '071610009841',
+    badge: 'معطر',
+    priceTrend: 'stable',
+    lastPriceUpdate: 'امروز ۱۱:۰۰',
+    hologram: 'اورجینال اروپایی',
+    isAvailable: true,
+    tierDiscounts: [
+      { minCartons: 2, discountPercentage: 2.5, label: '۲ تا ۴ کارتن (۲.۵٪)' },
+      { minCartons: 5, discountPercentage: 5, label: '۵ کارتن به بالا (۵٪)' },
+    ],
+    description: 'سیگار فیلتردار کاپیتان بلک با عطر دارک شکلات و توتون فرآوری شده آمریکایی در کارتن‌های ۵۰ باکسی پلمپ.'
   },
   {
     id: 'iqos-iluma-prime-device',
@@ -141,14 +249,14 @@ tierDiscounts: [
     boxesPerCarton: 10,
     stockCartons: 25,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80',
+    image: iqosPrimeImg,
     barcode: '7622100998124',
     badge: 'بار تازه',
     priceTrend: 'stable',
     lastPriceUpdate: 'امروز ۱۰:۰۰',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 2, discountPercentage: 3, label: '۲ تا ۴ کارتن (۳٪ تخفیف)' },
       { minCartons: 5, discountPercentage: 6, label: '۵ کارتن به بالا (۶٪ تخفیف)' },
     ],
@@ -171,14 +279,14 @@ tierDiscounts: [
     boxesPerCarton: 10,
     stockCartons: 40,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1541689592655-f5f52825a3b8?auto=format&fit=crop&w=600&q=80',
+    image: iqosOneImg,
     barcode: '7622100998131',
     badge: 'پرفروش',
     priceTrend: 'up',
     lastPriceUpdate: 'امروز ۱۱:۳۰',
     hologram: 'سفارش دبی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 2, discountPercentage: 3, label: '۲ تا ۳ کارتن (۳٪)' },
       { minCartons: 4, discountPercentage: 5, label: '۴ کارتن به بالا (۵٪)' },
     ],
@@ -201,7 +309,7 @@ tierDiscounts: [
     boxesPerCarton: 50,
     stockCartons: 40,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80',
+    image: tereaSilverImg,
     barcode: '7622100889214',
     flavor: 'توتون ملایم با عطر خالص بدون بوی سوختگی',
     badge: 'موجودی محدود',
@@ -209,7 +317,7 @@ tierDiscounts: [
     lastPriceUpdate: 'امروز ۱۱:۴۵',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 2, discountPercentage: 2, label: '۲ تا ۳ کارتن (۲٪)' },
       { minCartons: 4, discountPercentage: 4.5, label: '۴ کارتن به بالا (۴.۵٪)' },
     ],
@@ -232,7 +340,7 @@ tierDiscounts: [
     boxesPerCarton: 50,
     stockCartons: 35,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1541689592655-f5f52825a3b8?auto=format&fit=crop&w=600&q=80',
+    image: tereaAmberImg,
     barcode: '7622100889221',
     flavor: 'توتون گرم و برشته شبیه مارلبرو قرمز',
     badge: 'پرفروش',
@@ -240,7 +348,7 @@ tierDiscounts: [
     lastPriceUpdate: 'امروز ۱۰:۱۵',
     hologram: 'سفارش دبی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 2, discountPercentage: 2, label: '۲ تا ۳ کارتن (۲٪)' },
       { minCartons: 4, discountPercentage: 5, label: '۴ کارتن به بالا (۵٪)' },
     ],
@@ -263,14 +371,14 @@ tierDiscounts: [
     boxesPerCarton: 10,
     stockCartons: 50,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1534447677768-be436bb09401?auto=format&fit=crop&w=600&q=80',
+    image: geekvapePodImg,
     barcode: '6933092281140',
     badge: 'پرفروش',
     priceTrend: 'stable',
     lastPriceUpdate: 'امروز ۱۰:۰۰',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 2, discountPercentage: 3, label: '۲ تا ۴ کارتن (۳٪)' },
       { minCartons: 5, discountPercentage: 7, label: '۵ کارتن به بالا (۷٪)' },
     ],
@@ -293,7 +401,7 @@ tierDiscounts: [
     boxesPerCarton: 20,
     stockCartons: 60,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?auto=format&fit=crop&w=600&q=80',
+    image: nastyCushmanImg,
     barcode: '9555621400291',
     flavor: 'انبه شیرین استوایی با خنکی ملایم لوپ',
     badge: 'بار تازه',
@@ -301,7 +409,7 @@ tierDiscounts: [
     lastPriceUpdate: 'امروز ۰۹:۰۰',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 2, discountPercentage: 3.5, label: '۲ تا ۳ کارتن (۳.۵٪)' },
       { minCartons: 4, discountPercentage: 6.5, label: '۴ کارتن به بالا (۶.۵٪)' },
     ],
@@ -324,7 +432,7 @@ tierDiscounts: [
     boxesPerCarton: 20,
     stockCartons: 45,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1509198397868-475647b2a1e5?auto=format&fit=crop&w=600&q=80',
+    image: captainPouchImg,
     barcode: '071610001015',
     flavor: 'عطر وانیل شیرین و کارامل طبیعی',
     badge: 'پرفروش',
@@ -332,7 +440,7 @@ tierDiscounts: [
     lastPriceUpdate: 'امروز ۱۱:۰۰',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 2, discountPercentage: 2.5, label: '۲ تا ۳ کارتن (۲.۵٪)' },
       { minCartons: 4, discountPercentage: 5, label: '۴ کارتن به بالا (۵٪)' },
     ],
@@ -356,14 +464,14 @@ tierDiscounts: [
     stockCartons: 15,
     moq: 1,
     isBoxOnly: true,
-    image: 'https://images.unsplash.com/photo-1541689592655-f5f52825a3b8?auto=format&fit=crop&w=600&q=80',
+    image: cohibaCigarImg,
     barcode: '850112349012',
     badge: 'موجودی محدود',
     priceTrend: 'stable',
     lastPriceUpdate: 'امروز ۱۰:۰۰',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [],
+    tierDiscounts: [],
     description: 'پک چوبی دست‌ساز سیگار برگ کوبایی اصل، عرضه محدود انبار مرکزی. این محصول فاقد کارتن مادر بوده و صرفاً به صورت باکس کلکسیونی پلمپ عرضه می‌گردد.'
   },
   {
@@ -383,7 +491,7 @@ tierDiscounts: [],
     boxesPerCarton: 20,
     stockCartons: 38,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1508746829417-e6f548d8d6ed?auto=format&fit=crop&w=600&q=80',
+    image: goldenVirginiaImg,
     barcode: '5000143110294',
     flavor: 'طعم خالص و تلخی ملایم توتون ویرجینیا',
     badge: 'وارداتی اصل',
@@ -391,7 +499,7 @@ tierDiscounts: [],
     lastPriceUpdate: 'دیروز ۱۶:۰۰',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 2, discountPercentage: 3, label: '۲ تا ۴ کارتن (۳٪)' },
       { minCartons: 5, discountPercentage: 6, label: '۵ کارتن به بالا (۶٪)' },
     ],
@@ -414,14 +522,14 @@ tierDiscounts: [
     boxesPerCarton: 10,
     stockCartons: 130,
     moq: 1,
-    image: 'https://images.unsplash.com/photo-1544816155-12df9643f363?auto=format&fit=crop&w=600&q=80',
+    image: clipperCaseImg,
     barcode: '8412765001298',
     badge: 'پرفروش',
     priceTrend: 'stable',
     lastPriceUpdate: 'امروز ۱۰:۰۰',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
-tierDiscounts: [
+    tierDiscounts: [
       { minCartons: 3, discountPercentage: 4, label: '۳ تا ۵ کارتن (۴٪)' },
       { minCartons: 6, discountPercentage: 8, label: '۶ کارتن به بالا (۸٪)' },
     ],

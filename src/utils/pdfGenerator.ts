@@ -15,6 +15,14 @@ function getDjangoConfig() {
     bankCard2: '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰',
     bankShiba2: 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸',
     bankHolder2: 'حساب ترابری و تدارکات سوین',
+    transportPhoneCompany: '۰۹۱۲۰۷۵۹۴۱۹',
+    nationalIdCompany: '۱۰۱۰۳۸۵۲۹۱۰',
+    economicCodeCompany: '۴۱۱۴۹۸۷۵۳۱۱۹',
+    activityTypeCompany: 'پخش عمده دخانیات',
+    showNationalIdInvoice: true,
+    showEconomicCodeInvoice: true,
+    showActivityTypeInvoice: true,
+    showTransportPhoneInvoice: true,
   };
   try {
     const saved = localStorage.getItem('django_crm_config');
@@ -26,24 +34,10 @@ function getDjangoConfig() {
 }
 
 /**
- * Downloads an official PDF of the live price list.
+ * Downloads an official, multi-page or single-page PDF of the live price list with zero overflow.
  */
 export async function generatePriceListPdf(products: CigaretteProduct[], brandFilter = 'all'): Promise<boolean> {
   const config = getDjangoConfig();
-  const printContainer = document.createElement('div');
-  printContainer.id = 'pdf-price-list-container';
-  printContainer.style.position = 'absolute';
-  printContainer.style.left = '0px';
-  printContainer.style.top = '0px';
-  printContainer.style.width = '794px';
-  printContainer.style.height = '1123px';
-  printContainer.style.zIndex = '-9999';
-  printContainer.style.backgroundColor = '#ffffff';
-  printContainer.style.padding = '24px';
-  printContainer.style.boxSizing = 'border-box';
-  printContainer.style.overflow = 'hidden';
-  printContainer.style.direction = 'ltr'; // Outermost MUST be LTR to avoid bounding box bugs in html-to-image
-  
   const todayStr = new Date().toLocaleDateString('fa-IR');
   const timeStr = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
 
@@ -51,87 +45,15 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
     ? products 
     : products.filter(p => p.brand === brandFilter);
 
-  printContainer.innerHTML = `
-    <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 14px; padding: 20px; background: #ffffff;">
-      <div>
-        <!-- Header Table -->
-        <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #dbeafe; padding-bottom: 14px; margin-bottom: 16px; direction: rtl; text-align: right;">
-          <tr>
-            <td style="text-align: right; vertical-align: middle; padding-bottom: 14px;">
-              <div style="font-size: 18px; font-weight: 900; color: #1e3a8a; margin-bottom: 6px;">
-                🏢 سامانه پخش عمده دخانیات ${config.companyName} | لیست رسمی نرخ روز
-              </div>
-              <div style="font-size: 11px; color: #2563eb; font-weight: bold;">
-                مرکز پخش کارتن و باکس سیگارهای وارداتی اصل و شرکتی | انبار مرکزی جنت‌آباد تهران
-              </div>
-            </td>
-            <td style="text-align: left; vertical-align: middle; padding-bottom: 14px; font-size: 10px; color: #334155; line-height: 1.6; width: 220px;">
-              <div><strong>تاریخ صدور:</strong> ${todayStr}</div>
-              <div><strong>ساعت استعلام:</strong> ${timeStr}</div>
-              <div><strong>واحد سفارشات:</strong> <span style="direction: ltr; font-weight: bold; color: #1d4ed8;">۰۹۱۲۰۷۵۹۴۱۹</span></div>
-            </td>
-          </tr>
-        </table>
+  if (filtered.length === 0) {
+    return false;
+  }
 
-        <!-- Notice Table -->
-        <table style="width: 100%; border-collapse: collapse; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; margin-bottom: 14px; direction: rtl; text-align: right;">
-          <tr>
-            <td style="padding: 10px 14px; font-size: 10px; color: #1e40af; text-align: right; width: 50%;">
-              📌 کلیه نرخ‌ها به <strong>تومان</strong> و برای سفارشات عمده (کارتن و باکس پلمپ انبار) می‌باشد.
-            </td>
-            <td style="padding: 10px 14px; font-size: 10px; color: #1e40af; text-align: left; width: 50%;">
-              🚚 بارگیری مستقیم از انبار جنت‌آباد به باربری‌های وطن، جهانگیر و سراسر کشور
-            </td>
-          </tr>
-        </table>
+  // Split into pages (12 items per page max to guarantee no overflow)
+  const ITEMS_PER_PAGE = 12;
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
 
-        <!-- Products Table -->
-        <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: right; margin-bottom: 16px; direction: rtl;">
-          <thead>
-            <tr style="background: #1d4ed8; color: #ffffff; font-weight: bold;">
-              <th style="padding: 10px 8px; width: 35px; text-align: center; border: 1px solid #1d4ed8;">ردیف</th>
-              <th style="padding: 10px 8px; border: 1px solid #1d4ed8; text-align: right;">نام کالا و مارک</th>
-              <th style="padding: 10px 8px; text-align: center; width: 150px; border: 1px solid #1d4ed8;">مبدأ / هولوگرام</th>
-              <th style="padding: 10px 8px; text-align: center; width: 140px; border: 1px solid #1d4ed8;">بسته‌بندی</th>
-              <th style="padding: 10px 8px; text-align: left; width: 110px; border: 1px solid #1d4ed8;">نرخ هر باکس (تومان)</th>
-              <th style="padding: 10px 8px; text-align: left; font-weight: 900; width: 150px; border: 1px solid #1d4ed8;">نرخ هر کارتن (تومان)</th>
-              <th style="padding: 10px 8px; text-align: center; width: 80px; border: 1px solid #1d4ed8;">حداقل سفارش</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${filtered.map((p, idx) => `
-              <tr style="border-bottom: 1px solid #e2e8f0; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                <td style="padding: 8px; text-align: center; color: #64748b; border: 1px solid #e2e8f0;">${idx + 1}</td>
-                <td style="padding: 8px; border: 1px solid #e2e8f0; text-align: right;">
-                  <strong style="color: #0f172a; font-size: 11px;">${p.nameFa}</strong>
-                  <div style="font-size: 9px; color: #64748b; margin-top: 2px;">${p.nameEn} • ${p.brand}</div>
-                </td>
-                <td style="padding: 8px; text-align: center; color: #334155; border: 1px solid #e2e8f0;">${p.origin} (${p.hologram})</td>
-                <td style="padding: 8px; text-align: center; color: #475569; border: 1px solid #e2e8f0;">${formatNumberFa(p.boxesPerCarton)} باکس (۵۰۰ پاکت)</td>
-                <td style="padding: 8px; text-align: left; font-weight: bold; color: #1e293b; border: 1px solid #e2e8f0;">${formatToman(p.boxPrice)}</td>
-                <td style="padding: 8px; text-align: left; font-weight: 900; color: #1d4ed8; border: 1px solid #e2e8f0;">${formatToman(p.cartonPrice)}</td>
-                <td style="padding: 8px; text-align: center; color: #047857; font-weight: bold; border: 1px solid #e2e8f0;">${formatNumberFa(p.moq)} کارتن</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-
-      <!-- Footer Table -->
-      <table style="width: 100%; border-collapse: collapse; margin-top: 18px; padding-top: 12px; border-top: 2px solid #e2e8f0; font-size: 9.5px; color: #64748b; direction: rtl; text-align: right;">
-        <tr>
-          <td style="text-align: right; padding-top: 10px;">
-            <span>انبار مرکزی و بارگیری: تهران، جنت‌آباد (شهید آبشناسان) | ثبت سفارشات عمده: <strong>۰۹۱۲۰۷۵۹۴۱۹</strong></span>
-          </td>
-          <td style="text-align: left; padding-top: 10px;">
-            <span>سامانه آنلاین پخش عمده ${config.companyName} (${config.companyName} Wholesale)</span>
-          </td>
-        </tr>
-      </table>
-    </div>
-  `;
-
-  document.body.appendChild(printContainer);
+  const pdf = new jsPDF('p', 'mm', 'a4');
 
   const originalBodyWidth = document.body.style.width;
   const originalBodyMinWidth = document.body.style.minWidth;
@@ -140,7 +62,6 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
   const originalHtmlMinWidth = document.documentElement.style.minWidth;
 
   try {
-    // Force a wide viewport container during capture so mobile/iframe users don't get truncated images
     document.body.style.width = '1000px';
     document.body.style.minWidth = '1000px';
     document.body.style.overflow = 'visible';
@@ -150,20 +71,130 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
-    await new Promise(r => setTimeout(r, 150));
 
-    const imgData = await toJpeg(printContainer, {
-      quality: 0.98,
-      backgroundColor: '#ffffff',
-      pixelRatio: 2,
-      fontEmbedCSS: '',
-      skipFonts: true,
-      width: 794,
-      height: 1123,
-    });
+    for (let pageIdx = 0; pageIdx < totalPages; pageIdx++) {
+      const pageProducts = filtered.slice(pageIdx * ITEMS_PER_PAGE, (pageIdx + 1) * ITEMS_PER_PAGE);
 
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+      const printContainer = document.createElement('div');
+      printContainer.id = `pdf-price-list-page-${pageIdx}`;
+      printContainer.style.position = 'fixed';
+      printContainer.style.left = '-9999px';
+      printContainer.style.top = '0px';
+      printContainer.style.width = '794px';
+      printContainer.style.height = '1123px';
+      printContainer.style.backgroundColor = '#ffffff';
+      printContainer.style.padding = '20px';
+      printContainer.style.boxSizing = 'border-box';
+      printContainer.style.overflow = 'hidden';
+      printContainer.style.direction = 'ltr';
+
+      printContainer.innerHTML = `
+        <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 12px; padding: 16px; background: #ffffff;">
+          
+          <div>
+            <!-- Header Table -->
+            <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #dbeafe; padding-bottom: 8px; margin-bottom: 10px; direction: rtl; text-align: right;">
+              <tr>
+                <td style="text-align: right; vertical-align: middle; padding-bottom: 8px;">
+                  <div style="font-size: 16px; font-weight: 900; color: #1e3a8a; margin-bottom: 3px;">
+                    🏢 سامانه پخش عمده دخانیات ${config.companyName} | لیست رسمی نرخ روز
+                  </div>
+                  <div style="font-size: 10px; color: #2563eb; font-weight: bold;">
+                    مرکز پخش کارتن و باکس سیگارهای وارداتی و شرکتی | انبار مرکزی تهران
+                  </div>
+                </td>
+                <td style="text-align: left; vertical-align: middle; padding-bottom: 8px; font-size: 9.5px; color: #334155; line-height: 1.5; width: 210px;">
+                  <div><strong>تاریخ صدور:</strong> ${todayStr}</div>
+                  <div><strong>ساعت استعلام:</strong> ${timeStr}</div>
+                  <div><strong>واحد سفارشات:</strong> <span style="direction: ltr; font-weight: bold; color: #1d4ed8;">۰۹۱۲۰۷۵۹۴۱۹</span></div>
+                  <div><strong>صفحه:</strong> ${formatNumberFa(pageIdx + 1)} از ${formatNumberFa(totalPages)}</div>
+                </td>
+              </tr>
+            </table>
+
+            <!-- Notice Bar -->
+            <table style="width: 100%; border-collapse: collapse; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; margin-bottom: 10px; direction: rtl; text-align: right;">
+              <tr>
+                <td style="padding: 6px 10px; font-size: 9.5px; color: #1e40af; text-align: right; width: 50%;">
+                  📌 نرخ‌ها به <strong>تومان</strong> و برای سفارشات عمده (کارتن و باکس پلمپ انبار) می‌باشد.
+                </td>
+                <td style="padding: 6px 10px; font-size: 9.5px; color: #1e40af; text-align: left; width: 50%;">
+                  🚚 بارگیری از انبار مرکزی به سراسر کشور با بیجک رسمی باربری
+                </td>
+              </tr>
+            </table>
+
+            <!-- Products Table -->
+            <table style="width: 100%; border-collapse: collapse; font-size: 9.5px; text-align: right; margin-bottom: 8px; direction: rtl;">
+              <thead>
+                <tr style="background: #1d4ed8; color: #ffffff; font-weight: bold;">
+                  <th style="padding: 8px 4px; width: 5%; text-align: center; border: 1px solid #1d4ed8;">ردیف</th>
+                  <th style="padding: 8px 6px; width: 33%; border: 1px solid #1d4ed8; text-align: right;">نام کالا و مارک</th>
+                  <th style="padding: 8px 6px; width: 18%; text-align: center; border: 1px solid #1d4ed8;">مبدأ / هولوگرام</th>
+                  <th style="padding: 8px 6px; width: 14%; text-align: center; border: 1px solid #1d4ed8;">بسته‌بندی</th>
+                  <th style="padding: 8px 6px; width: 15%; text-align: left; border: 1px solid #1d4ed8;">نرخ باکس (تومان)</th>
+                  <th style="padding: 8px 6px; width: 15%; text-align: left; font-weight: 900; border: 1px solid #1d4ed8;">نرخ کارتن (تومان)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${pageProducts.map((p, idx) => {
+                  const globalIdx = pageIdx * ITEMS_PER_PAGE + idx + 1;
+                  return `
+                    <tr style="border-bottom: 1px solid #e2e8f0; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                      <td style="padding: 6px 4px; text-align: center; color: #64748b; border: 1px solid #e2e8f0;">${globalIdx}</td>
+                      <td style="padding: 6px 6px; border: 1px solid #e2e8f0; text-align: right;">
+                        <strong style="color: #0f172a; font-size: 10px;">${p.nameFa}</strong>
+                        <div style="font-size: 8.5px; color: #64748b;">${p.nameEn || ''} • ${p.brand}</div>
+                      </td>
+                      <td style="padding: 6px 4px; text-align: center; color: #334155; border: 1px solid #e2e8f0; font-size: 9px;">${p.origin}</td>
+                      <td style="padding: 6px 4px; text-align: center; color: #475569; border: 1px solid #e2e8f0; font-size: 9px;">${p.isBoxOnly ? 'تک باکس' : `${formatNumberFa(p.boxesPerCarton)} باکس`}</td>
+                      <td style="padding: 6px 6px; text-align: left; font-weight: bold; color: #1e293b; border: 1px solid #e2e8f0; font-size: 9.5px;">${formatToman(p.boxPrice)}</td>
+                      <td style="padding: 6px 6px; text-align: left; font-weight: 900; color: #1d4ed8; border: 1px solid #e2e8f0; font-size: 10px;">${p.cartonPrice > 0 ? formatToman(p.cartonPrice) : '—'}</td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Footer -->
+          <div style="border-top: 2px solid #e2e8f0; padding-top: 8px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 9px; color: #64748b; direction: rtl; text-align: right;">
+              <tr>
+                <td style="text-align: right;">
+                  <span>انبار مرکزی: تهران، جنت‌آباد | ثبت سفارشات عمده: <strong>۰۹۱۲۰۷۵۹۴۱۹</strong></span>
+                </td>
+                <td style="text-align: left;">
+                  <span>سامانه بنکداری ${config.companyName} | صفحه ${formatNumberFa(pageIdx + 1)} از ${formatNumberFa(totalPages)}</span>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+        </div>
+      `;
+
+      document.body.appendChild(printContainer);
+
+      await new Promise(r => setTimeout(r, 120));
+
+      const imgData = await toJpeg(printContainer, {
+        quality: 0.96,
+        backgroundColor: '#ffffff',
+        pixelRatio: 2,
+        width: 794,
+        height: 1123,
+      });
+
+      if (pageIdx > 0) {
+        pdf.addPage('a4', 'p');
+      }
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+
+      document.body.removeChild(printContainer);
+    }
+
     pdf.save(`لیست_نرخ_دخانیات_${config.companyName}_${todayStr.replace(/\//g, '-')}.pdf`);
     return true;
   } catch (error) {
@@ -171,16 +202,11 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
     window.print();
     return false;
   } finally {
-    // Restore original sizing
     document.body.style.width = originalBodyWidth;
     document.body.style.minWidth = originalBodyMinWidth;
     document.body.style.overflow = originalBodyOverflow;
     document.documentElement.style.width = originalHtmlWidth;
     document.documentElement.style.minWidth = originalHtmlMinWidth;
-
-    if (document.body.contains(printContainer)) {
-      document.body.removeChild(printContainer);
-    }
   }
 }
 
@@ -191,39 +217,38 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
   const config = getDjangoConfig();
   const printContainer = document.createElement('div');
   printContainer.id = 'pdf-invoice-container';
-  printContainer.style.position = 'absolute';
-  printContainer.style.left = '0px';
+  printContainer.style.position = 'fixed';
+  printContainer.style.left = '-9999px';
   printContainer.style.top = '0px';
   printContainer.style.width = '794px';
   printContainer.style.height = '1123px';
-  printContainer.style.zIndex = '-9999';
   printContainer.style.backgroundColor = '#ffffff';
-  printContainer.style.padding = '24px';
+  printContainer.style.padding = '20px';
   printContainer.style.boxSizing = 'border-box';
   printContainer.style.overflow = 'hidden';
-  printContainer.style.direction = 'ltr'; // Outermost MUST be LTR to avoid bounding box bugs in html-to-image
+  printContainer.style.direction = 'ltr';
 
   const trackingCode = invoice.trackingCode || invoice.orderId;
 
   printContainer.innerHTML = `
-    <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 14px; padding: 20px; background: #ffffff;">
+    <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 12px; padding: 16px; background: #ffffff;">
       <div>
         <!-- Header Table -->
-        <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #dbeafe; padding-bottom: 10px; margin-bottom: 12px; direction: rtl; text-align: right;">
+        <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #dbeafe; padding-bottom: 8px; margin-bottom: 10px; direction: rtl; text-align: right;">
           <tr>
-            <td style="text-align: right; vertical-align: top; padding-bottom: 10px;">
-              <div style="font-size: 15px; font-weight: 900; color: #1e3a8a; margin-bottom: 4px; white-space: nowrap;">
+            <td style="text-align: right; vertical-align: top; padding-bottom: 8px;">
+              <div style="font-size: 15px; font-weight: 900; color: #1e3a8a; margin-bottom: 3px; white-space: nowrap;">
                 صورتحساب فروش کالا و خدمات (پیش‌فاکتور رسمی)
               </div>
-              <div style="font-size: 11px; color: #475569; font-weight: bold; margin-bottom: 4px;">
-                سامانه پخش سراسری دخانیات و کالای مصرفی ${config.companyName}
+              <div style="font-size: 10.5px; color: #475569; font-weight: bold; margin-bottom: 3px;">
+                سامانه پخش سراسری دخانیات ${config.companyName}
               </div>
-              <div style="font-size: 10px; color: #475569;">
-                تلفن سفارش و ترابری باربری: <strong style="color: #1d4ed8; direction: ltr; display: inline-block;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong>
+              <div style="font-size: 9.5px; color: #475569;">
+                تلفن ترابری و سفارشات: <strong style="color: #1d4ed8; direction: ltr; display: inline-block;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong>
               </div>
             </td>
-            <td style="text-align: left; vertical-align: top; padding-bottom: 10px; font-size: 10.5px; color: #334155; line-height: 1.7; width: 220px;">
-              <div><strong>شماره پیش‌فاکتور:</strong> <span style="font-family: monospace; font-weight: bold; color: #1e40af;">${invoice.orderId}</span></div>
+            <td style="text-align: left; vertical-align: top; padding-bottom: 8px; font-size: 10px; color: #334155; line-height: 1.6; width: 220px;">
+              <div><strong>شماره فاکتور:</strong> <span style="font-family: monospace; font-weight: bold; color: #1e40af;">${invoice.orderId}</span></div>
               <div><strong>کد رهگیری بار:</strong> <span style="font-family: monospace; font-weight: bold; color: #047857;">${trackingCode}</span></div>
               <div><strong>تاریخ صدور:</strong> ${invoice.createdAt}</div>
               <div><strong>وضعیت پرداخت:</strong> <span style="font-weight: bold; color: #1d4ed8;">${invoice.paymentStatus}</span></div>
@@ -231,15 +256,15 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
           </tr>
         </table>
 
-        <!-- Credentials Row (Dynamic) -->
+        <!-- Credentials Row -->
         ${(config.showNationalIdInvoice || config.showEconomicCodeInvoice || config.showActivityTypeInvoice || config.showTransportPhoneInvoice) ? `
-          <table style="width: 100%; border-collapse: collapse; background: #0f172a; color: #ffffff; border-radius: 8px; margin-bottom: 12px; font-size: 9.5px; direction: rtl; text-align: right;">
+          <table style="width: 100%; border-collapse: collapse; background: #0f172a; color: #ffffff; border-radius: 6px; margin-bottom: 10px; font-size: 9px; direction: rtl; text-align: right;">
             <tr>
-              <td style="padding: 6px 10px; text-align: center; font-weight: 500;">
+              <td style="padding: 5px 8px; text-align: center; font-weight: 500;">
                 <div style="display: flex; justify-content: space-around; width: 100%;">
-                  ${config.showNationalIdInvoice ? `<div style="margin-left: 10px;">شناسه ملی: <strong style="color: #f59e0b; font-family: monospace;">${config.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</strong></div>` : ''}
-                  ${config.showEconomicCodeInvoice ? `<div style="margin-left: 10px;">کد اقتصادی: <strong style="color: #f59e0b; font-family: monospace;">${config.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</strong></div>` : ''}
-                  ${config.showActivityTypeInvoice ? `<div style="margin-left: 10px;">نوع فعالیت: <strong style="color: #f59e0b;">${config.activityTypeCompany || 'پخش عمده دخانیات'}</strong></div>` : ''}
+                  ${config.showNationalIdInvoice ? `<div style="margin-left: 8px;">شناسه ملی: <strong style="color: #f59e0b; font-family: monospace;">${config.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</strong></div>` : ''}
+                  ${config.showEconomicCodeInvoice ? `<div style="margin-left: 8px;">کد اقتصادی: <strong style="color: #f59e0b; font-family: monospace;">${config.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</strong></div>` : ''}
+                  ${config.showActivityTypeInvoice ? `<div style="margin-left: 8px;">نوع فعالیت: <strong style="color: #f59e0b;">${config.activityTypeCompany || 'پخش عمده دخانیات'}</strong></div>` : ''}
                   ${config.showTransportPhoneInvoice ? `<div>تلفن ترابری: <strong style="color: #f59e0b; font-family: monospace; direction: ltr; display: inline-block;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>` : ''}
                 </div>
               </td>
@@ -248,31 +273,31 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
         ` : ''}
 
         <!-- Customer Grid Table -->
-        <table style="width: 100%; border-collapse: collapse; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; margin-bottom: 14px; font-size: 11px; direction: rtl; text-align: right;">
+        <table style="width: 100%; border-collapse: collapse; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; margin-bottom: 10px; font-size: 10px; direction: rtl; text-align: right;">
           <tr>
-            <td style="width: 50%; padding: 12px 14px; text-align: right; vertical-align: top; line-height: 1.8; border-left: 1px solid #bfdbfe;">
+            <td style="width: 50%; padding: 8px 10px; text-align: right; vertical-align: top; line-height: 1.7; border-left: 1px solid #bfdbfe;">
               <div><strong>نام خریدار / بنکدار:</strong> ${invoice.customer.shopOwnerName}</div>
-              <div style="margin-top: 4px;"><strong>نام مغازه:</strong> ${invoice.customer.shopName || '—'}</div>
-              <div style="margin-top: 4px;"><strong>شماره همراه:</strong> <span style="direction: ltr; font-weight: bold; display: inline-block;">${invoice.customer.shopPhone}</span></div>
+              <div style="margin-top: 2px;"><strong>نام مغازه:</strong> ${invoice.customer.shopName || '—'}</div>
+              <div style="margin-top: 2px;"><strong>شماره همراه:</strong> <span style="direction: ltr; font-weight: bold; display: inline-block;">${invoice.customer.shopPhone}</span></div>
             </td>
-            <td style="width: 50%; padding: 12px 14px; text-align: right; vertical-align: top; line-height: 1.8;">
+            <td style="width: 50%; padding: 8px 10px; text-align: right; vertical-align: top; line-height: 1.7;">
               <div><strong>شهر مقصد:</strong> ${invoice.customer.city}</div>
-              <div style="margin-top: 4px;"><strong>شیوه ارسال بار:</strong> ${invoice.customer.shippingMethod}</div>
-              <div style="margin-top: 4px;"><strong>آدرس و توضیحات تحویل:</strong> ${invoice.customer.address}</div>
+              <div style="margin-top: 2px;"><strong>شیوه ارسال بار:</strong> ${invoice.customer.shippingMethod}</div>
+              <div style="margin-top: 2px;"><strong>آدرس تحویل:</strong> ${invoice.customer.address}</div>
             </td>
           </tr>
         </table>
 
         <!-- Items Table -->
-        <table style="width: 100%; border-collapse: collapse; font-size: 11px; text-align: right; margin-bottom: 16px; direction: rtl;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px; text-align: right; margin-bottom: 12px; direction: rtl;">
           <thead>
             <tr style="background: #1d4ed8; color: #ffffff; font-weight: bold;">
-              <th style="padding: 10px 8px; width: 45px; text-align: center; border: 1px solid #1d4ed8;">ردیف</th>
-              <th style="padding: 10px 8px; border: 1px solid #1d4ed8; text-align: right;">شرح کالا و برند</th>
-              <th style="padding: 10px 8px; text-align: center; width: 140px; border: 1px solid #1d4ed8;">واحد کالا</th>
-              <th style="padding: 10px 8px; text-align: center; width: 80px; border: 1px solid #1d4ed8;">تعداد</th>
-              <th style="padding: 10px 8px; text-align: left; width: 120px; border: 1px solid #1d4ed8;">نرخ واحد (تومان)</th>
-              <th style="padding: 10px 8px; text-align: left; font-weight: bold; width: 150px; border: 1px solid #1d4ed8;">مبلغ کل (تومان)</th>
+              <th style="padding: 8px 4px; width: 6%; text-align: center; border: 1px solid #1d4ed8;">ردیف</th>
+              <th style="padding: 8px 6px; width: 36%; border: 1px solid #1d4ed8; text-align: right;">شرح کالا و برند</th>
+              <th style="padding: 8px 6px; width: 16%; text-align: center; border: 1px solid #1d4ed8;">واحد کالا</th>
+              <th style="padding: 8px 4px; width: 10%; text-align: center; border: 1px solid #1d4ed8;">تعداد</th>
+              <th style="padding: 8px 6px; width: 16%; text-align: left; border: 1px solid #1d4ed8;">نرخ واحد (تومان)</th>
+              <th style="padding: 8px 6px; width: 16%; text-align: left; font-weight: bold; border: 1px solid #1d4ed8;">مبلغ کل (تومان)</th>
             </tr>
           </thead>
           <tbody>
@@ -281,15 +306,15 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
               const itemTotal = unitPrice * item.quantity;
               return `
                 <tr style="border-bottom: 1px solid #e2e8f0; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                  <td style="padding: 10px 8px; text-align: center; color: #64748b; border: 1px solid #e2e8f0;">${idx + 1}</td>
-                  <td style="padding: 10px 8px; border: 1px solid #e2e8f0; text-align: right;">
-                    <strong style="color: #0f172a; font-size: 11.5px;">${item.product.nameFa}</strong>
-                    <div style="font-size: 9px; color: #64748b; margin-top: 2px;">${item.product.brand} - ${item.product.origin}</div>
+                  <td style="padding: 6px 4px; text-align: center; color: #64748b; border: 1px solid #e2e8f0;">${idx + 1}</td>
+                  <td style="padding: 6px 6px; border: 1px solid #e2e8f0; text-align: right;">
+                    <strong style="color: #0f172a; font-size: 10.5px;">${item.product.nameFa}</strong>
+                    <div style="font-size: 8.5px; color: #64748b;">${item.product.brand} - ${item.product.origin}</div>
                   </td>
-                  <td style="padding: 10px 8px; text-align: center; border: 1px solid #e2e8f0;">${item.unit === 'carton' ? `کارتن (${item.product.boxesPerCarton} باکسی)` : 'باکس (۱۰ تایی)'}</td>
-                  <td style="padding: 10px 8px; text-align: center; font-weight: bold; font-size: 11px; border: 1px solid #e2e8f0;">${formatNumberFa(item.quantity)}</td>
-                  <td style="padding: 10px 8px; text-align: left; border: 1px solid #e2e8f0;">${formatToman(unitPrice)}</td>
-                  <td style="padding: 10px 8px; text-align: left; font-weight: bold; color: #1d4ed8; font-size: 11px; border: 1px solid #e2e8f0;">${formatToman(itemTotal)}</td>
+                  <td style="padding: 6px 4px; text-align: center; border: 1px solid #e2e8f0; font-size: 9.5px;">${item.unit === 'carton' ? `کارتن (${item.product.boxesPerCarton} باکسی)` : 'باکس (۱۰ تایی)'}</td>
+                  <td style="padding: 6px 4px; text-align: center; font-weight: bold; font-size: 10px; border: 1px solid #e2e8f0;">${formatNumberFa(item.quantity)}</td>
+                  <td style="padding: 6px 6px; text-align: left; border: 1px solid #e2e8f0; font-size: 9.5px;">${formatToman(unitPrice)}</td>
+                  <td style="padding: 6px 6px; text-align: left; font-weight: bold; color: #1d4ed8; font-size: 10px; border: 1px solid #e2e8f0;">${formatToman(itemTotal)}</td>
                 </tr>
               `;
             }).join('')}
@@ -297,46 +322,43 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
         </table>
       </div>
 
-      <!-- Footer elements including Financials and Signatures -->
+      <!-- Financials and Signatures -->
       <div>
-        <!-- Financial Totals Table -->
-        <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; direction: rtl; text-align: right;">
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 12px; direction: rtl; text-align: right;">
           <tr>
-            <!-- Terms & Notes -->
-            <td style="text-align: right; vertical-align: top; font-size: 9.5px; color: #475569; line-height: 1.8; padding-left: 24px;">
-              <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 6px; font-size: 10.5px;">شرایط و قوانین تحویل بار:</div>
-              <div>• کلیه بارها با بسته‌بندی پلمپ شرکتی و هولوگرام تضمین اصالت ${config.companyName} تحویل داده می‌شود.</div>
-              <div>• ارسال بار بلافاصله پس از تسویه حواله از طریق باربری‌های معتبر (وطن، جهانگیر و تیپاکس) انجام می‌پذیرد.</div>
-              <div>• شماره تماس هماهنگی ترابری و دریافت اطلاعات بیجک: <strong style="color: #1d4ed8;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>
+            <td style="text-align: right; vertical-align: top; font-size: 9px; color: #475569; line-height: 1.7; padding-left: 16px;">
+              <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 4px; font-size: 10px;">شرایط و قوانین تحویل بار:</div>
+              <div>• کلیه بارها با بسته‌بندی پلمپ شرکتی و هولوگرام تضمین اصالت تحویل داده می‌شود.</div>
+              <div>• ارسال بار بلافاصله پس از تسویه حواله از طریق باربری‌های معتبر انجام می‌پذیرد.</div>
+              <div>• شماره تماس هماهنگی ترابری و دریافت بیجک: <strong style="color: #1d4ed8;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>
             </td>
-            <!-- Financial Totals Box -->
-            <td style="width: 300px; text-align: right; vertical-align: top;">
-              <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 11px;">
+            <td style="width: 280px; text-align: right; vertical-align: top;">
+              <table style="width: 100%; border-collapse: collapse; background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 10px;">
                 <tr>
-                  <td style="padding: 6px 10px; text-align: right; color: #475569; border-bottom: 1px solid #e2e8f0;">تعداد کل کارتن‌ها:</td>
-                  <td style="padding: 6px 10px; text-align: left; font-weight: bold; border-bottom: 1px solid #e2e8f0;">${formatNumberFa(invoice.totalCartons)} کارتن</td>
+                  <td style="padding: 5px 8px; text-align: right; color: #475569; border-bottom: 1px solid #e2e8f0;">تعداد کل کارتن‌ها:</td>
+                  <td style="padding: 5px 8px; text-align: left; font-weight: bold; border-bottom: 1px solid #e2e8f0;">${formatNumberFa(invoice.totalCartons)} کارتن</td>
                 </tr>
                 <tr>
-                  <td style="padding: 6px 10px; text-align: right; color: #475569; border-bottom: 1px solid #e2e8f0;">تعداد کل باکس‌ها:</td>
-                  <td style="padding: 6px 10px; text-align: left; font-weight: bold; border-bottom: 1px solid #e2e8f0;">${formatNumberFa(invoice.totalBoxes)} باکس</td>
+                  <td style="padding: 5px 8px; text-align: right; color: #475569; border-bottom: 1px solid #e2e8f0;">تعداد کل باکس‌ها:</td>
+                  <td style="padding: 5px 8px; text-align: left; font-weight: bold; border-bottom: 1px solid #e2e8f0;">${formatNumberFa(invoice.totalBoxes)} باکس</td>
                 </tr>
                 <tr>
-                  <td style="padding: 6px 10px; text-align: right; color: #475569; border-bottom: 1px solid #e2e8f0;">جمع کل اقلام:</td>
-                  <td style="padding: 6px 10px; text-align: left; font-weight: bold; border-bottom: 1px solid #e2e8f0;">${formatToman(invoice.subtotal)}</td>
+                  <td style="padding: 5px 8px; text-align: right; color: #475569; border-bottom: 1px solid #e2e8f0;">جمع اقلام:</td>
+                  <td style="padding: 5px 8px; text-align: left; font-weight: bold; border-bottom: 1px solid #e2e8f0;">${formatToman(invoice.subtotal)}</td>
                 </tr>
                 ${invoice.discountAmount > 0 ? `
                   <tr>
-                    <td style="padding: 6px 10px; text-align: right; color: #047857; font-weight: bold; border-bottom: 1px solid #e2e8f0;">تخفیف تیراژ:</td>
-                    <td style="padding: 6px 10px; text-align: left; color: #047857; font-weight: bold; border-bottom: 1px solid #e2e8f0;">-${formatToman(invoice.discountAmount)}</td>
+                    <td style="padding: 5px 8px; text-align: right; color: #047857; font-weight: bold; border-bottom: 1px solid #e2e8f0;">تخفیف تیراژ:</td>
+                    <td style="padding: 5px 8px; text-align: left; color: #047857; font-weight: bold; border-bottom: 1px solid #e2e8f0;">-${formatToman(invoice.discountAmount)}</td>
                   </tr>
                 ` : ''}
                 <tr>
-                  <td style="padding: 6px 10px; text-align: right; color: #2563eb; font-weight: bold; border-bottom: 1px solid #e2e8f0;">هزینه باربری و ارسال:</td>
-                  <td style="padding: 6px 10px; text-align: left; color: #2563eb; font-weight: bold; border-bottom: 1px solid #e2e8f0;">${invoice.shippingCost > 0 ? formatToman(invoice.shippingCost) : 'رایگان (تحویل انبار)'}</td>
+                  <td style="padding: 5px 8px; text-align: right; color: #2563eb; font-weight: bold; border-bottom: 1px solid #e2e8f0;">هزینه باربری:</td>
+                  <td style="padding: 5px 8px; text-align: left; color: #2563eb; font-weight: bold; border-bottom: 1px solid #e2e8f0;">${invoice.shippingCost > 0 ? formatToman(invoice.shippingCost) : 'تحویل انبار (رایگان)'}</td>
                 </tr>
-                <tr style="font-weight: 900; color: #1d4ed8; font-size: 13px; background-color: #eff6ff;">
-                  <td style="padding: 10px 10px; text-align: right;">مبلغ نهایی فاکتور:</td>
-                  <td style="padding: 10px 10px; text-align: left;">${formatToman(invoice.finalTotal)}</td>
+                <tr style="font-weight: 900; color: #1d4ed8; font-size: 12px; background-color: #eff6ff;">
+                  <td style="padding: 8px 8px; text-align: right;">مبلغ نهایی فاکتور:</td>
+                  <td style="padding: 8px 8px; text-align: left;">${formatToman(invoice.finalTotal)}</td>
                 </tr>
               </table>
             </td>
@@ -344,15 +366,15 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
         </table>
 
         <!-- Signatures Table -->
-        <table style="width: 100%; border-collapse: collapse; font-size: 11px; color: #475569; padding-top: 18px; border-top: 1px dashed #cbd5e1; text-align: center; margin-top: 14px; direction: rtl;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px; color: #475569; padding-top: 12px; border-top: 1px dashed #cbd5e1; text-align: center; direction: rtl;">
           <tr>
-            <td style="width: 50%; padding-top: 10px;">
-              <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 24px;">امضاء و مهر مدیریت پخش دخانیات ${config.companyName}:</div>
-              <div style="margin-top: 28px; color: #94a3b8;">...................................</div>
+            <td style="width: 50%; padding-top: 6px;">
+              <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 16px;">امضاء و مهر مدیریت پخش دخانیات:</div>
+              <div style="margin-top: 20px; color: #94a3b8;">...................................</div>
             </td>
-            <td style="width: 50%; padding-top: 10px;">
-              <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 24px;">امضاء و تأیید خریدار / بنکدار:</div>
-              <div style="margin-top: 28px; color: #94a3b8;">...................................</div>
+            <td style="width: 50%; padding-top: 6px;">
+              <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 16px;">امضاء و تأیید خریدار / بنکدار:</div>
+              <div style="margin-top: 20px; color: #94a3b8;">...................................</div>
             </td>
           </tr>
         </table>
@@ -369,7 +391,6 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
   const originalHtmlMinWidth = document.documentElement.style.minWidth;
 
   try {
-    // Force a wide viewport container during capture so mobile/iframe users don't get truncated images
     document.body.style.width = '1000px';
     document.body.style.minWidth = '1000px';
     document.body.style.overflow = 'visible';
@@ -379,14 +400,12 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 120));
 
     const imgData = await toJpeg(printContainer, {
-      quality: 0.98,
+      quality: 0.96,
       backgroundColor: '#ffffff',
       pixelRatio: 2,
-      fontEmbedCSS: '',
-      skipFonts: true,
       width: 794,
       height: 1123,
     });
@@ -400,7 +419,6 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
     window.print();
     return false;
   } finally {
-    // Restore original sizing
     document.body.style.width = originalBodyWidth;
     document.body.style.minWidth = originalBodyMinWidth;
     document.body.style.overflow = originalBodyOverflow;

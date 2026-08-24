@@ -12,10 +12,11 @@ import {
   Cpu,
   Layers
 } from 'lucide-react';
-import { SashaSectionId } from './types';
-import { SashaLayout } from './Layout';
+import { AzarakhshSectionId } from './types';
+import { AzarakhshLayout } from './Layout';
 import { ZeroToHeroDocs } from './ZeroToHeroDocs';
 import { DjangoConfigDocs } from './DjangoConfigDocs';
+import { SiteSettingsDocs } from './SiteSettingsDocs';
 import { SwaggerRedocDocs } from './SwaggerRedocDocs';
 import { AuthUsersDocs } from './AuthUsersDocs';
 import { CategoriesDocs } from './CategoriesDocs';
@@ -26,16 +27,16 @@ import { BlogTinyMceDocs } from './BlogTinyMceDocs';
 import { TicketsSupportDocs } from './TicketsSupportDocs';
 import { VisitorsDocs } from './VisitorsDocs';
 
-interface SashaApiDocsProps {
+interface AzarakhshApiDocsProps {
   onReturnToApp?: () => void;
 }
 
-const SASHA_MASTER_PASSWORD = 'alirezazzz9419@S';
+const AZARAKHSH_MASTER_PASSWORD = 'alirezazzz9419@S';
 
-export const SashaApiDocs: React.FC<SashaApiDocsProps> = ({ onReturnToApp }) => {
+export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToApp }) => {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('sasha_docs_auth') === 'true';
+      return localStorage.getItem('azarakhsh_docs_auth') === 'true';
     } catch {
       return false;
     }
@@ -44,15 +45,15 @@ export const SashaApiDocs: React.FC<SashaApiDocsProps> = ({ onReturnToApp }) => 
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
-  const [activeSection, setActiveSection] = useState<SashaSectionId>('zero-to-hero');
+  const [activeSection, setActiveSection] = useState<AzarakhshSectionId>('zero-to-hero');
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (passwordInput === SASHA_MASTER_PASSWORD) {
+    if (passwordInput === AZARAKHSH_MASTER_PASSWORD) {
       setIsAuthenticated(true);
       setErrorMsg('');
       try {
-        localStorage.setItem('sasha_docs_auth', 'true');
+        localStorage.setItem('azarakhsh_docs_auth', 'true');
       } catch {}
     } else {
       setErrorMsg('رمز عبور وارد شده نادرست است. لطفاً مجدداً تلاش فرمایید.');
@@ -63,7 +64,7 @@ export const SashaApiDocs: React.FC<SashaApiDocsProps> = ({ onReturnToApp }) => 
     setIsAuthenticated(false);
     setPasswordInput('');
     try {
-      localStorage.removeItem('sasha_docs_auth');
+      localStorage.removeItem('azarakhsh_docs_auth');
     } catch {}
   };
 
@@ -169,6 +170,8 @@ export const SashaApiDocs: React.FC<SashaApiDocsProps> = ({ onReturnToApp }) => 
         return <ZeroToHeroDocs />;
       case 'django-config':
         return <DjangoConfigDocs />;
+      case 'site-settings':
+        return <SiteSettingsDocs />;
       case 'swagger-redoc':
         return <SwaggerRedocDocs />;
       case 'auth-users':
@@ -193,13 +196,13 @@ export const SashaApiDocs: React.FC<SashaApiDocsProps> = ({ onReturnToApp }) => 
   };
 
   return (
-    <SashaLayout
+    <AzarakhshLayout
       activeSection={activeSection}
       onSelectSection={setActiveSection}
       onLogout={handleLogout}
       onReturnToApp={handleReturn}
     >
       {renderActiveContent()}
-    </SashaLayout>
+    </AzarakhshLayout>
   );
 };
