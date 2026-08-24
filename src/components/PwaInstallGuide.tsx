@@ -140,58 +140,58 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
 
       {/* 2. FULL INTERACTIVE INSTALLATION GUIDE MODAL */}
       {isModalVisible && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-lg shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden text-right" dir="rtl">
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden text-right flex flex-col max-h-[80vh]" dir="rtl">
             
             {/* Header */}
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60">
+            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600">
-                  <Smartphone className="w-5 h-5" />
+                <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600">
+                  <Smartphone className="w-4.5 h-4.5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                  <h3 className="text-xs font-black text-slate-900 dark:text-white">
                     راهنمای راه‌اندازی و نصب وب‌اپلیکیشن (PWA)
                   </h3>
-                  <p className="text-[10px] text-slate-500 mt-0.5">پخش عمده دخانیات سوین روی صفحه موبایل شما</p>
+                  <p className="text-[9px] text-slate-500 mt-0.5">پخش عمده دخانیات سوین روی صفحه موبایل شما</p>
                 </div>
               </div>
 
               <button 
                 onClick={handleCloseModalInternal}
-                className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-500 dark:text-slate-400 flex items-center justify-center transition-all active:scale-90"
+                className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-500 dark:text-slate-400 flex items-center justify-center transition-all active:scale-90"
               >
-                <X className="w-4.5 h-4.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            {/* Body Content */}
-            <div className="p-6 space-y-6">
+            {/* Body Content - Scrollable */}
+            <div className="p-5 space-y-5 overflow-y-auto max-h-[48vh] scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800">
               
               {/* Feature Highlights */}
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800/60">
-                  <div className="w-7 h-7 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center mx-auto text-blue-600 font-bold mb-1.5">
+              <div className="grid grid-cols-3 gap-2.5 text-center">
+                <div className="bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center mx-auto text-blue-600 text-[10px] font-bold mb-1">
                     ۱
                   </div>
-                  <div className="text-[10px] font-black text-slate-900 dark:text-white">سرعت فوق‌العاده</div>
-                  <p className="text-[9px] text-slate-400 mt-0.5 leading-normal">لود سریع‌تر قیمت‌ها و کاتالوگ</p>
+                  <div className="text-[9.5px] font-black text-slate-900 dark:text-white">سرعت بالا</div>
+                  <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">لود سریع‌تر نرخ روز</p>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800/60">
-                  <div className="w-7 h-7 rounded-full bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center mx-auto text-emerald-600 font-bold mb-1.5">
+                <div className="bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+                  <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center mx-auto text-emerald-600 text-[10px] font-bold mb-1">
                     ۲
                   </div>
-                  <div className="text-[10px] font-black text-slate-900 dark:text-white">دسترسی مستقیم</div>
-                  <p className="text-[9px] text-slate-400 mt-0.5 leading-normal">آیکون اختصاصی در صفحه خانه گوشی</p>
+                  <div className="text-[9.5px] font-black text-slate-900 dark:text-white">دسترسی مستقیم</div>
+                  <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">آیکون صفحه خانه گوشی</p>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900/40 p-3 rounded-2xl border border-slate-100 dark:border-slate-800/60">
-                  <div className="w-7 h-7 rounded-full bg-purple-100 dark:bg-purple-950/60 flex items-center justify-center mx-auto text-purple-600 font-bold mb-1.5">
+                <div className="bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800/60">
+                  <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-950/60 flex items-center justify-center mx-auto text-purple-600 text-[10px] font-bold mb-1">
                     ۳
                   </div>
-                  <div className="text-[10px] font-black text-slate-900 dark:text-white">بدون فیلتر و بازار</div>
-                  <p className="text-[9px] text-slate-400 mt-0.5 leading-normal">بدون نیاز به دانلود از مارکت‌ها</p>
+                  <div className="text-[9.5px] font-black text-slate-900 dark:text-white">بدون بازار و مارکت</div>
+                  <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">بدون نیاز به دانلود فیلتر</p>
                 </div>
               </div>
 

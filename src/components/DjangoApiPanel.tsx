@@ -87,6 +87,8 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
   const [bankShiba2Input, setBankShiba2Input] = useState(config.bankShiba2 || '');
   const [bankHolder2Input, setBankHolder2Input] = useState(config.bankHolder2 || '');
   const [contractTextInput, setContractTextInput] = useState(config.visitorContractText || '');
+  const [siteHeroTitleInput, setSiteHeroTitleInput] = useState(config.siteHeroTitle || '');
+  const [siteHeroDescInput, setSiteHeroDescInput] = useState(config.siteHeroDesc || '');
   const [settingsSaveSuccess, setSettingsSaveSuccess] = useState(false);
 
   React.useEffect(() => {
@@ -98,6 +100,8 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
       setBankShiba2Input(config.bankShiba2 || '');
       setBankHolder2Input(config.bankHolder2 || '');
       setContractTextInput(config.visitorContractText || '');
+      setSiteHeroTitleInput(config.siteHeroTitle || '');
+      setSiteHeroDescInput(config.siteHeroDesc || '');
     }
   }, [config]);
 
@@ -112,6 +116,8 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
       bankShiba2: bankShiba2Input,
       bankHolder2: bankHolder2Input,
       visitorContractText: contractTextInput,
+      siteHeroTitle: siteHeroTitleInput,
+      siteHeroDesc: siteHeroDescInput,
     });
     setSettingsSaveSuccess(true);
     setTimeout(() => setSettingsSaveSuccess(false), 3000);
@@ -926,13 +932,50 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
             </p>
 
             <textarea
-              rows={8}
+              rows={4}
               value={contractTextInput}
               onChange={(e) => setContractTextInput(e.target.value)}
               className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 text-xs text-slate-900 dark:text-white focus:outline-hidden font-sans leading-relaxed text-justify"
               placeholder="متن قرارداد رسمی را وارد کنید..."
               dir="rtl"
             />
+          </div>
+
+          {/* بخش ۴: عنوان و توضیحات مارکتینگ صفحه اصلی */}
+          <div className="bg-slate-50 dark:bg-slate-900/40 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 space-y-4">
+            <h3 className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-2 border-b border-slate-200 dark:border-slate-800 pb-2">
+              <Sparkles className="w-4 h-4 text-amber-500" />
+              عنوان و متون مارکتینگ هیرو صفحه اصلی (قابل تغییر از جنگو)
+            </h3>
+            
+            <p className="text-[11px] text-slate-500">
+              با تغییر این فیلدها، عنوان اصلی بالای کاتالوگ و توضیحات بازاریابی آن مستقیماً تغییر خواهند کرد.
+            </p>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">عنوان اصلی هیرو (Hero Title):</label>
+                <input
+                  type="text"
+                  value={siteHeroTitleInput}
+                  onChange={(e) => setSiteHeroTitleInput(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-900 dark:text-white focus:outline-hidden"
+                  placeholder="سامانه پخش عمده دخانیات سوین با نرخ روز کارتن و باکس"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">توضیحات هیرو (Hero Description):</label>
+                <textarea
+                  rows={3}
+                  value={siteHeroDescInput}
+                  onChange={(e) => setSiteHeroDescInput(e.target.value)}
+                  className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl p-3 text-xs text-slate-900 dark:text-white focus:outline-hidden font-sans leading-relaxed text-justify"
+                  placeholder="متن توضیحات اصلی را وارد کنید..."
+                  dir="rtl"
+                />
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end pt-2">

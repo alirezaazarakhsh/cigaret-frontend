@@ -273,6 +273,8 @@ export interface DjangoCrmConfig {
   bankShiba2?: string;  // شماره شبای حساب دوم
   bankHolder2?: string; // صاحب حساب دوم
   visitorContractText?: string; // متن قرارداد ویزیتورها قابل مدیریت از بک‌اند
+  siteHeroTitle?: string; // عنوان هیرو سایت
+  siteHeroDesc?: string;  // متن توضیحات هیرو سایت
 }
 
 export interface ApiEndpointSpec {

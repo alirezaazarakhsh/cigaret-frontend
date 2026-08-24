@@ -172,6 +172,9 @@ export default function App() {
 ۳. ویزیتور موظف است مشخصات و نشانی مغازه‌ها و خریداران را به طور دقیق در سامانه ثبت نماید.
 ۴. تأیید این قرارداد به منزله امضای دیجیتال و پذیرش کلیه شرایط همکاری با سامانه پخش دخانیات سوین است.`;
 
+    const defaultHeroTitle = 'سامانه پخش عمده دخانیات سوین با نرخ روز کارتن و باکس';
+    const defaultHeroDesc = 'عرضه دست‌اول و مستقیم انواع سیگارهای اصل سوئیس، اروپا، شرکتی و دستگاه‌های IQOS با هولوگرام معتبر، صدور مستقیم پیش‌فاکتور رسمی با هزینه باربری، واریز فیش بانکی و پنل اختصاصی بنکداری.';
+
     const saved = localStorage.getItem('django_crm_config');
     if (saved) {
       try {
@@ -185,6 +188,8 @@ export default function App() {
           bankShiba2: 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸',
           bankHolder2: 'حساب ترابری و تدارکات سوین',
           visitorContractText: defaultContract,
+          siteHeroTitle: defaultHeroTitle,
+          siteHeroDesc: defaultHeroDesc,
           ...parsed
         };
       } catch (e) {
@@ -200,13 +205,15 @@ export default function App() {
       status: 'idle',
       totalSyncedProducts: CIGARETTE_PRODUCTS.length,
       companyName: 'سوین',
-      bankCard1: '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲',
+      bankCard1: '۶۰3۷-۹۹۷۹-۷۵۳۱-۱۹۸۲',
       bankShiba1: 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲',
       bankHolder1: 'امور مالی شرکت سوین',
       bankCard2: '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰',
       bankShiba2: 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸',
       bankHolder2: 'حساب ترابری و تدارکات سوین',
       visitorContractText: defaultContract,
+      siteHeroTitle: defaultHeroTitle,
+      siteHeroDesc: defaultHeroDesc,
     };
   });
 
@@ -483,13 +490,13 @@ export default function App() {
               <div className="max-w-3xl space-y-2.5 relative z-10">
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-black">
                   <Flame className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
-                  سامانه پخش مستقیم از انبار مرکزی جنت‌آباد سوین
+                  سامانه پخش مستقیم از انبار مرکزی جنت‌آباد {djangoConfig.companyName || 'سوین'}
                 </div>
                 <h1 className="text-lg sm:text-2xl font-black text-slate-900 dark:text-white leading-tight">
-                  سامانه پخش عمده دخانیات سوین با نرخ روز کارتن و باکس
+                  {djangoConfig.siteHeroTitle || 'سامانه پخش عمده دخانیات سوین با نرخ روز کارتن و باکس'}
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
-                  عرضه دست‌اول و مستقیم انواع سیگارهای اصل سوئیس، اروپا، شرکتی و دستگاه‌های IQOS با هولوگرام معتبر، صدور مستقیم پیش‌فاکتور رسمی با هزینه باربری، واریز فیش بانکی و پنل اختصاصی بنکداری.
+                  {djangoConfig.siteHeroDesc || 'عرضه دست‌اول و مستقیم انواع سیگارهای اصل سوئیس، اروپا، شرکتی و دستگاه‌های IQOS با هولوگرام معتبر، صدور مستقیم پیش‌فاکتور رسمی با هزینه باربری، واریز فیش بانکی و پنل اختصاصی بنکداری.'}
                 </p>
 
                 <div className="flex flex-wrap items-center gap-2.5 pt-2">
