@@ -731,7 +731,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   />
                   <button
                     type="submit"
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-white hover:bg-slate-100 :bg-indigo-500 text-white rounded-xl text-xs font-black shadow-sm transition-colors"
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-white hover:bg-slate-100 text-white rounded-xl text-xs font-black shadow-sm transition-colors"
                   >
                     ثبت
                   </button>

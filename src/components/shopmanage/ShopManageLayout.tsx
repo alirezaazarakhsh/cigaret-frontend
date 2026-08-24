@@ -20,7 +20,7 @@ export const ShopManageLayout: React.FC<ShopManageLayoutProps> = ({ children, on
           </div>
           <button
             onClick={onReturnToApp}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white hover:bg-slate-100 :bg-slate-100 text-slate-700 text-xs font-black transition-all border border-slate-200 shadow-sm"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-black transition-all border border-slate-200 shadow-sm"
           >
             <ArrowRight className="w-4 h-4" />
             بازگشت به سایت

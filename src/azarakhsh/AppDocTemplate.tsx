@@ -174,7 +174,7 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 font-black'
-                      : 'text-slate-600 hover:bg-slate-100 :bg-slate-800'
+                      : 'text-slate-600 hover:bg-slate-100'
                   }`}
                 >
                   <span>{tab.label}</span>
@@ -243,7 +243,7 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-100 font-medium">
                       {table.fields.map((f, fIdx) => (
-                        <tr key={fIdx} className="hover:bg-slate-50 :bg-slate-800/40 transition-colors">
+                        <tr key={fIdx} className="hover:bg-slate-50 transition-colors">
                           <td className="py-2.5 px-3 font-mono font-bold text-slate-800 " dir="ltr">
                             {f.name}
                           </td>

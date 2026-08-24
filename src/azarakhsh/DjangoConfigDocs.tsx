@@ -311,7 +311,7 @@ DB_PORT=5432
             className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
               activeSubTab === 'settings'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 :bg-slate-800'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
             }`}
           >
             settings.py (تنظیمات اصلی)
@@ -321,7 +321,7 @@ DB_PORT=5432
             className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
               activeSubTab === 'urls'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 :bg-slate-800'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
             }`}
           >
             urls.py (مسیرهای ریشه و Swagger)
@@ -331,7 +331,7 @@ DB_PORT=5432
             className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
               activeSubTab === 'env'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 :bg-slate-800'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
             }`}
           >
             .env (متغیرهای محرمانه محیطی)
@@ -341,7 +341,7 @@ DB_PORT=5432
             className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
               activeSubTab === 'routes'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 :bg-slate-800'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
             }`}
           >
             Independent Routes (تغییرات جدید)

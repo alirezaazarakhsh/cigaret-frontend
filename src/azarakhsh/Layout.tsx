@@ -250,7 +250,7 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
           <div className="flex items-center gap-3.5">
             <button 
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 :bg-slate-700 text-slate-700 transition cursor-pointer"
+              className="md:hidden p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
               aria-label="منوی مستندات"
             >
               <Menu className="w-5 h-5" />
@@ -281,7 +281,7 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
             {/* Return to Main Store Button */}
             <button
               onClick={onReturnToApp}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 :bg-slate-700 text-slate-700 text-xs font-bold transition-all cursor-pointer border border-slate-200/70 shadow-xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer border border-slate-200/70 shadow-xs"
               title="بازگشت به سامانه اصلی فروش عمده"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -291,7 +291,7 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
             {/* Logout button */}
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 :bg-rose-900/60 text-rose-700 text-xs font-bold border border-rose-200 transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-all cursor-pointer shadow-xs"
               title="خروج و قفل مستندات"
             >
               <LogOut className="w-4 h-4" />
@@ -316,12 +316,12 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="جستجو در ۱۲ اپلیکیشن، مدل‌ها و سرفصل‌ها..."
-              className="w-full bg-white border border-slate-200/90 rounded-2xl pr-10 pl-9 py-3 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-100 :ring-blue-900/30 transition-all shadow-xs font-medium"
+              className="w-full bg-white border border-slate-200/90 rounded-2xl pr-10 pl-9 py-3 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-xs font-medium"
             />
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 :text-slate-200 text-xs font-bold p-1 rounded-full hover:bg-slate-100 :bg-slate-800 cursor-pointer"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold p-1 rounded-full hover:bg-slate-100 cursor-pointer"
                 title="پاک کردن جستجو"
               >
                 ✕
@@ -355,7 +355,7 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
                           className={`w-full text-right p-2.5 sm:p-3 rounded-2xl transition-all flex items-center justify-between gap-2.5 text-xs sm:text-sm cursor-pointer ${
                             isActive
                               ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 font-black'
-                              : 'text-slate-700 hover:bg-slate-50 :bg-slate-800/60 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50 font-bold'
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
@@ -420,7 +420,7 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
                             setMobileMenuOpen(false);
                           }}
                           className={`w-full text-right p-3 rounded-2xl flex items-center justify-between text-xs font-bold ${
-                            activeSection === sec.id ? 'bg-blue-600 text-white' : 'hover:bg-slate-50 :bg-slate-800 text-slate-800 '
+                            activeSection === sec.id ? 'bg-blue-600 text-white' : 'hover:bg-slate-50 text-slate-800 '
                           }`}
                         >
                           <div className="flex items-center gap-2.5">
