@@ -7,6 +7,7 @@ export type NavigationTab =
   | 'shipping' 
   | 'blog' 
   | 'django-crm'
+  | 'django-docs'
   | 'invoice'
   | 'chat-support';
 

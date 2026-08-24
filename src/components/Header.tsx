@@ -22,7 +22,8 @@ import {
   LogOut,
   Ticket,
   Bell,
-  Smartphone
+  Smartphone,
+  Code
 } from 'lucide-react';
 import { formatNumberFa } from '../utils/formatters';
 import { NavigationTab, UserProfile } from '../types';
@@ -42,6 +43,7 @@ interface HeaderProps {
   unreadNotificationsCount?: number;
   onOpenNotifications?: () => void;
   onOpenInstallGuide?: () => void;
+  onOpenSashaDocs?: () => void;
 }
 
 const ALL_NAV_TABS: { id: NavigationTab; label: string; icon: React.ComponentType<{ className?: string }>; color?: string; requiresAuth?: boolean }[] = [
@@ -49,6 +51,7 @@ const ALL_NAV_TABS: { id: NavigationTab; label: string; icon: React.ComponentTyp
   { id: 'live-prices', label: 'لیست قیمت لحظه‌ای', icon: TrendingUp, color: 'text-amber-500' },
   { id: 'invoice', label: 'فاکتور رسمی', icon: FileText, color: 'text-blue-500', requiresAuth: true },
   { id: 'tracking', label: 'رهگیری بارنامه', icon: Truck, color: 'text-blue-500' },
+  { id: 'django-docs', label: 'مستندات جنگو و Swagger', icon: Code, color: 'text-rose-500' },
   { id: 'contact', label: 'تماس با انبار', icon: MessageSquare, color: 'text-emerald-500' },
   { id: 'shipping', label: 'تعرفه باربری', icon: MapPin, color: 'text-slate-400' },
   { id: 'blog', label: 'مقالات خواندنی', icon: BookOpen, color: 'text-indigo-400' },
@@ -69,6 +72,7 @@ export const Header: React.FC<HeaderProps> = ({
   unreadNotificationsCount = 0,
   onOpenNotifications,
   onOpenInstallGuide,
+  onOpenSashaDocs,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -115,11 +119,23 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onQuickSyncDjango}
               disabled={isSyncingDjango}
               title="همگام‌سازی با جنگو REST API"
-              className="hidden xs:flex items-center gap-1 bg-slate-900 dark:bg-slate-800 text-slate-300 hover:text-white px-2 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-medium transition-colors border border-slate-800"
+              className="hidden xs:flex items-center gap-1 bg-slate-900 text-slate-300 hover:text-white px-2 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-medium transition-colors border border-slate-800"
             >
               <RefreshCw className={`w-3 h-3 text-blue-400 ${isSyncingDjango ? 'animate-spin' : ''}`} />
               <span>جنگو</span>
             </button>
+
+            {/* Sasha Django Docs Link */}
+            {onOpenSashaDocs && (
+              <button
+                onClick={onOpenSashaDocs}
+                title="مستندات اختصاصی جنگو (مسیر /sasha)"
+                className="flex items-center gap-1 bg-blue-900/60 hover:bg-blue-800 text-blue-200 hover:text-white px-2 py-0.5 rounded-lg text-[10px] sm:text-[11px] font-bold transition-colors border border-blue-700/50 shadow-xs"
+              >
+                <FileText className="w-3 h-3 text-blue-300" />
+                <span>مستندات ساشا</span>
+              </button>
+            )}
 
             {/* Direct Phone Call */}
             <a 

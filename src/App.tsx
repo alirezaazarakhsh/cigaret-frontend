@@ -78,7 +78,8 @@ export default function App() {
   const [isSashaRoute, setIsSashaRoute] = useState<boolean>(() => {
     try {
       const path = window.location.pathname.toLowerCase();
-      return path.startsWith('/sasha') || path.includes('sasha');
+      const hash = window.location.hash.toLowerCase();
+      return path.startsWith('/sasha') || path.includes('sasha') || hash.includes('sasha');
     } catch {
       return false;
     }
@@ -88,7 +89,8 @@ export default function App() {
     const handleLocationCheck = () => {
       try {
         const path = window.location.pathname.toLowerCase();
-        if (path.startsWith('/sasha') || path.includes('sasha')) {
+        const hash = window.location.hash.toLowerCase();
+        if (path.startsWith('/sasha') || path.includes('sasha') || hash.includes('sasha')) {
           setIsSashaRoute(true);
         }
       } catch {}
@@ -96,7 +98,11 @@ export default function App() {
 
     handleLocationCheck();
     window.addEventListener('popstate', handleLocationCheck);
-    return () => window.removeEventListener('popstate', handleLocationCheck);
+    window.addEventListener('hashchange', handleLocationCheck);
+    return () => {
+      window.removeEventListener('popstate', handleLocationCheck);
+      window.removeEventListener('hashchange', handleLocationCheck);
+    };
   }, []);
   
   // Ensure strict light mode on mount and clear any dark mode persistence
@@ -452,11 +458,12 @@ export default function App() {
   const cartTotalCartons = cartItems.reduce((acc, curr) => curr.unit === 'carton' ? acc + curr.quantity : acc, 0);
   const cartTotalBoxes = cartItems.reduce((acc, curr) => curr.unit === 'box' ? acc + curr.quantity : acc, 0);
 
-  if (isSashaRoute) {
+  if (isSashaRoute || activeTab === 'django-docs') {
     return (
       <SashaApiDocs
         onReturnToApp={() => {
           setIsSashaRoute(false);
+          setActiveTab('catalog');
           try {
             window.history.pushState({}, '', '/');
           } catch {}
@@ -492,6 +499,12 @@ export default function App() {
         unreadNotificationsCount={unreadNotifCount}
         onOpenNotifications={() => setIsNotifModalOpen(true)}
         onOpenInstallGuide={() => setIsPwaModalOpen(true)}
+        onOpenSashaDocs={() => {
+          setIsSashaRoute(true);
+          try {
+            window.history.pushState({}, '', '/sasha');
+          } catch {}
+        }}
       />
 
       {/* Main App Body */}
@@ -860,6 +873,17 @@ export default function App() {
               <button onClick={() => setActiveTab('contact')} className="hover:text-blue-600 transition-colors">فرم تماس</button>
               <button onClick={() => setActiveTab('shipping')} className="hover:text-blue-600 transition-colors">باربری و کرایه</button>
               <button onClick={() => setActiveTab('blog')} className="hover:text-blue-600 transition-colors">مقالات خواندنی</button>
+              <button 
+                onClick={() => {
+                  setIsSashaRoute(true);
+                  try {
+                    window.history.pushState({}, '', '/sasha');
+                  } catch {}
+                }} 
+                className="text-blue-600 font-black hover:underline transition-colors"
+              >
+                مستندات جنگو (/sasha)
+              </button>
             </div>
           </div>
 
