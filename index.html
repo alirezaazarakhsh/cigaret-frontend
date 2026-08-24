@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>پخش عمده دخانیات و سیگار | سامانه سفارشات تجاری</title>
+    <meta name="description" content="سامانه هوشمند و مدرن عمده‌فروشی سیگار، تنباکو و تجهیزات دخانیات با قابلیت استعلام لحظه‌ای و اتصال به API" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#2563eb" />
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3013/3013911.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/samim-font@v4.0.5/dist/font-face.css" rel="stylesheet" type="text/css" />
+  </head>
+  <body class="bg-slate-50 text-slate-900 font-['Samim','Vazirmatn',sans-serif] antialiased selection:bg-amber-500 selection:text-white">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => console.log('Service Worker Registered!'))
+            .catch(err => console.log('Service Worker Registration failed:', err));
+        });
+      }
+    </script>
+  </body>
+</html>
+

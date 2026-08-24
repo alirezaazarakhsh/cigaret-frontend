@@ -1,0 +1,6 @@
+{
+  "name": "سامانه پخش عمده دخانیات سوین",
+  "description": "سامانه پخش و بنکداری عمده دخانیات سوین (انبار مرکزی جنت‌آباد) با پشتیبانی کامل حالت روشن و تاریک، صدور پیش‌فاکتور رسمی، دانلود PDF، احراز هویت با شماره تماس، ثبت تیکت پشتیبانی و کدهای کامل Django REST Framework",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
