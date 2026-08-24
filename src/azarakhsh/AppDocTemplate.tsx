@@ -164,7 +164,7 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
       {/* Code Tabs Navigation */}
       <div className="space-y-3">
         <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div className="flex items-center gap-1.5 p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xs overflow-x-auto max-w-full">
+          <div className="flex items-center gap-1.5 p-1.5 bg-white border border-slate-200 rounded-2xl shadow-xs overflow-x-auto max-w-full">
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
               return (
@@ -174,7 +174,7 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
                   className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap flex items-center gap-2 ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 font-black'
-                      : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+                      : 'text-slate-600 hover:bg-slate-100 :bg-slate-800'
                   }`}
                 >
                   <span>{tab.label}</span>
@@ -183,7 +183,7 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
             })}
           </div>
 
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono hidden sm:block">
+          <div className="text-xs text-slate-500 font-mono hidden sm:block">
             {getCurrentFilename()}
           </div>
         </div>
@@ -201,7 +201,7 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
         <div className="space-y-4 pt-2">
           <div className="flex items-center gap-2">
             <Database className="w-5 h-5 text-blue-600" />
-            <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+            <h2 className="text-base sm:text-lg font-black text-slate-900 ">
               جداول پایگاه داده PostgreSQL و فیلدهای مدل
             </h2>
           </div>
@@ -210,23 +210,23 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
             {erdTables.map((table, tIdx) => (
               <div 
                 key={tIdx} 
-                className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4"
+                className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xs space-y-4"
               >
-                <div className="flex items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-800 pb-3 flex-wrap">
+                <div className="flex items-center justify-between gap-3 border-b border-slate-100 pb-3 flex-wrap">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black">
+                    <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
                       <Table className="w-4 h-4" />
                     </div>
                     <div>
-                      <h3 className="text-sm font-black text-slate-900 dark:text-white font-mono" dir="ltr">
+                      <h3 className="text-sm font-black text-slate-900 font-mono" dir="ltr">
                         {table.name}
                       </h3>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
+                      <div className="text-xs text-slate-500 ">
                         {table.verboseName} — {table.description}
                       </div>
                     </div>
                   </div>
-                  <span className="text-[11px] font-mono text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-lg">
+                  <span className="text-[11px] font-mono text-slate-400 bg-slate-100 px-2.5 py-1 rounded-lg">
                     {table.fields.length} فیلد
                   </span>
                 </div>
@@ -234,39 +234,39 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
                 <div className="overflow-x-auto">
                   <table className="w-full text-right text-xs">
                     <thead>
-                      <tr className="border-b border-slate-100 dark:border-slate-800 text-slate-400 font-bold">
+                      <tr className="border-b border-slate-100 text-slate-400 font-bold">
                         <th className="py-2.5 px-3 font-mono">نام فیلد (Field)</th>
                         <th className="py-2.5 px-3 font-mono">نوع داده جنگو</th>
                         <th className="py-2.5 px-3">عنوان فارسی</th>
                         <th className="py-2.5 px-3">ویژگی‌ها / کلید</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                    <tbody className="divide-y divide-slate-100 font-medium">
                       {table.fields.map((f, fIdx) => (
-                        <tr key={fIdx} className="hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors">
-                          <td className="py-2.5 px-3 font-mono font-bold text-slate-800 dark:text-slate-200" dir="ltr">
+                        <tr key={fIdx} className="hover:bg-slate-50 :bg-slate-800/40 transition-colors">
+                          <td className="py-2.5 px-3 font-mono font-bold text-slate-800 " dir="ltr">
                             {f.name}
                           </td>
-                          <td className="py-2.5 px-3 font-mono text-blue-600 dark:text-blue-400" dir="ltr">
+                          <td className="py-2.5 px-3 font-mono text-blue-600 " dir="ltr">
                             {f.type}
                           </td>
-                          <td className="py-2.5 px-3 text-slate-700 dark:text-slate-300">
+                          <td className="py-2.5 px-3 text-slate-700 ">
                             {f.verbose}
                           </td>
                           <td className="py-2.5 px-3">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               {f.isPk && (
-                                <span className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800 text-[10px] font-mono font-bold">
+                                <span className="px-2 py-0.5 rounded-md bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-mono font-bold">
                                   PRIMARY KEY
                                 </span>
                               )}
                               {f.isFk && (
-                                <span className="px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800 text-[10px] font-mono font-bold">
+                                <span className="px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-mono font-bold">
                                   FK → {f.fkTarget}
                                 </span>
                               )}
                               {f.isUnique && (
-                                <span className="px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] font-mono font-bold">
+                                <span className="px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-mono font-bold">
                                   UNIQUE
                                 </span>
                               )}
@@ -294,7 +294,7 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Globe className="w-5 h-5 text-emerald-600" />
-              <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white">
+              <h2 className="text-base sm:text-lg font-black text-slate-900 ">
                 نقشه اندپوینت‌های وب‌سرویس REST API
               </h2>
             </div>
@@ -311,36 +311,36 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
               const isDelete = ep.method === 'DELETE';
 
               const badgeColor = isGet
-                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-300'
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 '
                 : isPost
-                ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/60 dark:text-blue-300'
+                ? 'bg-blue-50 text-blue-700 border-blue-200 '
                 : isPatch
-                ? 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-950/60 dark:text-amber-300'
-                : 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-950/60 dark:text-rose-300';
+                ? 'bg-amber-50 text-amber-700 border-amber-200 '
+                : 'bg-rose-50 text-rose-700 border-rose-200 ';
 
               return (
                 <div 
                   key={idx}
-                  className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs space-y-3"
+                  className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-3"
                 >
                   <div className="flex items-center justify-between gap-3 flex-wrap">
                     <div className="flex items-center gap-2.5 flex-wrap">
                       <span className={`px-2.5 py-1 rounded-xl text-xs font-mono font-black border ${badgeColor}`}>
                         {ep.method}
                       </span>
-                      <span className="text-xs sm:text-sm font-mono font-black text-slate-900 dark:text-white" dir="ltr">
+                      <span className="text-xs sm:text-sm font-mono font-black text-slate-900 " dir="ltr">
                         {ep.path}
                       </span>
                     </div>
 
                     <div className="flex items-center gap-2">
-                      <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 text-[11px] font-mono font-bold border border-slate-200/60 dark:border-slate-700">
+                      <span className="px-2.5 py-0.5 rounded-lg bg-slate-100 text-slate-700 text-[11px] font-mono font-bold border border-slate-200/60 ">
                         {ep.auth}
                       </span>
                       {ep.curlExample && (
                         <button
                           onClick={() => handleCopyCurl(ep.curlExample!, idx)}
-                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-xs font-bold transition-all cursor-pointer"
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer"
                           title="کپی دستور cURL"
                         >
                           {copiedEndpointIdx === idx ? (
@@ -359,7 +359,7 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed font-medium">
+                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
                     {ep.description}
                   </p>
 

@@ -131,56 +131,56 @@ export const ShippingSection: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         
         {/* Warehouse 1: Shorabad Dispatch Warehouse */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="p-2.5 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-2xl border border-amber-200 dark:border-amber-800">
+              <div className="p-2.5 bg-amber-50 text-amber-600 rounded-2xl border border-amber-200 ">
                 <Warehouse className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                <h3 className="text-sm font-black text-slate-900 ">
                   انبار مرکزی و بارگیری پخش سوین (شورآباد)
                 </h3>
                 <span className="text-[11px] text-slate-500">مرکز اصلی انبارداری، پلمپ و بارگیری شهرستان‌ها</span>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 dark:bg-amber-950 px-2.5 py-1 rounded-full border border-amber-200">
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">
               بارگیری سنگین
             </span>
           </div>
 
-          <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+          <div className="space-y-2 text-xs text-slate-600 leading-relaxed">
             <p className="flex items-start gap-1.5">
               <MapPin className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
               <span><strong>آدرس دقیق انبار:</strong> تهران، جاده قدیم قم، کهریزک، ۶۰ متری شورآباد، شهرک باربری و انبارهای دخانیات، سوله اختصاصی پخش سوین</span>
             </p>
             <p className="flex items-center gap-1.5">
               <PhoneCall className="w-4 h-4 text-amber-500 shrink-0" />
-              <span><strong>تلفن هماهنگی بارگیری و ترابری:</strong> <a href="tel:09120759419" className="font-mono font-bold text-blue-600 dark:text-blue-400 dir-ltr">۰۹۱۲۰۷۵۹۴۱۹</a></span>
+              <span><strong>تلفن هماهنگی بارگیری و ترابری:</strong> <a href="tel:09120759419" className="font-mono font-bold text-blue-600 dir-ltr">۰۹۱۲۰۷۵۹۴۱۹</a></span>
             </p>
           </div>
         </div>
 
         {/* Warehouse 2: Packaging Protocol & JanatAbad */}
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2.5">
-              <div className="p-2.5 bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 rounded-2xl border border-emerald-200 dark:border-emerald-800">
+              <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-200 ">
                 <ShieldCheck className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-sm font-black text-slate-900 dark:text-white">
+                <h3 className="text-sm font-black text-slate-900 ">
                   پروتکل بسته‌بندی ۵ لایه و بیجک معتبر
                 </h3>
                 <span className="text-[11px] text-slate-500">تضمین سلامتی و ایمنی فیزیکی کارتن‌ها</span>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 dark:bg-emerald-950 px-2.5 py-1 rounded-full border border-emerald-200">
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
               ارسال پیامک بیجک
             </span>
           </div>
 
-          <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+          <div className="space-y-2 text-xs text-slate-600 leading-relaxed">
             <p className="flex items-start gap-1.5">
               <FileCheck className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
               <span>تمام کارتن‌ها پیش از تحویل به باربری‌های شوش، با سلفون صنعتی ضد آب و تسمه‌کشی اتوماتیک ایمن‌سازی شده و کد رهگیری بیجک بلافاصله پیامک می‌گردد.</span>
@@ -199,7 +199,7 @@ export const ShippingSection: React.FC = () => {
         <div className="flex items-center justify-between mb-4 px-1">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping"></span>
-            <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+            <h3 className="text-sm sm:text-base font-black text-slate-900 ">
               روش‌های حمل و تحویل کالا (۵ متد اصلی)
             </h3>
           </div>
@@ -213,14 +213,14 @@ export const ShippingSection: React.FC = () => {
               <div 
                 key={opt.id}
                 onClick={() => setSelectedMethodId(opt.id)}
-                className={`relative group bg-white dark:bg-slate-900 border rounded-3xl p-5 transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-4 ${
+                className={`relative group bg-white border rounded-3xl p-5 transition-all duration-300 cursor-pointer flex flex-col justify-between space-y-4 ${
                   isSelected
-                    ? 'border-blue-600 dark:border-blue-500 ring-2 ring-blue-500/20 shadow-xl shadow-blue-500/10 scale-[1.02]'
-                    : 'border-slate-200 dark:border-slate-800 hover:border-blue-300 hover:shadow-md'
+                    ? 'border-blue-600 ring-2 ring-blue-500/20 shadow-xl shadow-blue-500/10 scale-[1.02]'
+                    : 'border-slate-200 hover:border-blue-300 hover:shadow-md'
                 }`}
               >
                 <div className={`absolute top-0 left-6 right-6 h-1 rounded-b-full transition-colors ${
-                  isSelected ? 'bg-gradient-to-r from-blue-600 to-indigo-600' : 'bg-transparent group-hover:bg-slate-200 dark:group-hover:bg-slate-800'
+                  isSelected ? 'bg-gradient-to-r from-blue-600 to-indigo-600' : 'bg-transparent group-hover:bg-slate-200 '
                 }`}></div>
 
                 <div>
@@ -229,42 +229,42 @@ export const ShippingSection: React.FC = () => {
                       <span className={`w-8 h-8 rounded-2xl flex items-center justify-center text-xs font-black transition-colors ${
                         isSelected 
                           ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30' 
-                          : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300'
+                          : 'bg-slate-100 text-slate-700 '
                       }`}>
                         {formatNumberFa(idx + 1)}
                       </span>
-                      <div className={`p-1.5 rounded-xl ${isSelected ? 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/50' : 'text-slate-400'}`}>
+                      <div className={`p-1.5 rounded-xl ${isSelected ? 'text-blue-600 bg-blue-50 ' : 'text-slate-400'}`}>
                         {getMethodIcon(opt.id)}
                       </div>
                     </div>
 
                     <span className={`text-xs font-black px-2.5 py-1 rounded-xl border transition-all ${
                       opt.cost === 0
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800'
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200 '
                         : isSelected
-                        ? 'bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-950/50 dark:text-blue-300 dark:border-blue-800'
-                        : 'bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700'
+                        ? 'bg-blue-50 text-blue-700 border-blue-200 '
+                        : 'bg-slate-50 text-slate-700 border-slate-200 '
                     }`}>
                       {opt.cost === 0 ? 'رایگان' : formatToman(opt.cost)}
                     </span>
                   </div>
 
-                  <h4 className="text-xs sm:text-sm font-black text-slate-900 dark:text-white leading-snug mb-2 group-hover:text-blue-600 transition-colors">
+                  <h4 className="text-xs sm:text-sm font-black text-slate-900 leading-snug mb-2 group-hover:text-blue-600 transition-colors">
                     {opt.title}
                   </h4>
 
-                  <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-normal">
+                  <p className="text-[11px] text-slate-500 leading-relaxed font-normal">
                     {opt.description}
                   </p>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1.5 text-slate-600 dark:text-slate-400 font-bold">
-                    <Clock className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5 text-slate-600 font-bold">
+                    <Clock className="w-3.5 h-3.5 text-blue-600 " />
                     <span>{opt.estimatedDelivery}</span>
                   </div>
                   {isSelected && (
-                    <CheckCircle2 className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                    <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
                   )}
                 </div>
               </div>
@@ -274,23 +274,23 @@ export const ShippingSection: React.FC = () => {
       </div>
 
       {/* Interactive Freight Estimator Widget */}
-      <div className="bg-gradient-to-br from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-800 pb-4">
+      <div className="bg-gradient-to-br from-white to-slate-50 border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400">
+            <div className="p-2.5 rounded-2xl bg-blue-100 text-blue-600 ">
               <Calculator className="w-5 h-5" />
             </div>
             <div>
-              <h3 className="text-base font-black text-slate-900 dark:text-white">
+              <h3 className="text-base font-black text-slate-900 ">
                 محاسبه‌گر آنلاین کرایه باربری بر اساس استان و تعداد کارتن/بکس
               </h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-                استان انتخاب‌شده: <strong className="text-blue-600 dark:text-blue-400">{activeProvince.province} ({activeProvince.city})</strong>
+              <p className="text-xs text-slate-500 mt-0.5">
+                استان انتخاب‌شده: <strong className="text-blue-600 ">{activeProvince.province} ({activeProvince.city})</strong>
               </p>
             </div>
           </div>
 
-          <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 px-3 py-1.5 rounded-2xl border border-emerald-200 dark:border-emerald-800 self-start sm:self-auto">
+          <span className="text-xs font-black text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-2xl border border-emerald-200 self-start sm:self-auto">
             تایم تحویل: {activeProvince.estimatedDays}
           </span>
         </div>
@@ -298,10 +298,10 @@ export const ShippingSection: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           
           {/* Field 1: Carton Count */}
-          <div className="bg-white dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2 shadow-2xs">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center justify-between">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-2 shadow-2xs">
+            <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
               <span>تعداد کارتن ارسالی:</span>
-              <span className="text-blue-600 dark:text-blue-400 text-[11px]">({formatNumberFa(totalBoxes)} بکس)</span>
+              <span className="text-blue-600 text-[11px]">({formatNumberFa(totalBoxes)} بکس)</span>
             </label>
             <div className="flex items-center gap-2">
               <input
@@ -310,22 +310,22 @@ export const ShippingSection: React.FC = () => {
                 max="200"
                 value={cartonCount}
                 onChange={(e) => setCartonCount(Math.max(1, Number(e.target.value)))}
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl p-2.5 text-sm font-black text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-sm font-black text-slate-900 focus:outline-none focus:border-blue-500 transition-colors"
               />
               <span className="text-xs text-slate-500 font-bold whitespace-nowrap">کارتن</span>
             </div>
           </div>
 
           {/* Field 2: Province Destination */}
-          <div className="bg-white dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2 shadow-2xs">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-2 shadow-2xs">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
               <MapPin className="w-3.5 h-3.5 text-blue-600" />
               <span>انتخاب استان مقصد:</span>
             </label>
             <select
               value={selectedProvinceName}
               onChange={(e) => setSelectedProvinceName(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-300 dark:border-slate-600 rounded-xl p-2.5 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-500 transition-colors"
             >
               {PROVINCE_RATES.map(p => (
                 <option key={p.province} value={p.province}>{p.province} ({p.city})</option>
@@ -334,15 +334,15 @@ export const ShippingSection: React.FC = () => {
           </div>
 
           {/* Field 3: Shipping Method Selector (Connected directly) */}
-          <div className="bg-white dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-2 shadow-2xs">
-            <label className="text-xs font-bold text-slate-700 dark:text-slate-300 flex items-center gap-1">
+          <div className="bg-white p-4 rounded-2xl border border-slate-200 space-y-2 shadow-2xs">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1">
               <Truck className="w-3.5 h-3.5 text-blue-600" />
               <span>روش حمل و نقل انتخاب‌شده:</span>
             </label>
             <select
               value={selectedMethodId}
               onChange={(e) => setSelectedMethodId(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-slate-900 border border-blue-300 dark:border-blue-600 rounded-xl p-2.5 text-xs font-bold text-blue-900 dark:text-blue-300 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full bg-slate-50 border border-blue-300 rounded-xl p-2.5 text-xs font-bold text-blue-900 focus:outline-none focus:border-blue-500 transition-colors"
             >
               {DEFAULT_SHIPPING_OPTIONS.map(opt => (
                 <option key={opt.id} value={opt.id}>

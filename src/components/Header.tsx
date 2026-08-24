@@ -76,7 +76,7 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white dark:bg-[#0b0f19] shadow-md border-b border-slate-200 dark:border-slate-800 transition-colors" id="main-header">
+    <header className="sticky top-0 z-40 bg-white [#0b0f19] shadow-md border-b border-slate-200 transition-colors" id="main-header">
       
       {/* LAYER 1: Top Micro-Bar */}
       <div className="bg-slate-950 text-slate-200 text-xs py-1.5 px-3 sm:px-4 border-b border-slate-800/80">
@@ -122,7 +122,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* LAYER 2: Brand Identity & Action Center */}
-      <div className="bg-white dark:bg-[#0b0f19] border-b border-slate-100 dark:border-slate-800/80 transition-colors">
+      <div className="bg-white [#0b0f19] border-b border-slate-100 transition-colors">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Brand Logo & Title */}
@@ -136,14 +136,14 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="text-sm sm:text-lg font-black tracking-tight text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors truncate">
+                <span className="text-sm sm:text-lg font-black tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors truncate">
                   دخانیات عمده سوین
                 </span>
-                <span className="hidden sm:inline-block text-[10px] font-black bg-blue-50 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded-lg shrink-0">
+                <span className="hidden sm:inline-block text-[10px] font-black bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-lg shrink-0">
                   کارتن و باکس
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium hidden sm:block truncate">
+              <p className="text-[11px] text-slate-500 font-medium hidden sm:block truncate">
                 توزیع دست‌اول انبار جنت‌آباد تهران
               </p>
             </div>
@@ -159,7 +159,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     onClick={() => setUserDropdownOpen(prev => !prev)}
                     id="header-user-dropdown-btn"
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-slate-50 dark:bg-[#111827] hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all shadow-xs"
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-slate-50 [#111827] hover:bg-slate-100 text-slate-700 border border-slate-200 transition-all shadow-xs"
                   >
                     <div className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center font-black text-xs shrink-0">
                       {currentUser.fullName.slice(0, 1)}
@@ -169,12 +169,12 @@ export const Header: React.FC<HeaderProps> = ({
                   </button>
 
                   {userDropdownOpen && (
-                    <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-0 mt-2 w-56 sm:w-64 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
-                      <div className="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
-                        <div className="text-xs font-black text-slate-900 dark:text-white truncate">{currentUser.fullName}</div>
+                    <div className="absolute left-1/2 -translate-x-1/2 sm:translate-x-0 sm:left-0 mt-2 w-56 sm:w-64 bg-white border border-slate-200 rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in zoom-in-95 duration-150">
+                      <div className="px-4 py-2 border-b border-slate-100 ">
+                        <div className="text-xs font-black text-slate-900 truncate">{currentUser.fullName}</div>
                         <div className="text-[11px] text-slate-500 font-mono mt-0.5">{currentUser.phone}</div>
                         {currentUser.referralCode && (
-                          <div className="mt-1.5 bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 text-[10px] font-mono px-2 py-0.5 rounded-md font-bold flex items-center justify-between">
+                          <div className="mt-1.5 bg-blue-50 text-blue-700 text-[10px] font-mono px-2 py-0.5 rounded-md font-bold flex items-center justify-between">
                             <span>کد معرفی:</span>
                             <span className="font-black">{currentUser.referralCode}</span>
                           </div>
@@ -187,20 +187,20 @@ export const Header: React.FC<HeaderProps> = ({
                             setActiveTab('user-panel');
                             setUserDropdownOpen(false);
                           }}
-                          className="w-full text-right px-4 py-2 text-xs font-bold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 transition-colors"
+                          className="w-full text-right px-4 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-colors"
                         >
                           <Ticket className="w-4 h-4 text-blue-600 shrink-0" />
                           <span>پنل کاربری و تیکت‌ها</span>
                         </button>
                       </div>
 
-                      <div className="pt-1 border-t border-slate-100 dark:border-slate-800">
+                      <div className="pt-1 border-t border-slate-100 ">
                         <button
                           onClick={() => {
                             setUserDropdownOpen(false);
                             if (onLogout) onLogout();
                           }}
-                          className="w-full text-right px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 flex items-center gap-2 transition-colors"
+                          className="w-full text-right px-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 flex items-center gap-2 transition-colors"
                         >
                           <LogOut className="w-4 h-4 shrink-0" />
                           <span>خروج از حساب</span>
@@ -227,9 +227,9 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={onOpenNotifications}
                 id="header-notifications-btn"
                 title="اعلان‌ها و پیام‌های انبار"
-                className="relative p-2 sm:p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-950 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 transition-all active:scale-95 shrink-0"
+                className="relative p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 border border-slate-200 transition-all active:scale-95 shrink-0"
               >
-                <Bell className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <Bell className="w-4 h-4 text-blue-600 " />
                 {unreadNotificationsCount > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-rose-500 text-white font-black text-[10px] rounded-full flex items-center justify-center animate-pulse">
                     {unreadNotificationsCount}
@@ -257,7 +257,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Mobile Menu Hamburger Toggle */}
             <button
               onClick={() => setMobileMenuOpen(prev => !prev)}
-              className="lg:hidden p-1.5 sm:p-2 rounded-xl bg-slate-100 dark:bg-[#111827] border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200"
+              className="lg:hidden p-1.5 sm:p-2 rounded-xl bg-slate-100 [#111827] border border-slate-200 text-slate-700 "
               aria-label="منوی موبایل"
             >
               {mobileMenuOpen ? <X className="w-4 h-4 sm:w-5 sm:h-5" /> : <Menu className="w-4 h-4 sm:w-5 sm:h-5" />}
@@ -269,7 +269,7 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* LAYER 3: Dedicated Lower Menu Bar (Desktop + Horizontal Scroll) */}
-      <div className="bg-slate-50 dark:bg-[#0d1322] border-b border-slate-200/90 dark:border-slate-800 py-1.5 px-2 sm:px-4 backdrop-blur-xs transition-colors">
+      <div className="bg-slate-50 [#0d1322] border-b border-slate-200/90 py-1.5 px-2 sm:px-4 backdrop-blur-xs transition-colors">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-1 overflow-x-auto no-scrollbar scroll-smooth">
           
           <div className="flex items-center gap-1 sm:gap-1.5">
@@ -284,7 +284,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-black shrink-0 whitespace-nowrap transition-all ${
                     isActive
                       ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-700 dark:text-slate-300 hover:text-slate-950 dark:hover:text-white hover:bg-slate-200/80 dark:hover:bg-slate-800'
+                      : 'text-slate-700 hover:text-slate-950 hover:bg-slate-200/80 '
                   }`}
                 >
                   <Icon className={`w-3.5 h-3.5 ${isActive ? 'text-white' : tab.color || 'text-slate-400'}`} />
@@ -299,17 +299,17 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* MOBILE COLLAPSIBLE DRAWER / MENU */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-white dark:bg-[#0f172a] border-b border-slate-200 dark:border-slate-800 p-4 space-y-4 animate-in slide-in-from-top duration-200 shadow-2xl">
+        <div className="lg:hidden bg-white [#0f172a] border-b border-slate-200 p-4 space-y-4 animate-in slide-in-from-top duration-200 shadow-2xl">
           
           {/* User status card inside mobile menu */}
           {currentUser ? (
-            <div className="bg-slate-50 dark:bg-slate-800/80 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 flex items-center justify-between gap-3">
+            <div className="bg-slate-50 p-3 rounded-2xl border border-slate-200 flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xs shrink-0">
                   {currentUser.fullName.slice(0, 1)}
                 </div>
                 <div className="min-w-0">
-                  <div className="text-xs font-black text-slate-900 dark:text-white truncate">{currentUser.fullName}</div>
+                  <div className="text-xs font-black text-slate-900 truncate">{currentUser.fullName}</div>
                   <div className="text-[10px] text-slate-500 font-mono truncate">{currentUser.phone}</div>
                 </div>
               </div>
@@ -318,7 +318,7 @@ export const Header: React.FC<HeaderProps> = ({
                   setMobileMenuOpen(false);
                   if (onLogout) onLogout();
                 }}
-                className="p-1.5 text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl transition-colors text-xs font-bold flex items-center gap-1 shrink-0"
+                className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-xl transition-colors text-xs font-bold flex items-center gap-1 shrink-0"
               >
                 <LogOut className="w-3.5 h-3.5" />
                 <span>خروج</span>
@@ -373,7 +373,7 @@ export const Header: React.FC<HeaderProps> = ({
                   className={`flex items-center gap-2 p-2.5 rounded-xl text-xs font-bold text-right transition-all border ${
                     isActive
                       ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                      : 'bg-slate-50 dark:bg-slate-800/80 text-slate-700 dark:text-slate-200 border-slate-200 dark:border-slate-700'
+                      : 'bg-slate-50 text-slate-700 border-slate-200 '
                   }`}
                 >
                   <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : tab.color || 'text-slate-400'}`} />
@@ -383,10 +383,10 @@ export const Header: React.FC<HeaderProps> = ({
             })}
           </div>
 
-          <div className="pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
+          <div className="pt-2 border-t border-slate-100 text-center">
             <a
               href="tel:091207594۱۹"
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 dark:text-blue-400"
+              className="inline-flex items-center gap-1.5 text-xs font-bold text-blue-600 "
             >
               <PhoneCall className="w-3.5 h-3.5" />
               <span>پشتیبانی و ثبت سفارش تلفنی: ۰۹۱۲۰۷۵۹۴۱۹</span>

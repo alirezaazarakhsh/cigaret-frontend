@@ -17,6 +17,8 @@ import { AzarakhshLayout } from './Layout';
 import { ZeroToHeroDocs } from './ZeroToHeroDocs';
 import { DjangoConfigDocs } from './DjangoConfigDocs';
 import { SiteSettingsDocs } from './SiteSettingsDocs';
+import { SliderDocs } from './SliderDocs';
+import { PosDocs } from './PosDocs';
 import { SwaggerRedocDocs } from './SwaggerRedocDocs';
 import { AuthUsersDocs } from './AuthUsersDocs';
 import { CategoriesDocs } from './CategoriesDocs';
@@ -172,6 +174,8 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
         return <DjangoConfigDocs />;
       case 'site-settings':
         return <SiteSettingsDocs />;
+      case 'slider':
+        return <SliderDocs />;
       case 'swagger-redoc':
         return <SwaggerRedocDocs />;
       case 'auth-users':
@@ -190,6 +194,8 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
         return <TicketsSupportDocs />;
       case 'visitors':
         return <VisitorsDocs />;
+      case 'pos':
+        return <PosDocs />;
       default:
         return <ZeroToHeroDocs />;
     }

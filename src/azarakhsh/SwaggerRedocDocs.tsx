@@ -137,41 +137,41 @@ urlpatterns = [
 
       {/* Interactive Links Card */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs space-y-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 dark:bg-emerald-950/60 dark:text-emerald-400 flex items-center justify-center font-black">
+        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black">
             <Globe className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-black text-slate-900 dark:text-white">Swagger UI</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <h3 className="text-sm font-black text-slate-900 ">Swagger UI</h3>
+          <p className="text-xs text-slate-500 ">
             تست زنده تعاملی همراه با دکمه Authorize برای ست کردن Bearer Token
           </p>
-          <div className="font-mono text-xs text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 p-2 rounded-xl border border-blue-200/60" dir="ltr">
+          <div className="font-mono text-xs text-blue-600 bg-blue-50 p-2 rounded-xl border border-blue-200/60" dir="ltr">
             /api/v1/schema/swagger-ui/
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs space-y-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/60 dark:text-indigo-400 flex items-center justify-center font-black">
+        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
             <BookOpen className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-black text-slate-900 dark:text-white">Redoc Docs</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <h3 className="text-sm font-black text-slate-900 ">Redoc Docs</h3>
+          <p className="text-xs text-slate-500 ">
             کتابچه مستندات سه‌ستونه مدرن و بسیار خوانا برای تیم‌های مهندسی
           </p>
-          <div className="font-mono text-xs text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/60 p-2 rounded-xl border border-indigo-200/60" dir="ltr">
+          <div className="font-mono text-xs text-indigo-600 bg-indigo-50 p-2 rounded-xl border border-indigo-200/60" dir="ltr">
             /api/v1/schema/redoc/
           </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs space-y-2.5">
-          <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-950/60 dark:text-amber-400 flex items-center justify-center font-black">
+        <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-black">
             <Code2 className="w-5 h-5" />
           </div>
-          <h3 className="text-sm font-black text-slate-900 dark:text-white">OpenAPI Raw Schema</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <h3 className="text-sm font-black text-slate-900 ">OpenAPI Raw Schema</h3>
+          <p className="text-xs text-slate-500 ">
             فایل JSON/YAML خام قابل استفاده در Postman و Insomnia
           </p>
-          <div className="font-mono text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/60 p-2 rounded-xl border border-amber-200/60" dir="ltr">
+          <div className="font-mono text-xs text-amber-600 bg-amber-50 p-2 rounded-xl border border-amber-200/60" dir="ltr">
             /api/v1/schema/
           </div>
         </div>
@@ -179,7 +179,7 @@ urlpatterns = [
 
       {/* Code Settings */}
       <div className="space-y-4">
-        <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+        <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
           <ShieldCheck className="w-5 h-5 text-blue-600" />
           <span>کانفیگ SPECTACULAR_SETTINGS در settings.py</span>
         </h2>
@@ -192,7 +192,7 @@ urlpatterns = [
 
       {/* Code URLs */}
       <div className="space-y-4">
-        <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+        <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
           <FileCode className="w-5 h-5 text-indigo-600" />
           <span>مسیرهای داکیومنت در urls.py</span>
         </h2>

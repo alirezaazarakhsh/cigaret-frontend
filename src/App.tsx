@@ -462,11 +462,11 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col selection:bg-blue-600 selection:text-white transition-colors duration-200">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-blue-600 selection:text-white transition-colors duration-200">
       
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="fixed bottom-6 left-6 z-50 bg-slate-900 dark:bg-slate-800 text-white font-bold px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 text-xs animate-in slide-in-from-bottom duration-200 border border-slate-700">
+        <div className="fixed bottom-6 left-6 z-50 bg-slate-900 text-white font-bold px-4 py-2.5 rounded-2xl shadow-2xl flex items-center gap-2 text-xs animate-in slide-in-from-bottom duration-200 border border-slate-700">
           <CheckCircle2 className="w-4 h-4 text-emerald-400" />
           <span>{toastMessage}</span>
         </div>
@@ -505,25 +505,25 @@ export default function App() {
             {/* Wholesale Features Highlights */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
               {WHOLESALE_BENEFITS.map((b, idx) => (
-                <div key={idx} className="group relative bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 p-4 rounded-2xl flex items-start gap-3 shadow-xs hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500 transition-all duration-200 overflow-hidden">
+                <div key={idx} className="group relative bg-white border border-slate-200/90 p-4 rounded-2xl flex items-start gap-3 shadow-xs hover:shadow-md hover:border-blue-400 transition-all duration-200 overflow-hidden">
                   <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-sky-400 opacity-75 group-hover:opacity-100 transition-opacity" />
                   
-                  <div className="w-10 h-10 rounded-2xl bg-blue-50/80 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/80 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                  <div className="w-10 h-10 rounded-2xl bg-blue-50/80 text-blue-600 border border-blue-200/80 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
                     {renderFeatureIcon(b.icon)}
                   </div>
 
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-xs font-black text-slate-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      <h4 className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors">
                         {b.title}
                       </h4>
                       {b.badge && (
-                        <span className="text-[9px] font-bold bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded-md border border-blue-200 dark:border-blue-800 shrink-0">
+                        <span className="text-[9px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-md border border-blue-200 shrink-0">
                           {b.badge}
                         </span>
                       )}
                     </div>
-                    <p className="text-[11px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium line-clamp-2">
+                    <p className="text-[11px] text-slate-500 leading-relaxed font-medium line-clamp-2">
                       {b.desc}
                     </p>
                   </div>
@@ -533,7 +533,7 @@ export default function App() {
 
             {/* Filter & Search Bar */}
             {/* Search, Filter & Categories */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
+            <div className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 space-y-4 shadow-xs">
               <div className="flex flex-col md:flex-row gap-3.5 items-stretch md:items-center justify-between">
                 
                 {/* Search Input (Wide & Spacious) */}
@@ -544,12 +544,12 @@ export default function App() {
                     placeholder="جستجوی نام سیگار، برند، کشور مبدأ یا بارکد کالا..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl pr-10 pl-9 py-3 text-xs sm:text-sm text-slate-900 dark:text-white placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-950 font-medium transition-all shadow-xs"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl pr-10 pl-9 py-3 text-xs sm:text-sm text-slate-900 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-100 font-medium transition-all shadow-xs"
                   />
                   {searchQuery && (
                     <button
                       onClick={() => setSearchQuery('')}
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold p-1 rounded-full hover:bg-slate-200 dark:hover:bg-slate-700 cursor-pointer"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold p-1 rounded-full hover:bg-slate-200 cursor-pointer"
                       title="پاک کردن جستجو"
                     >
                       ✕
@@ -560,11 +560,11 @@ export default function App() {
                 {/* Brand & Sort Selectors */}
                 <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-bold">برند:</span>
+                    <span className="text-xs text-slate-500 font-bold">برند:</span>
                     <select
                       value={selectedBrand}
                       onChange={(e) => setSelectedBrand(e.target.value)}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm rounded-2xl px-3.5 py-3 focus:outline-hidden focus:border-blue-500 font-bold cursor-pointer"
+                      className="bg-slate-50 border border-slate-200 text-slate-800 text-xs sm:text-sm rounded-2xl px-3.5 py-3 focus:outline-hidden focus:border-blue-500 font-bold cursor-pointer"
                     >
                       <option value="all">همه برندها</option>
                       {uniqueBrands.filter(b => b !== 'all').map(brand => (
@@ -574,11 +574,11 @@ export default function App() {
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <span className="text-xs text-slate-500 dark:text-slate-400 font-bold">مرتب‌سازی:</span>
+                    <span className="text-xs text-slate-500 font-bold">مرتب‌سازی:</span>
                     <select
                       value={sortBy}
                       onChange={(e) => setSortBy(e.target.value as any)}
-                      className="bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs sm:text-sm rounded-2xl px-3.5 py-3 focus:outline-hidden focus:border-blue-500 font-bold cursor-pointer"
+                      className="bg-slate-50 border border-slate-200 text-slate-800 text-xs sm:text-sm rounded-2xl px-3.5 py-3 focus:outline-hidden focus:border-blue-500 font-bold cursor-pointer"
                     >
                       <option value="featured">پیش‌فرض (پرفروش‌ترین‌ها)</option>
                       <option value="price-asc">ارزان‌ترین نرخ کارتن</option>
@@ -598,7 +598,7 @@ export default function App() {
                     className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
                       selectedCategory === cat.id
                         ? 'bg-blue-600 text-white shadow-xs font-black'
-                        : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white border border-slate-200 dark:border-slate-700'
+                        : 'bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 '
                     }`}
                   >
                     {cat.label}
@@ -609,22 +609,22 @@ export default function App() {
 
             {/* Products Grid */}
             <div>
-              <div className="flex items-center justify-between mb-3 text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex items-center justify-between mb-3 text-xs text-slate-500 ">
                 <span>
-                  نمایش <strong className="text-slate-900 dark:text-white">{formatNumberFa(filteredProducts.length)}</strong> ردیف کالای عمده در انبار جنت‌آباد
+                  نمایش <strong className="text-slate-900 ">{formatNumberFa(filteredProducts.length)}</strong> ردیف کالای عمده در انبار جنت‌آباد
                 </span>
-                <span className="text-blue-700 dark:text-blue-400 font-black">
+                <span className="text-blue-700 font-black">
                   فروش مستقیم کارتن و باکس پلمپ
                 </span>
               </div>
 
               {filteredProducts.length === 0 ? (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-12 text-center space-y-3 shadow-xs">
+                <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center space-y-3 shadow-xs">
                   <Package className="w-10 h-10 text-slate-400 mx-auto" />
-                  <div className="text-sm font-bold text-slate-700 dark:text-slate-300">
+                  <div className="text-sm font-bold text-slate-700 ">
                     موردی با این مشخصات یافت نشد
                   </div>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                  <p className="text-xs text-slate-500 ">
                     عبارت دیگری را جستجو کنید یا فیلتر دسته‌بندی را روی «همه» بگذارید.
                   </p>
                   <button
@@ -633,7 +633,7 @@ export default function App() {
                       setSelectedBrand('all');
                       setSearchQuery('');
                     }}
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 text-xs rounded-xl hover:bg-slate-200 transition-colors font-bold"
+                    className="px-4 py-2 bg-slate-100 text-slate-700 text-xs rounded-xl hover:bg-slate-200 transition-colors font-bold"
                   >
                     پاکسازی همه فیلترها
                   </button>
@@ -703,12 +703,12 @@ export default function App() {
               }}
             />
           ) : (
-            <div className="max-w-md mx-auto my-12 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-8 text-center space-y-4 shadow-xl">
-              <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/80 text-blue-600 dark:text-blue-400 flex items-center justify-center mx-auto">
+            <div className="max-w-md mx-auto my-12 bg-white border border-slate-200 rounded-3xl p-8 text-center space-y-4 shadow-xl">
+              <div className="w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
                 <FileText className="w-8 h-8" />
               </div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">مشاهده و صدور فاکتور رسمی</h2>
-              <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+              <h2 className="text-xl font-black text-slate-900 ">مشاهده و صدور فاکتور رسمی</h2>
+              <p className="text-xs text-slate-500 leading-relaxed">
                 جهت صدور فاکتور رسمی بر اساس مشخصات حقیقی یا حقوقی، لطفاً ابتدا وارد حساب کاربری خود شوید.
               </p>
               <button
@@ -793,7 +793,7 @@ export default function App() {
       />
 
       {/* Modern Wholesale Footer */}
-      <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 mt-12 py-8 text-xs text-slate-500 dark:text-slate-400 transition-colors">
+      <footer className="bg-white border-t border-slate-200 mt-12 py-8 text-xs text-slate-500 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col gap-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
@@ -801,8 +801,8 @@ export default function App() {
                 <Package className="w-5 h-5" />
               </div>
               <div>
-                <div className="font-black text-slate-900 dark:text-white text-sm">سامانه پخش عمده دخانیات {djangoConfig.companyName}</div>
-                <div className="text-[11px] text-slate-400">انبار مرکزی تهران (منطقه ۵، جنت‌آباد) | تلفن سفارشات: <strong className="text-blue-700 dark:text-blue-400" dir="ltr">۰۹۱۲۰۷۵۹۴۱۹</strong></div>
+                <div className="font-black text-slate-900 text-sm">سامانه پخش عمده دخانیات {djangoConfig.companyName}</div>
+                <div className="text-[11px] text-slate-400">انبار مرکزی تهران (منطقه ۵، جنت‌آباد) | تلفن سفارشات: <strong className="text-blue-700 " dir="ltr">۰۹۱۲۰۷۵۹۴۱۹</strong></div>
               </div>
             </div>
 
@@ -816,7 +816,7 @@ export default function App() {
             </div>
           </div>
 
-          <div className="border-t border-slate-100 dark:border-slate-800/80 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400 font-semibold text-center sm:text-right">
+          <div className="border-t border-slate-100 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400 font-semibold text-center sm:text-right">
             <div>
               طراحی و توسعه توسط سوین تیم و میزبانی وب سایت بر خط سرور های قدرتمند سوین هاست
             </div>

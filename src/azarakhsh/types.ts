@@ -10,7 +10,9 @@ export type AzarakhshSectionId =
   | 'shipping'
   | 'blog-tinymce'
   | 'tickets-support'
-  | 'visitors';
+  | 'visitors'
+  | 'slider'
+  | 'pos';
 
 export type CodeTab = 'models' | 'admin' | 'serializers' | 'views' | 'urls' | 'notes';
 

@@ -141,16 +141,16 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
       {/* 2. FULL INTERACTIVE INSTALLATION GUIDE MODAL */}
       {isModalVisible && (
         <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden text-right flex flex-col max-h-[80vh]" dir="rtl">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden text-right flex flex-col max-h-[80vh]" dir="rtl">
             
             {/* Header */}
-            <div className="p-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50 dark:bg-slate-900/60 shrink-0">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-950 flex items-center justify-center text-blue-600">
+                <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
                   <Smartphone className="w-4.5 h-4.5" />
                 </div>
                 <div>
-                  <h3 className="text-xs font-black text-slate-900 dark:text-white">
+                  <h3 className="text-xs font-black text-slate-900 ">
                     راهنمای راه‌اندازی و نصب وب‌اپلیکیشن (PWA)
                   </h3>
                   <p className="text-[9px] text-slate-500 mt-0.5">پخش عمده دخانیات سوین روی صفحه موبایل شما</p>
@@ -159,46 +159,46 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
 
               <button 
                 onClick={handleCloseModalInternal}
-                className="w-7 h-7 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-500 dark:text-slate-400 flex items-center justify-center transition-all active:scale-90"
+                className="w-7 h-7 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-all active:scale-90"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
             {/* Body Content - Scrollable */}
-            <div className="p-5 space-y-5 overflow-y-auto max-h-[48vh] scrollbar-thin scrollbar-thumb-slate-300 dark:scrollbar-thumb-slate-800">
+            <div className="p-5 space-y-5 overflow-y-auto max-h-[48vh] scrollbar-thin scrollbar-thumb-slate-300 ">
               
               {/* Feature Highlights */}
               <div className="grid grid-cols-3 gap-2.5 text-center">
-                <div className="bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800/60">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-950 flex items-center justify-center mx-auto text-blue-600 text-[10px] font-bold mb-1">
+                <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 ">
+                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mx-auto text-blue-600 text-[10px] font-bold mb-1">
                     ۱
                   </div>
-                  <div className="text-[9.5px] font-black text-slate-900 dark:text-white">سرعت بالا</div>
+                  <div className="text-[9.5px] font-black text-slate-900 ">سرعت بالا</div>
                   <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">لود سریع‌تر نرخ روز</p>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800/60">
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-950/60 flex items-center justify-center mx-auto text-emerald-600 text-[10px] font-bold mb-1">
+                <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 ">
+                  <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center mx-auto text-emerald-600 text-[10px] font-bold mb-1">
                     ۲
                   </div>
-                  <div className="text-[9.5px] font-black text-slate-900 dark:text-white">دسترسی مستقیم</div>
+                  <div className="text-[9.5px] font-black text-slate-900 ">دسترسی مستقیم</div>
                   <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">آیکون صفحه خانه گوشی</p>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900/40 p-2.5 rounded-2xl border border-slate-100 dark:border-slate-800/60">
-                  <div className="w-6 h-6 rounded-full bg-purple-100 dark:bg-purple-950/60 flex items-center justify-center mx-auto text-purple-600 text-[10px] font-bold mb-1">
+                <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 ">
+                  <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center mx-auto text-purple-600 text-[10px] font-bold mb-1">
                     ۳
                   </div>
-                  <div className="text-[9.5px] font-black text-slate-900 dark:text-white">بدون بازار و مارکت</div>
+                  <div className="text-[9.5px] font-black text-slate-900 ">بدون بازار و مارکت</div>
                   <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">بدون نیاز به دانلود فیلتر</p>
                 </div>
               </div>
 
               {/* Install Now Prompt for Compatible Browsers */}
               {deferredPrompt && (
-                <div className="bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800/80 rounded-2xl p-4 text-center space-y-3">
-                  <div className="flex items-center justify-center gap-2 text-emerald-800 dark:text-emerald-300 text-xs font-black">
+                <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 text-center space-y-3">
+                  <div className="flex items-center justify-center gap-2 text-emerald-800 text-xs font-black">
                     <Chrome className="w-4 h-4 text-emerald-600" />
                     <span>مرورگر شما از نصب مستقیم پشتیبانی می‌کند!</span>
                   </div>
@@ -214,24 +214,24 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
 
               {/* Tabbed Guides for OS types */}
               <div className="space-y-4">
-                <div className="text-xs font-black text-slate-900 dark:text-white flex items-center gap-1.5">
+                <div className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                   <Info className="w-4 h-4 text-blue-600" />
                   <span>مراحل دستی برای نصب روی سیستم‌عامل‌ها:</span>
                 </div>
 
                 {/* 1. iOS Safari Steps */}
-                <div className="border border-slate-100 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/50 dark:bg-slate-900/20 space-y-3.5">
+                <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-3.5">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">🍏</span>
-                    <h4 className="text-xs font-black text-slate-900 dark:text-white">آموزش نصب روی آیفون و آیپد (iOS Safari):</h4>
+                    <h4 className="text-xs font-black text-slate-900 ">آموزش نصب روی آیفون و آیپد (iOS Safari):</h4>
                   </div>
 
-                  <ol className="text-[11px] text-slate-600 dark:text-slate-400 space-y-2 list-decimal list-inside font-bold">
+                  <ol className="text-[11px] text-slate-600 space-y-2 list-decimal list-inside font-bold">
                     <li className="leading-relaxed">
                       سایت را در مرورگر رسمی <span className="text-blue-600 font-black">Safari</span> باز کنید.
                     </li>
                     <li className="leading-relaxed">
-                      در نوار پایین صفحه روی دکمه اشتراک‌گذاری <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-slate-200 dark:bg-slate-800 text-slate-800 dark:text-slate-200"><Share className="w-3.5 h-3.5" /> Share</span> کلیک کنید.
+                      در نوار پایین صفحه روی دکمه اشتراک‌گذاری <span className="inline-flex items-center justify-center px-1.5 py-0.5 rounded bg-slate-200 text-slate-800 "><Share className="w-3.5 h-3.5" /> Share</span> کلیک کنید.
                     </li>
                     <li className="leading-relaxed">
                       در لیست باز شده به سمت پایین اسکرول کنید و گزینه <span className="text-blue-600 font-black">Add to Home Screen</span> (یا <span className="text-blue-600 font-black">افزودن به صفحه اصلی</span>) را انتخاب کنید.
@@ -243,13 +243,13 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
                 </div>
 
                 {/* 2. Android Chrome Steps */}
-                <div className="border border-slate-100 dark:border-slate-800 rounded-2xl p-4 bg-slate-50/50 dark:bg-slate-900/20 space-y-3.5">
+                <div className="border border-slate-100 rounded-2xl p-4 bg-slate-50/50 space-y-3.5">
                   <div className="flex items-center gap-2">
                     <span className="text-lg">🤖</span>
-                    <h4 className="text-xs font-black text-slate-900 dark:text-white">آموزش نصب روی اندروید (Chrome / Firefox):</h4>
+                    <h4 className="text-xs font-black text-slate-900 ">آموزش نصب روی اندروید (Chrome / Firefox):</h4>
                   </div>
 
-                  <ol className="text-[11px] text-slate-600 dark:text-slate-400 space-y-2 list-decimal list-inside font-bold">
+                  <ol className="text-[11px] text-slate-600 space-y-2 list-decimal list-inside font-bold">
                     <li className="leading-relaxed">
                       سایت را در مرورگر گوگل کروم <span className="text-blue-600 font-black">Chrome</span> باز کنید.
                     </li>
@@ -270,7 +270,7 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
             </div>
 
             {/* Footer buttons */}
-            <div className="p-5 border-t border-slate-100 dark:border-slate-800 flex justify-end">
+            <div className="p-5 border-t border-slate-100 flex justify-end">
               <button
                 onClick={handleCloseModalInternal}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-md"

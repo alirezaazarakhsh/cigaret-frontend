@@ -270,36 +270,36 @@ DB_PORT=5432
 
       {/* Feature Highlights Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-1">
-          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-xs">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-1">
+          <div className="flex items-center gap-2 text-blue-600 font-bold text-xs">
             <Clock className="w-4 h-4" />
             <span>توکن JWT ۳۰ دقیقه</span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">انقضای ایمن نیم‌ساعته اکسس توکن</p>
+          <p className="text-[11px] text-slate-500 ">انقضای ایمن نیم‌ساعته اکسس توکن</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-1">
-          <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-1">
+          <div className="flex items-center gap-2 text-emerald-600 font-bold text-xs">
             <Database className="w-4 h-4" />
             <span>PostgreSQL 16</span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">پایگاه داده پرسرعت رابطه ای</p>
+          <p className="text-[11px] text-slate-500 ">پایگاه داده پرسرعت رابطه ای</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-1">
-          <div className="flex items-center gap-2 text-purple-600 dark:text-purple-400 font-bold text-xs">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-1">
+          <div className="flex items-center gap-2 text-purple-600 font-bold text-xs">
             <Image className="w-4 h-4" />
             <span>ادیتور TinyMCE</span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">ویرایشگر غنی متن راست‌چین فارسی</p>
+          <p className="text-[11px] text-slate-500 ">ویرایشگر غنی متن راست‌چین فارسی</p>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-xs space-y-1">
-          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-bold text-xs">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xs space-y-1">
+          <div className="flex items-center gap-2 text-amber-600 font-bold text-xs">
             <Globe className="w-4 h-4" />
             <span>CORS Headers</span>
           </div>
-          <p className="text-[11px] text-slate-500 dark:text-slate-400">اتصال کامل به فرانت‌اند React</p>
+          <p className="text-[11px] text-slate-500 ">اتصال کامل به فرانت‌اند React</p>
         </div>
       </div>
 
@@ -311,7 +311,7 @@ DB_PORT=5432
             className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
               activeSubTab === 'settings'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 :bg-slate-800'
             }`}
           >
             settings.py (تنظیمات اصلی)
@@ -321,7 +321,7 @@ DB_PORT=5432
             className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
               activeSubTab === 'urls'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 :bg-slate-800'
             }`}
           >
             urls.py (مسیرهای ریشه و Swagger)
@@ -331,7 +331,7 @@ DB_PORT=5432
             className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
               activeSubTab === 'env'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 :bg-slate-800'
             }`}
           >
             .env (متغیرهای محرمانه محیطی)
@@ -341,7 +341,7 @@ DB_PORT=5432
             className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
               activeSubTab === 'routes'
                 ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25'
-                : 'bg-white dark:bg-slate-900 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 :bg-slate-800'
             }`}
           >
             Independent Routes (تغییرات جدید)

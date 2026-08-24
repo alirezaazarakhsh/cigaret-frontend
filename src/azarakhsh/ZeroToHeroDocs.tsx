@@ -124,7 +124,7 @@ sudo systemctl enable azarakhsh`
 
       {/* Step by Step Cards */}
       <div className="space-y-6">
-        <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+        <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
           <Terminal className="w-5 h-5 text-blue-600" />
           <span>مراحل اجرایی ۵ گانه در ترمینال سرور</span>
         </h2>
@@ -133,7 +133,7 @@ sudo systemctl enable azarakhsh`
           {steps.map((step, idx) => (
             <div 
               key={idx}
-              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-7 shadow-xs hover:shadow-md transition-all space-y-4"
+              className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-7 shadow-xs hover:shadow-md transition-all space-y-4"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3.5">
@@ -141,10 +141,10 @@ sudo systemctl enable azarakhsh`
                     {step.number}
                   </div>
                   <div>
-                    <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white">
+                    <h3 className="text-sm sm:text-base font-black text-slate-900 ">
                       {step.title}
                     </h3>
-                    <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                    <p className="text-xs text-slate-500 mt-0.5">
                       {step.desc}
                     </p>
                   </div>
@@ -155,7 +155,7 @@ sudo systemctl enable azarakhsh`
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     copiedKey === `step-${idx}`
                       ? 'bg-emerald-600 text-white'
-                      : 'bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700 '
                   }`}
                   title="کپی کردن دستورات"
                 >
@@ -184,7 +184,7 @@ sudo systemctl enable azarakhsh`
 
       {/* Docker Compose Production Setup */}
       <div className="space-y-4">
-        <h2 className="text-base sm:text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+        <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
           <Server className="w-5 h-5 text-indigo-600" />
           <span>راه‌اندازی با یک دستور از طریق Docker Compose</span>
         </h2>

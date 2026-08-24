@@ -82,6 +82,17 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'تنظیمات و برندینگ'
   },
   {
+    id: 'slider',
+    title: 'اپلیکیشن هیروبنر و اسلایدر',
+    titleEn: 'slider / Hero Banner App',
+    description: 'مدیریت اسلایدهای هیروبنر، تصاویر باکیفیت، دکمه‌های اکشن و آمار',
+    badge: 'اسلایدر',
+    iconName: 'Image',
+    appFolder: 'sliders',
+    group: 'config',
+    groupTitle: 'تنظیمات و برندینگ'
+  },
+  {
     id: 'auth-users',
     title: '۵. اپلیکیشن کاربران و JWT',
     titleEn: 'accounts / Custom User App',
@@ -145,6 +156,17 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'فروش، مالی و لجستیک'
   },
   {
+    id: 'pos',
+    title: 'اپلیکیشن حسابداری و صندوق فروشگاهی',
+    titleEn: 'pos / Point of Sale App',
+    description: 'مدیریت صندوق، چاپ فاکتور حرارتی، ثبت فروش حضوری و تنظیمات صندوق',
+    badge: 'POS & Accounting',
+    iconName: 'MonitorSmartphone',
+    appFolder: 'pos',
+    group: 'commerce',
+    groupTitle: 'فروش، مالی و لجستیک'
+  },
+  {
     id: 'blog-tinymce',
     title: '۱۱. اپلیکیشن وبلاگ و TinyMCE',
     titleEn: 'blog / SEO Article App',
@@ -194,21 +216,6 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    try {
-      return localStorage.getItem('azarakhsh_theme') === 'dark';
-    } catch {
-      return false;
-    }
-  });
-
-  const toggleTheme = () => {
-    const next = !isDarkMode;
-    setIsDarkMode(next);
-    try {
-      localStorage.setItem('azarakhsh_theme', next ? 'dark' : 'light');
-    } catch {}
-  };
 
   const filteredSections = AZARAKHSH_SECTIONS.filter(s => 
     s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -234,18 +241,16 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
   const groups = allGroups.filter(g => g.items.length > 0);
 
   return (
-    <div className={`min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white ${
-      isDarkMode ? 'dark bg-[#0b0f19] text-slate-100' : 'bg-slate-50 text-slate-800'
-    }`} dir="rtl">
+    <div className={`min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white bg-slate-50 text-slate-800`} dir="rtl">
       
       {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-white/95 dark:bg-[#0f1422]/95 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800/90 shadow-xs transition-colors">
+      <header className="sticky top-0 z-30 bg-white/95 [#0f1422]/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-colors">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-8 py-3.5 flex items-center justify-between gap-3">
           
           <div className="flex items-center gap-3.5">
             <button 
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2.5 rounded-2xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition cursor-pointer"
+              className="md:hidden p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 :bg-slate-700 text-slate-700 transition cursor-pointer"
               aria-label="منوی مستندات"
             >
               <Menu className="w-5 h-5" />
@@ -257,14 +262,14 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
               </div>
               <div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-black text-slate-900 dark:text-white text-sm sm:text-base tracking-tight">
+                  <span className="font-black text-slate-900 text-sm sm:text-base tracking-tight">
                     مستندات اختصاصی جنگو (آذرخش)
                   </span>
-                  <span className="text-[10px] font-black bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 px-2.5 py-0.5 rounded-lg border border-blue-200/60 dark:border-blue-800/60 font-mono">
+                  <span className="text-[10px] font-black bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-lg border border-blue-200/60 font-mono">
                     Django 5.1 LTS • DRF • PostgreSQL
                   </span>
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 hidden sm:block font-medium">
+                <div className="text-xs text-slate-500 hidden sm:block font-medium">
                   معماری جامع ۱۲ اپلیکیشن، مدل‌ها، پنل ادمین، سریالایزرها، ویوها و مسیرهای REST API
                 </div>
               </div>
@@ -273,19 +278,10 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
 
           <div className="flex items-center gap-2 sm:gap-2.5">
             
-            {/* Dark / Light Mode Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="p-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 transition-colors cursor-pointer border border-slate-200 dark:border-slate-700"
-              title={isDarkMode ? 'تغییر به تم روشن' : 'تغییر به تم تاریک'}
-            >
-              {isDarkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-700" />}
-            </button>
-
             {/* Return to Main Store Button */}
             <button
               onClick={onReturnToApp}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all cursor-pointer border border-slate-200/70 dark:border-slate-700 shadow-xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 :bg-slate-700 text-slate-700 text-xs font-bold transition-all cursor-pointer border border-slate-200/70 shadow-xs"
               title="بازگشت به سامانه اصلی فروش عمده"
             >
               <ArrowLeft className="w-4 h-4" />
@@ -295,7 +291,7 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
             {/* Logout button */}
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 text-xs font-bold border border-rose-200 dark:border-rose-800/60 transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 :bg-rose-900/60 text-rose-700 text-xs font-bold border border-rose-200 transition-all cursor-pointer shadow-xs"
               title="خروج و قفل مستندات"
             >
               <LogOut className="w-4 h-4" />
@@ -320,12 +316,12 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="جستجو در ۱۲ اپلیکیشن، مدل‌ها و سرفصل‌ها..."
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-2xl pr-10 pl-9 py-3 text-xs sm:text-sm text-slate-800 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-100 dark:focus:ring-blue-900/30 transition-all shadow-xs font-medium"
+              className="w-full bg-white border border-slate-200/90 rounded-2xl pr-10 pl-9 py-3 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-100 :ring-blue-900/30 transition-all shadow-xs font-medium"
             />
             {searchQuery && (
               <button 
                 onClick={() => setSearchQuery('')}
-                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold p-1 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 :text-slate-200 text-xs font-bold p-1 rounded-full hover:bg-slate-100 :bg-slate-800 cursor-pointer"
                 title="پاک کردن جستجو"
               >
                 ✕
@@ -334,10 +330,10 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
           </div>
 
           {/* Grouped Navigation Sidebar */}
-          <div className="bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl p-3 shadow-xs space-y-4 overflow-hidden">
-            <div className="px-3.5 py-2 text-xs font-black text-slate-400 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+          <div className="bg-white border border-slate-200/90 rounded-3xl p-3 shadow-xs space-y-4 overflow-hidden">
+            <div className="px-3.5 py-2 text-xs font-black text-slate-400 border-b border-slate-100 flex items-center justify-between">
               <span>فهرست جامع سرفصل‌ها ({filteredSections.length})</span>
-              <span className="text-[11px] text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 px-2 py-0.5 rounded-lg border border-blue-100 dark:border-blue-800/60 font-mono font-bold">
+              <span className="text-[11px] text-blue-700 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100 font-mono font-bold">
                 DRF v1.0
               </span>
             </div>
@@ -359,12 +355,12 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
                           className={`w-full text-right p-2.5 sm:p-3 rounded-2xl transition-all flex items-center justify-between gap-2.5 text-xs sm:text-sm cursor-pointer ${
                             isActive
                               ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 font-black'
-                              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/60 font-bold'
+                              : 'text-slate-700 hover:bg-slate-50 :bg-slate-800/60 font-bold'
                           }`}
                         >
                           <div className="flex items-center gap-2.5 min-w-0">
                             <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                              isActive ? 'bg-white/20 text-white' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+                              isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600 '
                             }`}>
                               {renderIcon(sec.iconName)}
                             </div>
@@ -378,7 +374,7 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
 
                           {sec.badge && (
                             <span className={`text-[10px] px-2 py-0.5 rounded-lg font-black shrink-0 ${
-                              isActive ? 'bg-white/20 text-white' : 'bg-blue-50 dark:bg-blue-950/60 text-blue-700 dark:text-blue-300 border border-blue-200/60 dark:border-blue-800/60'
+                              isActive ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700 border border-blue-200/60 '
                             }`}>
                               {sec.badge}
                             </span>
@@ -397,13 +393,13 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
         {/* Mobile Drawer */}
         {mobileMenuOpen && (
           <div className="fixed inset-0 z-50 md:hidden bg-slate-900/60 backdrop-blur-xs flex animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 w-5/6 max-w-sm h-full p-5 flex flex-col space-y-4 shadow-2xl animate-in slide-in-from-right duration-200 overflow-y-auto">
+            <div className="bg-white w-5/6 max-w-sm h-full p-5 flex flex-col space-y-4 shadow-2xl animate-in slide-in-from-right duration-200 overflow-y-auto">
               
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                <div className="font-black text-slate-900 dark:text-white text-sm">فهرست اپلیکیشن‌های جنگو</div>
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="font-black text-slate-900 text-sm">فهرست اپلیکیشن‌های جنگو</div>
                 <button 
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-200"
+                  className="p-1.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -424,7 +420,7 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
                             setMobileMenuOpen(false);
                           }}
                           className={`w-full text-right p-3 rounded-2xl flex items-center justify-between text-xs font-bold ${
-                            activeSection === sec.id ? 'bg-blue-600 text-white' : 'hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-800 dark:text-slate-200'
+                            activeSection === sec.id ? 'bg-blue-600 text-white' : 'hover:bg-slate-50 :bg-slate-800 text-slate-800 '
                           }`}
                         >
                           <div className="flex items-center gap-2.5">
@@ -448,14 +444,14 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
           {children}
 
           {/* Bottom Sequential Chapter Navigator */}
-          <div className="border-t border-slate-200 dark:border-slate-800 pt-6 flex items-center justify-between gap-4 flex-wrap">
+          <div className="border-t border-slate-200 pt-6 flex items-center justify-between gap-4 flex-wrap">
             {prevSection ? (
               <button
                 onClick={() => {
                   onSelectSection(prevSection.id);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-xs group cursor-pointer text-right"
+                className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white border border-slate-200 hover:border-blue-500 text-slate-700 text-xs font-bold transition-all shadow-xs group cursor-pointer text-right"
               >
                 <ChevronRight className="w-4 h-4 text-slate-400 group-hover:text-blue-500 transition-colors shrink-0" />
                 <div>
@@ -471,7 +467,7 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
                   onSelectSection(nextSection.id);
                   window.scrollTo({ top: 0, behavior: 'smooth' });
                 }}
-                className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-blue-500 text-slate-700 dark:text-slate-200 text-xs font-bold transition-all shadow-xs group cursor-pointer text-left"
+                className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-white border border-slate-200 hover:border-blue-500 text-slate-700 text-xs font-bold transition-all shadow-xs group cursor-pointer text-left"
               >
                 <div>
                   <div className="text-[10px] text-slate-400 font-normal">فصل بعدی</div>

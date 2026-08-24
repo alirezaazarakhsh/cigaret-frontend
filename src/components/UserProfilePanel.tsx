@@ -541,25 +541,25 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
   if (!currentUser) {
     return (
       <section className="py-12 px-4 max-w-xl mx-auto" id="user-auth-section">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-10 shadow-xl">
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-xl">
           
           <div className="text-center mb-8">
-            <div className="w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 flex items-center justify-center mx-auto mb-4 text-blue-600 dark:text-blue-400 shadow-sm">
+            <div className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center mx-auto mb-4 text-blue-600 shadow-sm">
               <Building2 className="w-8 h-8" />
             </div>
-            <span className="text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-3 py-1 rounded-full border border-blue-100 dark:border-blue-800">
+            <span className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 ">
               سامانه پخش عمده دخانیات سوین
             </span>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white mt-2">
+            <h2 className="text-2xl font-black text-slate-900 mt-2">
               ورود سریع با شماره موبایل
             </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            <p className="text-xs text-slate-500 mt-1">
               مشاهده سوابق پیش‌فاکتورها، صدور مستقیم PDF، ارسال تیکت و پیگیری بارگیری از انبار جنت‌آباد
             </p>
           </div>
 
           {/* Role Selection Tabs */}
-          <div className="grid grid-cols-2 gap-2 bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl mb-6">
+          <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl mb-6">
             <button
               type="button"
               onClick={() => {
@@ -568,8 +568,8 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
               }}
               className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
                 selectedLoginRole === 'customer'
-                  ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-blue-400 shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <Building className="w-4 h-4" />
@@ -585,7 +585,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
               className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
                 selectedLoginRole === 'visitor'
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
             >
               <UserCheck className="w-4 h-4" />
@@ -594,12 +594,12 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
           </div>
 
           {selectedLoginRole === 'visitor' ? (
-            <div className="bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 rounded-2xl p-3 mb-4 text-xs text-blue-900 dark:text-blue-300 flex items-center gap-2">
+            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 mb-4 text-xs text-blue-900 flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0" />
               <span>ورود به پنل ویزیتوری نیاز به شماره موبایل ثبت‌شده در سیستم مرکزی جنگو دارد.</span>
             </div>
           ) : (
-            <div className="bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-3 mb-4 text-xs text-emerald-900 dark:text-emerald-300 flex items-center gap-2">
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 mb-4 text-xs text-emerald-900 flex items-center gap-2">
               <Building className="w-5 h-5 text-emerald-600 shrink-0" />
               <span>کلیه مغازه‌داران و خریداران محترم می‌توانند با شماره همراه خود به صورت مستقیم ثبت‌نام و خرید نمایند.</span>
             </div>
@@ -608,7 +608,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
           {otpStep === 'phone' ? (
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   {selectedLoginRole === 'visitor' ? 'شماره موبایل ویزیتور:' : 'شماره موبایل مغازه‌دار / خریدار:'}
                 </label>
                 <div className="relative">
@@ -619,7 +619,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                     value={loginPhone}
                     onChange={(e) => setLoginPhone(e.target.value)}
                     required
-                    className="w-full bg-slate-50 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-3.5 pl-11 text-slate-900 dark:text-white text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3.5 pl-11 text-slate-900 text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                   <Phone className="w-5 h-5 text-slate-400 absolute left-3.5 top-3.5" />
                 </div>
@@ -645,12 +645,12 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-2xl p-3 text-xs text-blue-800 dark:text-blue-300 flex items-center justify-between">
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-xs text-blue-800 flex items-center justify-between">
                 <span>کد تأیید به شماره <strong>{loginPhone}</strong> ارسال شد.</span>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   کد ۴ رقمی پیامک شده:
                 </label>
                 <input
@@ -662,15 +662,15 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                   onChange={(e) => setOtpCode(e.target.value)}
                   autoFocus
                   required
-                  className="w-full tracking-widest text-center text-xl font-black font-mono bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                  className="w-full tracking-widest text-center text-xl font-black font-mono bg-slate-50 border border-slate-200 rounded-2xl py-3 text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                 />
               </div>
 
-              <div className="flex items-center justify-between text-xs text-slate-500 dark:text-slate-400">
+              <div className="flex items-center justify-between text-xs text-slate-500 ">
                 <button
                   type="button"
                   onClick={() => setOtpStep('phone')}
-                  className="text-blue-600 dark:text-blue-400 hover:underline"
+                  className="text-blue-600 hover:underline"
                 >
                   ویرایش شماره موبایل
                 </button>
@@ -696,7 +696,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             </form>
           )}
 
-          <div className="mt-8 pt-6 border-t border-slate-100 dark:border-slate-800 text-center text-xs text-slate-400">
+          <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
             انبار مرکزی سوین: تهران، جنت‌آباد | تلفن پشتیبانی سفارشات: <strong dir="ltr">۰۹۱۲۰۷۵۹۴۱۹</strong>
           </div>
         </div>
@@ -721,7 +721,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
     <section className="py-6 px-3 sm:px-6 max-w-7xl mx-auto animate-in fade-in zoom-in-95 duration-500" id="user-profile-panel">
       
       {/* Top Profile Summary Header */}
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl sm:rounded-3xl p-4 sm:p-7 shadow-xs mb-6 transition-colors">
+      <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-7 shadow-xs mb-6 transition-colors">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           
           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -730,31 +730,31 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-                <h1 className="text-base sm:text-xl font-black text-slate-900 dark:text-white truncate">
+                <h1 className="text-base sm:text-xl font-black text-slate-900 truncate">
                   {currentUser.fullName}
                 </h1>
                 {currentUser.role === 'visitor' ? (
-                  <span className="inline-flex items-center gap-1 bg-blue-50 dark:bg-blue-950/80 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-md shrink-0">
+                  <span className="inline-flex items-center gap-1 bg-blue-50 text-blue-700 border border-blue-200 text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-md shrink-0">
                     <UserCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     سفیر فروش / ویزیتور
                   </span>
                 ) : (
-                  <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/80 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-md shrink-0">
+                  <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] sm:text-[11px] font-black px-2.5 py-0.5 rounded-md shrink-0">
                     <Building className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     مغازه‌دار / خریدار
                   </span>
                 )}
                 {currentUser.isVerified && (
-                  <span className="inline-flex items-center gap-1 bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 text-[10px] sm:text-[11px] font-black px-2 py-0.5 rounded-md shrink-0">
+                  <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] sm:text-[11px] font-black px-2 py-0.5 rounded-md shrink-0">
                     <ShieldCheck className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                     احراز هویت شده
                   </span>
                 )}
-                <span className="text-[10px] sm:text-xs font-bold text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded-md truncate">
+                <span className="text-[10px] sm:text-xs font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md truncate">
                   {currentUser.shopName || currentUser.businessName || 'فروشگاه شخصی'}
                 </span>
               </div>
-              <div className="flex items-center gap-2 sm:gap-4 text-[11px] sm:text-xs text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+              <div className="flex items-center gap-2 sm:gap-4 text-[11px] sm:text-xs text-slate-500 mt-1 flex-wrap">
                 <span className="flex items-center gap-1">
                   <Phone className="w-3 h-3 text-slate-400" />
                   <span dir="ltr">{currentUser.phone}</span>
@@ -772,13 +772,13 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 dark:border-slate-800">
+          <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 ">
             <button
               onClick={() => {
                 setSelectedTicketId(null);
                 setActiveSubTab('new_ticket');
               }}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-blue-50 dark:bg-blue-950 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-2xs"
+              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-2xs"
             >
               <PlusCircle className="w-3.5 h-3.5" />
               <span>ارسال تیکت</span>
@@ -786,7 +786,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
 
             <button
               onClick={onLogout}
-              className="flex items-center justify-center gap-1 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-800 px-3 py-2 rounded-xl text-xs font-bold transition-all"
+              className="flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-xl text-xs font-bold transition-all"
             >
               <LogOut className="w-3.5 h-3.5" />
               <span>خروج</span>
@@ -797,14 +797,14 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
 
         {/* Mandatory Profile Completion Alert Banner */}
         {isProfileIncomplete && (
-          <div className="bg-amber-50 dark:bg-amber-950/80 border-2 border-amber-400 dark:border-amber-600 rounded-2xl p-4 mt-4 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 dark:text-amber-200">
+          <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 mt-4 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-amber-900 ">
             <div className="flex items-center gap-3">
               <AlertCircle className="w-6 h-6 text-amber-600 shrink-0 animate-bounce" />
               <div className="text-xs space-y-1">
-                <p className="font-black text-sm text-amber-900 dark:text-amber-100">
+                <p className="font-black text-sm text-amber-900 ">
                   ⚠️ تکمیل مشخصات پروفایل الزامی است!
                 </p>
-                <p className="text-amber-800 dark:text-amber-300">
+                <p className="text-amber-800 ">
                   {currentUser.role === 'customer'
                     ? 'جهت امکان ثبت فاکتور رسمی، دریافت تخفیف‌های ویژه و ارسال بار به مغازه، لطفاً نام مسئول، نام فروشگاه و آدرس را تکمیل فرمایید.'
                     : 'جهت واریز پورسانت فروش، شماره کارت ۱۶ رقمی، شماره شبا و کد ملی ویزیتوری خود را وارد نمایید.'}
@@ -824,7 +824,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
         )}
 
         {/* Sub Navigation Tabs */}
-        <div className="flex items-center gap-1.5 sm:gap-2 border-t border-slate-100 dark:border-slate-800 mt-4 sm:mt-6 pt-3 sm:pt-4 overflow-x-auto no-scrollbar scroll-smooth">
+        <div className="flex items-center gap-1.5 sm:gap-2 border-t border-slate-100 mt-4 sm:mt-6 pt-3 sm:pt-4 overflow-x-auto no-scrollbar scroll-smooth">
           <button
             onClick={() => {
               setSelectedTicketId(null);
@@ -833,7 +833,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
               activeSubTab === 'orders' && !selectedTicketId
                 ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 '
             }`}
           >
             <FileText className="w-3.5 h-3.5" />
@@ -848,7 +848,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
               activeSubTab === 'tickets' || selectedTicketId
                 ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 '
             }`}
           >
             <MessageSquare className="w-3.5 h-3.5" />
@@ -863,7 +863,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
               activeSubTab === 'profile' && !selectedTicketId
                 ? 'bg-blue-600 text-white shadow-xs'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 '
             }`}
           >
             <User className="w-3.5 h-3.5" />
@@ -881,7 +881,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                 className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                   activeSubTab === 'visitor_club' && !selectedTicketId
                     ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 '
                 }`}
               >
                 <Building className="w-3.5 h-3.5" />
@@ -896,7 +896,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                 className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
                   activeSubTab === 'visitor_report' && !selectedTicketId
                     ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 '
                 }`}
               >
                 <DollarSign className="w-3.5 h-3.5" />
@@ -924,7 +924,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
           {activeSubTab === 'orders' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                   <FileCheck className="w-5 h-5 text-blue-600" />
                   پیش‌فاکتورها و سوابق خرید عمده
                 </h2>
@@ -934,9 +934,9 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
               </div>
 
               {userOrders.length === 0 ? (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 text-center text-slate-500">
+                <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center text-slate-500">
                   <Package className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                  <p className="font-bold text-sm text-slate-700 dark:text-slate-300">هنوز پیش‌فاکتوری ثبت نکرده‌اید.</p>
+                  <p className="font-bold text-sm text-slate-700 ">هنوز پیش‌فاکتوری ثبت نکرده‌اید.</p>
                   <p className="text-xs mt-1">کالاهای مورد نظر خود را از کاتالوگ به سبد خرید اضافه نموده و پیش‌فاکتور رسمی صادر نمایید.</p>
                 </div>
               ) : (
@@ -948,22 +948,22 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                     return (
                       <div
                         key={idx}
-                        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 sm:p-6 shadow-xs hover:border-blue-400 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
+                        className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xs hover:border-blue-400 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
                       >
                         <div className="space-y-2">
                           <div className="flex items-center gap-3 flex-wrap">
-                            <span className="font-mono font-black text-sm text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2.5 py-1 rounded-lg border border-blue-200 dark:border-blue-800">
+                            <span className="font-mono font-black text-sm text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 ">
                               {order.orderId || order.trackingCode}
                             </span>
                             <span className="text-xs text-slate-500">
                               تاریخ: {order.createdAt}
                             </span>
-                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800">
+                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 ">
                               {order.paymentStatus || 'پیش‌فاکتور رسمی'}
                             </span>
                           </div>
 
-                          <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                          <div className="text-xs text-slate-600 space-y-1">
                             <p>
                               اقلام: <strong title={rawItemsStr}>{truncatedItems}</strong>
                             </p>
@@ -974,10 +974,10 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-4 md:pt-0 border-slate-100 dark:border-slate-800">
+                        <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-4 md:pt-0 border-slate-100 ">
                           <div className="text-left md:text-left">
                             <span className="text-[11px] text-slate-400 block">مبلغ نهایی فاکتور:</span>
-                            <span className="text-base font-black text-blue-600 dark:text-blue-400 font-mono">
+                            <span className="text-base font-black text-blue-600 font-mono">
                               {formatToman(order.finalTotal)}
                             </span>
                           </div>
@@ -986,7 +986,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                             {/* Order Details Button */}
                             <button
                               onClick={() => setSelectedOrderForDetails(order)}
-                              className="h-10 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 text-xs font-black transition-all flex items-center justify-center gap-1.5"
+                              className="h-10 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-all flex items-center justify-center gap-1.5"
                               title="مشاهده جزئیات و ریز اقلام خرید"
                             >
                               <FileText className="w-4 h-4 text-blue-600" />
@@ -996,7 +996,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                             <button
                               onClick={() => handleDownloadInvoice(order)}
                               disabled={downloadingPdfId === order.orderId}
-                              className="h-10 px-3.5 rounded-xl bg-blue-50 dark:bg-blue-950 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 transition-all text-xs font-black flex items-center justify-center gap-1.5"
+                              className="h-10 px-3.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all text-xs font-black flex items-center justify-center gap-1.5"
                               title="دانلود فایل PDF رسمی پیش‌فاکتور"
                             >
                               <Download className={`w-4 h-4 ${downloadingPdfId === order.orderId ? 'animate-bounce' : ''}`} />
@@ -1006,7 +1006,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                             {order.trackingCode && (
                               <button
                                 onClick={() => onOpenTracking(order.trackingCode || '')}
-                                className="h-10 px-3.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 transition-all text-xs font-black flex items-center justify-center gap-1.5"
+                                className="h-10 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all text-xs font-black flex items-center justify-center gap-1.5"
                                 title="مشاهده وضعیت ترابری و بارگیری"
                               >
                                 <Truck className="w-4 h-4 text-blue-600" />
@@ -1030,7 +1030,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <Building className="w-5 h-5 text-blue-600" />
                     باشگاه مشتریان مغازه‌دار ویزیتور
                   </h2>
@@ -1048,24 +1048,24 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
               </div>
 
               {retailShops.length === 0 ? (
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-10 text-center text-slate-500">
+                <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center text-slate-500">
                   <Building className="w-12 h-12 mx-auto mb-3 text-slate-400" />
-                  <p className="font-bold text-sm text-slate-700 dark:text-slate-300">هنوز مغازه‌ای در باشگاه مشتریان ثبت نشده است.</p>
+                  <p className="font-bold text-sm text-slate-700 ">هنوز مغازه‌ای در باشگاه مشتریان ثبت نشده است.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {retailShops.map((shop) => (
-                    <div key={shop.id} className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 space-y-3 shadow-xs">
+                    <div key={shop.id} className="bg-white border border-slate-200 rounded-3xl p-5 space-y-3 shadow-xs">
                       <div className="flex items-center justify-between">
-                        <span className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                        <span className="font-black text-sm text-slate-900 flex items-center gap-2">
                           <Building className="w-4 h-4 text-blue-600" />
                           {shop.shopName}
                         </span>
-                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 border border-blue-200 ">
                           {shop.city}
                         </span>
                       </div>
-                      <div className="text-xs text-slate-600 dark:text-slate-300 space-y-1">
+                      <div className="text-xs text-slate-600 space-y-1">
                         <p>مدیر / مسئول: <strong>{shop.ownerName}</strong></p>
                         <p>تلفن همراه: <span className="font-mono">{shop.phone}</span></p>
                         <p className="text-slate-400 text-[11px]">آدرس: {shop.address}</p>
@@ -1078,9 +1078,9 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
               {/* Add Shop Modal */}
               {showAddShopModal && (
                 <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-                  <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
-                    <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
-                      <h3 className="font-black text-sm text-slate-900 dark:text-white">افزودن مغازه‌دار جدید به باشگاه</h3>
+                  <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
+                    <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                      <h3 className="font-black text-sm text-slate-900 ">افزودن مغازه‌دار جدید به باشگاه</h3>
                       <button onClick={() => setShowAddShopModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
                     </div>
 
@@ -1104,58 +1104,58 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                       setNewAddress('');
                     }} className="space-y-3 text-xs">
                       <div>
-                        <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">نام مغازه / سوپرمارکت:</label>
+                        <label className="block text-slate-700 font-medium mb-1">نام مغازه / سوپرمارکت:</label>
                         <input
                           type="text"
                           required
                           value={newShopName}
                           onChange={(e) => setNewShopName(e.target.value)}
                           placeholder="مثال: سوپرمارکت مرکزی"
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-slate-900 dark:text-white focus:outline-hidden"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-slate-900 focus:outline-hidden"
                         />
                       </div>
                       <div className="grid grid-cols-2 gap-2">
                         <div>
-                          <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">نام مسئول / خریدار:</label>
+                          <label className="block text-slate-700 font-medium mb-1">نام مسئول / خریدار:</label>
                           <input
                             type="text"
                             required
                             value={newOwnerName}
                             onChange={(e) => setNewOwnerName(e.target.value)}
                             placeholder="نام مدیر"
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-slate-900 dark:text-white focus:outline-hidden"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-slate-900 focus:outline-hidden"
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">تلفن همراه:</label>
+                          <label className="block text-slate-700 font-medium mb-1">تلفن همراه:</label>
                           <input
                             type="text"
                             required
                             value={newPhone}
                             onChange={(e) => setNewPhone(e.target.value)}
                             placeholder="0912..."
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-slate-900 dark:text-white font-mono focus:outline-hidden"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-slate-900 font-mono focus:outline-hidden"
                           />
                         </div>
                       </div>
                       <div>
-                        <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">شهر:</label>
+                        <label className="block text-slate-700 font-medium mb-1">شهر:</label>
                         <input
                           type="text"
                           required
                           value={newCity}
                           onChange={(e) => setNewCity(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-slate-900 dark:text-white focus:outline-hidden"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-slate-900 focus:outline-hidden"
                         />
                       </div>
                       <div>
-                        <label className="block text-slate-700 dark:text-slate-300 font-medium mb-1">آدرس دقیق:</label>
+                        <label className="block text-slate-700 font-medium mb-1">آدرس دقیق:</label>
                         <textarea
                           rows={2}
                           required
                           value={newAddress}
                           onChange={(e) => setNewAddress(e.target.value)}
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-slate-900 dark:text-white focus:outline-hidden"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-slate-900 focus:outline-hidden"
                         />
                       </div>
                       <div className="flex gap-2 pt-2">
@@ -1169,7 +1169,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                         <button
                           type="button"
                           onClick={() => setShowAddShopModal(false)}
-                          className="h-10 px-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 font-bold text-xs rounded-xl hover:bg-slate-200 transition-all flex items-center justify-center"
+                          className="h-10 px-4 bg-slate-100 text-slate-600 font-bold text-xs rounded-xl hover:bg-slate-200 transition-all flex items-center justify-center"
                         >
                           انصراف
                         </button>
@@ -1188,7 +1188,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                  <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                     <DollarSign className="w-5 h-5 text-emerald-600" />
                     گزارش سود و کمیسیون ویزیتور
                   </h2>
@@ -1200,31 +1200,31 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
 
               {/* Summary Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs space-y-2">
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2">
                   <span className="text-xs text-slate-400">تعداد کل سفارشات ویزیت شده</span>
-                  <div className="text-xl font-black text-slate-900 dark:text-white font-mono">
+                  <div className="text-xl font-black text-slate-900 font-mono">
                     {formatNumberFa(userOrders.length)} سفارش
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs space-y-2">
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2">
                   <span className="text-xs text-slate-400">مجموع مبلغ فروش</span>
-                  <div className="text-xl font-black text-blue-600 dark:text-blue-400 font-mono">
+                  <div className="text-xl font-black text-blue-600 font-mono">
                     {formatToman(userOrders.reduce((acc, o) => acc + o.finalTotal, 0))}
                   </div>
                 </div>
 
-                <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs space-y-2">
+                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2">
                   <span className="text-xs text-slate-400">کل سود / کمیسیون ویزیتور</span>
-                  <div className="text-xl font-black text-emerald-600 dark:text-emerald-400 font-mono">
+                  <div className="text-xl font-black text-emerald-600 font-mono">
                     {formatToman(userOrders.reduce((acc, o) => acc + (o.visitorCommission || (o.finalTotal * 0.025)), 0))}
                   </div>
                 </div>
               </div>
 
               {/* Detailed Orders Commission Breakdown */}
-              <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 space-y-4 shadow-xs">
-                <h3 className="font-black text-sm text-slate-900 dark:text-white border-b border-slate-100 dark:border-slate-800 pb-3">
+              <div className="bg-white border border-slate-200 rounded-3xl p-5 space-y-4 shadow-xs">
+                <h3 className="font-black text-sm text-slate-900 border-b border-slate-100 pb-3">
                   ریز کمیسیون‌ها به تفکیک فاکتورهای صادره
                 </h3>
                 {userOrders.length === 0 ? (
@@ -1234,18 +1234,18 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                     {userOrders.map((order, idx) => {
                       const commission = order.visitorCommission || (order.finalTotal * 0.025);
                       return (
-                        <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 dark:bg-slate-800/60 p-4 rounded-2xl gap-3 text-xs">
+                        <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between bg-slate-50 p-4 rounded-2xl gap-3 text-xs">
                           <div className="space-y-1">
                             <div className="flex items-center gap-2">
                               <span className="font-mono font-bold text-blue-600">{order.orderId || order.trackingCode}</span>
                               <span className="text-slate-400">|</span>
-                              <span className="text-slate-600 dark:text-slate-300">خریدار: {order.retailShop?.shopName || order.customer.shopName}</span>
+                              <span className="text-slate-600 ">خریدار: {order.retailShop?.shopName || order.customer.shopName}</span>
                             </div>
                             <p className="text-slate-400 text-[11px]">تاریخ: {order.createdAt} | مبلغ کل: {formatToman(order.finalTotal)}</p>
                           </div>
                           <div className="text-left">
                             <span className="text-[10px] text-slate-400 block">سود ویزیتور ({currentUser?.commissionRate || 2.5}٪):</span>
-                            <span className="font-black text-emerald-600 dark:text-emerald-400 font-mono text-sm">{formatToman(commission)}</span>
+                            <span className="font-black text-emerald-600 font-mono text-sm">{formatToman(commission)}</span>
                           </div>
                         </div>
                       );
@@ -1262,7 +1262,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
           {activeSubTab === 'tickets' && (
             <div className="space-y-4">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
+                <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-blue-600" />
                   تیکت‌ها و مکاتبات پشتیبانی
                 </h2>
@@ -1280,22 +1280,22 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                   <div
                     key={t.id}
                     onClick={() => setSelectedTicketId(t.id)}
-                    className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-5 shadow-xs hover:border-blue-500 cursor-pointer transition-all group"
+                    className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs hover:border-blue-500 cursor-pointer transition-all group"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono text-xs font-black text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-950 px-2 py-0.5 rounded">
+                        <span className="font-mono text-xs font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
                           {t.ticketNumber}
                         </span>
-                        <h3 className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                        <h3 className="text-sm font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
                           {t.title}
                         </h3>
                       </div>
                       <div className="flex items-center gap-2 text-xs">
                         <span className={`px-2.5 py-0.5 rounded-full font-bold ${
                           t.status === 'answered'
-                            ? 'bg-emerald-50 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800'
-                            : 'bg-amber-50 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-800'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 '
+                            : 'bg-amber-50 text-amber-700 border border-amber-200 '
                         }`}>
                           {t.status === 'answered' ? 'پاسخ داده شده' : 'در انتظار بررسی'}
                         </span>
@@ -1303,11 +1303,11 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                       </div>
                     </div>
 
-                    <p className="text-xs text-slate-600 dark:text-slate-400 bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-100 dark:border-slate-800 leading-relaxed">
+                    <p className="text-xs text-slate-600 bg-slate-50 p-3 rounded-2xl border border-slate-100 leading-relaxed">
                       {t.lastMessage}
                     </p>
 
-                    <div className="mt-3 flex items-center justify-between text-[11px] text-blue-600 dark:text-blue-400">
+                    <div className="mt-3 flex items-center justify-between text-[11px] text-blue-600 ">
                       {t.orderTrackingCode ? (
                         <div className="font-medium flex items-center gap-1">
                           <Truck className="w-3.5 h-3.5" />
@@ -1331,10 +1331,10 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
               SUBTAB 3: CREATE NEW TICKET FORM
              ========================================== */}
           {activeSubTab === 'new_ticket' && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs max-w-2xl mx-auto">
-              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 dark:border-slate-800">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs max-w-2xl mx-auto">
+              <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 ">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900 dark:text-white">ارسال تیکت به واحد پشتیبانی و انبار</h2>
+                  <h2 className="text-lg font-black text-slate-900 ">ارسال تیکت به واحد پشتیبانی و انبار</h2>
                   <p className="text-xs text-slate-500 mt-0.5">پاسخگویی سریع توسط کارشناسان فروش و ترابری انبار جنت‌آباد</p>
                 </div>
                 <button
@@ -1347,7 +1347,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
 
               <form onSubmit={handleCreateTicket} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     موضوع تیکت:
                   </label>
                   <input
@@ -1356,19 +1356,19 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                     placeholder="مثلاً: استعلام زمان بارگیری سفارش از انبار جنت‌آباد"
                     value={newTicketData.title}
                     onChange={(e) => setNewTicketData({ ...newTicketData, title: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-4 py-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   />
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       واحد مربوطه:
                     </label>
                     <select
                       value={newTicketData.department}
                       onChange={(e: any) => setNewTicketData({ ...newTicketData, department: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                     >
                       <option value="sales">واحد فروش و ثبت پیش‌فاکتور</option>
                       <option value="warehouse">انبار مرکزی جنت‌آباد (پلمپ و بارگیری)</option>
@@ -1378,7 +1378,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       شماره پیش‌فاکتور یا رهگیری (اختیاری):
                     </label>
                     <input
@@ -1387,13 +1387,13 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                       placeholder="SVN-89412"
                       value={newTicketData.orderTrackingCode}
                       onChange={(e) => setNewTicketData({ ...newTicketData, orderTrackingCode: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
                     متن پیام:
                   </label>
                   <textarea
@@ -1402,7 +1402,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                     placeholder="توضیحات کامل درخواست یا استعلام خود را بنویسید..."
                     value={newTicketData.message}
                     onChange={(e) => setNewTicketData({ ...newTicketData, message: e.target.value })}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden leading-relaxed"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden leading-relaxed"
                   ></textarea>
                 </div>
 
@@ -1421,10 +1421,10 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
               SUBTAB 4: USER PROFILE & ID / BANK VERIFICATION
              ========================================== */}
           {activeSubTab === 'profile' && (
-            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xs max-w-3xl mx-auto space-y-6">
-              <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs max-w-3xl mx-auto space-y-6">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                 <div>
-                  <h2 className="text-lg font-black text-slate-900 dark:text-white">
+                  <h2 className="text-lg font-black text-slate-900 ">
                     {currentUser?.role === 'visitor' ? 'مشخصات، مدارک هویتی و حساب بانکی ویزیتور' : 'مشخصات فروشگاه و پروانه کسب مغازه‌دار'}
                   </h2>
                   <p className="text-xs text-slate-500 mt-0.5">
@@ -1435,8 +1435,8 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                 </div>
                 <span className={`text-xs font-bold flex items-center gap-1 px-3 py-1 rounded-full border ${
                   currentUser?.isVerified 
-                    ? 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/60 border-emerald-200 dark:border-emerald-800'
-                    : 'text-amber-600 bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-800'
+                    ? 'text-emerald-600 bg-emerald-50 border-emerald-200 '
+                    : 'text-amber-600 bg-amber-50 border-amber-200 '
                 }`}>
                   <ShieldCheck className="w-4 h-4" />
                   {currentUser?.isVerified ? 'تأیید شده در جنگو' : 'در انتظار بررسی'}
@@ -1447,13 +1447,13 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                 
                 {/* بخش اول: اطلاعات فردی و مغازه */}
                 <div className="space-y-4">
-                  <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
                     <User className="w-4 h-4 text-blue-500" />
                     {currentUser?.role === 'visitor' ? 'اطلاعات فردی ویتور' : 'مشخصات مدیر و فروشگاه'}
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         {currentUser?.role === 'visitor' ? 'نام و نام خانوادگی ویزیتور:' : 'نام و نام خانوادگی مسئول مغازه:'}
                       </label>
                       <input
@@ -1461,11 +1461,11 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                         required
                         value={editProfile.fullName}
                         onChange={(e) => setEditProfile({ ...editProfile, fullName: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         شماره موبایل:
                       </label>
                       <input
@@ -1473,7 +1473,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                         dir="ltr"
                         disabled
                         value={editProfile.phone}
-                        className="w-full bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-500 cursor-not-allowed"
+                        className="w-full bg-slate-100 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-500 cursor-not-allowed"
                       />
                     </div>
                   </div>
@@ -1481,7 +1481,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                   {currentUser?.role === 'customer' && (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
                           نام فروشگاه / سوپرمارکت:
                         </label>
                         <input
@@ -1490,11 +1490,11 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                           value={editProfile.shopName || ''}
                           onChange={(e) => setEditProfile({ ...editProfile, shopName: e.target.value })}
                           placeholder="مثال: سوپرمارکت مرکزی نگین"
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                        <label className="block text-xs font-bold text-slate-700 mb-1">
                           شماره پروانه کسب / جواز (اختیاری):
                         </label>
                         <input
@@ -1503,7 +1503,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                           value={editProfile.businessLicenseNumber || ''}
                           onChange={(e) => setEditProfile({ ...editProfile, businessLicenseNumber: e.target.value })}
                           placeholder="BL-98214"
-                          className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                          className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                         />
                       </div>
                     </div>
@@ -1511,7 +1511,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         استان:
                       </label>
                       <input
@@ -1519,11 +1519,11 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                         required
                         value={editProfile.province}
                         onChange={(e) => setEditProfile({ ...editProfile, province: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         شهر:
                       </label>
                       <input
@@ -1531,12 +1531,12 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                         required
                         value={editProfile.city}
                         onChange={(e) => setEditProfile({ ...editProfile, city: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                    <label className="block text-xs font-bold text-slate-700 mb-1">
                       {currentUser?.role === 'customer' ? 'آدرس دقیق فروشگاه / تحویل بار:' : 'آدرس محل سکونت / فعالیت:'}
                     </label>
                     <textarea
@@ -1544,14 +1544,14 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                       required
                       value={editProfile.address}
                       onChange={(e) => setEditProfile({ ...editProfile, address: e.target.value })}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl p-3 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                      className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                     />
                   </div>
                 </div>
 
                 {/* بخش شماره کارت و شبا (ویژه ویزیتور و تسویه‌حساب) */}
-                <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                  <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                <div className="space-y-4 pt-4 border-t border-slate-100 ">
+                  <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
                     <CreditCard className="w-4 h-4 text-emerald-600" />
                     {currentUser?.role === 'visitor' ? 'شماره کارت و شبا جهت واریز پورسانت ویزیتور' : 'مشخصات حساب بانکی جهت عودت وجه'}
                   </h3>
@@ -1590,7 +1590,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         نام بانک:
                       </label>
                       <input
@@ -1598,11 +1598,11 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                         placeholder="مثال: بانک ملت، ملی، صادرات، سامان..."
                         value={editProfile.bankName || ''}
                         onChange={(e) => setEditProfile({ ...editProfile, bankName: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         نام صاحب حساب (مطابق کارت ملی):
                       </label>
                       <input
@@ -1610,11 +1610,11 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                         placeholder="نام و نام خانوادگی صاحب کارت"
                         value={editProfile.bankAccountHolder || ''}
                         onChange={(e) => setEditProfile({ ...editProfile, bankAccountHolder: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         شماره کارت ۱۶ رقمی:
                       </label>
                       <input
@@ -1624,11 +1624,11 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                         placeholder="6104337890123456"
                         value={editProfile.bankCardNumber || ''}
                         onChange={(e) => setEditProfile({ ...editProfile, bankCardNumber: e.target.value.replace(/\D/g, '') })}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <label className="block text-xs font-bold text-slate-700 mb-1">
                         شماره شبا (با IR):
                       </label>
                       <input
@@ -1637,7 +1637,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                         placeholder="IR120120000000001234567890"
                         value={editProfile.bankSheba || ''}
                         onChange={(e) => setEditProfile({ ...editProfile, bankSheba: e.target.value })}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                       />
                     </div>
                   </div>
@@ -1647,14 +1647,14 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                 {currentUser?.role === 'visitor' && (
                   <>
                     {/* بخش احراز هویت ویزیتور */}
-                    <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <div className="space-y-4 pt-4 border-t border-slate-100 ">
+                      <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
                         <CreditCard className="w-4 h-4 text-blue-500" />
                         مدارک هویتی ویزیتور
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
                             کد ملی ویزیتور:
                           </label>
                           <input
@@ -1664,14 +1664,14 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                             value={editProfile.nationalId || ''}
                             onChange={(e) => setEditProfile({ ...editProfile, nationalId: e.target.value })}
                             placeholder="0012345678"
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs font-mono text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                           />
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
                             تصویر کارت ملی (جهت ثبت در جنگو):
                           </label>
-                          <div className="w-full bg-slate-50 dark:bg-slate-800 border border-dashed border-slate-300 dark:border-slate-700 rounded-2xl p-2.5 text-center flex items-center justify-center cursor-pointer hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">
+                          <div className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-2.5 text-center flex items-center justify-center cursor-pointer hover:bg-slate-100 transition-colors">
                             <span className="text-xs text-slate-500 flex items-center gap-2">
                               <Download className="w-4 h-4 rotate-180" />
                               {editProfile.nationalIdImage ? 'کارت ملی بارگذاری شده است' : 'انتخاب تصویر و بارگذاری'}
@@ -1682,9 +1682,9 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                     </div>
 
                     {/* وسیله نقلیه ویزیتور */}
-                    <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+                    <div className="space-y-4 pt-4 border-t border-slate-100 ">
                       <div className="flex items-center justify-between">
-                        <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                        <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
                           <Truck className="w-4 h-4 text-blue-500" />
                           وسیله نقلیه ویزیتور
                         </h3>
@@ -1694,13 +1694,13 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
                             نوع وسیله نقلیه شخصی:
                           </label>
                           <select
                             value={editProfile.vehicleType || 'motorcycle'}
                             onChange={(e: any) => setEditProfile({ ...editProfile, vehicleType: e.target.value })}
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                           >
                             <option value="motorcycle">موتور سیکلت</option>
                             <option value="car">سواری (ماشین شخصی)</option>
@@ -1709,7 +1709,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                           </select>
                         </div>
                         <div>
-                          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                          <label className="block text-xs font-bold text-slate-700 mb-1">
                             شماره پلاک:
                           </label>
                           <input
@@ -1718,19 +1718,19 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                             value={editProfile.vehiclePlate || ''}
                             onChange={(e) => setEditProfile({ ...editProfile, vehiclePlate: e.target.value })}
                             placeholder="11 ب 111 ایران 11"
-                            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl px-3 py-2.5 text-xs text-center text-slate-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-center text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* قرارداد ویزیتور */}
-                    <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-                      <h3 className="text-sm font-black text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                    <div className="space-y-4 pt-4 border-t border-slate-100 ">
+                      <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
                         <FileCheck className="w-4 h-4 text-blue-500" />
                         قرارداد آنلاین همکاری ویزیتوری
                       </h3>
-                      <div className="bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-xs text-slate-600 dark:text-slate-400 h-32 overflow-y-auto leading-relaxed whitespace-pre-line text-justify" dir="rtl">
+                      <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-600 h-32 overflow-y-auto leading-relaxed whitespace-pre-line text-justify" dir="rtl">
                         {djangoConfig?.visitorContractText || `بسمه تعالی - قرارداد همکاری ویزیتوری سامانه سوین
 
 ۱. ویزیتور متعهد می‌گردد کلیه قوانین و مقررات فروش سامانه را رعایت نموده و از فروش خارج از شبکه خودداری نماید.
@@ -1746,7 +1746,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                           onChange={(e) => setEditProfile({ ...editProfile, hasAcceptedContract: e.target.checked })}
                           className="w-5 h-5 rounded-md border-slate-300 text-blue-600 focus:ring-blue-500" 
                         />
-                        <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                        <span className="text-xs font-bold text-slate-700 ">
                           اینجانب کلیه شرایط و بندهای قرارداد همکاری را مطالعه کرده و می‌پذیرم.
                         </span>
                       </label>
@@ -1772,10 +1772,10 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
       {/* Order Details Modal */}
       {selectedOrderForDetails && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-2xl w-full space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-2xl w-full space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
-                <h3 className="font-black text-sm text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">
                   <FileCheck className="w-4 h-4 text-blue-600" />
                   جزئیات و ریز اقلام خرید ({selectedOrderForDetails.orderId || selectedOrderForDetails.trackingCode})
                 </h3>
@@ -1785,18 +1785,18 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             </div>
 
             <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
-              <div className="bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl text-xs space-y-1">
+              <div className="bg-slate-50 p-3 rounded-2xl text-xs space-y-1">
                 <p><strong>مغازه‌دار:</strong> {selectedOrderForDetails.customer.shopOwnerName} ({selectedOrderForDetails.customer.shopName})</p>
                 <p><strong>تلفن:</strong> <span className="font-mono">{selectedOrderForDetails.customer.shopPhone}</span> | شهر: {selectedOrderForDetails.customer.city}</p>
                 <p><strong>روش ارسال:</strong> {selectedOrderForDetails.customer.shippingMethod}</p>
                 {selectedOrderForDetails.retailShop && (
-                  <p className="text-blue-600 dark:text-blue-400 font-bold"><strong>مغازه مقصد (باشگاه مشتریان):</strong> {selectedOrderForDetails.retailShop.shopName} (مدیر: {selectedOrderForDetails.retailShop.ownerName})</p>
+                  <p className="text-blue-600 font-bold"><strong>مغازه مقصد (باشگاه مشتریان):</strong> {selectedOrderForDetails.retailShop.shopName} (مدیر: {selectedOrderForDetails.retailShop.ownerName})</p>
                 )}
               </div>
 
-              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+              <div className="border border-slate-200 rounded-2xl overflow-hidden">
                 <table className="w-full text-right text-xs">
-                  <thead className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 font-black">
+                  <thead className="bg-slate-100 text-slate-700 font-black">
                     <tr>
                       <th className="p-3">نام کالا / برند</th>
                       <th className="p-3">تعداد</th>
@@ -1804,18 +1804,18 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                       <th className="p-3">مبلغ کل</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <tbody className="divide-y divide-slate-100 ">
                     {selectedOrderForDetails.items.map((item, iIdx) => {
                       const unitPrice = item.unit === 'carton' ? item.product.priceCarton : item.product.priceBox;
                       const lineTotal = unitPrice * item.quantity;
                       return (
-                        <tr key={iIdx} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                          <td className="p-3 font-bold text-slate-900 dark:text-white">
+                        <tr key={iIdx} className="hover:bg-slate-50/50 ">
+                          <td className="p-3 font-bold text-slate-900 ">
                             {item.product.nameFa} <span className="text-[10px] text-slate-400 font-normal">({item.unit === 'carton' ? 'کارتن' : 'باکس'})</span>
                           </td>
                           <td className="p-3 font-mono font-bold">{formatNumberFa(item.quantity)}</td>
-                          <td className="p-3 font-mono text-slate-600 dark:text-slate-400">{formatToman(unitPrice)}</td>
-                          <td className="p-3 font-mono font-black text-blue-600 dark:text-blue-400">{formatToman(lineTotal)}</td>
+                          <td className="p-3 font-mono text-slate-600 ">{formatToman(unitPrice)}</td>
+                          <td className="p-3 font-mono font-black text-blue-600 ">{formatToman(lineTotal)}</td>
                         </tr>
                       );
                     })}
@@ -1823,14 +1823,14 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                 </table>
               </div>
 
-              <div className="bg-blue-50/80 dark:bg-blue-950/60 p-4 rounded-2xl flex items-center justify-between text-xs">
+              <div className="bg-blue-50/80 p-4 rounded-2xl flex items-center justify-between text-xs">
                 <div>
-                  <span className="text-slate-600 dark:text-slate-400 block">هزینه باربری: {formatToman(selectedOrderForDetails.customer.shippingCost || 0)}</span>
-                  <span className="text-slate-600 dark:text-slate-400 block">تخفیف تیراژ: {formatToman(selectedOrderForDetails.discountAmount || 0)}</span>
+                  <span className="text-slate-600 block">هزینه باربری: {formatToman(selectedOrderForDetails.customer.shippingCost || 0)}</span>
+                  <span className="text-slate-600 block">تخفیف تیراژ: {formatToman(selectedOrderForDetails.discountAmount || 0)}</span>
                 </div>
                 <div className="text-left">
                   <span className="text-slate-500 block text-[11px]">مبلغ قابل پرداخت نهایی:</span>
-                  <span className="font-black text-base text-blue-700 dark:text-blue-300 font-mono">{formatToman(selectedOrderForDetails.finalTotal)}</span>
+                  <span className="font-black text-base text-blue-700 font-mono">{formatToman(selectedOrderForDetails.finalTotal)}</span>
                 </div>
               </div>
             </div>
@@ -1838,7 +1838,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setSelectedOrderForDetails(null)}
-                className="h-10 px-6 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 font-black text-xs rounded-xl transition-all"
+                className="h-10 px-6 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs rounded-xl transition-all"
               >
                 بستن پنجره
               </button>
