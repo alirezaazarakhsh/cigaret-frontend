@@ -797,6 +797,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const handleCreateNewProduct = () => {
     if (!newProdNameFa.trim()) return;
 
+    const isCoffeeOrDrink = newProdCategory === 'drinks_coffee';
+    
     const newProduct: CigaretteProduct = {
       id: `prod_${Date.now()}`,
       nameFa: newProdNameFa.trim(),
@@ -809,8 +811,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       cartonPrice: newProdCartonPrice,
       boxPrice: newProdBoxPrice,
       packPrice: newProdPackPrice,
-      boxesPerCarton: newProdBoxesPerCarton || 10,
-      packsPerBox: newProdPacksPerBox || 10,
+      boxesPerCarton: isCoffeeOrDrink ? 1 : (newProdBoxesPerCarton || 10),
+      packsPerBox: isCoffeeOrDrink ? 1 : (newProdPacksPerBox || 10),
       stockCartons: newProdInitialCartons || 0,
       moq: 1,
       image: newProdCategory === 'drinks_coffee' 
@@ -1333,6 +1335,17 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               <span>دفتر فاکتورها ({receiptsList.length})</span>
             </button>
 
+            <button
+              onClick={() => setActiveSubTab('reports')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeSubTab === 'reports'
+                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <FileText className="w-4 h-4" />
+              <span>گزارشات</span>
+            </button>
             <button
               onClick={() => setActiveSubTab('django-docs')}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
@@ -2650,8 +2663,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     Py
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-slate-900">مستندات کامل Django REST Framework برای صندوق و انبار سوین</h2>
-                    <p className="text-xs text-slate-500">کدهای آماده Python/Django جهت اتصال مستقیم محصولات، بارکد، موجودی انبار و دفتر حساب‌ها</p>
+                    <h2 className="text-lg font-black text-slate-900">مستندات کامل azarakhsh (Django REST & POS)</h2>
+                    <p className="text-xs text-slate-500">کدهای آماده Python/Django جهت اتصال مستقیم محصولات، بارکد، موجودی انبار و دفتر حساب‌ها به همراه مستندات صندوق</p>
                   </div>
                 </div>
 
@@ -2738,6 +2751,31 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
         return super().create(request, *args, **kwargs)
 `}</pre>
                   </div>
+
+                  <div className="mt-4 border-t border-slate-800 pt-4 space-y-4">
+                    <div className="bg-indigo-950/30 p-4 rounded-xl border border-indigo-900/50">
+                      <span className="text-indigo-400 font-bold flex items-center gap-2 mb-2">
+                        <BarChart3 className="w-4 h-4" />
+                        صندوق و فروش (POS Integration) - azarakhsh
+                      </span>
+                      <p className="text-xs text-slate-300 leading-relaxed">
+                        سیستم صندوق azarakhsh به صورت آفلاین-اول طراحی شده و تمامی تراکنش‌ها را در LocalStorage ذخیره می‌کند. در صورت اتصال به اینترنت، اطلاعات به API‌های جنگو ارسال می‌شود. 
+                        برای محصولات تکی (قهوه و نوشیدنی)، واحدها به صورت خودکار روی ۱ تنظیم می‌شوند تا انبارگردانی دقیق باشد.
+                      </p>
+                      <pre className="mt-3 text-[10px] text-emerald-500 font-mono">
+{`# Example: Single Item Stock Logic
+if product.category == 'drinks_coffee':
+    # Units are always 1 to ensure single sale consistency
+    product.boxes_per_carton = 1
+    product.packs_per_box = 1`}
+                      </pre>
+                    </div>
+                    
+                    <div className="border-t border-slate-800 pt-4">
+                      <span className="text-indigo-400 font-bold"># 3. Guide (azarakhsh)</span>
+                      <p className="mt-2 text-slate-300">تمامی مدل‌ها و ویوهای بالا به صورت تست شده در پلتفرم azarakhsh قابل استفاده هستند.</p>
+                    </div>
+                  </div>
                 </div>
 
               </div>
@@ -2749,8 +2787,15 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
 
       {/* Stock Adjustment Modal */}
       {selectedProductForAdjustment && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4" dir="rtl">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl">
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4" 
+          dir="rtl"
+          onClick={() => setSelectedProductForAdjustment(null)}
+        >
+          <div 
+            className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-black text-slate-900">ورود یا اصلاح بار انبار</h3>
               <button onClick={() => setSelectedProductForAdjustment(null)} className="text-slate-400 hover:text-slate-900">
@@ -2831,8 +2876,15 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
 
       {/* Add New Product Modal */}
       {showAddProductModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl my-8">
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" 
+          dir="rtl"
+          onClick={() => setShowAddProductModal(false)}
+        >
+          <div 
+            className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
               <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                 <Plus className="w-5 h-5 text-indigo-600" />
@@ -2872,7 +2924,14 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
                   <label className="block text-xs font-bold text-slate-700 mb-1">دسته بندی محصول</label>
                   <select
                     value={newProdCategory}
-                    onChange={(e) => setNewProdCategory(e.target.value as CigaretteCategory)}
+                    onChange={(e) => {
+                      const cat = e.target.value as CigaretteCategory;
+                      setNewProdCategory(cat);
+                      if (cat === 'drinks_coffee') {
+                        setNewProdBoxesPerCarton(1);
+                        setNewProdPacksPerBox(1);
+                      }
+                    }}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none font-bold"
                   >
                     <option value="drinks_coffee">☕ قهوه، نوشیدنی و اقلام حضوری</option>
@@ -2898,60 +2957,85 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200">
+              <div className={`grid ${newProdCategory === 'drinks_coffee' ? 'grid-cols-1' : 'grid-cols-3'} gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200`}>
+                {newProdCategory !== 'drinks_coffee' && (
+                  <>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">قیمت کارتن (تومان)</label>
+                      <input
+                        type="number"
+                        value={newProdCartonPrice || ''}
+                        onChange={(e) => setNewProdCartonPrice(Number(e.target.value) || 0)}
+                        placeholder="۴۵۰۰۰۰۰"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">قیمت باکس (تومان)</label>
+                      <input
+                        type="number"
+                        value={newProdBoxPrice || ''}
+                        onChange={(e) => setNewProdBoxPrice(Number(e.target.value) || 0)}
+                        placeholder="۴۵۰۰۰۰"
+                        className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono"
+                      />
+                    </div>
+                  </>
+                )}
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">قیمت کارتن (تومان)</label>
-                  <input
-                    type="number"
-                    value={newProdCartonPrice || ''}
-                    onChange={(e) => setNewProdCartonPrice(Number(e.target.value) || 0)}
-                    placeholder="۴۵۰۰۰۰۰"
-                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">قیمت باکس (تومان)</label>
-                  <input
-                    type="number"
-                    value={newProdBoxPrice || ''}
-                    onChange={(e) => setNewProdBoxPrice(Number(e.target.value) || 0)}
-                    placeholder="۴۵۰۰۰۰"
-                    className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">قیمت پاکت/تکی</label>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">{newProdCategory === 'drinks_coffee' ? 'قیمت تک (تومان)' : 'قیمت پاکت/تکی'}</label>
                   <input
                     type="number"
                     value={newProdPackPrice || ''}
-                    onChange={(e) => setNewProdPackPrice(Number(e.target.value) || 0)}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setNewProdPackPrice(val);
+                      if (newProdCategory === 'drinks_coffee') {
+                        setNewProdBoxPrice(val);
+                        setNewProdCartonPrice(val);
+                      }
+                    }}
                     placeholder="۴۵۰۰۰"
                     className="w-full bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-900 font-mono"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">باکس در کارتن</label>
-                  <input
-                    type="number"
-                    value={newProdBoxesPerCarton}
-                    onChange={(e) => setNewProdBoxesPerCarton(Number(e.target.value) || 10)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 font-mono"
-                  />
+              {newProdCategory !== 'drinks_coffee' && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">باکس در کارتن</label>
+                    <input
+                      type="number"
+                      value={newProdBoxesPerCarton}
+                      onChange={(e) => setNewProdBoxesPerCarton(Number(e.target.value) || 10)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">پاکت در باکس</label>
+                    <input
+                      type="number"
+                      value={newProdPacksPerBox}
+                      onChange={(e) => setNewProdPacksPerBox(Number(e.target.value) || 10)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 mb-1">موجودی اولیه (کارتن)</label>
+                    <input
+                      type="number"
+                      value={newProdInitialCartons}
+                      onChange={(e) => setNewProdInitialCartons(Number(e.target.value) || 0)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 font-mono font-bold text-indigo-600"
+                    />
+                  </div>
                 </div>
+              )}
+
+              {newProdCategory === 'drinks_coffee' && (
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">پاکت در باکس</label>
-                  <input
-                    type="number"
-                    value={newProdPacksPerBox}
-                    onChange={(e) => setNewProdPacksPerBox(Number(e.target.value) || 10)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 mb-1">موجودی اولیه (کارتن)</label>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">موجودی اولیه (تعداد تکی)</label>
                   <input
                     type="number"
                     value={newProdInitialCartons}
@@ -2959,7 +3043,7 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-900 font-mono font-bold text-indigo-600"
                   />
                 </div>
-              </div>
+              )}
 
               {/* Online Sync vs Store-only Checkbox */}
               <div className="bg-indigo-50/80 border border-indigo-200 p-3.5 rounded-2xl">
@@ -2993,8 +3077,15 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
 
       {/* New Customer Modal */}
       {showNewCustomerModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4" dir="rtl">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl">
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4" 
+          dir="rtl"
+          onClick={() => setShowNewCustomerModal(false)}
+        >
+          <div 
+            className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-black text-slate-900">تعریف مشتری دفتری جدید</h3>
               <button onClick={() => setShowNewCustomerModal(false)} className="text-slate-400 hover:text-slate-900">
@@ -3050,8 +3141,15 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
 
       {/* Customer Record Payment Modal */}
       {selectedCustomerForPayment && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4" dir="rtl">
-          <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl">
+        <div 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4" 
+          dir="rtl"
+          onClick={() => setSelectedCustomerForPayment(null)}
+        >
+          <div 
+            className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-black text-slate-900">ثبت دریافت وجه / تسویه مشتری دفتری</h3>
               <button onClick={() => setSelectedCustomerForPayment(null)} className="text-slate-400 hover:text-slate-900">
@@ -3269,8 +3367,15 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
         const totalRev = dayReceipts.reduce((s, r) => s + r.finalTotal, 0);
 
         return (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
-            <div className="bg-white border border-slate-200 rounded-3xl max-w-3xl w-full p-6 shadow-2xl my-8 space-y-5">
+          <div 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" 
+            dir="rtl"
+            onClick={() => setSelectedDateForDetailModal(null)}
+          >
+            <div 
+              className="bg-white border border-slate-200 rounded-3xl max-w-3xl w-full p-6 shadow-2xl my-8 space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
               
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
@@ -3402,8 +3507,15 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
         const avgDailyRev = Math.round(monthData.totalSales / (monthData.activeDaysCount || 1));
 
         return (
-          <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" dir="rtl">
-            <div className="bg-white border border-slate-200 rounded-3xl max-w-3xl w-full p-6 shadow-2xl my-8 space-y-5">
+          <div 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" 
+            dir="rtl"
+            onClick={() => setSelectedMonthForDetailModal(null)}
+          >
+            <div 
+              className="bg-white border border-slate-200 rounded-3xl max-w-3xl w-full p-6 shadow-2xl my-8 space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
               
               {/* Modal Header */}
               <div className="flex items-center justify-between border-b border-slate-100 pb-4">
