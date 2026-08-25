@@ -49,7 +49,8 @@ import {
 } from 'lucide-react';
 import { CigaretteProduct, CigaretteCategory, PosSaleItem, PosReceiptInvoice, StockAdjustmentLog, PosCustomer, PosLedgerTransaction } from '../../types';
 import { formatToman, formatNumberFa, getProductStockInfo } from '../../utils/formatters';
-import { generatePosThermalReceiptPdf } from '../../utils/pdfGenerator';
+import { generatePosThermalReceiptPdf, generateMonthlyReportPdf } from '../../utils/pdfGenerator';
+import { AnalyticsWidget } from './AnalyticsWidget';
 
 interface AccountingPosPanelProps {
   products: CigaretteProduct[];
@@ -208,7 +209,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [loginError, setLoginError] = useState('');
 
   // Active Sub Tab
-  const [activeSubTab, setActiveSubTab] = useState<'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'django-docs'>('pos');
+  const [activeSubTab, setActiveSubTab] = useState<'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'django-docs' | 'analytics'>('pos');
 
   // Products stock state
   const [productsList, setProductsList] = useState<CigaretteProduct[]>(initialProducts);
@@ -1342,6 +1343,29 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             >
               <BookOpen className="w-4 h-4" />
               <span>مستندات Django</span>
+            </button>
+            <button
+              onClick={() => setActiveSubTab('analytics')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeSubTab === 'analytics'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>تحلیل پیشرفته فروش</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSubTab('analytics')}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeSubTab === 'analytics'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>تحلیل پیشرفته فروش</span>
             </button>
           </div>
 
@@ -2582,6 +2606,35 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </motion.div>
           )}
 
+          {/* TAB 7: Analytics Widget */}
+          {activeSubTab === 'analytics' && (
+            <motion.div
+              key="analytics-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <AnalyticsWidget
+                brandSales={[
+                  { brand: 'Marlboro', sales: 450 },
+                  { brand: 'Winston', sales: 300 },
+                  { brand: 'IQOS', sales: 250 },
+                  { brand: 'Kent', sales: 150 }
+                ]}
+                weeklySales={[
+                  { day: 'شنبه', sales: 120 },
+                  { day: 'یکشنبه', sales: 190 },
+                  { day: 'دوشنبه', sales: 300 },
+                  { day: 'سه‌شنبه', sales: 250 },
+                  { day: 'چهارشنبه', sales: 400 },
+                  { day: 'پنجشنبه', sales: 350 },
+                  { day: 'جمعه', sales: 200 }
+                ]}
+              />
+            </motion.div>
+          )}
+
           {/* TAB 6: Django API & Documentation */}
           {activeSubTab === 'django-docs' && (
             <motion.div
@@ -3425,7 +3478,7 @@ class PosReceiptViewSet(viewsets.ModelViewSet):
               {/* Modal Footer */}
               <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => generateMonthlyReportPdf(monthData, daysInMonth)}
                   className="px-4 py-2 bg-purple-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-purple-700"
                 >
                   <Printer className="w-4 h-4" />

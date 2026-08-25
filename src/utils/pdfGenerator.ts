@@ -582,3 +582,66 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
 }
 
 export const generateThermalReceiptPdf = generatePosThermalReceiptPdf;
+
+/**
+ * Downloads an official Monthly Sales Report PDF.
+ */
+export async function generateMonthlyReportPdf(monthData: any, daysInMonth: any[]): Promise<boolean> {
+  const config = getDjangoConfig();
+  const printContainer = document.createElement('div');
+  printContainer.id = 'pdf-monthly-report-container';
+  printContainer.style.position = 'fixed';
+  printContainer.style.left = '0px';
+  printContainer.style.top = '0px';
+  printContainer.style.zIndex = '-9999';
+  printContainer.style.width = '794px';
+  printContainer.style.backgroundColor = '#ffffff';
+  printContainer.style.padding = '20px';
+  printContainer.style.boxSizing = 'border-box';
+  printContainer.style.direction = 'rtl';
+  printContainer.style.pointerEvents = 'none';
+
+  printContainer.innerHTML = `
+    <div style="font-family: 'Samim', 'Vazirmatn', system-ui, sans-serif; color: #0f172a;">
+      <h1 style="text-align: center; color: #7e22ce;">گزارش جامع عملکرد ماهانه: ${monthData.monthName}</h1>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
+        <tr>
+          <td style="padding: 10px; border: 1px solid #ddd;">درآمد کل: ${formatToman(monthData.totalSales)}</td>
+          <td style="padding: 10px; border: 1px solid #ddd;">روزهای فعال: ${monthData.activeDaysCount}</td>
+        </tr>
+      </table>
+      <table style="width: 100%; border-collapse: collapse; text-align: right; font-size: 12px;">
+        <thead style="background: #f3f4f6;">
+          <tr>
+            <th style="padding: 10px; border: 1px solid #ddd;">تاریخ</th>
+            <th style="padding: 10px; border: 1px solid #ddd;">مجموع فروش</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${daysInMonth.map((d: any) => `
+            <tr>
+              <td style="padding: 10px; border: 1px solid #ddd;">${d.date}</td>
+              <td style="padding: 10px; border: 1px solid #ddd;">${formatToman(d.totalSales)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  document.body.appendChild(printContainer);
+
+  try {
+    await new Promise(r => setTimeout(r, 200));
+    const imgData = await toJpeg(printContainer, { quality: 0.95, backgroundColor: '#ffffff', pixelRatio: 2 });
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+    pdf.save(`گزارش_ماهانه_${monthData.monthName}.pdf`);
+    return true;
+  } catch (error) {
+    console.error('Error generating Monthly Report PDF:', error);
+    return false;
+  } finally {
+    document.body.removeChild(printContainer);
+  }
+}
