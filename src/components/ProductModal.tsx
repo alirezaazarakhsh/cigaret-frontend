@@ -128,19 +128,25 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             </div>
             <div className="text-xs font-bold text-slate-900 ">{product.nicotine}</div>
           </div>
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 ">
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
             <div className="text-[11px] text-slate-500 mb-1 flex items-center gap-1">
-              <Boxes className="w-3 h-3 text-blue-600 " />
-              تعداد در کارتن
+              <Boxes className="w-3 h-3 text-blue-600" />
+              تعداد در هر کارتن
             </div>
-            <div className="text-xs font-bold text-slate-900 ">{formatNumberFa(product.boxesPerCarton)} باکس (۵۰۰ پاکت)</div>
+            <div className="text-xs font-bold text-slate-900">
+              {formatNumberFa(product.boxesPerCarton)} باکس ({formatNumberFa((product.boxesPerCarton || 50) * (product.packsPerBox || 10))} پاکت)
+            </div>
           </div>
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 ">
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
             <div className="text-[11px] text-slate-500 mb-1 flex items-center gap-1">
-              <Package className="w-3 h-3 text-emerald-600 " />
-              حداقل سفارش عمده
+              <Package className="w-3 h-3 text-emerald-600" />
+              موجودی کل انبار
             </div>
-            <div className="text-xs font-bold text-slate-900 ">{formatNumberFa(product.moq || 1)} کارتن پلمپ</div>
+            <div className="text-xs font-bold text-emerald-700">
+              {product.stockCartons > 0 
+                ? `${formatNumberFa(product.stockCartons)} کارتن (${formatNumberFa(product.stockCartons * (product.boxesPerCarton || 50))} باکس / ${formatNumberFa(product.stockCartons * (product.boxesPerCarton || 50) * (product.packsPerBox || 10))} پاکت)`
+                : 'ناموجود (در انتظار شارژ)'}
+            </div>
           </div>
         </div>
 

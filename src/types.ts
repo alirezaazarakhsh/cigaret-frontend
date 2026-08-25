@@ -1,6 +1,6 @@
 export interface PosSaleItem {
   product: CigaretteProduct;
-  unit: 'carton' | 'box' | 'pack';
+  unit: "carton" | "box" | "pack";
   quantity: number;
   unitPrice: number;
   totalPrice: number;
@@ -16,7 +16,7 @@ export interface PosReceiptInvoice {
   subtotal: number;
   discountAmount: number;
   finalTotal: number;
-  paymentMethod: 'pos_terminal' | 'cash' | 'cheque' | 'credit';
+  paymentMethod: "pos_terminal" | "cash" | "ledger";
   terminalRefNumber?: string;
   notes?: string;
   cashier: string;
@@ -47,6 +47,23 @@ export type NavigationTab =
   | 'accounting-pos'
   | 'invoice'
   | 'chat-support';
+
+export interface PosCustomer {
+  id: string;
+  name: string;
+  phone: string;
+  createdAt: string;
+  balance: number; // positive: owes us (بدهکار), negative: we owe them (بستانکار)
+}
+
+export interface PosLedgerTransaction {
+  id: string;
+  customerId: string;
+  date: string;
+  amount: number;
+  type: "debit" | "credit";
+  description: string;
+}
 
 export interface RetailShopCustomer {
   id: string;
@@ -133,6 +150,8 @@ export interface CigaretteProduct {
   cartonPrice: number; // قیمت عمده هر کارتن (تومان)
   baseCartonPrice?: number; // قیمت پایه اولیه قبل از نوسان دلار
   boxPrice: number; // قیمت هر باکس/بسته ۱۰تایی (تومان)
+  packPrice?: number; // قیمت تک فروشی هر پاکت
+  packsPerBox?: number; // معمولا ۱۰
   baseBoxPrice?: number;
   boxesPerCarton: number; // تعداد باکس در هر کارتن (معمولاً ۵۰ یا ۲۵)
   stockCartons: number; // موجودی انبار به کارتن
