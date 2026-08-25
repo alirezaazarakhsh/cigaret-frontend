@@ -45,7 +45,10 @@ import {
   FileSpreadsheet,
   Layers,
   ChevronLeft,
-  DollarSign
+  DollarSign,
+  Terminal,
+  History,
+  Zap
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
@@ -2746,6 +2749,34 @@ class LedgerTransaction(models.Model):
     date = models.DateTimeField(auto_now_add=True)`}</pre>
                     </div>
 
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                      <h4 className="text-xs font-black text-slate-900 mb-2">Stock Adjustments & Audit Logs</h4>
+                      <pre className="text-[10px] text-slate-600 font-mono leading-tight" dir="ltr">{`class StockLog(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE)
+    change_cartons = models.IntegerField()
+    change_boxes = models.IntegerField()
+    reason = models.CharField(max_length=100) # 'Sale', 'Purchase', 'Damage', 'Correction'
+    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)`}</pre>
+                    </div>
+
+                    <div className="bg-indigo-900 p-5 rounded-2xl shadow-xl">
+                      <h4 className="text-xs font-black text-emerald-400 mb-3 flex items-center gap-2">
+                        <Terminal className="w-4 h-4" />
+                        Frontend to Backend Integration Example
+                      </h4>
+                      <pre className="text-[10px] text-slate-300 font-mono leading-relaxed" dir="ltr">{`// Finalizing a sale and updating Django
+const finalizePosSale = async (receiptData) => {
+  const response = await fetch('/api/pos/finalize-receipt/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(receiptData)
+  });
+  if (!response.ok) throw new Error('Backend Sync Failed');
+  return await response.json();
+};`}                </pre>
+                    </div>
+
                     <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
                       <div className="flex items-center gap-2 mb-2">
                         <CreditCard className="w-4 h-4 text-indigo-600" />
@@ -3233,12 +3264,14 @@ async function sync() {
       {/* POS Thermal 80mm Receipt Modal for Printing */}
       {activeReceiptToPrint && (
         <div 
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" 
+          className="fixed inset-0 z-[300] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto print:hidden" 
           dir="rtl"
           onClick={() => setActiveReceiptToPrint(null)}
         >
-          <div 
-            className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl print:shadow-none print:border-none print:w-full print:max-w-none print:p-0"
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white border border-slate-200 rounded-[40px] max-w-sm w-full p-6 shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             
@@ -3342,31 +3375,33 @@ async function sync() {
 
             </div>
 
-            {/* Modal Buttons */}
-            <div className="mt-4 flex flex-col sm:flex-row items-center gap-2 print:hidden">
+            {/* Modal Buttons - Vertical Stack for Better UX */}
+            <div className="mt-6 flex flex-col gap-3 print:hidden">
               <button
                 onClick={() => handleDownloadThermalPdf(activeReceiptToPrint)}
-                className="w-full sm:flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-colors"
+                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all"
               >
-                <Download className="w-4 h-4" />
-                <span>دانلود PDF فیش حرارتی</span>
+                <Download className="w-5 h-5" />
+                <span>دانلود فایل PDF فاکتور</span>
               </button>
+              
               <button
                 onClick={handlePrintReceipt}
-                className="w-full sm:flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md transition-colors"
+                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-[0.98] transition-all"
               >
-                <Printer className="w-4 h-4" />
-                <span>چاپ پرینتر حرارتی</span>
+                <Printer className="w-5 h-5" />
+                <span>چاپ مستقیم (فیش حرارتی)</span>
               </button>
+              
               <button
                 onClick={() => setActiveReceiptToPrint(null)}
-                className="w-full sm:w-auto py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-sm font-black active:scale-[0.98] transition-all"
               >
-                بستن
+                بستن و بازگشت به صندوق
               </button>
             </div>
 
-          </div>
+          </motion.div>
         </div>
       )}
 
