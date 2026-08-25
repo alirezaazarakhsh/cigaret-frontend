@@ -545,8 +545,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-600 selection:text-white" dir="rtl">
       
       {/* Top POS Executive Navigation */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 px-4 sm:px-8 py-3">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="bg-white/95 backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40 px-4 sm:px-8 py-4 shadow-sm">
+        <div className="max-w-[1800px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           
           {/* Logo & Status */}
           <div className="flex items-center gap-3">
@@ -656,7 +656,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       )}
 
       {/* Overview Stat Widgets */}
-      <div className="bg-white border-b border-slate-200 px-6 sm:px-10 py-6">
+      <div className="px-4 sm:px-8 pt-6">
         <div className="max-w-[1800px] mx-auto grid grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-white border border-slate-200 rounded-3xl p-6 flex items-center justify-between shadow-sm">
             <div>
@@ -701,7 +701,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-8">
+      <main className="flex-1 max-w-[1800px] w-full mx-auto p-4 sm:p-8">
         
         {/* TAB 1: POS & Barcode Scanner */}
         {activeSubTab === 'pos' && (
@@ -1382,20 +1382,20 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
               {/* Items */}
               <div className="border-b-[1.5px] border-dashed border-black pb-3 mb-3">
-                <table className="w-full text-right text-[11px] text-black font-bold">
+                <table className="w-full table-fixed text-right text-[11px] text-black font-bold">
                   <thead>
                     <tr className="border-b border-black/30">
-                      <th className="pb-1">شرح کالا</th>
-                      <th className="pb-1 text-center">تعداد</th>
-                      <th className="pb-1 text-left">مبلغ(تومان)</th>
+                      <th className="pb-2 text-right w-[50%]">شرح کالا</th>
+                      <th className="pb-2 text-center w-[20%]">تعداد</th>
+                      <th className="pb-2 text-left w-[30%]">مبلغ(تومان)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {activeReceiptToPrint.items.map((it, idx) => (
                       <tr key={idx} className="border-b border-black/10">
-                        <td className="py-1.5 leading-tight">{it.product.nameFa}</td>
-                        <td className="py-1.5 text-center font-black">{it.quantity} {it.unit === 'carton' ? 'کارتن' : 'باکس'}</td>
-                        <td className="py-1.5 text-left font-black">{formatToman(it.totalPrice)}</td>
+                        <td className="py-2 pl-2 leading-relaxed text-right">{it.product.nameFa}</td>
+                        <td className="py-2 text-center font-black whitespace-nowrap">{it.quantity} {it.unit === 'carton' ? 'کارتن' : 'باکس'}</td>
+                        <td className="py-2 text-left font-black whitespace-nowrap">{formatNumberFa(it.totalPrice)}</td>
                       </tr>
                     ))}
                   </tbody>

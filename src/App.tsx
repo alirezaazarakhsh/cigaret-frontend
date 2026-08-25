@@ -59,7 +59,6 @@ import { NotificationModal } from './components/NotificationModal';
 import { PwaInstallGuide } from './components/PwaInstallGuide';
 import { AccountingPosPanel } from './components/shopmanage/AccountingPosPanel';
 import { AzarakhshApiDocs } from './azarakhsh/AzarakhshApiDocs';
-import { ShopManageLayout } from './components/shopmanage/ShopManageLayout';
 import { HeroBannerSlider } from './components/HeroBannerSlider';
 import { syncWithDjangoApi } from './services/djangoApi';
 import { generatePriceListPdf } from './utils/pdfGenerator';
@@ -445,13 +444,11 @@ export default function App() {
 
   if (isShopManage) {
     return (
-      <ShopManageLayout onReturnToApp={() => window.location.href = '/'}>
-        <AccountingPosPanel
-          products={products}
-          onUpdateProductsStock={setProducts}
-          onReturnToStore={() => window.location.href = '/'}
-        />
-      </ShopManageLayout>
+      <AccountingPosPanel
+        products={products}
+        onUpdateProductsStock={setProducts}
+        onReturnToStore={() => window.location.href = '/'}
+      />
     );
   }
 
