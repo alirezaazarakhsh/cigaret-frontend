@@ -11,11 +11,12 @@ export function getProductStockInfo(product: {
   boxesPerCarton?: number;
   packsPerBox?: number;
 }) {
-  const cartons = product.stockCartons || 0;
+  // Ensure we work with integers as requested
+  const cartons = Math.floor(product.stockCartons || 0);
   const boxesPerCarton = product.boxesPerCarton || 50;
   const packsPerBox = product.packsPerBox || 10;
-  const totalBoxes = Math.round(cartons * boxesPerCarton);
-  const totalPacks = Math.round(totalBoxes * packsPerBox);
+  const totalBoxes = Math.floor(cartons * boxesPerCarton);
+  const totalPacks = Math.floor(totalBoxes * packsPerBox);
 
   return {
     cartons,
@@ -25,7 +26,7 @@ export function getProductStockInfo(product: {
     packsPerBox,
     isAvailable: cartons > 0,
     textSummary: cartons > 0
-      ? `${formatNumberFa(cartons)} کارتن (${formatNumberFa(totalBoxes)} باکس / ${formatNumberFa(totalPacks)} پاکت)`
+      ? `${formatNumberFa(cartons)} کارتن (${formatNumberFa(totalBoxes)} باکس)`
       : 'در انتظار شارژ انبار (ناموجود)'
   };
 }

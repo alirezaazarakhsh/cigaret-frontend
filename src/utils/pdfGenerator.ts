@@ -49,8 +49,8 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
     return false;
   }
 
-  // Split into pages (12 items per page max to guarantee no overflow)
-  const ITEMS_PER_PAGE = 12;
+  // Split into pages (24 items per page for optimal fill)
+  const ITEMS_PER_PAGE = 24;
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
 
   const pdf = new jsPDF('p', 'mm', 'a4');
@@ -79,9 +79,9 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
       printContainer.style.pointerEvents = 'none';
 
       printContainer.innerHTML = `
-        <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 12px; padding: 16px; background: #ffffff;">
+        <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; height: 100%; display: flex; flex-direction: column; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 12px; padding: 16px; background: #ffffff;">
           
-          <div>
+          <div style="flex: 1;">
             <!-- Header Table -->
             <table style="width: 100%; border-collapse: collapse; border-bottom: 2px solid #dbeafe; padding-bottom: 8px; margin-bottom: 10px; direction: rtl; text-align: right;">
               <tr>
@@ -115,15 +115,15 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
             </table>
 
             <!-- Products Table -->
-            <table style="width: 100%; border-collapse: collapse; font-size: 9.5px; text-align: right; margin-bottom: 8px; direction: rtl;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 9px; text-align: right; margin-bottom: 8px; direction: rtl;">
               <thead>
                 <tr style="background: #1d4ed8; color: #ffffff; font-weight: bold;">
-                  <th style="padding: 8px 4px; width: 5%; text-align: center; border: 1px solid #1d4ed8;">ردیف</th>
-                  <th style="padding: 8px 6px; width: 33%; border: 1px solid #1d4ed8; text-align: right;">نام کالا و مارک</th>
-                  <th style="padding: 8px 6px; width: 18%; text-align: center; border: 1px solid #1d4ed8;">مبدأ / هولوگرام</th>
-                  <th style="padding: 8px 6px; width: 14%; text-align: center; border: 1px solid #1d4ed8;">بسته‌بندی</th>
-                  <th style="padding: 8px 6px; width: 15%; text-align: left; border: 1px solid #1d4ed8;">نرخ باکس (تومان)</th>
-                  <th style="padding: 8px 6px; width: 15%; text-align: left; font-weight: 900; border: 1px solid #1d4ed8;">نرخ کارتن (تومان)</th>
+                  <th style="padding: 6px 4px; width: 5%; text-align: center; border: 1px solid #1d4ed8;">ردیف</th>
+                  <th style="padding: 6px 6px; width: 33%; border: 1px solid #1d4ed8; text-align: right;">نام کالا و مارک</th>
+                  <th style="padding: 6px 6px; width: 18%; text-align: center; border: 1px solid #1d4ed8;">مبدأ / هولوگرام</th>
+                  <th style="padding: 6px 6px; width: 14%; text-align: center; border: 1px solid #1d4ed8;">بسته‌بندی</th>
+                  <th style="padding: 6px 6px; width: 15%; text-align: left; border: 1px solid #1d4ed8;">نرخ باکس (تومان)</th>
+                  <th style="padding: 6px 6px; width: 15%; text-align: left; font-weight: 900; border: 1px solid #1d4ed8;">نرخ کارتن (تومان)</th>
                 </tr>
               </thead>
               <tbody>
@@ -131,15 +131,15 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
                   const globalIdx = pageIdx * ITEMS_PER_PAGE + idx + 1;
                   return `
                     <tr style="border-bottom: 1px solid #e2e8f0; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                      <td style="padding: 6px 4px; text-align: center; color: #64748b; border: 1px solid #e2e8f0;">${globalIdx}</td>
-                      <td style="padding: 6px 6px; border: 1px solid #e2e8f0; text-align: right;">
-                        <strong style="color: #0f172a; font-size: 10px;">${p.nameFa}</strong>
-                        <div style="font-size: 8.5px; color: #64748b;">${p.nameEn || ''} • ${p.brand}</div>
+                      <td style="padding: 4px 4px; text-align: center; color: #64748b; border: 1px solid #e2e8f0;">${globalIdx}</td>
+                      <td style="padding: 4px 6px; border: 1px solid #e2e8f0; text-align: right;">
+                        <strong style="color: #0f172a; font-size: 9.5px;">${p.nameFa}</strong>
+                        <div style="font-size: 8px; color: #64748b;">${p.nameEn || ''} • ${p.brand}</div>
                       </td>
-                      <td style="padding: 6px 4px; text-align: center; color: #334155; border: 1px solid #e2e8f0; font-size: 9px;">${p.origin}</td>
-                      <td style="padding: 6px 4px; text-align: center; color: #475569; border: 1px solid #e2e8f0; font-size: 9px;">${p.isBoxOnly ? 'تک باکس' : `${formatNumberFa(p.boxesPerCarton)} باکس`}</td>
-                      <td style="padding: 6px 6px; text-align: left; font-weight: bold; color: #1e293b; border: 1px solid #e2e8f0; font-size: 9.5px;">${formatToman(p.boxPrice)}</td>
-                      <td style="padding: 6px 6px; text-align: left; font-weight: 900; color: #1d4ed8; border: 1px solid #e2e8f0; font-size: 10px;">${p.cartonPrice > 0 ? formatToman(p.cartonPrice) : '—'}</td>
+                      <td style="padding: 4px 4px; text-align: center; color: #334155; border: 1px solid #e2e8f0; font-size: 8.5px;">${p.origin}</td>
+                      <td style="padding: 4px 4px; text-align: center; color: #475569; border: 1px solid #e2e8f0; font-size: 8.5px;">${p.isBoxOnly ? 'تک باکس' : `${formatNumberFa(p.boxesPerCarton)} باکس`}</td>
+                      <td style="padding: 4px 6px; text-align: left; font-weight: bold; color: #1e293b; border: 1px solid #e2e8f0; font-size: 9px;">${formatToman(p.boxPrice)}</td>
+                      <td style="padding: 4px 6px; text-align: left; font-weight: 900; color: #1d4ed8; border: 1px solid #e2e8f0; font-size: 9.5px;">${p.cartonPrice > 0 ? formatToman(p.cartonPrice) : '—'}</td>
                     </tr>
                   `;
                 }).join('')}
@@ -166,7 +166,7 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
 
       document.body.appendChild(printContainer);
 
-      await new Promise(r => setTimeout(r, 120));
+      await new Promise(r => setTimeout(r, 600));
 
       const imgData = await toJpeg(printContainer, {
         quality: 0.96,
@@ -246,18 +246,18 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
 
         <!-- Credentials Row -->
         ${(config.showNationalIdInvoice || config.showEconomicCodeInvoice || config.showActivityTypeInvoice || config.showTransportPhoneInvoice) ? `
-          <table style="width: 100%; border-collapse: collapse; background: #0f172a; color: #ffffff; border-radius: 6px; margin-bottom: 10px; font-size: 9px; direction: rtl; text-align: right;">
-            <tr>
-              <td style="padding: 5px 8px; text-align: center; font-weight: 500;">
-                <div style="display: flex; justify-content: space-around; width: 100%;">
-                  ${config.showNationalIdInvoice ? `<div style="margin-left: 8px;">شناسه ملی: <strong style="color: #f59e0b; font-family: monospace;">${config.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</strong></div>` : ''}
-                  ${config.showEconomicCodeInvoice ? `<div style="margin-left: 8px;">کد اقتصادی: <strong style="color: #f59e0b; font-family: monospace;">${config.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</strong></div>` : ''}
-                  ${config.showActivityTypeInvoice ? `<div style="margin-left: 8px;">نوع فعالیت: <strong style="color: #f59e0b;">${config.activityTypeCompany || 'پخش عمده دخانیات'}</strong></div>` : ''}
-                  ${config.showTransportPhoneInvoice ? `<div>تلفن ترابری: <strong style="color: #f59e0b; font-family: monospace; direction: ltr; display: inline-block;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>` : ''}
-                </div>
-              </td>
-            </tr>
-          </table>
+          <div style="width: 100%; background: #0f172a; color: #ffffff; border-radius: 6px; margin-bottom: 10px; font-size: 9.5px; direction: rtl; padding: 6px 0;">
+            <table style="width: 100%; border-collapse: collapse; color: #ffffff;">
+              <tr>
+                <td style="text-align: center; font-weight: 600;">
+                  ${config.showNationalIdInvoice ? `<span style="margin-left: 12px;">شناسه ملی: <strong style="color: #f59e0b; font-family: monospace;">${config.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</strong></span>` : ''}
+                  ${config.showEconomicCodeInvoice ? `<span style="margin-left: 12px;">کد اقتصادی: <strong style="color: #f59e0b; font-family: monospace;">${config.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</strong></span>` : ''}
+                  ${config.showActivityTypeInvoice ? `<span style="margin-left: 12px;">نوع فعالیت: <strong style="color: #f59e0b;">${config.activityTypeCompany || 'پخش عمده دخانیات'}</strong></span>` : ''}
+                  ${config.showTransportPhoneInvoice ? `<span>تلفن ترابری: <strong style="color: #f59e0b; font-family: monospace; direction: ltr; display: inline-block;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></span>` : ''}
+                </td>
+              </tr>
+            </table>
+          </div>
         ` : ''}
 
         <!-- Customer Grid Table -->
@@ -376,7 +376,7 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 600));
 
     const imgData = await toJpeg(printContainer, {
       quality: 0.96,
@@ -554,7 +554,7 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 800));
 
     const imgData = await toJpeg(printContainer, {
       quality: 0.98,

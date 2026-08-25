@@ -47,10 +47,13 @@ import {
   ChevronLeft,
   DollarSign
 } from 'lucide-react';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
+  LineChart, Line
+} from 'recharts';
 import { CigaretteProduct, CigaretteCategory, PosSaleItem, PosReceiptInvoice, StockAdjustmentLog, PosCustomer, PosLedgerTransaction } from '../../types';
 import { formatToman, formatNumberFa, getProductStockInfo } from '../../utils/formatters';
 import { generatePosThermalReceiptPdf, generateMonthlyReportPdf } from '../../utils/pdfGenerator';
-import { AnalyticsWidget } from './AnalyticsWidget';
 
 interface AccountingPosPanelProps {
   products: CigaretteProduct[];
@@ -210,6 +213,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   // Active Sub Tab
   const [activeSubTab, setActiveSubTab] = useState<'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'django-docs' | 'analytics'>('pos');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   // Products stock state
   const [productsList, setProductsList] = useState<CigaretteProduct[]>(initialProducts);
@@ -296,6 +300,26 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [newProdInitialCartons, setNewProdInitialCartons] = useState<number>(20);
   const [newProdBarcode, setNewProdBarcode] = useState('');
   const [newProdIsPosOnly, setNewProdIsPosOnly] = useState<boolean>(true);
+
+  // Product Insights State
+  const [selectedProductForInsights, setSelectedProductForInsights] = useState<CigaretteProduct | null>(null);
+  const [showInsightsModal, setShowInsightsModal] = useState(false);
+
+  // Function to generate mock performance data for a product
+  const getProductPerformanceData = (productId: string) => {
+    const seed = productId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const months = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور'];
+    
+    return months.map((month, idx) => {
+      const baseValue = (seed % 50) + 20;
+      const seasonalFactor = Math.sin((idx + seed) * 0.5) * 15;
+      return {
+        name: month,
+        sales: Math.max(5, Math.floor(baseValue + seasonalFactor)),
+        revenue: Math.floor((baseValue + seasonalFactor) * 1500000)
+      };
+    });
+  };
 
   // Past Receipts Ledger
   const [receiptsList, setReceiptsList] = useState<PosReceiptInvoice[]>(() => {
@@ -1239,41 +1263,58 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-600 selection:text-white print:hidden" dir="rtl">
       
-      {/* Top Executive Navigation */}
-      <header className="bg-white/95 print:hidden backdrop-blur-xl border-b border-slate-200 sticky top-0 z-40 px-4 sm:px-8 py-3.5 shadow-xs">
-        <div className="max-w-[1800px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* Header Section */}
+      <header className="bg-white/95 print:hidden backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[100] px-4 sm:px-8 py-3 shadow-md w-full transition-all duration-300">
+        <div className="max-w-[1800px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
           
-          {/* Logo & Status */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
-              <Barcode className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-black text-slate-900 tracking-tight">
-                  پنل حسابداری و صندوق فروشگاهی سوین (POS)
-                </h1>
-                <span className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-[10px] font-black px-2 py-0.5 rounded-full">
-                  آنلاین
-                </span>
+          <div className="flex items-center justify-between w-full md:w-auto">
+            <div className="flex items-center gap-2.5 sm:gap-3">
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
+                <Barcode className="w-5 h-5 sm:w-6 sm:h-6" />
               </div>
-              <p className="text-[11px] text-slate-500">
-                مدیریت انبار مرکزی • کاربر: <strong className="text-indigo-600 font-mono">۰۹۱۲۰۷۵۹۴۱۹</strong>
-              </p>
+              <div>
+                <div className="flex items-center gap-1.5 sm:gap-2">
+                  <h1 className="text-xs sm:text-base font-black text-slate-900 tracking-tight whitespace-nowrap">
+                    سامانه هوشمند سوین (POS)
+                  </h1>
+                  <span className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-[8px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full">
+                    آنلاین
+                  </span>
+                </div>
+                <p className="text-[9px] sm:text-[11px] text-slate-500">
+                  مدیریت انبار مرکزی • کاربر: <strong className="text-indigo-600 font-mono">۰۹۱۲۰۷۵۹۴۱۹</strong>
+                </p>
+              </div>
+            </div>
+
+            {/* Mobile Actions */}
+            <div className="flex items-center gap-2 md:hidden">
+              <button
+                onClick={() => setSoundEnabled(!soundEnabled)}
+                className="p-2 sm:p-2.5 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 active:scale-95 transition-all"
+              >
+                {soundEnabled ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />}
+              </button>
+              <button 
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className="p-2 sm:p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
+              >
+                {isMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Layers className="w-5 h-5 sm:w-6 sm:h-6" />}
+              </button>
             </div>
           </div>
 
-          {/* Sub Navigation Tabs */}
-          <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-2xl border border-slate-200 overflow-x-auto">
+          {/* Navigation Tabs - Responsive Drawer on Mobile */}
+          <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center gap-1.5 bg-slate-50 md:bg-slate-100 p-2 md:p-1 rounded-2xl border border-slate-200 w-full md:w-auto overflow-y-auto max-h-[70vh] md:max-h-none`}>
             <button
-              onClick={() => setActiveSubTab('pos')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+              onClick={() => { setActiveSubTab('pos'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-2 px-3 py-3 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                 activeSubTab === 'pos'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
               }`}
             >
-              <Barcode className="w-4 h-4" />
+              <ShoppingCart className="w-4 h-4" />
               <span>صندوق و بارکدخوان</span>
               {posCart.length > 0 && (
                 <span className="w-5 h-5 bg-rose-500 text-white text-[10px] rounded-full flex items-center justify-center font-mono">
@@ -1283,8 +1324,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveSubTab('inventory')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+              onClick={() => { setActiveSubTab('inventory'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                 activeSubTab === 'inventory'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
@@ -1300,8 +1341,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveSubTab('customers')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+              onClick={() => { setActiveSubTab('customers'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                 activeSubTab === 'customers'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
@@ -1312,8 +1353,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveSubTab('reports')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+              onClick={() => { setActiveSubTab('reports'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                 activeSubTab === 'reports'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
@@ -1324,86 +1365,52 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </button>
 
             <button
-              onClick={() => setActiveSubTab('ledger')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+              onClick={() => { setActiveSubTab('ledger'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                 activeSubTab === 'ledger'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
               }`}
             >
               <Receipt className="w-4 h-4" />
-              <span>دفتر فاکتورها ({receiptsList.length})</span>
+              <span>دفتر فاکتورها</span>
             </button>
 
             <button
-              onClick={() => setActiveSubTab('reports')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'reports'
-                  ? 'bg-purple-600 text-white shadow-md shadow-purple-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <FileText className="w-4 h-4" />
-              <span>گزارشات</span>
-            </button>
-            <button
-              onClick={() => setActiveSubTab('django-docs')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+              onClick={() => { setActiveSubTab('django-docs'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                 activeSubTab === 'django-docs'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                   : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
               }`}
             >
               <BookOpen className="w-4 h-4" />
-              <span>مستندات Django</span>
-            </button>
-            <button
-              onClick={() => setActiveSubTab('analytics')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'analytics'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>تحلیل پیشرفته فروش</span>
-            </button>
-
-            <button
-              onClick={() => setActiveSubTab('analytics')}
-              className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'analytics'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>تحلیل پیشرفته فروش</span>
+              <span>azarakhsh</span>
             </button>
           </div>
 
           {/* Quick Actions */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-center md:justify-end gap-2">
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
               title={soundEnabled ? 'صدا فعال است' : 'صدا قطع است'}
-              className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-200 transition-colors"
+              className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-200 transition-colors"
             >
               {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
             </button>
 
             <button
               onClick={onReturnToStore}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-200 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-200 transition-colors whitespace-nowrap"
             >
               <ArrowRight className="w-4 h-4" />
-              <span className="hidden sm:inline">کاتالوگ فروشگاه</span>
+              <span>کاتالوگ فروشگاه</span>
             </button>
 
             <button
               onClick={handleLogout}
               title="خروج از پنل حسابداری"
-              className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-colors"
+              className="p-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -1526,13 +1533,36 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                             </div>
                           </div>
 
-                          <div className="mt-2 pt-2 border-t border-slate-200 flex items-center justify-between">
-                            <span className="text-xs font-black text-emerald-600 font-mono">
-                              {formatToman(prod.boxPrice)}
-                            </span>
-                            <button className="p-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors">
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="mt-2 pt-2 border-t border-slate-200 flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-slate-500 font-bold">قیمت کارتن:</span>
+                              <span className="text-xs font-black text-indigo-700 font-mono">
+                                {formatToman(prod.cartonPrice)}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-slate-500 font-bold">قیمت باکس:</span>
+                              <span className="text-xs font-black text-emerald-600 font-mono">
+                                {formatToman(prod.boxPrice)}
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between gap-2">
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedProductForInsights(prod);
+                                  setShowInsightsModal(true);
+                                }}
+                                className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-colors border border-slate-200"
+                                title="تحلیل فروش"
+                              >
+                                <BarChart3 className="w-3.5 h-3.5" />
+                              </button>
+                              <button className="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1 text-[10px] font-bold">
+                                <Plus className="w-3 h-3" />
+                                <span>افزودن</span>
+                              </button>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1857,8 +1887,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                         <th className="p-3">نام کالا و نوع فروش</th>
                         <th className="p-3 text-center">کارتن (کلیدی)</th>
                         <th className="p-3 text-center">باکس (تعدیل)</th>
-                        <th className="p-3 text-center">پاکت (تعدیل)</th>
-                        <th className="p-3 text-left">قیمت کارتن</th>
+                        <th className="p-3 text-left">قیمت فروش</th>
                         <th className="p-3 text-left">ارزش ریالی</th>
                         <th className="p-3 text-center">وضعیت</th>
                         <th className="p-3 text-center">اصلاح پیشرفته</th>
@@ -1901,7 +1930,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                                   +
                                 </button>
                                 <span className="font-bold font-mono text-xs text-indigo-700 px-1 min-w-[24px] text-center">
-                                  {formatNumberFa(stockInfo.cartons)}
+                                  {formatNumberFa(Math.floor(stockInfo.cartons))}
                                 </span>
                                 <button
                                   type="button"
@@ -1926,7 +1955,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                                   +
                                 </button>
                                 <span className="font-bold font-mono text-xs text-slate-800 px-1 min-w-[30px] text-center">
-                                  {formatNumberFa(stockInfo.totalBoxes)}
+                                  {formatNumberFa(Math.floor(stockInfo.totalBoxes))}
                                 </span>
                                 <button
                                   type="button"
@@ -1939,33 +1968,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                               </div>
                             </td>
 
-                            {/* Pack Stock Stepper */}
-                            <td className="p-3 text-center">
-                              <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickAdjustStock(prod, 'pack', 1)}
-                                  className="w-5 h-5 bg-amber-600 hover:bg-amber-700 text-white rounded font-bold text-xs flex items-center justify-center"
-                                  title="افزایش ۱ پاکت"
-                                >
-                                  +
-                                </button>
-                                <span className="font-bold font-mono text-xs text-slate-600 px-1 min-w-[34px] text-center">
-                                  {formatNumberFa(stockInfo.totalPacks)}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickAdjustStock(prod, 'pack', -1)}
-                                  className="w-5 h-5 bg-white hover:bg-rose-100 text-rose-700 rounded font-bold text-xs flex items-center justify-center border border-slate-200"
-                                  title="کاهش ۱ پاکت"
-                                >
-                                  -
-                                </button>
-                              </div>
-                            </td>
-
                             <td className="p-3 text-left font-mono font-bold text-slate-800">
-                              {prod.cartonPrice > 0 ? formatToman(prod.cartonPrice) : formatToman(prod.boxPrice)}
+                              <div>{formatToman(prod.cartonPrice)}</div>
+                              <div className="text-[10px] text-slate-400 font-normal mt-0.5">
+                                {formatToman(prod.boxPrice)} باکس / {formatToman(prod.packPrice)} پاکت
+                              </div>
                             </td>
                             <td className="p-3 text-left font-mono font-black text-emerald-600">
                               {formatToman(productTotalVal)}
@@ -1973,7 +1980,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                             <td className="p-3 text-center">
                               {stockInfo.isAvailable ? (
                                 <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap">
-                                  موجود ({formatNumberFa(stockInfo.cartons)} کارتن)
+                                  موجود ({formatNumberFa(Math.floor(stockInfo.cartons))} کارتن)
                                 </span>
                               ) : (
                                 <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap">
@@ -1997,8 +2004,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                           </tr>
                         );
                       })}
-                    </tbody>
-                  </table>
+                    </tbody>\n                  </table>
                 </div>
               </div>
 
@@ -2619,36 +2625,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </motion.div>
           )}
 
-          {/* TAB 7: Analytics Widget */}
-          {activeSubTab === 'analytics' && (
-            <motion.div
-              key="analytics-tab"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <AnalyticsWidget
-                brandSales={[
-                  { brand: 'Marlboro', sales: 450 },
-                  { brand: 'Winston', sales: 300 },
-                  { brand: 'IQOS', sales: 250 },
-                  { brand: 'Kent', sales: 150 }
-                ]}
-                weeklySales={[
-                  { day: 'شنبه', sales: 120 },
-                  { day: 'یکشنبه', sales: 190 },
-                  { day: 'دوشنبه', sales: 300 },
-                  { day: 'سه‌شنبه', sales: 250 },
-                  { day: 'چهارشنبه', sales: 400 },
-                  { day: 'پنجشنبه', sales: 350 },
-                  { day: 'جمعه', sales: 200 }
-                ]}
-              />
-            </motion.div>
-          )}
-
-          {/* TAB 6: Django API & Documentation */}
+          {/* TAB 6: azarakhsh API & Documentation */}
           {activeSubTab === 'django-docs' && (
             <motion.div
               key="django-tab"
@@ -2657,127 +2634,170 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold">
-                    Py
+              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-100">
+                    AZ
                   </div>
                   <div>
-                    <h2 className="text-lg font-black text-slate-900">مستندات کامل azarakhsh (Django REST & POS)</h2>
-                    <p className="text-xs text-slate-500">کدهای آماده Python/Django جهت اتصال مستقیم محصولات، بارکد، موجودی انبار و دفتر حساب‌ها به همراه مستندات صندوق</p>
+                    <h2 className="text-xl font-black text-slate-900">مستندات یکپارچه سیستم azarakhsh</h2>
+                    <p className="text-sm text-slate-500">راهنمای کامل اتصال بخش‌های مختلف سایت به Django (مدل‌ها، سریالایزرها، ویوها و مسیرها)</p>
                   </div>
                 </div>
 
-                <div className="bg-slate-900 text-slate-200 p-4 rounded-2xl font-mono text-xs overflow-x-auto space-y-4 text-left" dir="ltr">
-                  <div>
-                    <span className="text-emerald-400 font-bold"># 1. models.py (Django Models for POS & Inventory)</span>
-                    <pre className="mt-2 text-slate-300 leading-relaxed">{`from django.db import models
-
-class Product(models.Model):
-    name_fa = models.CharField(max_length=255)
-    name_en = models.CharField(max_length=255)
-    brand = models.CharField(max_length=100)
-    barcode = models.CharField(max_length=100, unique=True)
-    carton_price = models.BigIntegerField() # Toman
-    box_price = models.BigIntegerField()
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                  
+                  {/* Category 1: Products & Inventory */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-indigo-700">
+                      <Package className="w-5 h-5" />
+                      <h3 className="text-base font-black">۱. بخش محصولات و انبارداری (Azarakhsh)</h3>
+                    </div>
+                    
+                    <div className="bg-slate-900 rounded-2xl p-4 overflow-hidden border border-slate-800 shadow-xl">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] text-slate-500 font-mono">azarakhsh/models.py</span>
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 rounded-full bg-rose-500" />
+                          <div className="w-2 h-2 rounded-full bg-amber-500" />
+                          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                        </div>
+                      </div>
+                      <pre className="text-[11px] text-emerald-400 font-mono leading-relaxed overflow-x-auto" dir="ltr">{`class Product(models.Model):
+    name_fa = models.CharField(max_length=255, verbose_name="نام فارسی")
+    barcode = models.CharField(max_length=100, unique=True, verbose_name="بارکد")
+    carton_price = models.BigIntegerField(default=0)
+    box_price = models.BigIntegerField(default=0)
+    pack_price = models.BigIntegerField(default=0)
     boxes_per_carton = models.IntegerField(default=50)
     packs_per_box = models.IntegerField(default=10)
-    stock_cartons = models.FloatField(default=0.0) # Allows decimal stock e.g. 1.5 cartons
-    is_available = models.BooleanField(default=True)
+    stock_cartons = models.IntegerField(default=0)
+    
+    is_pos_only = models.BooleanField(default=False)
+    image = models.ImageField(upload_to='products/', null=True)
 
-    @property
-    def total_boxes(self):
-        return int(self.stock_cartons * self.boxes_per_carton)
+    def __str__(self):
+        return self.name_fa`}</pre>
+                    </div>
 
-    @property
-    def total_packs(self):
-        return int(self.total_boxes * self.packs_per_box)
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                      <h4 className="text-xs font-black text-slate-900 mb-2">Serializer & API View</h4>
+                      <pre className="text-[10px] text-slate-600 font-mono leading-tight" dir="ltr">{`# serializers.py
+class ProductSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = '__all__'
 
-class PosReceipt(models.Model):
-    PAYMENT_CHOICES = [
-        ('pos_terminal', 'کارتخوان'),
-        ('cash', 'نقدی'),
-        ('ledger', 'حساب دفتری/نسیه'),
-    ]
+# views.py
+class ProductViewSet(viewsets.ModelViewSet):
+    queryset = Product.objects.all()
+    serializer_class = ProductSerializer`}</pre>
+                    </div>
+                  </div>
+
+                  {/* Category 2: POS & Receipts */}
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-rose-700">
+                      <Receipt className="w-5 h-5" />
+                      <h3 className="text-base font-black">۲. بخش صندوق و فاکتور فروش (POS)</h3>
+                    </div>
+                    
+                    <div className="bg-slate-900 rounded-2xl p-4 overflow-hidden border border-slate-800 shadow-xl">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] text-slate-500 font-mono">azarakhsh/pos_models.py</span>
+                        <div className="flex gap-1">
+                          <div className="w-2 h-2 rounded-full bg-rose-500" />
+                          <div className="w-2 h-2 rounded-full bg-amber-500" />
+                          <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                        </div>
+                      </div>
+                      <pre className="text-[11px] text-emerald-400 font-mono leading-relaxed overflow-x-auto" dir="ltr">{`class PosReceipt(models.Model):
     receipt_number = models.CharField(max_length=50, unique=True)
-    customer_name = models.CharField(max_length=150, default='مشتری حضوری')
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_CHOICES)
+    customer_name = models.CharField(max_length=150, default="مشتری حضوری")
+    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS) # cash, card, ledger
     subtotal = models.BigIntegerField()
     discount = models.BigIntegerField(default=0)
     final_total = models.BigIntegerField()
+    terminal_ref = models.CharField(max_length=100, null=True, blank=True)
+    cashier = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
-class PosSaleItem(models.Model):
+class SaleItem(models.Model):
     receipt = models.ForeignKey(PosReceipt, related_name='items', on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.PROTECT)
-    unit = models.CharField(max_length=10) # 'carton', 'box', 'pack'
+    unit = models.CharField(max_length=10) # carton, box, pack
     quantity = models.IntegerField()
     unit_price = models.BigIntegerField()
-    total_price = models.BigIntegerField()
-`}</pre>
-                  </div>
+    total_price = models.BigIntegerField()`}</pre>
+                    </div>
 
-                  <div>
-                    <span className="text-emerald-400 font-bold"># 2. views.py (DRF Viewsets for POS & Stock Auto-Deduction)</span>
-                    <pre className="mt-2 text-slate-300 leading-relaxed">{`from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.decorators import action
+                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                      <h4 className="text-xs font-black text-slate-900 mb-2">Customer & Ledger System</h4>
+                      <pre className="text-[10px] text-slate-600 font-mono leading-tight" dir="ltr">{`class Customer(models.Model):
+    name = models.CharField(max_length=200)
+    phone = models.CharField(max_length=15, unique=True)
+    balance = models.BigIntegerField(default=0) # Debt or Credit
 
-class PosReceiptViewSet(viewsets.ModelViewSet):
-    queryset = PosReceipt.objects.all()
-    serializer_class = PosReceiptSerializer
+class LedgerTransaction(models.Model):
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    amount = models.BigIntegerField()
+    tx_type = models.CharField(choices=[('debt', 'Credit Sale'), ('payment', 'Cash Settlement')])
+    description = models.TextField()
+    date = models.DateTimeField(auto_now_add=True)`}</pre>
+                    </div>
 
-    def create(self, request, *args, **kwargs):
-        data = request.data
-        items_data = data.get('items', [])
-        
-        # Deduct Stock
-        for item in items_data:
-            product = Product.objects.get(id=item['product_id'])
-            unit = item['unit']
-            qty = item['quantity']
-            
-            if unit == 'carton':
-                deduct = qty
-            elif unit == 'box':
-                deduct = qty / product.boxes_per_carton
-            elif unit == 'pack':
-                deduct = qty / (product.boxes_per_carton * product.packs_per_box)
-            
-            product.stock_cartons = max(0, product.stock_cartons - deduct)
-            product.is_available = product.stock_cartons > 0
-            product.save()
-
-        return super().create(request, *args, **kwargs)
-`}</pre>
-                  </div>
-
-                  <div className="mt-4 border-t border-slate-800 pt-4 space-y-4">
-                    <div className="bg-indigo-950/30 p-4 rounded-xl border border-indigo-900/50">
-                      <span className="text-indigo-400 font-bold flex items-center gap-2 mb-2">
-                        <BarChart3 className="w-4 h-4" />
-                        صندوق و فروش (POS Integration) - azarakhsh
-                      </span>
-                      <p className="text-xs text-slate-300 leading-relaxed">
-                        سیستم صندوق azarakhsh به صورت آفلاین-اول طراحی شده و تمامی تراکنش‌ها را در LocalStorage ذخیره می‌کند. در صورت اتصال به اینترنت، اطلاعات به API‌های جنگو ارسال می‌شود. 
-                        برای محصولات تکی (قهوه و نوشیدنی)، واحدها به صورت خودکار روی ۱ تنظیم می‌شوند تا انبارگردانی دقیق باشد.
+                    <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CreditCard className="w-4 h-4 text-indigo-600" />
+                        <h4 className="text-xs font-black text-indigo-900">اتصال به دستگاه کارتخوان (POS)</h4>
+                      </div>
+                      <p className="text-[11px] text-slate-600 leading-relaxed">
+                        برای ثبت شماره پیگیری تراکنش (Terminal Ref)، مدل PosReceipt فیلد `terminal_ref` را دارد. در اپلیکیشن صندوق، پس از تایید تراکنش بانکی، این کد در فاکتور ذخیره و به سمت سرور ارسال می‌شود.
                       </p>
-                      <pre className="mt-3 text-[10px] text-emerald-500 font-mono">
-{`# Example: Single Item Stock Logic
-if product.category == 'drinks_coffee':
-    # Units are always 1 to ensure single sale consistency
-    product.boxes_per_carton = 1
-    product.packs_per_box = 1`}
-                      </pre>
+                    </div>
+                  </div>
+
+                  {/* Category 3: URLs & Global Integration */}
+                  <div className="xl:col-span-2 space-y-4 pt-4 border-t border-slate-100">
+                    <div className="flex items-center gap-2 text-emerald-700">
+                      <RefreshCw className="w-5 h-5" />
+                      <h3 className="text-base font-black">۳. مسیرها و یکپارچه‌سازی نهایی (URL Routing)</h3>
                     </div>
                     
-                    <div className="border-t border-slate-800 pt-4">
-                      <span className="text-indigo-400 font-bold"># 3. Guide (azarakhsh)</span>
-                      <p className="mt-2 text-slate-300">تمامی مدل‌ها و ویوهای بالا به صورت تست شده در پلتفرم azarakhsh قابل استفاده هستند.</p>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-slate-900 p-4 rounded-2xl font-mono text-[11px] text-emerald-300" dir="ltr">
+                        <span className="text-slate-500 block mb-2"># urls.py (Global)</span>
+                        {`urlpatterns = [
+    path('api/v1/pos/', include('azarakhsh.urls')),
+    path('api/v1/auth/', include('accounts.urls')),
+]`}
+                      </div>
+                      <div className="bg-slate-900 p-4 rounded-2xl font-mono text-[11px] text-emerald-300" dir="ltr">
+                        <span className="text-slate-500 block mb-2"># azarakhsh/urls.py</span>
+                        {`router = DefaultRouter()
+router.register('products', ProductViewSet)
+router.register('receipts', PosReceiptViewSet)
+urlpatterns = router.urls`}
+                      </div>
+                      <div className="bg-indigo-900 p-4 rounded-2xl font-mono text-[11px] text-indigo-100" dir="ltr">
+                        <span className="text-indigo-300 block mb-2"># Sync Logic (Frontend)</span>
+                        {`// Sync offline data
+async function sync() {
+  const local = getLocalReceipts();
+  await axios.post('/api/pos/sync/', local);
+}`}
+                      </div>
                     </div>
                   </div>
+
                 </div>
 
+                <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="text-xs text-amber-800 leading-relaxed">
+                    <strong>نکته امنیتی:</strong> تمامی API‌های بخش صندوق باید با استفاده از JWT Token و سطح دسترسی IsAuthenticated محافظت شوند. کدهای بالا نمونه‌های پایه جهت پیاده‌سازی مدل‌های دیتابیس در جنگو می‌باشند.
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
@@ -3609,6 +3629,117 @@ if product.category == 'drinks_coffee':
           </div>
         );
       })()}
+
+      {/* Product Insights Modal */}
+      {showInsightsModal && selectedProductForInsights && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+          >
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-white">
+              <div className="flex items-center gap-4">
+                <div className="w-16 h-16 rounded-2xl overflow-hidden border-2 border-white shadow-sm bg-white">
+                  <img src={selectedProductForInsights.image} alt="" className="w-full h-full object-cover" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-black text-slate-900">{selectedProductForInsights.nameFa}</h3>
+                  <p className="text-xs text-slate-500 font-bold">تحلیل هوشمند عملکرد فروش و تقاضا</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowInsightsModal(false)}
+                className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-slate-400 hover:text-slate-900 transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+              {/* Performance Charts */}
+              <div className="space-y-4">
+                <div className="bg-slate-50 p-4 rounded-3xl border border-slate-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-indigo-600" />
+                      روند فروش ۶ ماهه (تعداد)
+                    </h4>
+                  </div>
+                  <div className="h-48 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={getProductPerformanceData(selectedProductForInsights.id)}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                        <XAxis 
+                          dataKey="name" 
+                          axisLine={false} 
+                          tickLine={false} 
+                          tick={{ fontSize: 10, fontWeight: 'bold', fill: '#64748b' }} 
+                        />
+                        <YAxis hide />
+                        <RechartsTooltip 
+                          contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)', fontSize: '12px' }}
+                        />
+                        <Line 
+                          type="monotone" 
+                          dataKey="sales" 
+                          stroke="#4f46e5" 
+                          strokeWidth={3} 
+                          dot={{ r: 4, fill: '#4f46e5', strokeWidth: 2, stroke: '#fff' }}
+                          activeDot={{ r: 6, strokeWidth: 0 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="bg-indigo-600 p-4 rounded-2xl text-white shadow-lg shadow-indigo-600/20">
+                    <span className="text-[10px] font-bold opacity-80 block">مجموع فروش ۶ ماه</span>
+                    <span className="text-xl font-black font-mono block mt-1">
+                      {getProductPerformanceData(selectedProductForInsights.id).reduce((acc, d) => acc + d.sales, 0)}
+                    </span>
+                    <span className="text-[10px] font-bold block mt-1">واحد (باکس/کارتن)</span>
+                  </div>
+                  <div className="bg-emerald-500 p-4 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
+                    <span className="text-[10px] font-bold opacity-80 block">میانگین فروش ماهانه</span>
+                    <span className="text-xl font-black font-mono block mt-1">
+                      {Math.round(getProductPerformanceData(selectedProductForInsights.id).reduce((acc, d) => acc + d.sales, 0) / 6)}
+                    </span>
+                    <span className="text-[10px] font-bold block mt-1">رشد پایدار</span>
+                  </div>
+                  <div className="bg-amber-500 p-4 rounded-2xl text-white shadow-lg shadow-amber-500/20">
+                    <span className="text-[10px] font-bold opacity-80 block">پیشنهاد شارژ انبار</span>
+                    <span className="text-lg font-black block mt-1">اولویت بالا</span>
+                    <span className="text-[10px] font-bold block mt-1">تقاضای صعودی</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recommendation Box */}
+              <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-3xl">
+                <h4 className="text-sm font-black text-indigo-900 mb-2 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4" />
+                  تحلیل هوشمند سوین
+                </h4>
+                <p className="text-xs text-indigo-800 leading-relaxed font-medium">
+                  با توجه به روند فروش در ۳ ماه گذشته، این محصول در دسته <strong className="text-indigo-900 underline decoration-indigo-300">«محصولات پرتقاضا»</strong> قرار دارد. 
+                  پیشنهاد می‌شود برای جلوگیری از اتمام موجودی، حداقل به میزان <span className="font-bold">۳۰٪ بیشتر</span> از میانگین فروش ماهانه (حدود {Math.round(getProductPerformanceData(selectedProductForInsights.id)[5].sales * 1.3)} واحد) در انبار موجود داشته باشید.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-slate-100 flex items-center justify-end">
+              <button
+                onClick={() => setShowInsightsModal(false)}
+                className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-black shadow-lg shadow-slate-900/20 active:scale-95 transition-all"
+              >
+                متوجه شدم
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
     </div>
   );
