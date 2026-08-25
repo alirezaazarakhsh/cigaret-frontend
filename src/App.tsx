@@ -223,6 +223,41 @@ export default function App() {
     };
   });
 
+  // Deduct POS & website stock when an online order is placed
+  const handleOnlineOrderDeductStock = (orderItems: CartItem[]) => {
+    setProducts(prevProducts => {
+      const updated = prevProducts.map(p => {
+        const item = orderItems.find(it => it.product.id === p.id);
+        if (!item) return p;
+
+        const boxesPerCarton = p.boxesPerCarton || 50;
+        const packsPerBox = p.packsPerBox || 10;
+
+        let deltaCartons = 0;
+        if (item.unit === 'carton') {
+          deltaCartons = item.quantity;
+        } else if (item.unit === 'box') {
+          deltaCartons = item.quantity / boxesPerCarton;
+        } else {
+          deltaCartons = item.quantity / (boxesPerCarton * packsPerBox);
+        }
+
+        const newStockCartons = Math.max(0, Math.round((p.stockCartons - deltaCartons) * 1000) / 1000);
+        return {
+          ...p,
+          stockCartons: newStockCartons,
+          isAvailable: newStockCartons > 0,
+        };
+      });
+
+      try {
+        localStorage.setItem('wholesale_products', JSON.stringify(updated));
+      } catch {}
+
+      return updated;
+    });
+  };
+
   const [selectedCategory, setSelectedCategory] = useState<CigaretteCategory>('all');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -694,6 +729,7 @@ export default function App() {
               onGoToCatalog={() => setActiveTab('catalog')}
               availableProducts={products}
               currentUser={currentUser}
+              onOrderSubmitted={handleOnlineOrderDeductStock}
               onOpenTracking={(trackingCode) => {
                 setActiveTab('tracking');
                 showToast(`کد رهگیری ${trackingCode} در بخش پیگیری ثبت شد.`);
@@ -756,6 +792,7 @@ export default function App() {
         currentUser={currentUser}
         retailShops={retailShops}
         djangoConfig={djangoConfig}
+        onOrderSubmitted={handleOnlineOrderDeductStock}
         onNavigateToProfile={() => {
           setUserPanelSubTab('profile');
           setActiveTab('user-panel');

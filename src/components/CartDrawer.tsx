@@ -36,6 +36,7 @@ interface CartDrawerProps {
   retailShops?: RetailShopCustomer[];
   onNavigateToProfile?: () => void;
   djangoConfig?: DjangoCrmConfig;
+  onOrderSubmitted?: (items: CartItem[]) => void;
 }
 
 export const CartDrawer: React.FC<CartDrawerProps> = ({
@@ -49,6 +50,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   retailShops,
   onNavigateToProfile,
   djangoConfig,
+  onOrderSubmitted,
 }) => {
   if (!isOpen) return null;
 
@@ -300,6 +302,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
         trackingCode,
         totalAmount: finalPayable,
       });
+      if (onOrderSubmitted) {
+        onOrderSubmitted(cartItems);
+      }
       onClearCart();
     }, 1000);
   };

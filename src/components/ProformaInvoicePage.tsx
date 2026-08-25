@@ -38,6 +38,7 @@ interface ProformaInvoicePageProps {
   availableProducts?: CigaretteProduct[];
   onOpenTracking?: (trackingCode: string) => void;
   currentUser?: UserProfile | null;
+  onOrderSubmitted?: (items: CartItem[]) => void;
 }
 
 export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
@@ -50,6 +51,7 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
   availableProducts,
   onOpenTracking,
   currentUser,
+  onOrderSubmitted,
 }) => {
   // دریافت تنظیمات برند و حساب‌ها به صورت پویا از لوکال استوریج (بک‌اند)
   const djangoConfig = (() => {
@@ -260,9 +262,15 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
         senderCardLast4: senderCardLast4 || undefined,
       });
       setOrderSubmittedSuccess(true);
+      if (onOrderSubmitted) {
+        onOrderSubmitted(cartItems);
+      }
     } catch (err) {
       console.error(err);
       setOrderSubmittedSuccess(true); // Fallback gracefully for UI
+      if (onOrderSubmitted) {
+        onOrderSubmitted(cartItems);
+      }
     } finally {
       setIsSubmitting(false);
     }

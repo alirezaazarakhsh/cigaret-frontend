@@ -126,7 +126,8 @@ export type CigaretteCategory =
   | 'iqos_heets'
   | 'pods_vapes'
   | 'tobacco'
-  | 'accessories';
+  | 'accessories'
+  | 'drinks_coffee';
 
 export interface WholesaleTierDiscount {
   minCartons?: number;
@@ -167,6 +168,7 @@ export interface CigaretteProduct {
   description: string;
   isAvailable: boolean;
   isBoxOnly?: boolean; // اگر true باشد، فقط فروش باکسی فعال است و کارتن ندارد
+  isPosOnly?: boolean; // اگر true باشد، کالا مختص به فروش حضوری صندوق بوده و در کاتالوگ آنلاین نمایش داده نمی‌شود
 }
 
 export interface CartItem {

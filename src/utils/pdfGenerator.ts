@@ -1,6 +1,6 @@
 import { toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
-import { CigaretteProduct, OrderInvoice } from '../types';
+import { CigaretteProduct, OrderInvoice, PosReceiptInvoice } from '../types';
 import { formatToman, formatNumberFa } from './formatters';
 
 /**
@@ -55,19 +55,7 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
 
   const pdf = new jsPDF('p', 'mm', 'a4');
 
-  const originalBodyWidth = document.body.style.width;
-  const originalBodyMinWidth = document.body.style.minWidth;
-  const originalBodyOverflow = document.body.style.overflow;
-  const originalHtmlWidth = document.documentElement.style.width;
-  const originalHtmlMinWidth = document.documentElement.style.minWidth;
-
   try {
-    document.body.style.width = '1000px';
-    document.body.style.minWidth = '1000px';
-    document.body.style.overflow = 'visible';
-    document.documentElement.style.width = '1000px';
-    document.documentElement.style.minWidth = '1000px';
-
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
@@ -78,8 +66,9 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
       const printContainer = document.createElement('div');
       printContainer.id = `pdf-price-list-page-${pageIdx}`;
       printContainer.style.position = 'fixed';
-      printContainer.style.left = '-9999px';
+      printContainer.style.left = '0px';
       printContainer.style.top = '0px';
+      printContainer.style.zIndex = '-9999';
       printContainer.style.width = '794px';
       printContainer.style.height = '1123px';
       printContainer.style.backgroundColor = '#ffffff';
@@ -87,6 +76,7 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
       printContainer.style.boxSizing = 'border-box';
       printContainer.style.overflow = 'hidden';
       printContainer.style.direction = 'ltr';
+      printContainer.style.pointerEvents = 'none';
 
       printContainer.innerHTML = `
         <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; height: 100%; display: flex; flex-direction: column; justify-content: space-between; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, sans-serif; color: #0f172a; box-sizing: border-box; border: 2px solid #1d4ed8; border-radius: 12px; padding: 16px; background: #ffffff;">
@@ -184,6 +174,8 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
         pixelRatio: 2,
         width: 794,
         height: 1123,
+        skipFonts: true,
+        fontEmbedCSS: '',
       });
 
       if (pageIdx > 0) {
@@ -201,12 +193,6 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
     console.error('Error generating Price List PDF:', error);
     window.print();
     return false;
-  } finally {
-    document.body.style.width = originalBodyWidth;
-    document.body.style.minWidth = originalBodyMinWidth;
-    document.body.style.overflow = originalBodyOverflow;
-    document.documentElement.style.width = originalHtmlWidth;
-    document.documentElement.style.minWidth = originalHtmlMinWidth;
   }
 }
 
@@ -218,8 +204,9 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
   const printContainer = document.createElement('div');
   printContainer.id = 'pdf-invoice-container';
   printContainer.style.position = 'fixed';
-  printContainer.style.left = '-9999px';
+  printContainer.style.left = '0px';
   printContainer.style.top = '0px';
+  printContainer.style.zIndex = '-9999';
   printContainer.style.width = '794px';
   printContainer.style.height = '1123px';
   printContainer.style.backgroundColor = '#ffffff';
@@ -227,6 +214,7 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
   printContainer.style.boxSizing = 'border-box';
   printContainer.style.overflow = 'hidden';
   printContainer.style.direction = 'ltr';
+  printContainer.style.pointerEvents = 'none';
 
   const trackingCode = invoice.trackingCode || invoice.orderId;
 
@@ -384,19 +372,7 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
 
   document.body.appendChild(printContainer);
 
-  const originalBodyWidth = document.body.style.width;
-  const originalBodyMinWidth = document.body.style.minWidth;
-  const originalBodyOverflow = document.body.style.overflow;
-  const originalHtmlWidth = document.documentElement.style.width;
-  const originalHtmlMinWidth = document.documentElement.style.minWidth;
-
   try {
-    document.body.style.width = '1000px';
-    document.body.style.minWidth = '1000px';
-    document.body.style.overflow = 'visible';
-    document.documentElement.style.width = '1000px';
-    document.documentElement.style.minWidth = '1000px';
-
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
@@ -408,6 +384,8 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
       pixelRatio: 2,
       width: 794,
       height: 1123,
+      skipFonts: true,
+      fontEmbedCSS: '',
     });
 
     const pdf = new jsPDF('p', 'mm', 'a4');
@@ -419,14 +397,188 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
     window.print();
     return false;
   } finally {
-    document.body.style.width = originalBodyWidth;
-    document.body.style.minWidth = originalBodyMinWidth;
-    document.body.style.overflow = originalBodyOverflow;
-    document.documentElement.style.width = originalHtmlWidth;
-    document.documentElement.style.minWidth = originalHtmlMinWidth;
-
     if (document.body.contains(printContainer)) {
       document.body.removeChild(printContainer);
     }
   }
 }
+
+/**
+ * Downloads an official, 80mm thermal receipt PDF (رستورانی / صندوق) with zero overflow.
+ */
+export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): Promise<boolean> {
+  const config = getDjangoConfig();
+  const printContainer = document.createElement('div');
+  printContainer.id = 'pdf-pos-thermal-receipt';
+  printContainer.style.position = 'fixed';
+  printContainer.style.left = '0px';
+  printContainer.style.top = '0px';
+  printContainer.style.zIndex = '-9999';
+
+  // 380px container width simulates crisp 80mm thermal receipt roll
+  const containerWidthPx = 380;
+  // Calculate dynamic height based on number of items (base ~380px + ~50px per item)
+  const baseHeightPx = 380;
+  const itemsHeightPx = receipt.items.length * 50;
+  const totalHeightPx = baseHeightPx + itemsHeightPx;
+
+  // 80mm width standard thermal roll. Height scaled proportionally in mm (80mm * totalHeightPx / containerWidthPx)
+  const receiptWidthMm = 80;
+  const receiptHeightMm = Math.max(120, Math.round((receiptWidthMm * totalHeightPx) / containerWidthPx));
+
+  printContainer.style.width = `${containerWidthPx}px`;
+  printContainer.style.height = `${totalHeightPx}px`;
+  printContainer.style.backgroundColor = '#ffffff';
+  printContainer.style.padding = '14px 12px';
+  printContainer.style.boxSizing = 'border-box';
+  printContainer.style.overflow = 'hidden';
+  printContainer.style.direction = 'ltr';
+  printContainer.style.pointerEvents = 'none';
+
+  const paymentMethodText = 
+    receipt.paymentMethod === 'pos_terminal' ? 'کارتخوان بانکی' :
+    receipt.paymentMethod === 'cash' ? 'پرداخت نقدی' : 'حساب دفتری (نسیه)';
+
+  printContainer.innerHTML = `
+    <div dir="rtl" style="direction: rtl; text-align: center; width: 100%; height: 100%; font-family: 'Vazirmatn', 'Samim', system-ui, -apple-system, sans-serif; color: #000000; background: #ffffff; box-sizing: border-box; font-size: 11px; line-height: 1.4; display: flex; flex-direction: column; justify-content: space-between;">
+      
+      <div>
+        <!-- Receipt Header -->
+        <div style="border-bottom: 2px dashed #000000; padding-bottom: 8px; margin-bottom: 8px;">
+          <div style="font-size: 15px; font-weight: 900; color: #000000; margin-bottom: 2px;">
+            ${config.companyName ? `فروشگاه و بنکداری ${config.companyName}` : 'فروشگاه و پخش سراسری سوین'}
+          </div>
+          <div style="font-size: 10px; font-weight: bold; color: #111827;">
+            رسید رسمی فروش صندوق (فیش حرارتی)
+          </div>
+          <div style="font-size: 9px; color: #374151; margin-top: 3px;">
+            تلفن سفارشات: ${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}
+          </div>
+        </div>
+
+        <!-- Receipt Metadata -->
+        <div style="border-bottom: 1px dashed #000000; padding-bottom: 6px; margin-bottom: 8px; font-size: 9.5px; text-align: right; line-height: 1.6;">
+          <div style="display: flex; justify-content: space-between;">
+            <span><strong>شماره فاکتور:</strong> <span style="font-family: monospace; font-weight: bold;">${receipt.receiptNumber}</span></span>
+            <span><strong>تاریخ:</strong> ${receipt.createdAt}</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-top: 2px;">
+            <span><strong>مشتری / خریدار:</strong> ${receipt.customerName || 'مشتری حضوری'}</span>
+            <span><strong>روش پرداخت:</strong> ${paymentMethodText}</span>
+          </div>
+          ${receipt.terminalRefNumber ? `
+            <div style="margin-top: 2px;">
+              <strong>شماره پیگیری کارتخوان:</strong> <span style="font-family: monospace;">${receipt.terminalRefNumber}</span>
+            </div>
+          ` : ''}
+          ${receipt.cashier ? `
+            <div style="margin-top: 2px; color: #4b5563;">
+              <strong>صندوق‌دار:</strong> ${receipt.cashier}
+            </div>
+          ` : ''}
+        </div>
+
+        <!-- Items Table -->
+        <table style="width: 100%; border-collapse: collapse; font-size: 9.5px; text-align: right; margin-bottom: 8px; direction: rtl;">
+          <thead>
+            <tr style="border-bottom: 1.5px solid #000000; background: #f3f4f6; font-weight: bold;">
+              <th style="padding: 4px 2px; text-align: right; width: 44%;">شرح کالا</th>
+              <th style="padding: 4px 2px; text-align: center; width: 18%;">واحد/تعداد</th>
+              <th style="padding: 4px 2px; text-align: left; width: 18%;">فی (تومان)</th>
+              <th style="padding: 4px 2px; text-align: left; width: 20%;">جمع (تومان)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${receipt.items.map((item) => {
+              const unitLabel = item.unit === 'carton' ? 'کارتن' : item.unit === 'box' ? 'باکس' : 'پاکت';
+              return `
+                <tr style="border-bottom: 1px dashed #d1d5db;">
+                  <td style="padding: 4px 2px; text-align: right; font-weight: bold; font-size: 9px; line-height: 1.2;">
+                    ${item.product.nameFa}
+                  </td>
+                  <td style="padding: 4px 2px; text-align: center; font-size: 9px;">
+                    ${formatNumberFa(item.quantity)} ${unitLabel}
+                  </td>
+                  <td style="padding: 4px 2px; text-align: left; font-size: 9px;">
+                    ${formatToman(item.unitPrice)}
+                  </td>
+                  <td style="padding: 4px 2px; text-align: left; font-weight: bold; font-size: 9.5px;">
+                    ${formatToman(item.totalPrice)}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+
+        <!-- Totals & Summary -->
+        <div style="border-top: 1.5px solid #000000; border-bottom: 1.5px solid #000000; padding: 6px 0; margin-bottom: 8px; font-size: 10px; line-height: 1.7;">
+          <div style="display: flex; justify-content: space-between;">
+            <span>جمع کل اقلام:</span>
+            <span>${formatToman(receipt.subtotal)} تومان</span>
+          </div>
+          ${receipt.discountAmount > 0 ? `
+            <div style="display: flex; justify-content: space-between; color: #047857; font-weight: bold;">
+              <span>مبلغ تخفیف:</span>
+              <span>-${formatToman(receipt.discountAmount)} تومان</span>
+            </div>
+          ` : ''}
+          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 900; margin-top: 2px; padding-top: 2px; border-top: 1px dashed #000000;">
+            <span>مبلغ قابل پرداخت:</span>
+            <span>${formatToman(receipt.finalTotal)} تومان</span>
+          </div>
+        </div>
+
+        ${receipt.notes ? `
+          <div style="font-size: 8.5px; color: #374151; text-align: right; margin-bottom: 8px; padding: 4px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;">
+            <strong>توضیحات:</strong> ${receipt.notes}
+          </div>
+        ` : ''}
+      </div>
+
+      <!-- Receipt Footer Barcode & Thank You -->
+      <div style="border-top: 1px dashed #000000; padding-top: 6px; text-align: center; font-size: 9px;">
+        <div style="font-weight: bold; margin-bottom: 4px;">با سپاس از خرید و اعتماد شما</div>
+        <div style="font-family: monospace; font-size: 14px; letter-spacing: 3px; font-weight: bold; margin-bottom: 2px;">
+          ||||| ||||||| ||||| ||||
+        </div>
+        <div style="font-family: monospace; font-size: 8px; letter-spacing: 1px;">${receipt.receiptNumber}</div>
+      </div>
+
+    </div>
+  `;
+
+  document.body.appendChild(printContainer);
+
+  try {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+    await new Promise(r => setTimeout(r, 120));
+
+    const imgData = await toJpeg(printContainer, {
+      quality: 0.98,
+      backgroundColor: '#ffffff',
+      pixelRatio: 2,
+      width: containerWidthPx,
+      height: totalHeightPx,
+      skipFonts: true,
+      fontEmbedCSS: '',
+    });
+
+    const pdf = new jsPDF('p', 'mm', [receiptWidthMm, receiptHeightMm]);
+    pdf.addImage(imgData, 'JPEG', 0, 0, receiptWidthMm, receiptHeightMm);
+    pdf.save(`فیش_حرارتی_${receipt.receiptNumber}.pdf`);
+    return true;
+  } catch (error) {
+    console.error('Error generating Thermal Receipt PDF:', error);
+    window.print();
+    return false;
+  } finally {
+    if (document.body.contains(printContainer)) {
+      document.body.removeChild(printContainer);
+    }
+  }
+}
+
+export const generateThermalReceiptPdf = generatePosThermalReceiptPdf;
