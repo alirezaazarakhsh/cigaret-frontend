@@ -38,12 +38,21 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
   const [selectedQuantities, setSelectedQuantities] = useState<Record<string, number>>({});
 
   const brands = useMemo(() => {
-    const list = Array.from(new Set(products.map(p => p.brand)));
+    const list = Array.from(
+      new Set(
+        products
+          .filter(p => !p.isPosOnly && p.category !== 'drinks_coffee')
+          .map(p => p.brand)
+      )
+    );
     return ['all', ...list];
   }, [products]);
 
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
+      // Exclude in-person POS items (coffee & soft drinks) from the online price list
+      if (product.isPosOnly || product.category === 'drinks_coffee') return false;
+
       const matchSearch = 
         product.nameFa.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.nameEn.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -74,7 +83,7 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
   };
 
   return (
-    <section className="py-6 px-3 sm:px-6 max-w-7xl mx-auto" id="live-price-section">
+    <section className="py-6 px-4 sm:px-6 max-w-[1600px] w-full mx-auto" id="live-price-section">
       <div>
         
         {/* Title & Actions */}
@@ -181,6 +190,11 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
                             <div className="text-[10px] text-slate-400 font-mono" dir="ltr">
                               {product.brand} - {product.origin}
                             </div>
+                            {product.description && (
+                              <div className="text-[11px] text-slate-500 line-clamp-1 max-w-xs mt-0.5 font-normal">
+                                {product.description}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </td>

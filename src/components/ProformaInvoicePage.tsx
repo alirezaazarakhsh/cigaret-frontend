@@ -352,7 +352,7 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
 
   return (
     <div className="py-8" id="proforma-invoice-view">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+      <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6">
         
         {/* Top Title & Actions Bar */}
         <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200 shadow-xs mb-6 print:hidden">
@@ -464,18 +464,18 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
 
                   {/* Seller Official Credentials Bar */}
                   {(djangoConfig.showNationalIdInvoice || djangoConfig.showEconomicCodeInvoice || djangoConfig.showActivityTypeInvoice || djangoConfig.showTransportPhoneInvoice) ? (
-                    <div className="bg-slate-900 text-white p-2.5 rounded-2xl text-[10px] sm:text-[11px] grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-medium">
+                    <div className="bg-slate-900 text-white p-2.5 rounded-2xl text-[11px] grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-medium divide-y sm:divide-y-0 sm:divide-x sm:divide-x-reverse divide-slate-800">
                       {djangoConfig.showNationalIdInvoice && (
-                        <div>شناسه ملی: <strong className="text-amber-300 font-mono">{djangoConfig.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</strong></div>
+                        <div className="py-1"><span className="text-slate-400">شناسه ملی:</span> <strong className="text-white font-bold mr-1">{djangoConfig.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</strong></div>
                       )}
                       {djangoConfig.showEconomicCodeInvoice && (
-                        <div>کد اقتصادی: <strong className="text-amber-300 font-mono">{djangoConfig.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</strong></div>
+                        <div className="py-1"><span className="text-slate-400">کد اقتصادی:</span> <strong className="text-white font-bold mr-1">{djangoConfig.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</strong></div>
                       )}
                       {djangoConfig.showActivityTypeInvoice && (
-                        <div>نوع فعالیت: <strong className="text-amber-300">{djangoConfig.activityTypeCompany || 'پخش عمده دخانیات'}</strong></div>
+                        <div className="py-1"><span className="text-slate-400">نوع فعالیت:</span> <strong className="text-white font-bold mr-1">{djangoConfig.activityTypeCompany || 'پخش عمده دخانیات'}</strong></div>
                       )}
                       {djangoConfig.showTransportPhoneInvoice && (
-                        <div>تلفن ترابری: <strong className="text-amber-300 font-mono" dir="ltr">{djangoConfig.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>
+                        <div className="py-1"><span className="text-slate-400">تلفن ترابری:</span> <strong className="text-white font-bold mr-1" dir="ltr">{djangoConfig.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>
                       )}
                     </div>
                   ) : null}

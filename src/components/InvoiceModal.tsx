@@ -135,11 +135,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
             </div>
 
             {/* Seller Credentials Bar */}
-            <div className="bg-slate-900 text-white p-2.5 rounded-xl text-[10px] grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-medium">
-              <div>شناسه ملی: <strong className="text-amber-300 font-mono">۱۰۱۰۳۸۵۲۹۱۰</strong></div>
-              <div>کد اقتصادی: <strong className="text-amber-300 font-mono">۴۱۱۴۹۸۷۵۳۱۱۹</strong></div>
-              <div>نوع فعالیت: <strong className="text-amber-300">پخش عمده دخانیات</strong></div>
-              <div>تلفن ترابری: <strong className="text-amber-300 font-mono" dir="ltr">۰۹۱۲۰۷۵۹۴۱۹</strong></div>
+            <div className="bg-slate-900 text-white p-2.5 rounded-xl text-[11px] grid grid-cols-2 sm:grid-cols-4 gap-2 text-center font-medium divide-y sm:divide-y-0 sm:divide-x sm:divide-x-reverse divide-slate-800">
+              <div className="py-1"><span className="text-slate-400">شناسه ملی:</span> <strong className="text-white font-bold mr-1">۱۰۱۰۳۸۵۲۹۱۰</strong></div>
+              <div className="py-1"><span className="text-slate-400">کد اقتصادی:</span> <strong className="text-white font-bold mr-1">۴۱۱۴۹۸۷۵۳۱۱۹</strong></div>
+              <div className="py-1"><span className="text-slate-400">نوع فعالیت:</span> <strong className="text-white font-bold mr-1">پخش عمده دخانیات</strong></div>
+              <div className="py-1"><span className="text-slate-400">تلفن ترابری:</span> <strong className="text-white font-bold mr-1" dir="ltr">۰۹۱۲۰۷۵۹۴۱۹</strong></div>
             </div>
           </div>
 

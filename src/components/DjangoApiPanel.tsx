@@ -242,7 +242,7 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
   ];
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto" id="django-api-panel">
+    <div className="space-y-6 max-w-[1600px] w-full mx-auto px-4 sm:px-6" id="django-api-panel">
       
       {/* Top Banner & Django Status Header */}
       <div className="bg-white [#0f172a] border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs">

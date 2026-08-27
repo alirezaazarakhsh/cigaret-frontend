@@ -1607,6 +1607,1383 @@ urlpatterns = router.urls
 `,
   },
 
+  pos: {
+    id: 'pos',
+    name: 'pos',
+    nameFa: 'صندوق فروشگاهی (POS)',
+    icon: 'MonitorSmartphone',
+    description: 'صدور فاکتور حضوری، محصولات صندوق، مدیریت چاپ حرارتی',
+    models: `"""
+pos/models.py
+مدل‌های صندوق فروشگاه حضوری، پایانه‌های فروشگاهی POS، نوبت‌های صندوق‌داری و اقلام فاکتور
+"""
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from accounts.models import User
+from catalog.models import CigaretteProduct
+
+
+class PosRegister(models.Model):
+    class RegisterStatus(models.TextChoices):
+        ACTIVE = 'active', _('فعال و آماده صدور فاکتور')
+        INACTIVE = 'inactive', _('غیرفعال')
+        MAINTENANCE = 'maintenance', _('در حال تعمیر و پشتیبانی')
+
+    name = models.CharField(_("نام صندوق / باجه"), max_length=100)
+    terminal_code = models.CharField(_("کد ترمینال POS"), max_length=50, unique=True)
+    ip_address = models.GenericIPAddressField(_("آدرس IP چاپگر حرارتی / سیستم"), blank=True, null=True)
+    status = models.CharField(_("وضعیت پایانه"), max_length=20, choices=RegisterStatus.choices, default=RegisterStatus.ACTIVE)
+    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("پایانه صندوق")
+        verbose_name_plural = _("۱. پایانه‌ها و صندوق‌های فروشگاه حضوری")
+
+    def __str__(self):
+        return f"{self.name} (کد: {self.terminal_code})"
+
+
+class PosShift(models.Model):
+    class ShiftStatus(models.TextChoices):
+        OPEN = 'open', _('شیفت باز (در حال فروش)')
+        CLOSED = 'closed', _('شیفت بسته شده و تسویه‌شده')
+
+    cashier = models.ForeignKey(User, on_delete=models.PROTECT, related_name='pos_shifts', verbose_name=_("صندوق‌دار"))
+    register = models.ForeignKey(PosRegister, on_delete=models.PROTECT, related_name='shifts', verbose_name=_("صندوق"))
+    opening_cash = models.BigIntegerField(_("موجودی اولیه صندوق (تومان)"), default=0)
+    closing_cash = models.BigIntegerField(_("موجودی نقدی نهایی صندوق (تومان)"), null=True, blank=True)
+    expected_cash = models.BigIntegerField(_("موجودی نقدی سیستم (تومان)"), null=True, blank=True)
+    cash_discrepancy = models.BigIntegerField(_("کسری / مازاد صندوق (تومان)"), default=0)
+    status = models.CharField(_("وضعیت شیفت"), max_length=20, choices=ShiftStatus.choices, default=ShiftStatus.OPEN)
+    opened_at = models.DateTimeField(_("زمان شروع شیفت"), auto_now_add=True)
+    closed_at = models.DateTimeField(_("زمان پایان شیفت"), null=True, blank=True)
+
+    class Meta:
+        verbose_name = _("شیفت صندوق‌داری")
+        verbose_name_plural = _("۲. نوبت‌ها و شیفت‌های صندوق‌داران")
+        ordering = ['-opened_at']
+
+    def __str__(self):
+        return f"شیفت {self.cashier.full_name} | {self.register.name} ({self.get_status_display()})"
+
+
+class PosSale(models.Model):
+    class PaymentMethod(models.TextChoices):
+        CASH = 'cash', _('وجه نقد')
+        POS_CARD = 'pos_card', _('کارتخوان متصل (POS)')
+        SPLIT = 'split', _('ترکیبی (نقد + کارت)')
+        CREDIT_DEBT = 'credit_debt', _('نسیه و حساب دفتری')
+
+    invoice_number = models.CharField(_("شماره فاکتور صندوق"), max_length=50, unique=True, db_index=True)
+    shift = models.ForeignKey(PosShift, on_delete=models.PROTECT, related_name='sales', verbose_name=_("شیفت صندوق"))
+    cashier = models.ForeignKey(User, on_delete=models.PROTECT, related_name='pos_sales', verbose_name=_("صندوق‌دار"))
+    customer = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='pos_purchases', verbose_name=_("مشتری (اختیاری)"))
+    payment_method = models.CharField(_("روش تسویه"), max_length=20, choices=PaymentMethod.choices, default=PaymentMethod.POS_CARD)
+    total_amount = models.BigIntegerField(_("مبلغ ناخالص (تومان)"))
+    discount_amount = models.BigIntegerField(_("تخفیف (تومان)"), default=0)
+    final_amount = models.BigIntegerField(_("مبلغ پرداختی نهایی (تومان)"))
+    pos_card_ref = models.CharField(_("شماره ارجاع / پیگیری کارتخوان"), max_length=50, blank=True)
+    created_at = models.DateTimeField(_("تاریخ و زمان صدور فاکتور"), auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("فاکتور فروش حضوری")
+        verbose_name_plural = _("۳. فاکتورهای فروشگاه حضوری (POS)")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"فاکتور {self.invoice_number} | {self.final_amount:,} تومان"
+
+
+class PosSaleItem(models.Model):
+    sale = models.ForeignKey(PosSale, on_delete=models.CASCADE, related_name='items', verbose_name=_("فاکتور مرجع"))
+    product = models.ForeignKey(CigaretteProduct, on_delete=models.PROTECT, related_name='pos_sale_items', verbose_name=_("محصول دخانی"))
+    unit_type = models.CharField(_("واحد فروش"), max_length=20, default='pack', choices=[('pack', 'پاکت'), ('box', 'باکس'), ('carton', 'کارتن')])
+    quantity = models.PositiveIntegerField(_("تعداد"))
+    unit_price = models.BigIntegerField(_("قیمت واحد (تومان)"))
+    subtotal = models.BigIntegerField(_("جمع ردیف (تومان)"))
+
+    class Meta:
+        verbose_name = _("قلم فاکتور حضوری")
+        verbose_name_plural = _("اقلام فاکتور حضوری")
+
+    def __str__(self):
+        return f"{self.product.name_fa} x {self.quantity} {self.unit_type}"
+`,
+    admin: `"""
+pos/admin.py
+پنل ادمین صندوق فروشگاهی، پایانه‌ها، شیفت‌ها و صدور فاکتور
+"""
+from django.contrib import admin
+from django.utils.html import format_html
+from .models import PosRegister, PosShift, PosSale, PosSaleItem
+
+
+class PosSaleItemInline(admin.TabularInline):
+    model = PosSaleItem
+    extra = 0
+    readonly_fields = ('product', 'unit_type', 'quantity', 'unit_price', 'subtotal')
+
+
+@admin.register(PosRegister)
+class PosRegisterAdmin(admin.ModelAdmin):
+    list_display = ('name', 'terminal_code', 'ip_address', 'status')
+    list_filter = ('status',)
+    search_fields = ('name', 'terminal_code')
+
+
+@admin.register(PosShift)
+class PosShiftAdmin(admin.ModelAdmin):
+    list_display = ('id', 'cashier', 'register', 'status', 'opening_cash_display', 'closing_cash_display', 'cash_discrepancy_display', 'opened_at')
+    list_filter = ('status', 'register', 'opened_at')
+    search_fields = ('cashier__full_name', 'cashier__phone')
+
+    def opening_cash_display(self, obj):
+        return f"{obj.opening_cash:,} تومان"
+    opening_cash_display.short_description = "موجودی اولیه"
+
+    def closing_cash_display(self, obj):
+        if obj.closing_cash is not None:
+            return f"{obj.closing_cash:,} تومان"
+        return "-"
+    closing_cash_display.short_description = "موجودی نهایی"
+
+    def cash_discrepancy_display(self, obj):
+        if obj.cash_discrepancy == 0:
+            return format_html('<span style="color: green;">بدون مغایرت (تراز)</span>')
+        elif obj.cash_discrepancy < 0:
+            return format_html(f'<span style="color: red; font-weight: bold;">کسری: {abs(obj.cash_discrepancy):,} تومان</span>')
+        return format_html(f'<span style="color: blue; font-weight: bold;">مازاد: {obj.cash_discrepancy:,} تومان</span>')
+    cash_discrepancy_display.short_description = "مغایرت صندوق"
+
+
+@admin.register(PosSale)
+class PosSaleAdmin(admin.ModelAdmin):
+    list_display = ('invoice_number', 'cashier', 'payment_method', 'total_amount_display', 'final_amount_display', 'created_at')
+    list_filter = ('payment_method', 'created_at')
+    search_fields = ('invoice_number', 'pos_card_ref', 'cashier__full_name')
+    inlines = [PosSaleItemInline]
+
+    def total_amount_display(self, obj):
+        return f"{obj.total_amount:,} تومان"
+    total_amount_display.short_description = "مبلغ کل"
+
+    def final_amount_display(self, obj):
+        return format_html(f'<b style="color: #10b981;">{obj.final_amount:,} تومان</b>')
+    final_amount_display.short_description = "مبلغ نهایی"
+`,
+    serializers: `"""
+pos/serializers.py
+"""
+from rest_framework import serializers
+from .models import PosRegister, PosShift, PosSale, PosSaleItem
+
+
+class PosRegisterSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PosRegister
+        fields = '__all__'
+
+
+class PosSaleItemSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name_fa', read_only=True)
+
+    class Meta:
+        model = PosSaleItem
+        fields = ['id', 'product', 'product_name', 'unit_type', 'quantity', 'unit_price', 'subtotal']
+
+
+class PosSaleSerializer(serializers.ModelSerializer):
+    items = PosSaleItemSerializer(many=True, read_only=True)
+    cashier_name = serializers.CharField(source='cashier.full_name', read_only=True)
+
+    class Meta:
+        model = PosSale
+        fields = '__all__'
+
+
+class PosShiftSerializer(serializers.ModelSerializer):
+    cashier_name = serializers.CharField(source='cashier.full_name', read_only=True)
+    register_name = serializers.CharField(source='register.name', read_only=True)
+
+    class Meta:
+        model = PosShift
+        fields = '__all__'
+`,
+    views: `"""
+pos/views.py
+ویوهای صدور فاکتور حضوری، مدیریت شیفت و استعلام صندوق
+"""
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db import transaction
+from django.utils import timezone
+from .models import PosRegister, PosShift, PosSale, PosSaleItem
+from .serializers import PosRegisterSerializer, PosShiftSerializer, PosSaleSerializer
+from catalog.models import CigaretteProduct
+
+
+class PosRegisterViewSet(viewsets.ModelViewSet):
+    queryset = PosRegister.objects.all()
+    serializer_class = PosRegisterSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+
+class PosShiftViewSet(viewsets.ModelViewSet):
+    queryset = PosShift.objects.all()
+    serializer_class = PosShiftSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['post'], url_path='open-shift')
+    def open_shift(self, request):
+        register_id = request.data.get('register_id')
+        opening_cash = request.data.get('opening_cash', 0)
+        
+        # بررسی نبود شیفت باز قبلی
+        active_shift = PosShift.objects.filter(cashier=request.user, status=PosShift.ShiftStatus.OPEN).first()
+        if active_shift:
+            return Response({'error': 'شما هم‌اکنون یک شیفت باز دارید.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        shift = PosShift.objects.create(
+            cashier=request.user,
+            register_id=register_id,
+            opening_cash=opening_cash,
+            status=PosShift.ShiftStatus.OPEN
+        )
+        return Response(PosShiftSerializer(shift).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='close-shift')
+    def close_shift(self, request, pk=None):
+        shift = self.get_object()
+        closing_cash = int(request.data.get('closing_cash', 0))
+        
+        # محاسبه موجودی نقدی مورد انتظار
+        sales_cash = shift.sales.filter(payment_method='cash').aggregate(total=models.Sum('final_amount'))['total'] or 0
+        expected = shift.opening_cash + sales_cash
+        
+        shift.closing_cash = closing_cash
+        shift.expected_cash = expected
+        shift.cash_discrepancy = closing_cash - expected
+        shift.status = PosShift.ShiftStatus.CLOSED
+        shift.closed_at = timezone.now()
+        shift.save()
+
+        return Response(PosShiftSerializer(shift).data)
+
+
+class PosSaleViewSet(viewsets.ModelViewSet):
+    queryset = PosSale.objects.all()
+    serializer_class = PosSaleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['post'], url_path='checkout')
+    @transaction.atomic
+    def checkout(self, request):
+        shift_id = request.data.get('shift_id')
+        items_data = request.data.get('items', [])
+        payment_method = request.data.get('payment_method', PosSale.PaymentMethod.POS_CARD)
+        card_ref = request.data.get('card_ref', '')
+        discount = int(request.data.get('discount_amount', 0))
+
+        if not items_data:
+            return Response({'error': 'سبد خرید صندوق خالی است.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # تولید شماره فاکتور منحصر به فرد
+        inv_number = f"POS-{timezone.now().strftime('%Y%m%d%H%M%S')}-{request.user.id}"
+
+        total_amount = 0
+        sale = PosSale.objects.create(
+            invoice_number=inv_number,
+            shift_id=shift_id,
+            cashier=request.user,
+            payment_method=payment_method,
+            total_amount=0,
+            discount_amount=discount,
+            final_amount=0,
+            pos_card_ref=card_ref
+        )
+
+        for item in items_data:
+            product = CigaretteProduct.objects.select_for_update().get(id=item['product_id'])
+            qty = int(item['quantity'])
+            unit_price = int(item['unit_price'])
+            subtotal = qty * unit_price
+            total_amount += subtotal
+
+            PosSaleItem.objects.create(
+                sale=sale,
+                product=product,
+                unit_type=item.get('unit_type', 'pack'),
+                quantity=qty,
+                unit_price=unit_price,
+                subtotal=subtotal
+            )
+
+        sale.total_amount = total_amount
+        sale.final_amount = max(0, total_amount - discount)
+        sale.save()
+
+        return Response(PosSaleSerializer(sale).data, status=status.HTTP_201_CREATED)
+`,
+    urls: `"""
+pos/urls.py
+"""
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import PosRegisterViewSet, PosShiftViewSet, PosSaleViewSet
+
+router = DefaultRouter()
+router.register('registers', PosRegisterViewSet, basename='pos-register')
+router.register('shifts', PosShiftViewSet, basename='pos-shift')
+router.register('sales', PosSaleViewSet, basename='pos-sale')
+
+urlpatterns = [
+    path('', include(router.urls)),
+]
+`,
+  },
+  warehouse: {
+    id: 'warehouse',
+    name: 'warehouse',
+    nameFa: 'انبار و کاردکس (Warehouse)',
+    icon: 'Archive',
+    description: 'موجودی انبار، تاریخچه ورود و خروج، کاردکس، ضایعات',
+    models: `"""
+warehouse/models.py
+مدل‌های مدیریت چندانباره، موجودی لحظه‌ای کارتن/باکس، کاردکس ورود/خروج کالا و ضایعات
+"""
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from accounts.models import User
+from catalog.models import CigaretteProduct
+
+
+class WarehouseLocation(models.Model):
+    name = models.CharField(_("نام انبار"), max_length=120)
+    code = models.CharField(_("کد انبار"), max_length=30, unique=True)
+    manager = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='managed_warehouses', verbose_name=_("مدیر/انباردار"))
+    address = models.TextField(_("آدرس دقیق انبار"))
+    phone = models.CharField(_("شماره تماس انبار"), max_length=20)
+    is_active = models.BooleanField(_("فعال"), default=True)
+
+    class Meta:
+        verbose_name = _("انبار")
+        verbose_name_plural = _("۱. انبارها و مراکز لجستیک")
+
+    def __str__(self):
+        return f"{self.name} (کد: {self.code})"
+
+
+class WarehouseStock(models.Model):
+    warehouse = models.ForeignKey(WarehouseLocation, on_delete=models.CASCADE, related_name='stocks', verbose_name=_("انبار"))
+    product = models.ForeignKey(CigaretteProduct, on_delete=models.CASCADE, related_name='stocks', verbose_name=_("محصول"))
+    cartons_count = models.PositiveIntegerField(_("موجودی کارتن"), default=0)
+    loose_boxes_count = models.PositiveIntegerField(_("موجودی باکس تکی"), default=0)
+    min_stock_alert = models.PositiveIntegerField(_("حداقل نقطه سفارش (کارتن)"), default=5)
+    updated_at = models.DateTimeField(_("آخرین به‌روزرسانی موجودی"), auto_now=True)
+
+    class Meta:
+        verbose_name = _("موجودی انبار کالا")
+        verbose_name_plural = _("۲. موجودی لحظه‌ای انبار")
+        unique_together = ['warehouse', 'product']
+
+    def __str__(self):
+        return f"{self.product.name_fa} در {self.warehouse.name}: {self.cartons_count} کارتن"
+
+
+class KardexEntry(models.Model):
+    class MovementType(models.TextChoices):
+        PURCHASE_ENTRY = 'in_purchase', _('ورود بار خرید عمده (کارخانه)')
+        SALES_EXIT = 'out_sale', _('خروج بار سفارش بنکدار')
+        POS_EXIT = 'out_pos', _('خروج فروش صندوق حضوری')
+        TRANSFER_IN = 'in_transfer', _('انتقال ورودی از انبار دیگر')
+        TRANSFER_OUT = 'out_transfer', _('انتقال خروجی به انبار دیگر')
+        WASTE_ADJUSTMENT = 'out_waste', _('ضایعات و افت بار خیس‌خورده')
+        INVENTORY_AUDIT = 'audit', _('تعدیل انبارگردانی دوره‌ای')
+
+    stock = models.ForeignKey(WarehouseStock, on_delete=models.CASCADE, related_name='kardex_entries', verbose_name=_("رکورد موجودی"))
+    movement_type = models.CharField(_("نوع گردش کالا"), max_length=30, choices=MovementType.choices)
+    reference_code = models.CharField(_("شماره فاکتور / حواله انبار"), max_length=60, db_index=True)
+    quantity_cartons_change = models.IntegerField(_("تغییرات کارتن (مثبت یا منفی)"))
+    balance_cartons_after = models.PositiveIntegerField(_("مانده کارتن بعد از گردش"))
+    operator = models.ForeignKey(User, on_delete=models.PROTECT, related_name='kardex_ops', verbose_name=_("انباردار ثبت‌کننده"))
+    description = models.CharField(_("توضیحات و علت گردش"), max_length=255, blank=True)
+    created_at = models.DateTimeField(_("تاریخ و زمان گردش"), auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("ردیف کاردکس کالا")
+        verbose_name_plural = _("۳. کاردکس ریالی و مقداری کالاها")
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f"{self.get_movement_type_display()} | سند: {self.reference_code} | مانده: {self.balance_cartons_after}"
+`,
+    admin: `"""
+warehouse/admin.py
+پنل ادمین انبار، کاردکس و موجودی کالاها
+"""
+from django.contrib import admin
+from django.utils.html import format_html
+from .models import WarehouseLocation, WarehouseStock, KardexEntry
+
+
+@admin.register(WarehouseLocation)
+class WarehouseLocationAdmin(admin.ModelAdmin):
+    list_display = ('name', 'code', 'manager', 'phone', 'is_active')
+    search_fields = ('name', 'code')
+
+
+@admin.register(WarehouseStock)
+class WarehouseStockAdmin(admin.ModelAdmin):
+    list_display = ('product', 'warehouse', 'cartons_count', 'loose_boxes_count', 'stock_status_badge', 'updated_at')
+    list_filter = ('warehouse', 'product__brand')
+    search_fields = ('product__name_fa', 'warehouse__name')
+
+    def stock_status_badge(self, obj):
+        if obj.cartons_count <= 0:
+            return format_html('<span style="color: red; font-weight: bold;">ناموجود (اتمام)</span>')
+        elif obj.cartons_count <= obj.min_stock_alert:
+            return format_html(f'<span style="color: orange; font-weight: bold;">رو به اتمام ({obj.cartons_count} کارتن)</span>')
+        return format_html(f'<span style="color: green;">موجود کافی ({obj.cartons_count} کارتن)</span>')
+    stock_status_badge.short_description = "وضعیت شارژ انبار"
+
+
+@admin.register(KardexEntry)
+class KardexEntryAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'stock', 'movement_type', 'reference_code', 'quantity_cartons_change', 'balance_cartons_after', 'operator')
+    list_filter = ('movement_type', 'stock__warehouse', 'created_at')
+    search_fields = ('reference_code', 'stock__product__name_fa')
+    readonly_fields = ('created_at',)
+`,
+    serializers: `"""
+warehouse/serializers.py
+"""
+from rest_framework import serializers
+from .models import WarehouseLocation, WarehouseStock, KardexEntry
+
+
+class WarehouseLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WarehouseLocation
+        fields = '__all__'
+
+
+class WarehouseStockSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name_fa', read_only=True)
+    warehouse_name = serializers.CharField(source='warehouse.name', read_only=True)
+
+    class Meta:
+        model = WarehouseStock
+        fields = '__all__'
+
+
+class KardexEntrySerializer(serializers.ModelSerializer):
+    movement_type_label = serializers.CharField(source='get_movement_type_display', read_only=True)
+    product_name = serializers.CharField(source='stock.product.name_fa', read_only=True)
+
+    class Meta:
+        model = KardexEntry
+        fields = '__all__'
+`,
+    views: `"""
+warehouse/views.py
+ویوهای مدیریت موجودی، صدور حواله و گردش کاردکس کالا
+"""
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db import transaction
+from .models import WarehouseLocation, WarehouseStock, KardexEntry
+from .serializers import WarehouseLocationSerializer, WarehouseStockSerializer, KardexEntrySerializer
+
+
+class WarehouseStockViewSet(viewsets.ModelViewSet):
+    queryset = WarehouseStock.objects.select_related('product', 'warehouse').all()
+    serializer_class = WarehouseStockSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=True, methods=['get'], url_path='kardex')
+    def get_kardex(self, request, pk=None):
+        stock = self.get_object()
+        entries = stock.kardex_entries.all()[:100]
+        return Response(KardexEntrySerializer(entries, many=True).data)
+
+    @action(detail=False, methods=['post'], url_path='adjust-stock')
+    @transaction.atomic
+    def adjust_stock(self, request):
+        stock_id = request.data.get('stock_id')
+        change_cartons = int(request.data.get('cartons_change', 0))
+        movement_type = request.data.get('movement_type', KardexEntry.MovementType.INVENTORY_AUDIT)
+        ref_code = request.data.get('reference_code', 'MANUAL-ADJ')
+        desc = request.data.get('description', '')
+
+        stock = WarehouseStock.objects.select_for_update().get(id=stock_id)
+        new_balance = stock.cartons_count + change_cartons
+        if new_balance < 0:
+            return Response({'error': 'موجودی انبار نمی‌تواند منفی شود.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        stock.cartons_count = new_balance
+        stock.save()
+
+        kardex = KardexEntry.objects.create(
+            stock=stock,
+            movement_type=movement_type,
+            reference_code=ref_code,
+            quantity_cartons_change=change_cartons,
+            balance_cartons_after=new_balance,
+            operator=request.user,
+            description=desc
+        )
+
+        return Response({
+            'success': True,
+            'new_balance': new_balance,
+            'kardex_id': kardex.id
+        }, status=status.HTTP_200_OK)
+`,
+    urls: `"""
+warehouse/urls.py
+"""
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import WarehouseStockViewSet
+
+router = DefaultRouter()
+router.register('stocks', WarehouseStockViewSet, basename='warehouse-stock')
+
+urlpatterns = [
+    path('', include(router.urls)),
+]
+`,
+  },
+  finance: {
+    id: 'finance',
+    name: 'finance',
+    nameFa: 'حساب‌های دفتری و مالی (Finance)',
+    icon: 'BookOpen',
+    description: 'حساب‌های نسیه، تسویه حساب‌ها، سقف اعتبار مشتریان',
+    models: `"""
+finance/models.py
+مدل‌های حساب‌های دفتری (نسیه)، ریز گردش تراکنش‌های مالی، سقف اعتبار و چک‌های صیادی
+"""
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from accounts.models import User
+
+
+class CustomerLedger(models.Model):
+    customer = models.OneToOneField(User, on_delete=models.CASCADE, related_name='ledger_account', verbose_name=_("مشتری"))
+    credit_limit = models.BigIntegerField(_("سقف اعتبار نسیه (تومان)"), default=0)
+    current_balance = models.BigIntegerField(_("مانده بدهی جاری (تومان)"), default=0, help_text="مبالغ مثبت نشان‌دهنده بدهی مشتری است.")
+    max_overdue_days = models.PositiveIntegerField(_("مهلت تسویه نسیه (روز)"), default=30)
+    is_blocked = models.BooleanField(_("حساب نسیه مسدود شده"), default=False)
+    last_settled_at = models.DateTimeField(_("تاریخ آخرین تسویه کامل"), null=True, blank=True)
+    created_at = models.DateTimeField(_("تاریخ افتتاح حساب دفتری"), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("حساب دفتری مشتری")
+        verbose_name_plural = _("۱. حساب‌های دفتری و اعتباری (نسیه)")
+
+    def __str__(self):
+        return f"دفتر {self.customer.full_name} | مانده بدهی: {self.current_balance:,} تومان"
+
+
+class LedgerTransaction(models.Model):
+    class TransactionType(models.TextChoices):
+        CREDIT_SALE = 'credit_sale', _('فاکتور فروش نسیه')
+        CASH_PAYMENT = 'cash_payment', _('دریافت وجه نقد')
+        BANK_TRANSFER = 'bank_transfer', _('حواله بانکی پایا / ساتنا')
+        CHEQUE = 'cheque', _('دریافت چک صیادی')
+        SETTLEMENT_DISCOUNT = 'discount', _('تخفیف تسویه نقدی')
+
+    ledger = models.ForeignKey(CustomerLedger, on_delete=models.CASCADE, related_name='transactions', verbose_name=_("دفتر حساب"))
+    transaction_type = models.CharField(_("نوع تراکنش"), max_length=30, choices=TransactionType.choices)
+    document_ref = models.CharField(_("شماره سند / فاکتور"), max_length=60, db_index=True)
+    debit_amount = models.BigIntegerField(_("بدهکار (افزایش بدهی - تومان)"), default=0)
+    credit_amount = models.BigIntegerField(_("بستانکار (پرداخت مشتری - تومان)"), default=0)
+    balance_after = models.BigIntegerField(_("مانده بعد از سند (تومان)"))
+    recorded_by = models.ForeignKey(User, on_delete=models.PROTECT, related_name='recorded_finance_docs', verbose_name=_("حسابدار ثبت‌کننده"))
+    description = models.CharField(_("شرح سند"), max_length=255)
+    created_at = models.DateTimeField(_("زمان ثبت سند"), auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("تراکنش حساب دفتری")
+        verbose_name_plural = _("۲. ریز گردش تراکنش‌های مالی و اسناد")
+        ordering = ['-created_at', '-id']
+
+    def __str__(self):
+        return f"{self.get_transaction_type_display()} | سند: {self.document_ref} | مانده: {self.balance_after:,}"
+
+
+class ChequeRecord(models.Model):
+    class ChequeStatus(models.TextChoices):
+        PENDING = 'pending', _('در جریان وصول (نزد صندوق)')
+        PASSED = 'passed', _('وصول شده و نشسته به حساب')
+        BOUNCED = 'bounced', _('برگشت خورده (عدم موجودی)')
+        RETURNED = 'returned', _('عودت به مشتری')
+
+    ledger = models.ForeignKey(CustomerLedger, on_delete=models.CASCADE, related_name='cheques', verbose_name=_("دفتر مشتری"))
+    sayad_number = models.CharField(_("شناسه ۱۶ رقمی صیاد"), max_length=16, unique=True)
+    bank_name = models.CharField(_("بانک صادرکننده"), max_length=80)
+    amount = models.BigIntegerField(_("مبلغ چک (تومان)"))
+    due_date = models.DateField(_("تاریخ سررسید"))
+    status = models.CharField(_("وضعیت وصول"), max_length=20, choices=ChequeStatus.choices, default=ChequeStatus.PENDING)
+    notes = models.CharField(_("توضیحات و پشت‌نویسی"), max_length=255, blank=True)
+    created_at = models.DateTimeField(_("تاریخ دریافت"), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("چک صیادی مشتری")
+        verbose_name_plural = _("۳. چک‌های صیادی و اسناد تجاری")
+        ordering = ['due_date']
+
+    def __str__(self):
+        return f"چک صیادی {self.sayad_number} | {self.amount:,} تومان ({self.get_status_display()})"
+`,
+    admin: `"""
+finance/admin.py
+پنل ادمین حساب‌های دفتری و چک‌ها
+"""
+from django.contrib import admin
+from django.utils.html import format_html
+from .models import CustomerLedger, LedgerTransaction, ChequeRecord
+
+
+class LedgerTransactionInline(admin.TabularInline):
+    model = LedgerTransaction
+    extra = 0
+    readonly_fields = ('created_at', 'transaction_type', 'document_ref', 'debit_amount', 'credit_amount', 'balance_after', 'recorded_by', 'description')
+
+
+@admin.register(CustomerLedger)
+class CustomerLedgerAdmin(admin.ModelAdmin):
+    list_display = ('customer', 'credit_limit_display', 'current_balance_display', 'is_blocked', 'last_settled_at')
+    list_filter = ('is_blocked',)
+    search_fields = ('customer__full_name', 'customer__phone')
+    inlines = [LedgerTransactionInline]
+
+    def credit_limit_display(self, obj):
+        return f"{obj.credit_limit:,} تومان"
+    credit_limit_display.short_description = "سقف اعتبار"
+
+    def current_balance_display(self, obj):
+        color = 'red' if obj.current_balance > 0 else 'green'
+        return format_html(f'<b style="color: {color};">{obj.current_balance:,} تومان</b>')
+    current_balance_display.short_description = "مانده بدهی جاری"
+
+
+@admin.register(LedgerTransaction)
+class LedgerTransactionAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'ledger', 'transaction_type', 'document_ref', 'debit_amount', 'credit_amount', 'balance_after')
+    list_filter = ('transaction_type', 'created_at')
+    search_fields = ('document_ref', 'ledger__customer__full_name', 'description')
+    readonly_fields = ('created_at',)
+
+
+@admin.register(ChequeRecord)
+class ChequeRecordAdmin(admin.ModelAdmin):
+    list_display = ('sayad_number', 'ledger', 'bank_name', 'amount_display', 'due_date', 'status_badge')
+    list_filter = ('status', 'bank_name', 'due_date')
+    search_fields = ('sayad_number', 'ledger__customer__full_name')
+
+    def amount_display(self, obj):
+        return f"{obj.amount:,} تومان"
+    amount_display.short_description = "مبلغ چک"
+
+    def status_badge(self, obj):
+        colors = {'pending': '#f59e0b', 'passed': '#10b981', 'bounced': '#ef4444', 'returned': '#64748b'}
+        return format_html(
+            f'<span style="background-color: {colors.get(obj.status, "#64748b")}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">'
+            f'{obj.get_status_display()}</span>'
+        )
+    status_badge.short_description = "وضعیت"
+`,
+    serializers: `"""
+finance/serializers.py
+"""
+from rest_framework import serializers
+from .models import CustomerLedger, LedgerTransaction, ChequeRecord
+
+
+class CustomerLedgerSerializer(serializers.ModelSerializer):
+    customer_name = serializers.CharField(source='customer.full_name', read_only=True)
+    customer_phone = serializers.CharField(source='customer.phone', read_only=True)
+
+    class Meta:
+        model = CustomerLedger
+        fields = '__all__'
+
+
+class LedgerTransactionSerializer(serializers.ModelSerializer):
+    transaction_label = serializers.CharField(source='get_transaction_type_display', read_only=True)
+    recorder_name = serializers.CharField(source='recorded_by.full_name', read_only=True)
+
+    class Meta:
+        model = LedgerTransaction
+        fields = '__all__'
+
+
+class ChequeRecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChequeRecord
+        fields = '__all__'
+`,
+    views: `"""
+finance/views.py
+ویوهای حساب‌های دفتری، تسویه بدهی و استیتمنت مالی
+"""
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db import transaction
+from .models import CustomerLedger, LedgerTransaction, ChequeRecord
+from .serializers import CustomerLedgerSerializer, LedgerTransactionSerializer, ChequeRecordSerializer
+
+
+class CustomerLedgerViewSet(viewsets.ModelViewSet):
+    queryset = CustomerLedger.objects.all()
+    serializer_class = CustomerLedgerSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=True, methods=['get'], url_path='statement')
+    def statement(self, request, pk=None):
+        ledger = self.get_object()
+        txs = ledger.transactions.all()[:50]
+        return Response({
+            'customer_name': ledger.customer.full_name,
+            'credit_limit': ledger.credit_limit,
+            'current_debt': ledger.current_balance,
+            'is_blocked': ledger.is_blocked,
+            'transactions': LedgerTransactionSerializer(txs, many=True).data
+        })
+
+    @action(detail=False, methods=['post'], url_path='settle-payment')
+    @transaction.atomic
+    def settle_payment(self, request):
+        user_id = request.data.get('customer_id')
+        payment_type = request.data.get('payment_type', LedgerTransaction.TransactionType.BANK_TRANSFER)
+        amount = int(request.data.get('amount', 0))
+        doc_ref = request.data.get('reference_code', 'SETTLE')
+        desc = request.data.get('description', 'تسویه حساب دفتری')
+
+        ledger = CustomerLedger.objects.select_for_update().get(customer_id=user_id)
+        new_balance = max(0, ledger.current_balance - amount)
+        ledger.current_balance = new_balance
+        ledger.save()
+
+        tx = LedgerTransaction.objects.create(
+            ledger=ledger,
+            transaction_type=payment_type,
+            document_ref=doc_ref,
+            debit_amount=0,
+            credit_amount=amount,
+            balance_after=new_balance,
+            recorded_by=request.user,
+            description=desc
+        )
+
+        return Response({
+            'success': True,
+            'transaction_id': tx.id,
+            'settled_amount': amount,
+            'remaining_debt': new_balance
+        }, status=status.HTTP_201_CREATED)
+
+
+class ChequeViewSet(viewsets.ModelViewSet):
+    queryset = ChequeRecord.objects.all()
+    serializer_class = ChequeRecordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+`,
+    urls: `"""
+finance/urls.py
+"""
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import CustomerLedgerViewSet, ChequeViewSet
+
+router = DefaultRouter()
+router.register('ledgers', CustomerLedgerViewSet, basename='customer-ledger')
+router.register('cheques', ChequeViewSet, basename='cheque')
+
+urlpatterns = [
+    path('', include(router.urls)),
+]
+`,
+  },
+  reports: {
+    id: 'reports',
+    name: 'reports',
+    nameFa: 'گزارشات فروش و کالا (Reports)',
+    icon: 'BarChart3',
+    description: 'آمار فروش روزانه و تحلیل تک محصول',
+    models: `"""
+reports/models.py
+مدل‌های تحلیل هوشمند فروش، کش آمار دوره‌ای و ماتریس سودآوری کالاها
+"""
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from catalog.models import CigaretteProduct
+
+
+class DailySalesSnapshot(models.Model):
+    report_date = models.DateField(_("تاریخ گزارش"), unique=True, db_index=True)
+    wholesale_orders_count = models.PositiveIntegerField(_("تعداد سفارشات عمده"), default=0)
+    pos_sales_count = models.PositiveIntegerField(_("تعداد فاکتورهای حضوری (POS)"), default=0)
+    total_revenue = models.BigIntegerField(_("کل فروش ناخالص روز (تومان)"), default=0)
+    total_discount = models.BigIntegerField(_("کل تخفیفات داده‌شده (تومان)"), default=0)
+    estimated_gross_profit = models.BigIntegerField(_("سود ناخالص برآوردی (تومان)"), default=0)
+    cash_collected = models.BigIntegerField(_("دریافتی نقد و کارتخوان (تومان)"), default=0)
+    credit_issued = models.BigIntegerField(_("فروش نسیه و دفتری (تومان)"), default=0)
+    created_at = models.DateTimeField(_("زمان ایجاد کش"), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("اسنپ‌شات فروش روزانه")
+        verbose_name_plural = _("۱. اسنپ‌شات‌ها و گزارشات روزانه فروش")
+        ordering = ['-report_date']
+
+    def __str__(self):
+        return f"گزارش مالی {self.report_date} | فروش: {self.total_revenue:,} تومان"
+
+
+class ProductSalesMetric(models.Model):
+    product = models.ForeignKey(CigaretteProduct, on_delete=models.CASCADE, related_name='sales_metrics', verbose_name=_("محصول"))
+    period_month = models.CharField(_("ماه گزارش"), max_length=7, db_index=True, help_text="فرمت: 1403-06")
+    total_cartons_sold = models.DecimalField(_("مجموع کارتن‌های فروخته‌شده"), max_digits=10, decimal_places=2, default=0)
+    total_boxes_sold = models.PositiveIntegerField(_("مجموع باکس‌های فروخته‌شده"), default=0)
+    total_sales_amount = models.BigIntegerField(_("مبلغ کل فروش (تومان)"), default=0)
+    profit_margin_percent = models.DecimalField(_("درصد حاشیه سود"), max_digits=5, decimal_places=2, default=0)
+
+    class Meta:
+        verbose_name = _("آمار فروش کالا")
+        verbose_name_plural = _("۲. ماتریس سودآوری و رتبه‌بندی محصولات")
+        unique_together = ['product', 'period_month']
+
+    def __str__(self):
+        return f"{self.product.name_fa} ({self.period_month}) | کارتن: {self.total_cartons_sold}"
+`,
+    admin: `"""
+reports/admin.py
+پنل ادمین گزارشات و داشبورد مدیریتی
+"""
+from django.contrib import admin
+from django.utils.html import format_html
+from .models import DailySalesSnapshot, ProductSalesMetric
+
+
+@admin.register(DailySalesSnapshot)
+class DailySalesSnapshotAdmin(admin.ModelAdmin):
+    list_display = ('report_date', 'total_revenue_display', 'estimated_gross_profit_display', 'wholesale_orders_count', 'pos_sales_count', 'cash_vs_credit_ratio')
+    list_filter = ('report_date',)
+    readonly_fields = ('created_at',)
+
+    def total_revenue_display(self, obj):
+        return f"{obj.total_revenue:,} تومان"
+    total_revenue_display.short_description = "کل فروش روز"
+
+    def estimated_gross_profit_display(self, obj):
+        return format_html(f'<b style="color: green;">{obj.estimated_gross_profit:,} تومان</b>')
+    estimated_gross_profit_display.short_description = "سود ناخالص"
+
+    def cash_vs_credit_ratio(self, obj):
+        total = obj.cash_collected + obj.credit_issued
+        if total == 0:
+            return "-"
+        cash_pct = int((obj.cash_collected / total) * 100)
+        return f"{cash_pct}% نقد / {100 - cash_pct}% نسیه"
+    cash_vs_credit_ratio.short_description = "نسبت نقد/نسیه"
+
+
+@admin.register(ProductSalesMetric)
+class ProductSalesMetricAdmin(admin.ModelAdmin):
+    list_display = ('product', 'period_month', 'total_cartons_sold', 'total_sales_amount_display', 'profit_margin_percent')
+    list_filter = ('period_month',)
+    search_fields = ('product__name_fa',)
+
+    def total_sales_amount_display(self, obj):
+        return f"{obj.total_sales_amount:,} تومان"
+    total_sales_amount_display.short_description = "فروش کل"
+`,
+    serializers: `"""
+reports/serializers.py
+"""
+from rest_framework import serializers
+from .models import DailySalesSnapshot, ProductSalesMetric
+
+
+class DailySalesSnapshotSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DailySalesSnapshot
+        fields = '__all__'
+
+
+class ProductSalesMetricSerializer(serializers.ModelSerializer):
+    product_name = serializers.CharField(source='product.name_fa', read_only=True)
+
+    class Meta:
+        model = ProductSalesMetric
+        fields = '__all__'
+`,
+    views: `"""
+reports/views.py
+ویوهای محاسباتی آمار، داشبورد هوشمند فروش و خروجی اکسل
+"""
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from django.db.models import Sum, Count, F
+from django.utils import timezone
+from .models import DailySalesSnapshot, ProductSalesMetric
+from .serializers import DailySalesSnapshotSerializer, ProductSalesMetricSerializer
+from orders.models import OrderInvoice
+from pos.models import PosSale
+
+
+class SalesAnalyticsViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAdminUser]
+
+    @action(detail=False, methods=['get'], url_path='dashboard-summary')
+    def dashboard_summary(self, request):
+        today = timezone.now().date()
+        
+        # محاسبه سفارشات عمده امروز
+        orders_today = OrderInvoice.objects.filter(created_at__date=today)
+        orders_total = orders_today.aggregate(total=Sum('total_amount'))['total'] or 0
+        orders_count = orders_today.count()
+
+        # محاسبه فروش صندوق امروز
+        pos_today = PosSale.objects.filter(created_at__date=today)
+        pos_total = pos_today.aggregate(total=Sum('final_amount'))['total'] or 0
+        pos_count = pos_today.count()
+
+        combined_revenue = orders_total + pos_total
+        estimated_profit = int(combined_revenue * 0.08)  # میانگین ۸٪ مارجین عمده دخانیات
+
+        return Response({
+            'date': today.strftime('%Y/%m/%d'),
+            'total_revenue': combined_revenue,
+            'estimated_gross_profit': estimated_profit,
+            'wholesale_sales': orders_total,
+            'wholesale_invoices_count': orders_count,
+            'pos_sales': pos_total,
+            'pos_sales_count': pos_count
+        })
+
+    @action(detail=False, methods=['get'], url_path='top-selling')
+    def top_selling(self, request):
+        metrics = ProductSalesMetric.objects.select_related('product').order_by('-total_cartons_sold')[:10]
+        return Response(ProductSalesMetricSerializer(metrics, many=True).data)
+`,
+    urls: `"""
+reports/urls.py
+"""
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import SalesAnalyticsViewSet
+
+router = DefaultRouter()
+router.register('analytics', SalesAnalyticsViewSet, basename='sales-analytics')
+
+urlpatterns = [
+    path('', include(router.urls)),
+]
+`,
+  },
+  roles: {
+    id: 'roles',
+    name: 'roles',
+    nameFa: 'مدیریت نقش‌ها و دسترسی‌ها (RBAC)',
+    icon: 'ShieldAlert',
+    description: 'تعریف ادمین انبار، اپراتور صندوق و محدودیت‌های سیستم',
+    models: `"""
+roles/models.py
+مدل‌های کنترل دسترسی مبتنی بر نقش (RBAC)، پروفایل پرسنل، PIN لاگین صندوق و ممیزی امنیتی
+"""
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+from django.contrib.auth.hashers import make_password, check_password
+from accounts.models import User
+
+
+class StaffRole(models.TextChoices):
+    SUPER_ADMIN = 'super_admin', _('مدیر ارشد و صاحب انبار')
+    WAREHOUSE_MANAGER = 'warehouse_manager', _('مدیر انبار مرکزی و لجستیک')
+    CASHIER = 'cashier', _('صندوق‌دار فروش حضوری')
+    ACCOUNTANT = 'accountant', _('مدیر مالی و حسابداری دفتری')
+    VISITOR = 'visitor', _('ویزیتور و بازاریاب میدانی')
+
+
+class StaffProfile(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='staff_profile', verbose_name=_("حساب کاربری"))
+    role = models.CharField(_("نقش سازمانی"), max_length=30, choices=StaffRole.choices, default=StaffRole.CASHIER)
+    staff_code = models.CharField(_("کد پرسنلی"), max_length=30, unique=True)
+    pos_pin_hashed = models.CharField(_("رمز PIN صندوق (هش‌شده)"), max_length=128, blank=True)
+    can_apply_custom_discount = models.BooleanField(_("مجوز ثبت تخفیف دستی"), default=False)
+    max_discount_percent = models.PositiveSmallIntegerField(_("حداکثر درصد تخفیف مجاز"), default=0)
+    can_adjust_inventory = models.BooleanField(_("مجوز اصلاح موجودی انبار"), default=False)
+    can_view_purchase_costs = models.BooleanField(_("مجوز مشاهده قیمت خرید و سود"), default=False)
+    is_active_staff = models.BooleanField(_("پرسنل فعال"), default=True)
+    created_at = models.DateTimeField(_("تاریخ استخدام/ثبت"), auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("پروفایل پرسنل و دسترسی")
+        verbose_name_plural = _("۱. پرسنل سازمانی و نقش‌ها (RBAC)")
+
+    def __str__(self):
+        return f"{self.user.full_name} ({self.get_role_display()}) - کد {self.staff_code}"
+
+    def set_pin(self, raw_pin):
+        self.pos_pin_hashed = make_password(str(raw_pin))
+
+    def verify_pin(self, raw_pin):
+        return check_password(str(raw_pin), self.pos_pin_hashed)
+
+
+class SecurityAuditLog(models.Model):
+    staff = models.ForeignKey(StaffProfile, on_delete=models.SET_NULL, null=True, related_name='audit_logs', verbose_name=_("پرسنل"))
+    action_type = models.CharField(_("نوع عملیات"), max_length=60)
+    target_model = models.CharField(_("موجودیت تغییریافته"), max_length=60)
+    target_id = models.CharField(_("شناسه رکورد"), max_length=60)
+    ip_address = models.GenericIPAddressField(_("آدرس IP"), blank=True, null=True)
+    details = models.JSONField(_("جزئیات رویداد"), default=dict)
+    created_at = models.DateTimeField(_("زمان رویداد"), auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("لاگ ممیزی امنیتی")
+        verbose_name_plural = _("۲. لاگ امنیتی عملیات حساس پرسنل")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.staff.user.full_name if self.staff else 'سیستم'} -> {self.action_type} ({self.created_at})"
+`,
+    admin: `"""
+roles/admin.py
+پنل ادمین پرسنل و لاگ‌های امنیتی
+"""
+from django.contrib import admin
+from django.utils.html import format_html
+from .models import StaffProfile, SecurityAuditLog
+
+
+@admin.register(StaffProfile)
+class StaffProfileAdmin(admin.ModelAdmin):
+    list_display = ('user', 'staff_code', 'role_badge', 'can_apply_custom_discount', 'max_discount_percent', 'is_active_staff')
+    list_filter = ('role', 'is_active_staff', 'can_apply_custom_discount')
+    search_fields = ('user__full_name', 'user__phone', 'staff_code')
+    list_editable = ('is_active_staff',)
+
+    def role_badge(self, obj):
+        colors = {
+            'super_admin': '#ef4444',
+            'warehouse_manager': '#10b981',
+            'cashier': '#3b82f6',
+            'accountant': '#8b5cf6',
+            'visitor': '#f59e0b'
+        }
+        return format_html(
+            f'<span style="background-color: {colors.get(obj.role, "#64748b")}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">'
+            f'{obj.get_role_display()}</span>'
+        )
+    role_badge.short_description = "نقش سازمانی"
+
+
+@admin.register(SecurityAuditLog)
+class SecurityAuditLogAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'staff', 'action_type', 'target_model', 'target_id', 'ip_address')
+    list_filter = ('action_type', 'target_model', 'created_at')
+    search_fields = ('staff__user__full_name', 'action_type', 'target_id')
+    readonly_fields = ('created_at',)
+`,
+    serializers: `"""
+roles/serializers.py
+"""
+from rest_framework import serializers
+from .models import StaffProfile, SecurityAuditLog
+
+
+class StaffProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='user.full_name', read_only=True)
+    phone = serializers.CharField(source='user.phone', read_only=True)
+    role_label = serializers.CharField(source='get_role_display', read_only=True)
+
+    class Meta:
+        model = StaffProfile
+        fields = ['id', 'full_name', 'phone', 'staff_code', 'role', 'role_label', 'can_apply_custom_discount', 'max_discount_percent', 'can_adjust_inventory', 'can_view_purchase_costs', 'is_active_staff']
+
+
+class SecurityAuditLogSerializer(serializers.ModelSerializer):
+    staff_name = serializers.CharField(source='staff.user.full_name', read_only=True)
+
+    class Meta:
+        model = SecurityAuditLog
+        fields = '__all__'
+`,
+    views: `"""
+roles/views.py
+ویوهای احراز هویت PIN، مدیریت نقش‌ها و اعتبارسنجی سطح دسترسی
+"""
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from .models import StaffProfile, SecurityAuditLog
+from .serializers import StaffProfileSerializer, SecurityAuditLogSerializer
+
+
+class StaffRoleViewSet(viewsets.ModelViewSet):
+    queryset = StaffProfile.objects.filter(is_active_staff=True)
+    serializer_class = StaffProfileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @action(detail=False, methods=['post'], permission_classes=[permissions.AllowAny], url_path='pos-pin-auth')
+    def pos_pin_auth(self, request):
+        staff_code = request.data.get('staff_code', '').strip()
+        pin = request.data.get('pin', '').strip()
+
+        staff = StaffProfile.objects.filter(staff_code=staff_code, is_active_staff=True).first()
+        if not staff or not staff.verify_pin(pin):
+            return Response({'error': 'کد پرسنلی یا رمز PIN صحیح نمی‌باشد.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # صدور JWT توکن اختصاصی شیفت
+        refresh = RefreshToken.for_user(staff.user)
+        
+        # ثبت در لاگ امنیتی
+        SecurityAuditLog.objects.create(
+            staff=staff,
+            action_type="POS_PIN_LOGIN",
+            target_model="PosRegister",
+            target_id="LOCAL",
+            ip_address=request.META.get('REMOTE_ADDR')
+        )
+
+        return Response({
+            'authenticated': True,
+            'access_token': str(refresh.access_token),
+            'staff': StaffProfileSerializer(staff).data
+        })
+`,
+    urls: `"""
+roles/urls.py
+"""
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import StaffRoleViewSet
+
+router = DefaultRouter()
+router.register('staff', StaffRoleViewSet, basename='staff-role')
+
+urlpatterns = [
+    path('', include(router.urls)),
+]
+`,
+  },
+  sms: {
+    id: 'sms',
+    name: 'sms',
+    nameFa: 'سرویس پیامک کاوه‌نگار (Kavenegar SMS)',
+    icon: 'MessageSquare',
+    description: 'سرویس ارسال و تایید پیامک کاوه‌نگار برای احراز هویت و اطلاع‌رسانی',
+    models: `"""
+sms/models.py
+مدل‌های مدیریت وب‌سرویس پیامک کاوه‌نگار (Kavenegar Gateway)، پترن‌های خدماتی OTP و لاگ تحویل
+"""
+from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+
+class SmsTemplate(models.Model):
+    class EventType(models.TextChoices):
+        OTP_LOGIN = 'otp_login', _('کد تایید ورود OTP')
+        ORDER_REGISTERED = 'order_created', _('ثبت سفارش جدید عمده')
+        ORDER_SHIPPED = 'order_shipped', _('تحویل بار به باربری')
+        POS_RECEIPT = 'pos_receipt', _('رسید فاکتور صندوق حضوری')
+        CHEQUE_DUE_REMINDER = 'cheque_due', _('یادآوری سررسید چک صیادی')
+        DEBT_OVERDUE = 'debt_overdue', _('هشدار تاخیر تسویه نسیه')
+
+    template_type = models.CharField(_("نوع رویداد پیامک"), max_length=40, choices=EventType.choices, unique=True)
+    kavenegar_pattern_name = models.CharField(_("نام قالب در پنل کاوه‌نگار"), max_length=60, help_text="نام Template تعریف‌شده در پنل کاوه‌نگار")
+    template_body = models.TextField(_("متن نمونه الگو"), help_text="مثال: شرکت آذرخش؛ کد ورود شما: %token")
+    is_active = models.BooleanField(_("فعال"), default=True)
+
+    class Meta:
+        verbose_name = _("الگوی پیامک کاوه‌نگار")
+        verbose_name_plural = _("۱. الگوهای پترن وب‌سرویس کاوه‌نگار (Lookup)")
+
+    def __str__(self):
+        return f"{self.get_template_type_display()} ({self.kavenegar_pattern_name})"
+
+
+class SmsLog(models.Model):
+    class DeliveryStatus(models.TextChoices):
+        QUEUED = 'queued', _('در صف ارسال')
+        SENT = 'sent', _('ارسال‌شده به مخابرات')
+        DELIVERED = 'delivered', _('رسیده به گوشی مشتری')
+        FAILED = 'failed', _('خطا در ارسال')
+
+    recipient_phone = models.CharField(_("شماره گیرنده"), max_length=15, db_index=True)
+    template = models.ForeignKey(SmsTemplate, on_delete=models.SET_NULL, null=True, related_name='logs', verbose_name=_("الگو"))
+    tokens_sent = models.JSONField(_("توکن‌های ارسالی"), default=dict)
+    kavenegar_message_id = models.CharField(_("شناسه پیامک کاوه‌نگار (MessageID)"), max_length=40, blank=True)
+    status = models.CharField(_("وضعیت تحویل"), max_length=20, choices=DeliveryStatus.choices, default=DeliveryStatus.QUEUED)
+    cost_rial = models.PositiveIntegerField(_("هزینه پیامک (ریال)"), default=0)
+    created_at = models.DateTimeField(_("زمان ارسال"), auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _("لاگ پیامک ارسالی")
+        verbose_name_plural = _("۲. لاگ و تاریخچه پیامک‌های کاوه‌نگار")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"پیامک به {self.recipient_phone} | {self.get_status_display()} ({self.created_at})"
+`,
+    admin: `"""
+sms/admin.py
+پنل ادمین الگوها و لاگ‌های کاوه‌نگار
+"""
+from django.contrib import admin
+from django.utils.html import format_html
+from .models import SmsTemplate, SmsLog
+
+
+@admin.register(SmsTemplate)
+class SmsTemplateAdmin(admin.ModelAdmin):
+    list_display = ('template_type', 'kavenegar_pattern_name', 'is_active')
+    list_editable = ('is_active',)
+
+
+@admin.register(SmsLog)
+class SmsLogAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'recipient_phone', 'template', 'kavenegar_message_id', 'status_badge')
+    list_filter = ('status', 'template', 'created_at')
+    search_fields = ('recipient_phone', 'kavenegar_message_id')
+    readonly_fields = ('created_at', 'tokens_sent', 'kavenegar_message_id')
+
+    def status_badge(self, obj):
+        colors = {'queued': '#64748b', 'sent': '#3b82f6', 'delivered': '#10b981', 'failed': '#ef4444'}
+        return format_html(
+            f'<span style="background-color: {colors.get(obj.status, "#64748b")}; color: white; padding: 3px 8px; border-radius: 4px; font-size: 11px;">'
+            f'{obj.get_status_display()}</span>'
+        )
+    status_badge.short_description = "وضعیت"
+`,
+    serializers: `"""
+sms/serializers.py
+"""
+from rest_framework import serializers
+from .models import SmsTemplate, SmsLog
+
+
+class SmsTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SmsTemplate
+        fields = '__all__'
+
+
+class SmsLogSerializer(serializers.ModelSerializer):
+    template_name = serializers.CharField(source='template.get_template_type_display', read_only=True)
+
+    class Meta:
+        model = SmsLog
+        fields = '__all__'
+`,
+    views: `"""
+sms/views.py
+سرویس اتصال به وب‌سرویس پترن و OTP کاوه‌نگار (Kavenegar API Client)
+"""
+from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.response import Response
+from django.conf import settings
+import requests
+import logging
+from .models import SmsTemplate, SmsLog
+
+logger = logging.getLogger(__name__)
+
+
+class KavenegarService:
+    """
+    سرویس مرکزی کاوه‌نگار برای ارسال پیامک‌های پترن (Verify Lookup) و اطلاع‌رسانی
+    """
+    API_KEY = getattr(settings, 'KAVENEGAR_API_KEY', 'MOCK_API_KEY')
+    BASE_URL = f"https://api.kavenegar.com/v1/{API_KEY}/verify/lookup.json"
+
+    @classmethod
+    def send_pattern_sms(cls, receptor: str, token: str, template_type: str, token2: str = None, token3: str = None):
+        sms_template = SmsTemplate.objects.filter(template_type=template_type, is_active=True).first()
+        pattern_name = sms_template.kavenegar_pattern_name if sms_template else template_type
+
+        params = {
+            'receptor': receptor,
+            'token': token,
+            'template': pattern_name
+        }
+        if token2:
+            params['token2'] = token2
+        if token3:
+            params['token3'] = token3
+
+        log_record = SmsLog.objects.create(
+            recipient_phone=receptor,
+            template=sms_template,
+            tokens_sent=params,
+            status=SmsLog.DeliveryStatus.QUEUED
+        )
+
+        try:
+            response = requests.post(cls.BASE_URL, data=params, timeout=5)
+            data = response.json()
+            
+            if response.status_code == 200 and data.get('return', {}).get('status') == 200:
+                entry = data.get('entries', [{}])[0]
+                log_record.kavenegar_message_id = str(entry.get('messageid', ''))
+                log_record.cost_rial = entry.get('cost', 0)
+                log_record.status = SmsLog.DeliveryStatus.SENT
+                log_record.save()
+                return True, log_record.kavenegar_message_id
+            else:
+                log_record.status = SmsLog.DeliveryStatus.FAILED
+                log_record.save()
+                return False, data.get('return', {}).get('message')
+        except Exception as e:
+            logger.error(f"Kavenegar SMS Error: {str(e)}")
+            log_record.status = SmsLog.DeliveryStatus.FAILED
+            log_record.save()
+            return False, str(e)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def send_otp_view(request):
+    phone = request.data.get('phone', '').strip()
+    if not phone or len(phone) < 11:
+        return Response({'error': 'شماره موبایل نامعتبر است.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    import random
+    otp_code = str(random.randint(10000, 99999))
+    
+    success, msg = KavenegarService.send_pattern_sms(
+        receptor=phone,
+        token=otp_code,
+        template_type=SmsTemplate.EventType.OTP_LOGIN
+    )
+
+    return Response({
+        'success': True,
+        'message': 'کد تایید پیامک شد.',
+        'expires_in': 120
+    })
+`,
+    urls: `"""
+sms/urls.py
+"""
+from django.urls import path
+from .views import send_otp_view
+
+urlpatterns = [
+    path('send-otp/', send_otp_view, name='sms-send-otp'),
+]
+`,
+  },
   shipping: {
     id: 'shipping',
     name: 'shipping',

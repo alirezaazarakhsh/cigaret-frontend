@@ -39,7 +39,7 @@ export interface TableErdMeta {
 export interface ApiEndpointMeta {
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   path: string;
-  auth: 'AllowAny' | 'IsAuthenticated' | 'IsAdminUser' | 'IsVisitor';
+  auth: 'AllowAny' | 'IsAuthenticated' | 'IsAdminUser' | 'IsVisitor' | string;
   description: string;
   requestBody?: string;
   responseBody?: string;

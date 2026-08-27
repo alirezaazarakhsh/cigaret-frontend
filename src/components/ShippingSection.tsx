@@ -87,7 +87,7 @@ export const ShippingSection: React.FC = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8 animate-in fade-in duration-300" id="shipping-logistics-section">
+    <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 space-y-6 sm:space-y-8 animate-in fade-in duration-300" id="shipping-logistics-section">
       
       {/* Header Hero Banner */}
       <div className="relative overflow-hidden bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-blue-900/40">

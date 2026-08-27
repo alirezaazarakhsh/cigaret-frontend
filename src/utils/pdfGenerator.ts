@@ -1,4 +1,4 @@
-import { toJpeg } from 'html-to-image';
+import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { CigaretteProduct, OrderInvoice, PosReceiptInvoice } from '../types';
 import { formatToman, formatNumberFa } from './formatters';
@@ -246,18 +246,34 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
 
         <!-- Credentials Row -->
         ${(config.showNationalIdInvoice || config.showEconomicCodeInvoice || config.showActivityTypeInvoice || config.showTransportPhoneInvoice) ? `
-          <div style="width: 100%; background: #0f172a; color: #ffffff; border-radius: 6px; margin-bottom: 10px; font-size: 9.5px; direction: rtl; padding: 6px 0;">
-            <table style="width: 100%; border-collapse: collapse; color: #ffffff;">
-              <tr>
-                <td style="text-align: center; font-weight: 600;">
-                  ${config.showNationalIdInvoice ? `<span style="margin-left: 12px;">شناسه ملی: <strong style="color: #f59e0b; font-family: monospace;">${config.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</strong></span>` : ''}
-                  ${config.showEconomicCodeInvoice ? `<span style="margin-left: 12px;">کد اقتصادی: <strong style="color: #f59e0b; font-family: monospace;">${config.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</strong></span>` : ''}
-                  ${config.showActivityTypeInvoice ? `<span style="margin-left: 12px;">نوع فعالیت: <strong style="color: #f59e0b;">${config.activityTypeCompany || 'پخش عمده دخانیات'}</strong></span>` : ''}
-                  ${config.showTransportPhoneInvoice ? `<span>تلفن ترابری: <strong style="color: #f59e0b; font-family: monospace; direction: ltr; display: inline-block;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></span>` : ''}
+          <table style="width: 100%; border-collapse: collapse; background: #0f172a; color: #ffffff; border-radius: 6px; margin-bottom: 10px; font-size: 9.5px; direction: rtl; text-align: center; overflow: hidden;">
+            <tr>
+              ${config.showNationalIdInvoice ? `
+                <td style="padding: 7px 6px; border-left: 1px solid #334155; width: 25%; text-align: center; vertical-align: middle; white-space: nowrap;">
+                  <span style="color: #94a3b8; font-size: 9px;">شناسه ملی:</span>
+                  <span style="color: #ffffff; font-weight: bold; font-size: 10px; margin-right: 3px; display: inline-block;">${config.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</span>
                 </td>
-              </tr>
-            </table>
-          </div>
+              ` : ''}
+              ${config.showEconomicCodeInvoice ? `
+                <td style="padding: 7px 6px; border-left: 1px solid #334155; width: 25%; text-align: center; vertical-align: middle; white-space: nowrap;">
+                  <span style="color: #94a3b8; font-size: 9px;">کد اقتصادی:</span>
+                  <span style="color: #ffffff; font-weight: bold; font-size: 10px; margin-right: 3px; display: inline-block;">${config.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</span>
+                </td>
+              ` : ''}
+              ${config.showActivityTypeInvoice ? `
+                <td style="padding: 7px 6px; border-left: 1px solid #334155; width: 25%; text-align: center; vertical-align: middle; white-space: nowrap;">
+                  <span style="color: #94a3b8; font-size: 9px;">نوع فعالیت:</span>
+                  <span style="color: #ffffff; font-weight: bold; font-size: 10px; margin-right: 3px; display: inline-block;">${config.activityTypeCompany || 'پخش عمده دخانیات'}</span>
+                </td>
+              ` : ''}
+              ${config.showTransportPhoneInvoice ? `
+                <td style="padding: 7px 6px; width: 25%; text-align: center; vertical-align: middle; white-space: nowrap;">
+                  <span style="color: #94a3b8; font-size: 9px;">تلفن ترابری:</span>
+                  <span style="color: #ffffff; font-weight: bold; font-size: 10px; margin-right: 3px; direction: ltr; display: inline-block;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</span>
+                </td>
+              ` : ''}
+            </tr>
+          </table>
         ` : ''}
 
         <!-- Customer Grid Table -->
@@ -404,145 +420,169 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
 }
 
 /**
- * Downloads an official, 80mm thermal receipt PDF (رستورانی / صندوق) with zero overflow.
+ * Downloads an official, beautifully styled receipt/invoice PDF for in-person / POS sales with zero overflow.
  */
 export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): Promise<boolean> {
   const config = getDjangoConfig();
   const printContainer = document.createElement('div');
-  printContainer.id = 'pdf-pos-thermal-receipt';
+  printContainer.id = 'pdf-pos-invoice-receipt';
   printContainer.style.position = 'fixed';
   printContainer.style.left = '0px';
   printContainer.style.top = '0px';
   printContainer.style.zIndex = '-9999';
 
-  // 380px container width simulates crisp 80mm thermal receipt roll
-  const containerWidthPx = 380;
-  // Calculate dynamic height based on number of items (base ~380px + ~50px per item)
-  const baseHeightPx = 380;
-  const itemsHeightPx = receipt.items.length * 50;
-  const totalHeightPx = baseHeightPx + itemsHeightPx;
+  // 420px container width for high crisp resolution
+  const containerWidthPx = 420;
+  // Calculate dynamic height based on number of items with generous spacing to avoid any text overlap
+  const baseHeightPx = 520;
+  const itemsHeightPx = Math.max(1, receipt.items.length) * 62;
+  const notesHeightPx = receipt.notes ? 45 : 0;
+  const totalHeightPx = baseHeightPx + itemsHeightPx + notesHeightPx;
 
-  // 80mm width standard thermal roll. Height scaled proportionally in mm (80mm * totalHeightPx / containerWidthPx)
+  // 80mm width standard receipt roll. Height scaled proportionally in mm
   const receiptWidthMm = 80;
-  const receiptHeightMm = Math.max(120, Math.round((receiptWidthMm * totalHeightPx) / containerWidthPx));
+  const receiptHeightMm = Math.max(140, Math.round((receiptWidthMm * totalHeightPx) / containerWidthPx));
 
   printContainer.style.width = `${containerWidthPx}px`;
-  printContainer.style.height = `${totalHeightPx}px`;
+  printContainer.style.minHeight = `${totalHeightPx}px`;
   printContainer.style.backgroundColor = '#ffffff';
-  printContainer.style.padding = '14px 12px';
+  printContainer.style.padding = '20px 18px';
   printContainer.style.boxSizing = 'border-box';
-  printContainer.style.overflow = 'hidden';
-  printContainer.style.direction = 'ltr';
+  printContainer.style.direction = 'rtl';
   printContainer.style.pointerEvents = 'none';
 
   const paymentMethodText = 
     receipt.paymentMethod === 'pos_terminal' ? 'کارتخوان بانکی' :
-    receipt.paymentMethod === 'cash' ? 'پرداخت نقدی' : 'حساب دفتری (نسیه)';
+    receipt.paymentMethod === 'cash' ? 'پرداخت نقدی' :
+    receipt.paymentMethod === 'ledger' ? 'حساب دفتری (نسیه)' :
+    receipt.paymentMethod === 'split' ? 'ترکیبی (نقد + کارت)' : 'کارتخوان بانکی';
 
   printContainer.innerHTML = `
-    <div dir="rtl" style="direction: rtl; text-align: center; width: 100%; height: 100%; font-family: 'Vazirmatn', 'Samim', system-ui, -apple-system, sans-serif; color: #000000; background: #ffffff; box-sizing: border-box; font-size: 11px; line-height: 1.4; display: flex; flex-direction: column; justify-content: space-between;">
+    <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #0f172a; background: #ffffff; box-sizing: border-box; font-size: 11px; line-height: 1.6;">
       
-      <div>
-        <!-- Receipt Header -->
-        <div style="border-bottom: 2px dashed #000000; padding-bottom: 8px; margin-bottom: 8px;">
-          <div style="font-size: 15px; font-weight: 900; color: #000000; margin-bottom: 2px;">
-            ${config.companyName ? `فروشگاه و بنکداری ${config.companyName}` : 'فروشگاه و پخش سراسری سوین'}
-          </div>
-          <div style="font-size: 10px; font-weight: bold; color: #111827;">
-            رسید رسمی فروش صندوق (فیش حرارتی)
-          </div>
-          <div style="font-size: 9px; color: #374151; margin-top: 3px;">
-            تلفن سفارشات: ${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}
-          </div>
+      <!-- Receipt Header -->
+      <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px; text-align: center;">
+        <div style="font-size: 18px; font-weight: 900; color: #0f172a; margin-bottom: 4px; letter-spacing: -0.5px;">
+          ${config.companyName ? `فروشگاه و بنکداری ${config.companyName}` : 'فروشگاه و پخش سراسری سوین'}
         </div>
-
-        <!-- Receipt Metadata -->
-        <div style="border-bottom: 1px dashed #000000; padding-bottom: 6px; margin-bottom: 8px; font-size: 9.5px; text-align: right; line-height: 1.6;">
-          <div style="display: flex; justify-content: space-between;">
-            <span><strong>شماره فاکتور:</strong> <span style="font-family: monospace; font-weight: bold;">${receipt.receiptNumber}</span></span>
-            <span><strong>تاریخ:</strong> ${receipt.createdAt}</span>
-          </div>
-          <div style="display: flex; justify-content: space-between; margin-top: 2px;">
-            <span><strong>مشتری / خریدار:</strong> ${receipt.customerName || 'مشتری حضوری'}</span>
-            <span><strong>روش پرداخت:</strong> ${paymentMethodText}</span>
-          </div>
-          ${receipt.terminalRefNumber ? `
-            <div style="margin-top: 2px;">
-              <strong>شماره پیگیری کارتخوان:</strong> <span style="font-family: monospace;">${receipt.terminalRefNumber}</span>
-            </div>
-          ` : ''}
-          ${receipt.cashier ? `
-            <div style="margin-top: 2px; color: #4b5563;">
-              <strong>صندوق‌دار:</strong> ${receipt.cashier}
-            </div>
-          ` : ''}
+        <div style="display: inline-block; font-size: 11px; font-weight: 800; color: #1e293b; background: #f1f5f9; padding: 3px 12px; border-radius: 6px; margin-bottom: 4px; border: 1px solid #cbd5e1;">
+          فاکتور رسمی فروش و تحویل کالا
         </div>
-
-        <!-- Items Table -->
-        <table style="width: 100%; border-collapse: collapse; font-size: 9.5px; text-align: right; margin-bottom: 8px; direction: rtl;">
-          <thead>
-            <tr style="border-bottom: 1.5px solid #000000; background: #f3f4f6; font-weight: bold;">
-              <th style="padding: 4px 2px; text-align: right; width: 44%;">شرح کالا</th>
-              <th style="padding: 4px 2px; text-align: center; width: 18%;">واحد/تعداد</th>
-              <th style="padding: 4px 2px; text-align: left; width: 18%;">فی (تومان)</th>
-              <th style="padding: 4px 2px; text-align: left; width: 20%;">جمع (تومان)</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${receipt.items.map((item) => {
-              const unitLabel = item.unit === 'carton' ? 'کارتن' : item.unit === 'box' ? 'باکس' : 'پاکت';
-              return `
-                <tr style="border-bottom: 1px dashed #d1d5db;">
-                  <td style="padding: 4px 2px; text-align: right; font-weight: bold; font-size: 9px; line-height: 1.2;">
-                    ${item.product.nameFa}
-                  </td>
-                  <td style="padding: 4px 2px; text-align: center; font-size: 9px;">
-                    ${formatNumberFa(item.quantity)} ${unitLabel}
-                  </td>
-                  <td style="padding: 4px 2px; text-align: left; font-size: 9px;">
-                    ${formatToman(item.unitPrice)}
-                  </td>
-                  <td style="padding: 4px 2px; text-align: left; font-weight: bold; font-size: 9.5px;">
-                    ${formatToman(item.totalPrice)}
-                  </td>
-                </tr>
-              `;
-            }).join('')}
-          </tbody>
-        </table>
-
-        <!-- Totals & Summary -->
-        <div style="border-top: 1.5px solid #000000; border-bottom: 1.5px solid #000000; padding: 6px 0; margin-bottom: 8px; font-size: 10px; line-height: 1.7;">
-          <div style="display: flex; justify-content: space-between;">
-            <span>جمع کل اقلام:</span>
-            <span>${formatToman(receipt.subtotal)} تومان</span>
-          </div>
-          ${receipt.discountAmount > 0 ? `
-            <div style="display: flex; justify-content: space-between; color: #047857; font-weight: bold;">
-              <span>مبلغ تخفیف:</span>
-              <span>-${formatToman(receipt.discountAmount)} تومان</span>
-            </div>
-          ` : ''}
-          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 900; margin-top: 2px; padding-top: 2px; border-top: 1px dashed #000000;">
-            <span>مبلغ قابل پرداخت:</span>
-            <span>${formatToman(receipt.finalTotal)} تومان</span>
-          </div>
+        <div style="font-size: 10px; color: #475569; margin-top: 4px;">
+          تلفن هماهنگی و سفارشات: <strong style="color: #0f172a;">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong>
         </div>
-
-        ${receipt.notes ? `
-          <div style="font-size: 8.5px; color: #374151; text-align: right; margin-bottom: 8px; padding: 4px; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 4px;">
-            <strong>توضیحات:</strong> ${receipt.notes}
-          </div>
-        ` : ''}
       </div>
 
-      <!-- Receipt Footer Barcode & Thank You -->
-      <div style="border-top: 1px dashed #000000; padding-top: 6px; text-align: center; font-size: 9px;">
-        <div style="font-weight: bold; margin-bottom: 4px;">با سپاس از خرید و اعتماد شما</div>
-        <div style="font-family: monospace; font-size: 14px; letter-spacing: 3px; font-weight: bold; margin-bottom: 2px;">
+      <!-- Receipt Metadata Table (Guaranteed Zero Overlap) -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 14px; font-size: 10.5px;">
+        <table style="width: 100%; border-collapse: collapse; text-align: right; font-size: 10.5px; line-height: 1.8;">
+          <tr style="border-bottom: 1px dashed #cbd5e1;">
+            <td style="padding: 3px 0; text-align: right; width: 50%; white-space: nowrap;">
+              <span style="color: #64748b; font-weight: 600;">شماره فاکتور:</span> 
+              <strong style="font-family: monospace; font-size: 11.5px; color: #0f172a; margin-right: 4px;">${receipt.receiptNumber}</strong>
+            </td>
+            <td style="padding: 3px 0; text-align: left; width: 50%; white-space: nowrap;">
+              <span style="color: #64748b; font-weight: 600;">تاریخ:</span> 
+              <strong style="color: #0f172a; margin-right: 4px;">${receipt.createdAt}</strong>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0 2px; text-align: right; width: 55%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              <span style="color: #64748b; font-weight: 600;">مشتری / خریدار:</span> 
+              <strong style="color: #0f172a; margin-right: 4px;">${receipt.customerName || 'مشتری حضوری فروشگاه'}</strong>
+            </td>
+            <td style="padding: 4px 0 2px; text-align: left; width: 45%; white-space: nowrap;">
+              <span style="color: #64748b; font-weight: 600;">روش پرداخت:</span> 
+              <strong style="color: #1e40af; margin-right: 4px;">${paymentMethodText}</strong>
+            </td>
+          </tr>
+          ${receipt.terminalRefNumber ? `
+          <tr style="border-top: 1px dashed #e2e8f0;">
+            <td colspan="2" style="padding: 3px 0 0; text-align: right; white-space: nowrap; color: #475569; font-size: 10px;">
+              <span>شماره پیگیری کارتخوان:</span> 
+              <strong style="font-family: monospace; color: #0f172a; margin-right: 4px;">${receipt.terminalRefNumber}</strong>
+            </td>
+          </tr>` : ''}
+          ${receipt.cashier ? `
+          <tr>
+            <td colspan="2" style="padding: 2px 0 0; text-align: right; white-space: nowrap; color: #64748b; font-size: 9.5px;">
+              <span>صندوق‌دار: ${receipt.cashier}</span>
+            </td>
+          </tr>` : ''}
+        </table>
+      </div>
+
+      <!-- Items Table -->
+      <table style="width: 100%; border-collapse: collapse; font-size: 10.5px; text-align: right; margin-bottom: 14px; direction: rtl;">
+        <thead>
+          <tr style="border-top: 1.5px solid #0f172a; border-bottom: 1.5px solid #0f172a; background: #f1f5f9; font-weight: 900; color: #0f172a;">
+            <th style="padding: 7px 4px; text-align: right; width: 44%;">شرح کالا</th>
+            <th style="padding: 7px 4px; text-align: center; width: 18%;">تعداد</th>
+            <th style="padding: 7px 4px; text-align: left; width: 18%;">فی (تومان)</th>
+            <th style="padding: 7px 4px; text-align: left; width: 20%;">جمع (تومان)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${receipt.items.map((item, idx) => {
+            const unitLabel = item.unit === 'carton' ? 'کارتن' : item.unit === 'box' ? 'باکس' : item.unit === 'pack' ? 'پاکت' : item.unit === 'item' ? 'عدد' : 'واحد';
+            return `
+              <tr style="border-bottom: 1px solid #e2e8f0; background: ${idx % 2 === 0 ? '#ffffff' : '#fafafa'};">
+                <td style="padding: 7px 4px; text-align: right; font-weight: 700; font-size: 10px; line-height: 1.35; color: #0f172a;">
+                  ${item.product.nameFa}
+                </td>
+                <td style="padding: 7px 4px; text-align: center; font-size: 10px; white-space: nowrap; color: #334155; font-weight: 700;">
+                  ${formatNumberFa(item.quantity)} ${unitLabel}
+                </td>
+                <td style="padding: 7px 4px; text-align: left; font-size: 10px; white-space: nowrap; color: #334155;">
+                  ${formatNumberFa(item.unitPrice)}
+                </td>
+                <td style="padding: 7px 4px; text-align: left; font-weight: 800; font-size: 10.5px; white-space: nowrap; color: #0f172a;">
+                  ${formatNumberFa(item.totalPrice)}
+                </td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+
+      <!-- Totals & Financial Summary Box (No Overlapping Text, Single Toman) -->
+      <div style="background: #f8fafc; border: 1.5px solid #0f172a; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px; font-size: 11.5px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 3px 0; color: #334155; white-space: nowrap;">
+          <span style="font-weight: 600;">جمع کل اقلام فاکتور:</span>
+          <span style="font-weight: 800; font-size: 12px; color: #0f172a;">${formatToman(receipt.subtotal)}</span>
+        </div>
+        
+        ${receipt.discountAmount > 0 ? `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 3px 0; color: #059669; white-space: nowrap;">
+            <span style="font-weight: 700;">مبلغ تخفیف اعطایی:</span>
+            <span style="font-weight: 800; font-size: 12px;">-${formatToman(receipt.discountAmount)}</span>
+          </div>
+        ` : ''}
+        
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 8px; padding-top: 9px; border-top: 1.5px dashed #0f172a; white-space: nowrap;">
+          <span style="font-size: 12.5px; font-weight: 900; color: #0f172a;">مبلغ نهایی قابل پرداخت:</span>
+          <span style="font-size: 13.5px; font-weight: 900; color: #0f172a;">${formatToman(receipt.finalTotal)}</span>
+        </div>
+      </div>
+
+      ${receipt.notes ? `
+        <div style="font-size: 9.5px; color: #475569; margin-bottom: 14px; padding: 7px 10px; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 6px; line-height: 1.45;">
+          <strong>توضیحات:</strong> ${receipt.notes}
+        </div>
+      ` : ''}
+
+      <!-- Receipt Footer Barcode & Official Seal -->
+      <div style="border-top: 1.5px dashed #cbd5e1; padding-top: 12px; text-align: center; font-size: 10px; color: #475569;">
+        <div style="font-weight: 800; color: #0f172a; margin-bottom: 4px;">با سپاس از خرید و اعتماد شما</div>
+        <div style="font-family: monospace; font-size: 17px; letter-spacing: 4px; font-weight: 900; color: #0f172a; margin-bottom: 2px;">
           ||||| ||||||| ||||| ||||
         </div>
-        <div style="font-family: monospace; font-size: 8px; letter-spacing: 1px;">${receipt.receiptNumber}</div>
+        <div style="font-family: monospace; font-size: 9.5px; letter-spacing: 1px; color: #64748b; font-weight: bold;">
+          ${receipt.receiptNumber}
+        </div>
+        <div style="font-size: 8.5px; color: #94a3b8; margin-top: 5px;">
+          سند معتبر الکترونیکی فروشگاه و بنکداری سوین
+        </div>
       </div>
 
     </div>
@@ -554,24 +594,28 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
     if (document.fonts && document.fonts.ready) {
       await document.fonts.ready;
     }
-    await new Promise(r => setTimeout(r, 800));
+    await new Promise(r => setTimeout(r, 600));
 
-    const imgData = await toJpeg(printContainer, {
+    const actualWidthPx = printContainer.offsetWidth || containerWidthPx;
+    const actualHeightPx = printContainer.offsetHeight || totalHeightPx;
+    const receiptActualHeightMm = Math.max(120, (actualHeightPx / actualWidthPx) * receiptWidthMm);
+
+    const imgData = await toPng(printContainer, {
       quality: 0.98,
       backgroundColor: '#ffffff',
-      pixelRatio: 2,
-      width: containerWidthPx,
-      height: totalHeightPx,
+      pixelRatio: 2.5,
+      width: actualWidthPx,
+      height: actualHeightPx,
       skipFonts: true,
       fontEmbedCSS: '',
     });
 
-    const pdf = new jsPDF('p', 'mm', [receiptWidthMm, receiptHeightMm]);
-    pdf.addImage(imgData, 'JPEG', 0, 0, receiptWidthMm, receiptHeightMm);
-    pdf.save(`فیش_حرارتی_${receipt.receiptNumber}.pdf`);
+    const pdf = new jsPDF('p', 'mm', [receiptWidthMm, receiptActualHeightMm]);
+    pdf.addImage(imgData, 'PNG', 0, 0, receiptWidthMm, receiptActualHeightMm);
+    pdf.save(`فاکتور_فروش_${receipt.receiptNumber}.pdf`);
     return true;
   } catch (error) {
-    console.error('Error generating Thermal Receipt PDF:', error);
+    console.error('Error generating Invoice Receipt PDF:', error);
     window.print();
     return false;
   } finally {
@@ -582,9 +626,10 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
 }
 
 export const generateThermalReceiptPdf = generatePosThermalReceiptPdf;
+export const generatePosInvoicePdf = generatePosThermalReceiptPdf;
 
 /**
- * Downloads an official Monthly Sales Report PDF.
+ * Downloads an official Monthly Sales Report PDF with Carton/Box/Pack units breakdown.
  */
 export async function generateMonthlyReportPdf(monthData: any, daysInMonth: any[]): Promise<boolean> {
   const config = getDjangoConfig();
@@ -601,27 +646,56 @@ export async function generateMonthlyReportPdf(monthData: any, daysInMonth: any[
   printContainer.style.direction = 'rtl';
   printContainer.style.pointerEvents = 'none';
 
+  const totalCartons = monthData.cartonsSold || 0;
+  const totalBoxes = monthData.boxesSold || Math.round(totalCartons * 50);
+  const totalPacks = monthData.packsSold || Math.round(totalBoxes * 10);
+
   printContainer.innerHTML = `
-    <div style="font-family: 'Samim', 'Vazirmatn', system-ui, sans-serif; color: #0f172a;">
-      <h1 style="text-align: center; color: #7e22ce;">گزارش جامع عملکرد ماهانه: ${monthData.monthName}</h1>
-      <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px;">
-        <tr>
-          <td style="padding: 10px; border: 1px solid #ddd;">درآمد کل: ${formatToman(monthData.totalSales)}</td>
-          <td style="padding: 10px; border: 1px solid #ddd;">روزهای فعال: ${monthData.activeDaysCount}</td>
-        </tr>
-      </table>
-      <table style="width: 100%; border-collapse: collapse; text-align: right; font-size: 12px;">
-        <thead style="background: #f3f4f6;">
+    <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; border: 2px solid #7e22ce; border-radius: 12px; padding: 20px; background: #fff; box-sizing: border-box;">
+      <div style="text-align: center; border-bottom: 2px solid #e9d5ff; padding-bottom: 14px; margin-bottom: 18px;">
+        <h2 style="color: #7e22ce; font-size: 20px; font-weight: 900; margin: 0 0 6px 0;">گزارش جامع عملکرد ماهانه (${monthData.monthName})</h2>
+        <div style="font-size: 11.5px; color: #64748b;">سامانه بنکداری و حسابداری ${config.companyName} | گزارش تفکیکی کارتن، باکس و پاکت</div>
+      </div>
+      
+      <!-- Key Metric Cards -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px;">
+        <div style="padding: 10px 12px; border: 1px solid #d8b4fe; border-radius: 8px; background: #faf5ff;">
+          <div style="font-size: 10.5px; color: #6b21a8; font-weight: 700; margin-bottom: 4px;">فروش کل ماه:</div>
+          <div style="font-size: 13.5px; font-weight: 900; color: #581c87;">${formatToman(monthData.totalSales)}</div>
+        </div>
+        <div style="padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; background: #eff6ff;">
+          <div style="font-size: 10.5px; color: #1e40af; font-weight: 700; margin-bottom: 4px;">حجم فروش کارتن:</div>
+          <div style="font-size: 13px; font-weight: 900; color: #1e3a8a;">${totalCartons.toLocaleString('fa-IR')} کارتن</div>
+        </div>
+        <div style="padding: 10px 12px; border: 1px solid #fed7aa; border-radius: 8px; background: #fff7ed;">
+          <div style="font-size: 10.5px; color: #c2410c; font-weight: 700; margin-bottom: 4px;">حجم فروش باکس:</div>
+          <div style="font-size: 13px; font-weight: 900; color: #9a3412;">${totalBoxes.toLocaleString('fa-IR')} باکس</div>
+        </div>
+        <div style="padding: 10px 12px; border: 1px solid #bbf7d0; border-radius: 8px; background: #f0fdf4;">
+          <div style="font-size: 10.5px; color: #15803d; font-weight: 700; margin-bottom: 4px;">حجم فروش پاکت:</div>
+          <div style="font-size: 13px; font-weight: 900; color: #166534;">${totalPacks.toLocaleString('fa-IR')} پاکت</div>
+        </div>
+      </div>
+
+      <h3 style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 10px;">ریز فروش و گردش روزانه در این ماه:</h3>
+      <table style="width: 100%; border-collapse: collapse; text-align: right; font-size: 10.5px;">
+        <thead style="background: #7e22ce; color: #fff;">
           <tr>
-            <th style="padding: 10px; border: 1px solid #ddd;">تاریخ</th>
-            <th style="padding: 10px; border: 1px solid #ddd;">مجموع فروش</th>
+            <th style="padding: 8px 6px; border: 1px solid #7e22ce; text-align: right;">تاریخ</th>
+            <th style="padding: 8px 6px; border: 1px solid #7e22ce; text-align: center;">فاکتورها</th>
+            <th style="padding: 8px 6px; border: 1px solid #7e22ce; text-align: left;">کارتخوان POS</th>
+            <th style="padding: 8px 6px; border: 1px solid #7e22ce; text-align: left;">نقدی و دفتری</th>
+            <th style="padding: 8px 6px; border: 1px solid #7e22ce; text-align: left;">مجموع فروش روز (تومان)</th>
           </tr>
         </thead>
         <tbody>
-          ${daysInMonth.map((d: any) => `
-            <tr>
-              <td style="padding: 10px; border: 1px solid #ddd;">${d.date}</td>
-              <td style="padding: 10px; border: 1px solid #ddd;">${formatToman(d.totalSales)}</td>
+          ${daysInMonth.map((d: any, idx: number) => `
+            <tr style="background: ${idx % 2 === 0 ? '#fff' : '#faf5ff'}; border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 6px; border: 1px solid #e2e8f0; font-weight: bold; color: #0f172a;">${d.date}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: center; color: #334155;">${d.receipts?.length || 0} فاکتور</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: left; color: #2563eb; font-weight: 600;">${formatToman(d.posSales)}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: left; color: #059669; font-weight: 600;">${formatToman(d.cashSales + d.ledgerSales)}</td>
+              <td style="padding: 6px; border: 1px solid #e2e8f0; text-align: left; font-weight: 800; color: #7e22ce;">${formatToman(d.totalSales)}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -632,16 +706,258 @@ export async function generateMonthlyReportPdf(monthData: any, daysInMonth: any[
   document.body.appendChild(printContainer);
 
   try {
-    await new Promise(r => setTimeout(r, 200));
-    const imgData = await toJpeg(printContainer, { quality: 0.95, backgroundColor: '#ffffff', pixelRatio: 2 });
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+    await new Promise(r => setTimeout(r, 500));
+    
+    const containerWidth = printContainer.offsetWidth || 794;
+    const containerHeight = printContainer.offsetHeight || 600;
+
+    const imgData = await toPng(printContainer, { 
+      quality: 0.98, 
+      backgroundColor: '#ffffff', 
+      pixelRatio: 2.5, 
+      width: containerWidth,
+      height: containerHeight,
+      skipFonts: true 
+    });
+
     const pdf = new jsPDF('p', 'mm', 'a4');
-    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
-    pdf.save(`گزارش_ماهانه_${monthData.monthName}.pdf`);
+    const marginMm = 8;
+    const printWidthMm = 210 - (marginMm * 2);
+    const printHeightMm = (containerHeight / containerWidth) * printWidthMm;
+
+    pdf.addImage(imgData, 'PNG', marginMm, marginMm, printWidthMm, printHeightMm);
+    pdf.save(`گزارش_ماهانه_${monthData.monthName.replace(/\s+/g, '_')}.pdf`);
     return true;
   } catch (error) {
     console.error('Error generating Monthly Report PDF:', error);
     return false;
   } finally {
-    document.body.removeChild(printContainer);
+    if (document.body.contains(printContainer)) {
+      document.body.removeChild(printContainer);
+    }
   }
 }
+
+/**
+ * Downloads an official Annual Sales Summary Report PDF with natural proportions and Carton/Box/Pack breakdown.
+ */
+export async function generateAnnualReportPdf(monthlyRecords: any[]): Promise<boolean> {
+  const config = getDjangoConfig();
+  const printContainer = document.createElement('div');
+  printContainer.id = 'pdf-annual-report-container';
+  printContainer.style.position = 'fixed';
+  printContainer.style.left = '0px';
+  printContainer.style.top = '0px';
+  printContainer.style.zIndex = '-9999';
+  printContainer.style.width = '794px';
+  printContainer.style.backgroundColor = '#ffffff';
+  printContainer.style.padding = '20px';
+  printContainer.style.boxSizing = 'border-box';
+  printContainer.style.direction = 'rtl';
+  printContainer.style.pointerEvents = 'none';
+
+  const totalAnnualSales = monthlyRecords.reduce((acc, r) => acc + (r.totalSales || 0), 0);
+  const totalAnnualProfit = monthlyRecords.reduce((acc, r) => acc + (r.totalProfit || 0), 0);
+  const totalCartons = monthlyRecords.reduce((acc, r) => acc + (r.cartonsSold || 0), 0);
+  const totalBoxes = monthlyRecords.reduce((acc, r) => acc + (r.boxesSold || Math.round((r.cartonsSold || 0) * 50)), 0);
+  const totalPacks = monthlyRecords.reduce((acc, r) => acc + (r.packsSold || Math.round((r.boxesSold || (r.cartonsSold || 0) * 50) * 10)), 0);
+
+  printContainer.innerHTML = `
+    <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; border: 2px solid #1e3a8a; border-radius: 12px; padding: 20px; background: #ffffff; box-sizing: border-box;">
+      
+      <!-- Report Header -->
+      <div style="text-align: center; border-bottom: 2px solid #dbeafe; padding-bottom: 14px; margin-bottom: 18px;">
+        <h2 style="color: #1e3a8a; font-size: 20px; font-weight: 900; margin: 0 0 6px 0;">گزارش رسمی و تحلیلی عملکرد سالانه بنکداری و پخش</h2>
+        <div style="font-size: 11.5px; color: #64748b;">سامانه جامع مدیریت، انبارداری و حسابداری ${config.companyName} | تفکیک فروش کارتن، باکس و پاکت</div>
+      </div>
+
+      <!-- High-Level Metric Cards -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px;">
+        <div style="padding: 10px 12px; border: 1px solid #bfdbfe; border-radius: 8px; background: #eff6ff; text-align: right;">
+          <div style="font-size: 10.5px; color: #1e40af; font-weight: 700; margin-bottom: 4px;">فروش کل سال:</div>
+          <div style="font-size: 14px; font-weight: 900; color: #1e3a8a;">${formatToman(totalAnnualSales)}</div>
+        </div>
+        <div style="padding: 10px 12px; border: 1px solid #a7f3d0; border-radius: 8px; background: #ecfdf5; text-align: right;">
+          <div style="font-size: 10.5px; color: #065f46; font-weight: 700; margin-bottom: 4px;">سود ناخالص کل:</div>
+          <div style="font-size: 14px; font-weight: 900; color: #047857;">${formatToman(totalAnnualProfit)}</div>
+        </div>
+        <div style="padding: 10px 12px; border: 1px solid #e9d5ff; border-radius: 8px; background: #faf5ff; text-align: right;">
+          <div style="font-size: 10.5px; color: #7e22ce; font-weight: 700; margin-bottom: 4px;">مجموع توزیع کارتن:</div>
+          <div style="font-size: 13.5px; font-weight: 900; color: #6b21a8;">${totalCartons.toLocaleString('fa-IR')} کارتن</div>
+        </div>
+        <div style="padding: 10px 12px; border: 1px solid #fed7aa; border-radius: 8px; background: #fff7ed; text-align: right;">
+          <div style="font-size: 10.5px; color: #9a3412; font-weight: 700; margin-bottom: 4px;">توزیع باکس و پاکت:</div>
+          <div style="font-size: 11.5px; font-weight: 900; color: #c2410c;">${totalBoxes.toLocaleString('fa-IR')} باکس / ${totalPacks.toLocaleString('fa-IR')} پاکت</div>
+        </div>
+      </div>
+
+      <!-- Comparative Monthly Table (Carton - Box - Pack) -->
+      <h3 style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 10px;">جدول جامع آماری ماه‌های سال (تفکیک فروش کارتن، باکس و پاکت):</h3>
+      <table style="width: 100%; border-collapse: collapse; text-align: right; font-size: 11px;">
+        <thead style="background: #1e3a8a; color: #ffffff;">
+          <tr>
+            <th style="padding: 9px 8px; border: 1px solid #1e3a8a; text-align: right; font-weight: 800;">ماه / دوره مالی</th>
+            <th style="padding: 9px 8px; border: 1px solid #1e3a8a; text-align: left; font-weight: 800;">فروش کل (تومان)</th>
+            <th style="padding: 9px 8px; border: 1px solid #1e3a8a; text-align: center; font-weight: 800;">کارتن</th>
+            <th style="padding: 9px 8px; border: 1px solid #1e3a8a; text-align: center; font-weight: 800;">باکس</th>
+            <th style="padding: 9px 8px; border: 1px solid #1e3a8a; text-align: center; font-weight: 800;">پاکت</th>
+            <th style="padding: 9px 8px; border: 1px solid #1e3a8a; text-align: left; font-weight: 800;">سود ناخالص (تومان)</th>
+            <th style="padding: 9px 8px; border: 1px solid #1e3a8a; text-align: center; font-weight: 800;">رشد (MoM)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${monthlyRecords.map((m: any, idx: number) => {
+            const cartons = m.cartonsSold || 0;
+            const boxes = m.boxesSold || Math.round(cartons * 50);
+            const packs = m.packsSold || Math.round(boxes * 10);
+            return `
+              <tr style="background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0;">
+                <td style="padding: 8px; border: 1px solid #cbd5e1; font-weight: 800; color: #0f172a;">${m.monthName}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: left; font-weight: 800; color: #1e3a8a;">${formatToman(m.totalSales)}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: 700; color: #334155;">${formatNumberFa(cartons)}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: 700; color: #334155;">${formatNumberFa(boxes)}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: 700; color: #334155;">${formatNumberFa(packs)}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: left; font-weight: 800; color: #059669;">${formatToman(m.totalProfit)}</td>
+                <td style="padding: 8px; border: 1px solid #cbd5e1; text-align: center; font-weight: 800; color: ${(m.growthRatePercent || 0) >= 0 ? '#059669' : '#dc2626'};">${(m.growthRatePercent || 0) >= 0 ? '+' : ''}${m.growthRatePercent || 0}%</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  document.body.appendChild(printContainer);
+
+  try {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+    await new Promise(r => setTimeout(r, 500));
+    
+    const containerWidth = printContainer.offsetWidth || 794;
+    const containerHeight = printContainer.offsetHeight || 600;
+
+    const imgData = await toPng(printContainer, { 
+      quality: 0.98, 
+      backgroundColor: '#ffffff', 
+      pixelRatio: 2.5, 
+      width: containerWidth,
+      height: containerHeight,
+      skipFonts: true 
+    });
+
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const marginMm = 8;
+    const printWidthMm = 210 - (marginMm * 2);
+    const printHeightMm = (containerHeight / containerWidth) * printWidthMm;
+
+    pdf.addImage(imgData, 'PNG', marginMm, marginMm, printWidthMm, printHeightMm);
+    pdf.save(`گزارش_سالانه_عملکرد_${config.companyName}.pdf`);
+    return true;
+  } catch (error) {
+    console.error('Error generating Annual Report PDF:', error);
+    return false;
+  } finally {
+    if (document.body.contains(printContainer)) {
+      document.body.removeChild(printContainer);
+    }
+  }
+}
+
+/**
+ * Downloads an official Daily Sales Summary Report PDF.
+ */
+export async function generateDailyReportPdf(dayData: any): Promise<boolean> {
+  const config = getDjangoConfig();
+  const printContainer = document.createElement('div');
+  printContainer.id = 'pdf-daily-report-container';
+  printContainer.style.position = 'fixed';
+  printContainer.style.left = '0px';
+  printContainer.style.top = '0px';
+  printContainer.style.zIndex = '-9999';
+  printContainer.style.width = '794px';
+  printContainer.style.backgroundColor = '#ffffff';
+  printContainer.style.padding = '20px';
+  printContainer.style.boxSizing = 'border-box';
+  printContainer.style.direction = 'rtl';
+  printContainer.style.pointerEvents = 'none';
+
+  printContainer.innerHTML = `
+    <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; font-family: 'Samim', 'Vazirmatn', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #0f172a; border: 2px solid #047857; border-radius: 12px; padding: 20px; background: #fff; box-sizing: border-box;">
+      <div style="text-align: center; border-bottom: 2px solid #d1fae5; padding-bottom: 14px; margin-bottom: 18px;">
+        <h2 style="color: #047857; font-size: 20px; font-weight: 900; margin: 0 0 6px 0;">گزارش روزانه صندوق و فروش (${dayData.date})</h2>
+        <div style="font-size: 11.5px; color: #64748b;">سامانه صندوق و فروش حضوری ${config.companyName}</div>
+      </div>
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 11px;">
+        <tr>
+          <td style="padding: 10px; border: 1px solid #cbd5e1; background: #ecfdf5;"><strong>مجموع فروش روز:</strong> ${formatToman(dayData.totalSales)}</td>
+          <td style="padding: 10px; border: 1px solid #cbd5e1; background: #eff6ff;"><strong>کارتخوان POS:</strong> ${formatToman(dayData.posSales)}</td>
+          <td style="padding: 10px; border: 1px solid #cbd5e1; background: #fef3c7;"><strong>تعداد فاکتورها:</strong> ${dayData.receipts?.length || 0} فاکتور</td>
+        </tr>
+      </table>
+      <h3 style="font-size: 13px; font-weight: 800; color: #1e293b; margin-bottom: 10px;">لیست فاکتورهای ثبت شده در این روز:</h3>
+      <table style="width: 100%; border-collapse: collapse; text-align: right; font-size: 10.5px;">
+        <thead style="background: #047857; color: #fff;">
+          <tr>
+            <th style="padding: 8px 6px; border: 1px solid #047857;">شماره فاکتور</th>
+            <th style="padding: 8px 6px; border: 1px solid #047857;">مشتری</th>
+            <th style="padding: 8px 6px; border: 1px solid #047857; text-align: center;">روش پرداخت</th>
+            <th style="padding: 8px 6px; border: 1px solid #047857; text-align: left;">مبلغ کل (تومان)</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${(dayData.receipts || []).map((rcpt: any, idx: number) => `
+            <tr style="background: ${idx % 2 === 0 ? '#fff' : '#f0fdf4'}; border-bottom: 1px solid #e2e8f0;">
+              <td style="padding: 7px 6px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: bold;">${rcpt.receiptNumber}</td>
+              <td style="padding: 7px 6px; border: 1px solid #e2e8f0;">${rcpt.customerName || 'مشتری حضوری'}</td>
+              <td style="padding: 7px 6px; border: 1px solid #e2e8f0; text-align: center;">${rcpt.paymentMethod}</td>
+              <td style="padding: 7px 6px; border: 1px solid #e2e8f0; text-align: left; font-weight: bold; color: #047857;">${formatToman(rcpt.finalTotal)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  document.body.appendChild(printContainer);
+
+  try {
+    if (document.fonts && document.fonts.ready) {
+      await document.fonts.ready;
+    }
+    await new Promise(r => setTimeout(r, 500));
+    
+    const containerWidth = printContainer.offsetWidth || 794;
+    const containerHeight = printContainer.offsetHeight || 600;
+
+    const imgData = await toPng(printContainer, { 
+      quality: 0.98, 
+      backgroundColor: '#ffffff', 
+      pixelRatio: 2.5, 
+      width: containerWidth,
+      height: containerHeight,
+      skipFonts: true 
+    });
+
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const marginMm = 8;
+    const printWidthMm = 210 - (marginMm * 2);
+    const printHeightMm = (containerHeight / containerWidth) * printWidthMm;
+
+    pdf.addImage(imgData, 'PNG', marginMm, marginMm, printWidthMm, printHeightMm);
+    pdf.save(`گزارش_روزانه_${dayData.date.replace(/\//g, '-')}.pdf`);
+    return true;
+  } catch (error) {
+    console.error('Error generating Daily Report PDF:', error);
+    return false;
+  } finally {
+    if (document.body.contains(printContainer)) {
+      document.body.removeChild(printContainer);
+    }
+  }
+}
+

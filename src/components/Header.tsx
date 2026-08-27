@@ -23,7 +23,8 @@ import {
   Ticket,
   Bell,
   Smartphone,
-  Code
+  Code,
+  Building2
 } from 'lucide-react';
 import { formatNumberFa } from '../utils/formatters';
 import { NavigationTab, UserProfile } from '../types';
@@ -40,6 +41,8 @@ interface HeaderProps {
   unreadNotificationsCount?: number;
   onOpenNotifications?: () => void;
   onOpenInstallGuide?: () => void;
+  onOpenProductsMenu?: () => void;
+  onOpenInPersonPickup?: () => void;
 }
 
 const ALL_NAV_TABS: { id: NavigationTab; label: string; icon: React.ComponentType<{ className?: string }>; color?: string; requiresAuth?: boolean }[] = [
@@ -64,9 +67,22 @@ export const Header: React.FC<HeaderProps> = ({
   unreadNotificationsCount = 0,
   onOpenNotifications,
   onOpenInstallGuide,
+  onOpenProductsMenu,
+  onOpenInPersonPickup,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+
+  React.useEffect(() => {
+    const checkStandalone = () => {
+      const isStandaloneMode = 
+        window.matchMedia('(display-mode: standalone)').matches || 
+        (window.navigator as any).standalone === true;
+      setIsStandalone(isStandaloneMode);
+    };
+    checkStandalone();
+  }, []);
 
   const navTabs = ALL_NAV_TABS.filter(tab => !tab.requiresAuth || currentUser !== null);
 
@@ -76,11 +92,11 @@ export const Header: React.FC<HeaderProps> = ({
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white [#0b0f19] shadow-md border-b border-slate-200 transition-colors" id="main-header">
+    <header className="sticky top-0 z-40 bg-white shadow-md border-b border-slate-200 transition-colors" id="main-header">
       
       {/* LAYER 1: Top Micro-Bar */}
-      <div className="bg-slate-950 text-slate-200 text-xs py-1.5 px-3 sm:px-4 border-b border-slate-800/80">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-2">
+      <div className="bg-slate-950 text-slate-200 text-xs py-1.5 px-4 sm:px-6 border-b border-slate-800/80">
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-2">
           
           {/* Warehouse and Dispatch Status */}
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
@@ -94,7 +110,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
 
             {/* PWA Mobile Web App Button */}
-            {onOpenInstallGuide && (
+            {onOpenInstallGuide && !isStandalone && (
               <button
                 onClick={onOpenInstallGuide}
                 title="دانلود و نصب وب‌اپلیکیشن موبایل (PWA)"
@@ -122,8 +138,8 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* LAYER 2: Brand Identity & Action Center */}
-      <div className="bg-white [#0b0f19] border-b border-slate-100 transition-colors">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
+      <div className="bg-white border-b border-slate-100 transition-colors">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between gap-2 sm:gap-4">
           
           {/* Brand Logo & Title */}
           <div 
@@ -269,10 +285,10 @@ export const Header: React.FC<HeaderProps> = ({
       </div>
 
       {/* LAYER 3: Dedicated Lower Menu Bar (Desktop + Horizontal Scroll) */}
-      <div className="bg-slate-50 [#0d1322] border-b border-slate-200/90 py-1.5 px-2 sm:px-4 backdrop-blur-xs transition-colors">
-        <div className="max-w-7xl mx-auto flex items-center justify-between gap-1 overflow-x-auto no-scrollbar scroll-smooth">
+      <div className="bg-slate-50 border-b border-slate-200/90 py-1.5 px-4 sm:px-6 backdrop-blur-xs transition-colors">
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-2 overflow-x-auto no-scrollbar scroll-smooth">
           
-          <div className="flex items-center gap-1 sm:gap-1.5">
+          <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
             {navTabs.map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;

@@ -3,7 +3,7 @@ import { Settings, Shield, Database, Clock, Image, Globe, Sparkles, FileCode } f
 import { CodeViewer } from './CodeViewer';
 
 export const DjangoConfigDocs: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'settings' | 'urls' | 'env'>('settings');
+  const [activeSubTab, setActiveSubTab] = useState<'settings' | 'urls' | 'env' | 'routes'>('settings');
 
   const settingsCode = `"""
 azarakhsh_project/settings.py

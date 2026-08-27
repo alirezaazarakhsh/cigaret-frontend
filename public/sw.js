@@ -1,21 +1,7 @@
-const CACHE_NAME = 'sevin-wholesale-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/src/main.tsx',
-  '/src/index.css',
-  '/src/App.tsx'
-];
+const CACHE_NAME = 'sevin-wholesale-v3';
 
 self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE).catch(() => {
-        // Safe fallback if some assets are dynamic or fail during local development build
-        console.log('Skipping non-essential asset caching on install');
-      });
-    })
-  );
+  self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
@@ -28,34 +14,61 @@ self.addEventListener('activate', (event) => {
           }
         })
       );
-    })
+    }).then(() => self.clients.claim())
   );
 });
 
 self.addEventListener('fetch', (event) => {
-  // Only intercept HTTP/HTTPS GET requests (skip chrome-extension://, etc.)
+  // Only intercept HTTP/HTTPS GET requests
   if (event.request.method !== 'GET' || !event.request.url.startsWith(self.location.origin)) {
     return;
   }
-  
+
+  // HTML navigation requests: Network-First
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .then((networkResponse) => {
+          if (networkResponse && networkResponse.status === 200) {
+            const copy = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+          }
+          return networkResponse;
+        })
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match('/')))
+    );
+    return;
+  }
+
+  // Static assets: Cache or Network
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
-      }
-      return fetch(event.request).then((networkResponse) => {
-        if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+      const fetchPromise = fetch(event.request)
+        .then((networkResponse) => {
+          if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
+            return networkResponse;
+          }
+          const contentType = networkResponse.headers.get('content-type') || '';
+          const isAsset = event.request.url.includes('/assets/') || 
+                          event.request.url.endsWith('.css') || 
+                          event.request.url.endsWith('.js');
+          // Avoid caching HTML for CSS/JS requests
+          if (isAsset && contentType.includes('text/html')) {
+            return networkResponse;
+          }
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseToCache);
+          });
           return networkResponse;
-        }
-        const responseToCache = networkResponse.clone();
-        caches.open(CACHE_NAME).then((cache) => {
-          cache.put(event.request, responseToCache);
+        })
+        .catch((err) => {
+          if (cachedResponse) return cachedResponse;
+          throw err;
         });
-        return networkResponse;
-      }).catch(() => {
-        // Offline fallback
-        return caches.match('/');
-      });
+
+      return cachedResponse || fetchPromise;
     })
   );
 });
+

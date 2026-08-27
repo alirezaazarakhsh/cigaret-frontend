@@ -60,6 +60,8 @@ import { PwaInstallGuide } from './components/PwaInstallGuide';
 import { AccountingPosPanel } from './components/shopmanage/AccountingPosPanel';
 import { AzarakhshApiDocs } from './azarakhsh/AzarakhshApiDocs';
 import { HeroBannerSlider } from './components/HeroBannerSlider';
+import { ProductsMegaMenu } from './components/ProductsMegaMenu';
+import { InPersonPickupModal } from './components/InPersonPickupModal';
 import { syncWithDjangoApi } from './services/djangoApi';
 import { generatePriceListPdf } from './utils/pdfGenerator';
 import { formatToman, formatNumberFa } from './utils/formatters';
@@ -95,7 +97,7 @@ export default function App() {
       setActiveTab('accounting-pos');
     }
     if (isAzarakhsh) {
-      setActiveTab('azarakhsh-docs');
+      setActiveTab('django-docs');
     }
   }, []);
 
@@ -276,6 +278,8 @@ export default function App() {
   const [isNotifModalOpen, setIsNotifModalOpen] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [userPanelSubTab, setUserPanelSubTab] = useState<'orders' | 'profile' | 'tickets' | 'new_ticket' | 'visitor_club' | 'visitor_report'>('orders');
+  const [isProductsMenuOpen, setIsProductsMenuOpen] = useState<boolean>(false);
+  const [isInPersonPickupOpen, setIsInPersonPickupOpen] = useState<boolean>(false);
   const [isPwaModalOpen, setIsPwaModalOpen] = useState<boolean>(false);
 
   // Notifications state
@@ -399,15 +403,24 @@ export default function App() {
     showToast(`محصول «${fullProduct.nameFa}» به کاتالوگ افزوده شد.`);
   };
 
-  // Distinct Brands
+  // Distinct Brands (Excluding in-person drinks/coffee)
   const uniqueBrands = useMemo(() => {
-    const brands = Array.from(new Set(products.map(p => p.brand)));
+    const brands = Array.from(
+      new Set(
+        products
+          .filter(p => !p.isPosOnly && p.category !== 'drinks_coffee')
+          .map(p => p.brand)
+      )
+    );
     return ['all', ...brands];
   }, [products]);
 
-  // Filtered & Sorted products
+  // Filtered & Sorted products (Online cigarette & tobacco store only)
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
+      // Exclude in-person POS items (coffee & soft drinks) from the online website
+      if (product.isPosOnly || product.category === 'drinks_coffee') return false;
+
       const matchCat = selectedCategory === 'all' || product.category === selectedCategory;
       const matchBrand = selectedBrand === 'all' || product.brand === selectedBrand;
       const matchQuery = 
@@ -473,6 +486,34 @@ export default function App() {
     showToast('سبد سفارشات خالی شد.');
   };
 
+  const handleReorderItems = (reorderItems: CartItem[]) => {
+    setCartItems(prev => {
+      const updated = [...prev];
+      for (const newItem of reorderItems) {
+        const idx = updated.findIndex(i => i.product.id === newItem.product.id && i.unit === newItem.unit);
+        if (idx > -1) {
+          updated[idx].quantity += newItem.quantity;
+        } else {
+          updated.push(newItem);
+        }
+      }
+      return updated;
+    });
+    setActiveTab('invoice');
+  };
+
+  const handlePickupOrderSubmitted = (order: OrderInvoice) => {
+    handleOnlineOrderDeductStock(order.items);
+    if (currentUser) {
+      const updatedUser = {
+        ...currentUser,
+        orderHistory: [order, ...(currentUser.orderHistory || [])]
+      };
+      handleUpdateProfile(updatedUser);
+    }
+    handleClearCart();
+  };
+
   // Cart summary numbers
   const cartTotalCartons = cartItems.reduce((acc, curr) => curr.unit === 'carton' ? acc + curr.quantity : acc, 0);
   const cartTotalBoxes = cartItems.reduce((acc, curr) => curr.unit === 'box' ? acc + curr.quantity : acc, 0);
@@ -517,10 +558,12 @@ export default function App() {
         unreadNotificationsCount={unreadNotifCount}
         onOpenNotifications={() => setIsNotifModalOpen(true)}
         onOpenInstallGuide={() => setIsPwaModalOpen(true)}
+        onOpenProductsMenu={() => setIsProductsMenuOpen(true)}
+        onOpenInPersonPickup={() => setIsInPersonPickupOpen(true)}
       />
 
       {/* Main App Body */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
         
         {/* TAB 1: Catalog */}
         {activeTab === 'catalog' && (
@@ -708,6 +751,8 @@ export default function App() {
             retailShops={retailShops}
             onUpdateRetailShops={handleUpdateRetailShops}
             djangoConfig={djangoConfig}
+            availableProducts={products}
+            onReorderItems={handleReorderItems}
             onOpenTracking={(trackingCode) => {
               setActiveTab('tracking');
               showToast(`کد رهگیری ${trackingCode} در بخش پیگیری ثبت شد.`);
@@ -776,7 +821,7 @@ export default function App() {
 
         {/* TAB 7: Order and Fleet Tracking */}
         {activeTab === 'tracking' && (
-          <OrderTracking onSelectProduct={() => setActiveTab('catalog')} />
+          <OrderTracking />
         )}
 
       </main>
@@ -828,7 +873,7 @@ export default function App() {
 
       {/* Modern Wholesale Footer */}
       <footer className="bg-white border-t border-slate-200 mt-12 py-8 text-xs text-slate-500 transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col gap-6">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 flex flex-col gap-6">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-md shadow-blue-600/20">
@@ -865,6 +910,34 @@ export default function App() {
       <PwaInstallGuide 
         isOpenOnly={isPwaModalOpen} 
         onCloseModal={() => setIsPwaModalOpen(false)} 
+      />
+
+      {/* Products Mega Menu Modal */}
+      <ProductsMegaMenu
+        isOpen={isProductsMenuOpen}
+        onClose={() => setIsProductsMenuOpen(false)}
+        products={products}
+        onSelectCategory={(catId) => {
+          setSelectedCategory(catId as CigaretteCategory);
+          setSelectedBrand('all');
+        }}
+        onSelectBrand={(brandName) => {
+          setSelectedBrand(brandName);
+          setSelectedCategory('all');
+        }}
+        onNavigateTab={(tab) => setActiveTab(tab)}
+        onOpenInPersonPickup={() => setIsInPersonPickupOpen(true)}
+      />
+
+      {/* In-Person Counter Pickup Modal */}
+      <InPersonPickupModal
+        isOpen={isInPersonPickupOpen}
+        onClose={() => setIsInPersonPickupOpen(false)}
+        cartItems={cartItems}
+        currentUser={currentUser}
+        products={products}
+        onOrderSubmitted={handlePickupOrderSubmitted}
+        showToast={showToast}
       />
 
     </div>

@@ -1,0 +1,3 @@
+sed -i 's/<div>{formatToman(prod.cartonPrice)}<\/div>\n                              )}/<div>{formatToman(prod.cartonPrice)}<\/div>/g' src/components/shopmanage/AccountingPosPanel.tsx
+sed -i 's/ {formatToman(prod.boxPrice)} باکس \/ {formatToman(prod.packPrice)} پاکت\n                              <\/div>\n                              )}/ {formatToman(prod.boxPrice)} باکس \/ {formatToman(prod.packPrice)} پاکت\n                              <\/div>/g' src/components/shopmanage/AccountingPosPanel.tsx
+sed -i 's/{prod.category !== '"'drinks_coffee'"' && (\n                              {stockInfo.isAvailable ? (/{stockInfo.isAvailable ? (/g' src/components/shopmanage/AccountingPosPanel.tsx

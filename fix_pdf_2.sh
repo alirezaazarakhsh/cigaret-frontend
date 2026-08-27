@@ -1,0 +1,2 @@
+sed -i 's/<span><strong>شماره فاکتور:<\/strong> <span style="font-family: monospace; font-weight: bold;">${receipt.receiptNumber}<\/span><\/span>/<span><strong>شماره فاکتور:<\/strong> <span dir="ltr" style="font-family: monospace; font-weight: bold;">${receipt.receiptNumber}<\/span><\/span>/g' src/utils/pdfGenerator.ts
+sed -i 's/<span><strong>تاریخ:<\/strong> ${receipt.createdAt}<\/span>/<span><strong>تاریخ:<\/strong> <span dir="ltr">${receipt.createdAt}<\/span><\/span>/g' src/utils/pdfGenerator.ts

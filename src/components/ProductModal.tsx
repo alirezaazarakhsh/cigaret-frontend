@@ -134,7 +134,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               تعداد در هر کارتن
             </div>
             <div className="text-xs font-bold text-slate-900">
-              {formatNumberFa(product.boxesPerCarton)} باکس ({formatNumberFa((product.boxesPerCarton || 50) * (product.packsPerBox || 10))} پاکت)
+              {formatNumberFa(product.boxesPerCarton)} باکس پلمپ
             </div>
           </div>
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
@@ -144,7 +144,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             </div>
             <div className="text-xs font-bold text-emerald-700">
               {product.stockCartons > 0 
-                ? `${formatNumberFa(product.stockCartons)} کارتن (${formatNumberFa(product.stockCartons * (product.boxesPerCarton || 50))} باکس / ${formatNumberFa(product.stockCartons * (product.boxesPerCarton || 50) * (product.packsPerBox || 10))} پاکت)`
+                ? `${formatNumberFa(product.stockCartons)} کارتن (${formatNumberFa(product.stockCartons * (product.boxesPerCarton || 50))} باکس)`
                 : 'ناموجود (در انتظار شارژ)'}
             </div>
           </div>

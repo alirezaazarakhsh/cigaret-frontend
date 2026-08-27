@@ -136,41 +136,45 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         </div>
 
         {/* Title & Brand */}
-        <div className="mb-2">
-          <h3 
-            onClick={() => onOpenDetails(product)}
-            className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors cursor-pointer line-clamp-1"
-          >
-            {product.nameFa}
-          </h3>
-          <p className="text-[11px] text-slate-500 font-mono tracking-tight line-clamp-1" dir="ltr">
+        <div className="mb-2.5 min-w-0">
+          <div className="flex items-start justify-between gap-1.5">
+            <h3 
+              onClick={() => onOpenDetails(product)}
+              className="text-xs sm:text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors cursor-pointer truncate flex-1"
+              title={product.nameFa}
+            >
+              {product.nameFa}
+            </h3>
+            <span className="text-[10px] font-bold text-slate-400 font-mono shrink-0 uppercase tracking-wider" dir="ltr">
+              {product.brand}
+            </span>
+          </div>
+          <p className="text-[10px] sm:text-[11px] text-slate-400 font-mono tracking-tight truncate mt-0.5" dir="ltr">
             {product.nameEn}
           </p>
         </div>
 
-        {/* Short description preview */}
-        <p 
+        {/* Product Description */}
+        <div 
           onClick={() => onOpenDetails(product)}
-          className="text-xs text-slate-600 line-clamp-2 leading-relaxed mb-3 cursor-pointer hover:text-slate-900 transition-colors"
+          className="mb-3 cursor-pointer group/desc"
         >
-          {product.description}
-        </p>
+          <p className="text-xs text-slate-600 leading-relaxed group-hover/desc:text-slate-900 transition-colors line-clamp-3 bg-slate-50/80 hover:bg-slate-100/80 p-2 rounded-xl border border-slate-100">
+            {product.description}
+          </p>
+        </div>
 
-        {/* Triple Unit Stock Display Card */}
-        <div className="mb-3 bg-slate-50 border border-slate-200 rounded-2xl p-2.5 text-xs">
-          <div className="text-[10px] text-slate-500 font-bold mb-1">واحدهای بسته‌بندی موجود:</div>
-          <div className="grid grid-cols-3 gap-1 text-center font-mono text-[11px]">
-            <div className="bg-white p-1 rounded-lg border border-slate-200">
-              <span className="text-slate-500 text-[9px] block">کارتن</span>
-              <span className="font-black text-indigo-600">{formatNumberFa(stockInfo.cartons)}</span>
+        {/* Dual Unit Stock Display Card (Wholesale B2B: Carton & Box) */}
+        <div className="mb-3 bg-slate-50 border border-slate-200 rounded-2xl p-2 sm:p-2.5 text-xs">
+          <div className="text-[10px] text-slate-500 font-bold mb-1.5 whitespace-nowrap">موجودی انبار مرکزی:</div>
+          <div className="grid grid-cols-2 gap-1.5 text-center font-mono text-[11px]">
+            <div className="bg-white py-1 px-2 rounded-xl border border-slate-200 flex items-center justify-between min-w-0">
+              <span className="text-slate-400 text-[9px] block whitespace-nowrap">کارتن</span>
+              <span className="font-black text-indigo-600 text-xs sm:text-sm truncate">{formatNumberFa(stockInfo.cartons)}</span>
             </div>
-            <div className="bg-white p-1 rounded-lg border border-slate-200">
-              <span className="text-slate-500 text-[9px] block">باکس</span>
-              <span className="font-black text-slate-800">{formatNumberFa(stockInfo.totalBoxes)}</span>
-            </div>
-            <div className="bg-white p-1 rounded-lg border border-slate-200">
-              <span className="text-slate-500 text-[9px] block">پاکت</span>
-              <span className="font-black text-emerald-600">{formatNumberFa(stockInfo.totalPacks)}</span>
+            <div className="bg-white py-1 px-2 rounded-xl border border-slate-200 flex items-center justify-between min-w-0">
+              <span className="text-slate-400 text-[9px] block whitespace-nowrap">باکس</span>
+              <span className="font-black text-slate-800 text-xs sm:text-sm truncate">{formatNumberFa(stockInfo.totalBoxes)}</span>
             </div>
           </div>
         </div>
@@ -178,34 +182,37 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {/* Dual Price Cards (Carton & Box or Box-Only) */}
         {product.isBoxOnly ? (
           <div className="mb-3">
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-2.5 text-right">
-              <div className="text-[10px] font-bold text-amber-900 flex items-center gap-1">
-                <Boxes className="w-3 h-3 text-amber-700" />
-                فقط فروش باکسی (بدون کارتن مادر)
+            <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-2.5 flex items-center justify-between gap-2">
+              <div className="min-w-0">
+                <div className="text-[10px] font-bold text-amber-900 flex items-center gap-1 whitespace-nowrap">
+                  <Boxes className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                  فروش تک‌باکسی
+                </div>
+                <div className="text-[10px] text-amber-700 font-medium truncate mt-0.5">۱۰ پاکت پلمپ</div>
               </div>
-              <div className="text-sm font-black text-amber-950 mt-1">
+              <div className="text-xs sm:text-sm font-black text-amber-950 font-mono whitespace-nowrap shrink-0">
                 {formatToman(product.boxPrice)}
               </div>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-2 mb-3">
-            <div className="bg-blue-50/70 border border-blue-100 rounded-2xl p-2 text-right">
-              <div className="text-[10px] font-bold text-blue-900 flex items-center gap-1">
-                <Package className="w-3 h-3 text-blue-700" />
-                کارتن ({formatNumberFa(product.boxesPerCarton)} باکس)
+          <div className="grid grid-cols-2 gap-1.5 sm:gap-2 mb-3">
+            <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-2 flex flex-col justify-between min-w-0">
+              <div className="text-[10px] font-bold text-blue-900 flex items-center gap-1 whitespace-nowrap">
+                <Package className="w-3 h-3 text-blue-700 shrink-0" />
+                <span className="truncate">کارتن ({formatNumberFa(product.boxesPerCarton)} باکس)</span>
               </div>
-              <div className="text-xs sm:text-sm font-black text-blue-900 mt-1">
+              <div className="text-xs sm:text-sm font-black text-blue-950 mt-1 font-mono whitespace-nowrap truncate">
                 {formatToman(product.cartonPrice)}
               </div>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-2 text-right">
-              <div className="text-[10px] font-bold text-slate-700 flex items-center gap-1">
-                <Boxes className="w-3 h-3 text-slate-600" />
-                تک باکس (۱۰ پاکت)
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-2 flex flex-col justify-between min-w-0">
+              <div className="text-[10px] font-bold text-slate-700 flex items-center gap-1 whitespace-nowrap">
+                <Boxes className="w-3 h-3 text-slate-600 shrink-0" />
+                <span className="truncate">تک‌باکس (۱۰ پاکت)</span>
               </div>
-              <div className="text-xs sm:text-sm font-black text-slate-900 mt-1">
+              <div className="text-xs sm:text-sm font-black text-slate-900 mt-1 font-mono whitespace-nowrap truncate">
                 {formatToman(product.boxPrice)}
               </div>
             </div>
@@ -216,22 +223,22 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {!product.isBoxOnly && product.tierDiscounts.length > 0 && (
           <div className="mb-3">
             {discountPercent > 0 ? (
-              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-[11px] px-2.5 py-1 rounded-xl flex items-center justify-between font-bold">
-                <span className="flex items-center gap-1">
-                  <TrendingDown className="w-3.5 h-3.5 text-emerald-600" />
-                  تخفیف تیراژ {formatNumberFa(discountPercent)}٪ فعال شد
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] sm:text-[11px] px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-1 font-bold">
+                <span className="flex items-center gap-1 whitespace-nowrap truncate">
+                  <TrendingDown className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  تخفیف تیراژ {formatNumberFa(discountPercent)}٪
                 </span>
-                <span>سود: {formatToman(cartonDiscountVal)}</span>
+                <span className="whitespace-nowrap shrink-0 text-emerald-900">سود: {formatToman(cartonDiscountVal)}</span>
               </div>
             ) : (
-              <div className="text-[10px] text-slate-600 flex items-center justify-between bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200">
-                <span className="flex items-center gap-1">
-                  <Tag className="w-3 h-3 text-blue-600" />
-                  تخفیف تیراژ: از ۳ کارتن به بالا
+              <div className="text-[10px] text-slate-600 flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200 gap-1">
+                <span className="flex items-center gap-1 whitespace-nowrap truncate">
+                  <Tag className="w-3 h-3 text-blue-600 shrink-0" />
+                  تخفیف از ۳ کارتن به بالا
                 </span>
                 <button 
                   onClick={() => onOpenDetails(product)}
-                  className="text-blue-600 hover:underline font-bold"
+                  className="text-blue-600 hover:underline font-bold whitespace-nowrap shrink-0"
                 >
                   جدول تخفیف
                 </button>
@@ -245,32 +252,32 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       <div className="pt-2.5 border-t border-slate-100 space-y-2">
         {!stockInfo.isAvailable ? (
           <div className="bg-rose-50 border border-rose-200 rounded-2xl p-3 text-center">
-            <p className="text-xs font-black text-rose-700">اتمام موجودی در انبار مرکزی</p>
-            <p className="text-[10px] text-rose-600 mt-0.5">محصول به‌محض شارژ انبار در کاتالوگ فعال می‌شود</p>
+            <p className="text-xs font-black text-rose-700 whitespace-nowrap">اتمام موجودی در انبار مرکزی</p>
+            <p className="text-[10px] text-rose-600 mt-0.5 line-clamp-1">محصول به‌محض شارژ انبار فعال می‌شود</p>
           </div>
         ) : (
           <>
             {/* Carton Row (Only if not isBoxOnly) */}
             {!product.isBoxOnly && (
-              <div className="flex items-center justify-between gap-2 bg-blue-50/50 border border-blue-100 rounded-2xl p-1.5">
-                <div className="flex items-center gap-1">
-                  <span className="text-[11px] font-bold text-blue-950 w-12">کارتن:</span>
-                  <div className="flex items-center bg-white border border-blue-200 rounded-xl p-0.5">
+              <div className="flex items-center justify-between gap-1.5 bg-blue-50/50 border border-blue-100 rounded-2xl p-1.5">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[11px] font-black text-blue-950 whitespace-nowrap shrink-0">کارتن:</span>
+                  <div className="flex items-center bg-white border border-blue-200 rounded-xl p-0.5 shrink-0 shadow-2xs">
                     <button
                       type="button"
                       onClick={() => setCartonQty(q => q + 1)}
-                      className="w-6 h-6 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-900 flex items-center justify-center font-bold text-xs transition-colors"
+                      className="w-6 h-6 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-900 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
                       title="افزایش کارتن"
                     >
                       <Plus className="w-3 h-3" />
                     </button>
-                    <span className="w-8 text-center font-bold text-xs text-slate-900">
+                    <span className="w-6 sm:w-7 text-center font-bold text-xs text-slate-900 font-mono shrink-0">
                       {formatNumberFa(cartonQty)}
                     </span>
                     <button
                       type="button"
                       onClick={() => setCartonQty(q => Math.max(product.moq || 1, q - 1))}
-                      className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs transition-colors"
+                      className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
                       title="کاهش کارتن"
                     >
                       <Minus className="w-3 h-3" />
@@ -281,21 +288,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <button
                   type="button"
                   onClick={handleAddCarton}
-                  className={`px-2.5 py-1.5 rounded-xl font-black text-[11px] flex items-center gap-1 transition-all ${
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-[11px] flex items-center justify-center gap-1 transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-xs ${
                     cartonJustAdded
                       ? 'bg-emerald-600 text-white'
-                      : 'bg-blue-600 hover:bg-blue-700 text-white shadow-xs'
+                      : 'bg-blue-600 hover:bg-blue-700 text-white'
                   }`}
                 >
                   {cartonJustAdded ? (
                     <>
-                      <Check className="w-3 h-3" />
-                      افزوده شد
+                      <Check className="w-3 h-3 shrink-0" />
+                      <span>افزوده شد</span>
                     </>
                   ) : (
                     <>
-                      <Plus className="w-3 h-3" />
-                      + کارتن
+                      <Plus className="w-3 h-3 shrink-0" />
+                      <span>+ کارتن</span>
                     </>
                   )}
                 </button>
@@ -303,25 +310,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             )}
 
             {/* Box Row */}
-            <div className="flex items-center justify-between gap-2 bg-slate-50 border border-slate-200 rounded-2xl p-1.5">
-              <div className="flex items-center gap-1">
-                <span className="text-[11px] font-bold text-slate-800 w-12">باکس:</span>
-                <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5">
+            <div className="flex items-center justify-between gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl p-1.5">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[11px] font-black text-slate-800 whitespace-nowrap shrink-0">باکس:</span>
+                <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shrink-0 shadow-2xs">
                   <button
                     type="button"
                     onClick={() => setBoxQty(q => q + 1)}
-                    className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-900 flex items-center justify-center font-bold text-xs transition-colors"
+                    className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-900 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
                     title="افزایش باکس"
                   >
                     <Plus className="w-3 h-3" />
                   </button>
-                  <span className="w-8 text-center font-bold text-xs text-slate-900">
+                  <span className="w-6 sm:w-7 text-center font-bold text-xs text-slate-900 font-mono shrink-0">
                     {formatNumberFa(boxQty)}
                   </span>
                   <button
                     type="button"
                     onClick={() => setBoxQty(q => Math.max(0, q - 1))}
-                    className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs transition-colors"
+                    className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
                     title="کاهش باکس"
                   >
                     <Minus className="w-3 h-3" />
@@ -332,21 +339,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <button
                 type="button"
                 onClick={handleAddBox}
-                className={`px-2.5 py-1.5 rounded-xl font-black text-[11px] flex items-center gap-1 transition-all ${
+                className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-[11px] flex items-center justify-center gap-1 transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-xs ${
                   boxJustAdded
                     ? 'bg-emerald-600 text-white'
-                    : 'bg-slate-800 hover:bg-slate-900 text-white shadow-xs'
+                    : 'bg-slate-800 hover:bg-slate-900 text-white'
                 }`}
               >
                 {boxJustAdded ? (
                   <>
-                    <Check className="w-3 h-3" />
-                    افزوده شد
+                    <Check className="w-3 h-3 shrink-0" />
+                    <span>افزوده شد</span>
                   </>
                 ) : (
                   <>
-                    <Plus className="w-3 h-3" />
-                    + باکس
+                    <Plus className="w-3 h-3 shrink-0" />
+                    <span>+ باکس</span>
                   </>
                 )}
               </button>
@@ -357,7 +364,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <button
                 type="button"
                 onClick={handleAddBoth}
-                className={`w-full py-2 px-3 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 ${
+                className={`w-full py-2 px-2.5 rounded-2xl font-black text-xs flex items-center justify-center gap-1.5 transition-all shadow-md active:scale-95 whitespace-nowrap cursor-pointer ${
                   bothJustAdded
                     ? 'bg-emerald-600 text-white'
                     : 'bg-slate-950 hover:bg-blue-600 text-white'
@@ -365,13 +372,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               >
                 {bothJustAdded ? (
                   <>
-                    <Check className="w-3.5 h-3.5" />
-                    هر دو (کارتن و باکس) ثبت شد
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <span>ثبت همزمان انجام شد</span>
                   </>
                 ) : (
                   <>
-                    <ShoppingCart className="w-3.5 h-3.5 text-blue-400" />
-                    افزودن همزمان {formatNumberFa(cartonQty)} کارتن + {formatNumberFa(boxQty)} باکس ({formatToman(combinedTotal)})
+                    <ShoppingCart className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                    <span className="truncate">
+                      خرید {formatNumberFa(cartonQty)} کارتن + {formatNumberFa(boxQty)} باکس ({formatToman(combinedTotal)})
+                    </span>
                   </>
                 )}
               </button>

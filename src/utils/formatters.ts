@@ -1,3 +1,5 @@
+import { WholesaleTierDiscount } from '../types';
+
 export function formatToman(amount: number): string {
   return new Intl.NumberFormat('fa-IR').format(amount) + ' تومان';
 }
@@ -7,16 +9,29 @@ export function formatNumberFa(val: number): string {
 }
 
 export function getProductStockInfo(product: {
+  category?: string;
   stockCartons: number;
   boxesPerCarton?: number;
   packsPerBox?: number;
 }) {
-  // Ensure we work with integers as requested
   const cartons = Math.floor(product.stockCartons || 0);
   const boxesPerCarton = product.boxesPerCarton || 50;
   const packsPerBox = product.packsPerBox || 10;
+  
   const totalBoxes = Math.floor(cartons * boxesPerCarton);
   const totalPacks = Math.floor(totalBoxes * packsPerBox);
+
+  if (product.category === 'drinks_coffee') {
+    return {
+      cartons,
+      totalBoxes,
+      totalPacks,
+      boxesPerCarton: 1,
+      packsPerBox: 1,
+      isAvailable: cartons > 0,
+      textSummary: cartons > 0 ? `${formatNumberFa(cartons)} عدد` : 'ناموجود (نوشیدنی)'
+    };
+  }
 
   return {
     cartons,
@@ -49,19 +64,19 @@ export function calculateItemSubtotal(
 export function getApplicableDiscount(
   unit: 'box' | 'carton' | 'pack',
   quantity: number,
-  tierDiscounts: { minCartons: number; discountPercentage: number }[]
+  tierDiscounts: WholesaleTierDiscount[]
 ): number {
   if (unit !== 'carton' || !tierDiscounts || tierDiscounts.length === 0) {
     return 0;
   }
 
-  // Sort descending by minCartons
-  const sorted = [...tierDiscounts].sort((a, b) => b.minCartons - a.minCartons);
+  const sorted = [...tierDiscounts].sort((a, b) => (b.minCartons || 0) - (a.minCartons || 0));
+
   for (const tier of sorted) {
-    if (quantity >= tier.minCartons) {
-      return tier.discountPercentage;
+    if (quantity >= (tier.minCartons || 0)) {
+      return tier.discountPercentage || 0;
     }
   }
+
   return 0;
 }
-

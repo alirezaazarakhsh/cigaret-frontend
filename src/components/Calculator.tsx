@@ -48,7 +48,7 @@ export const Calculator: React.FC<CalculatorProps> = ({
   };
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6" id="wholesale-calculator-section">
+    <div className="max-w-[1600px] w-full mx-auto px-4 sm:px-6 space-y-6" id="wholesale-calculator-section">
       {/* Header */}
       <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
         <div className="flex items-center gap-3">

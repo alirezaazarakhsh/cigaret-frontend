@@ -1,4 +1,5 @@
-export type AzarakhshSectionId = 
+export type AzarakhshSectionId =
+  | 'sms' 
   | 'zero-to-hero'
   | 'django-config'
   | 'site-settings'
@@ -12,7 +13,16 @@ export type AzarakhshSectionId =
   | 'tickets-support'
   | 'visitors'
   | 'slider'
-  | 'pos';
+  | 'pos'
+  | 'warehouse-contact'
+  | 'regular-customers'
+  | 'footer-settings'
+  | 'notifications'
+  | 'pos-products'
+  | 'warehouse-stock'
+  | 'ledger'
+  | 'reports'
+  | 'roles-permissions';
 
 export type CodeTab = 'models' | 'admin' | 'serializers' | 'views' | 'urls' | 'notes';
 

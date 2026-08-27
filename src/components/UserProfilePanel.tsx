@@ -29,10 +29,16 @@ import {
   DollarSign,
   UserCheck
 } from 'lucide-react';
-import { UserProfile, OrderInvoice, SupportTicket, ChatMessage, RetailShopCustomer, DjangoCrmConfig } from '../types';
+import { UserProfile, OrderInvoice, SupportTicket, ChatMessage, RetailShopCustomer, DjangoCrmConfig, CigaretteProduct, CartItem } from '../types';
 import { formatToman, formatNumberFa } from '../utils/formatters';
 import { generateInvoicePdf } from '../utils/pdfGenerator';
 import { TicketDetailPage } from './TicketDetailPage';
+import { 
+  CustomerFinancialHub, 
+  CustomerOnlineSettleModal, 
+  CustomerDigitalPassModal, 
+  CustomerPriceAlertsModal 
+} from './CustomerHubFeatures';
 
 interface UserProfilePanelProps {
   currentUser: UserProfile | null;
@@ -43,8 +49,10 @@ interface UserProfilePanelProps {
   showToast: (msg: string) => void;
   retailShops?: RetailShopCustomer[];
   onUpdateRetailShops?: (shops: RetailShopCustomer[]) => void;
-  initialSubTab?: 'orders' | 'profile' | 'tickets' | 'new_ticket' | 'visitor_club' | 'visitor_report';
+  initialSubTab?: 'orders' | 'financial_hub' | 'profile' | 'tickets' | 'new_ticket' | 'visitor_club' | 'visitor_report';
   djangoConfig?: DjangoCrmConfig;
+  availableProducts?: CigaretteProduct[];
+  onReorderItems?: (items: CartItem[]) => void;
 }
 
 export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
@@ -58,15 +66,22 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
   onUpdateRetailShops,
   initialSubTab,
   djangoConfig,
+  availableProducts = [],
+  onReorderItems,
 }) => {
   // Tabs inside panel
-  const [activeSubTab, setActiveSubTab] = useState<'orders' | 'profile' | 'tickets' | 'new_ticket' | 'visitor_club' | 'visitor_report'>(initialSubTab || 'orders');
+  const [activeSubTab, setActiveSubTab] = useState<'orders' | 'financial_hub' | 'profile' | 'tickets' | 'new_ticket' | 'visitor_club' | 'visitor_report'>(initialSubTab || 'orders');
 
   useEffect(() => {
     if (initialSubTab) {
       setActiveSubTab(initialSubTab);
     }
   }, [initialSubTab]);
+
+  // Customer Hub Modals
+  const [showOnlineSettleModal, setShowOnlineSettleModal] = useState(false);
+  const [showDigitalPassModal, setShowDigitalPassModal] = useState(false);
+  const [showPriceAlertsModal, setShowPriceAlertsModal] = useState(false);
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [selectedOrderForDetails, setSelectedOrderForDetails] = useState<OrderInvoice | null>(null);
 
@@ -718,7 +733,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
   // VIEW 2: LOGGED IN USER PANEL
   // ==========================================
   return (
-    <section className="py-6 px-3 sm:px-6 max-w-7xl mx-auto animate-in fade-in zoom-in-95 duration-500" id="user-profile-panel">
+    <section className="py-6 px-4 sm:px-6 max-w-[1600px] w-full mx-auto animate-in fade-in zoom-in-95 duration-500" id="user-profile-panel">
       
       {/* Top Profile Summary Header */}
       <div className="bg-white border border-slate-200 rounded-2xl sm:rounded-3xl p-4 sm:p-7 shadow-xs mb-6 transition-colors">
@@ -840,6 +855,24 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             <span>سفارش‌ها و پیش‌فاکتورها ({formatNumberFa(userOrders.length)})</span>
           </button>
 
+          {/* Customer Financial Ledger Tab */}
+          {currentUser.role === 'customer' && (
+            <button
+              onClick={() => {
+                setSelectedTicketId(null);
+                setActiveSubTab('financial_hub');
+              }}
+              className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+                activeSubTab === 'financial_hub' && !selectedTicketId
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 '
+              }`}
+            >
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>حساب دفتری و نسیه مغازه‌دار</span>
+            </button>
+          )}
+
           <button
             onClick={() => {
               setSelectedTicketId(null);
@@ -948,79 +981,129 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                     return (
                       <div
                         key={idx}
-                        className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xs hover:border-blue-400 transition-all flex flex-col md:flex-row md:items-center justify-between gap-6"
+                        className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-6 shadow-xs hover:border-blue-400 transition-all space-y-4"
                       >
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-3 flex-wrap">
-                            <span className="font-mono font-black text-sm text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 ">
-                              {order.orderId || order.trackingCode}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              تاریخ: {order.createdAt}
-                            </span>
-                            <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 ">
-                              {order.paymentStatus || 'پیش‌فاکتور رسمی'}
-                            </span>
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <span className="font-mono font-black text-sm text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 ">
+                                {order.orderId || order.trackingCode}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                تاریخ: {order.createdAt}
+                              </span>
+                              <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 ">
+                                {order.paymentStatus || 'پیش‌فاکتور رسمی'}
+                              </span>
+                            </div>
+
+                            <div className="text-xs text-slate-600 space-y-1">
+                              <p>
+                                اقلام: <strong title={rawItemsStr}>{truncatedItems}</strong>
+                              </p>
+                              <p className="text-slate-400 text-[11px]">
+                                روش ارسال: {order.customer.shippingMethod} | تحویل‌گیرنده: {order.customer.shopOwnerName}
+                                {order.retailShop && ` | مغازه: ${order.retailShop.shopName}`}
+                              </p>
+                            </div>
                           </div>
 
-                          <div className="text-xs text-slate-600 space-y-1">
-                            <p>
-                              اقلام: <strong title={rawItemsStr}>{truncatedItems}</strong>
-                            </p>
-                            <p className="text-slate-400 text-[11px]">
-                              روش ارسال: {order.customer.shippingMethod} | تحویل‌گیرنده: {order.customer.shopOwnerName}
-                              {order.retailShop && ` | مغازه: ${order.retailShop.shopName}`}
-                            </p>
-                          </div>
-                        </div>
+                          <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-4 md:pt-0 border-slate-100 ">
+                            <div className="text-left md:text-left">
+                              <span className="text-[11px] text-slate-400 block">مبلغ نهایی فاکتور:</span>
+                              <span className="text-base font-black text-blue-600 font-mono">
+                                {formatToman(order.finalTotal)}
+                              </span>
+                            </div>
 
-                        <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-t-0 pt-4 md:pt-0 border-slate-100 ">
-                          <div className="text-left md:text-left">
-                            <span className="text-[11px] text-slate-400 block">مبلغ نهایی فاکتور:</span>
-                            <span className="text-base font-black text-blue-600 font-mono">
-                              {formatToman(order.finalTotal)}
-                            </span>
-                          </div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              {/* Reorder Button */}
+                              {onReorderItems && (
+                                <button
+                                  onClick={() => {
+                                    onReorderItems(order.items);
+                                    showToast(`اقلام سفارش ${order.orderId || order.trackingCode} به سبد خرید اضافه شدند.`);
+                                  }}
+                                  className="h-10 px-3.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 transition-all text-xs font-black flex items-center justify-center gap-1.5"
+                                  title="شارژ سریع مغازه با همین اقلام"
+                                >
+                                  <RefreshCw className="w-4 h-4 text-emerald-600" />
+                                  <span className="hidden sm:inline">سفارش مجدد</span>
+                                </button>
+                              )}
 
-                          <div className="flex items-center gap-2">
-                            {/* Order Details Button */}
-                            <button
-                              onClick={() => setSelectedOrderForDetails(order)}
-                              className="h-10 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-all flex items-center justify-center gap-1.5"
-                              title="مشاهده جزئیات و ریز اقلام خرید"
-                            >
-                              <FileText className="w-4 h-4 text-blue-600" />
-                              <span className="hidden sm:inline">جزئیات</span>
-                            </button>
-
-                            <button
-                              onClick={() => handleDownloadInvoice(order)}
-                              disabled={downloadingPdfId === order.orderId}
-                              className="h-10 px-3.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all text-xs font-black flex items-center justify-center gap-1.5"
-                              title="دانلود فایل PDF رسمی پیش‌فاکتور"
-                            >
-                              <Download className={`w-4 h-4 ${downloadingPdfId === order.orderId ? 'animate-bounce' : ''}`} />
-                              <span className="hidden sm:inline">دانلود PDF</span>
-                            </button>
-
-                            {order.trackingCode && (
+                              {/* Order Details Button */}
                               <button
-                                onClick={() => onOpenTracking(order.trackingCode || '')}
-                                className="h-10 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all text-xs font-black flex items-center justify-center gap-1.5"
-                                title="مشاهده وضعیت ترابری و بارگیری"
+                                onClick={() => setSelectedOrderForDetails(order)}
+                                className="h-10 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-black transition-all flex items-center justify-center gap-1.5"
+                                title="مشاهده جزئیات و ریز اقلام خرید"
                               >
-                                <Truck className="w-4 h-4 text-blue-600" />
-                                <span className="hidden sm:inline">رهگیری</span>
+                                <FileText className="w-4 h-4 text-blue-600" />
+                                <span className="hidden sm:inline">جزئیات</span>
                               </button>
-                            )}
+
+                              <button
+                                onClick={() => handleDownloadInvoice(order)}
+                                disabled={downloadingPdfId === order.orderId}
+                                className="h-10 px-3.5 rounded-xl bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition-all text-xs font-black flex items-center justify-center gap-1.5"
+                                title="دانلود فایل PDF رسمی پیش‌فاکتور"
+                              >
+                                <Download className={`w-4 h-4 ${downloadingPdfId === order.orderId ? 'animate-bounce' : ''}`} />
+                                <span className="hidden sm:inline">دانلود PDF</span>
+                              </button>
+
+                              {order.trackingCode && (
+                                <button
+                                  onClick={() => onOpenTracking(order.trackingCode || '')}
+                                  className="h-10 px-3.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all text-xs font-black flex items-center justify-center gap-1.5"
+                                  title="مشاهده وضعیت ترابری و بارگیری"
+                                >
+                                  <Truck className="w-4 h-4 text-blue-600" />
+                                  <span className="hidden sm:inline">رهگیری</span>
+                                </button>
+                              )}
+                            </div>
                           </div>
                         </div>
+
+                        {/* Dispatch Driver Info Banner for active delivery */}
+                        {order.trackingCode && (
+                          <div className="bg-slate-50/80 border border-slate-200/80 rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs">
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-4 h-4 text-blue-600 shrink-0" />
+                              <span className="text-slate-700 font-bold">ناوگان تحویل بار:</span>
+                              <span className="text-slate-900 font-black">حسین رضایی (وانت پخش جنت‌آباد)</span>
+                              <span className="font-mono text-slate-500 text-[11px]">| پلاک: ایران ۶۸ - ۳۴۵ ج ۹۱</span>
+                            </div>
+                            <a
+                              href="tel:09120759419"
+                              className="text-blue-700 hover:text-blue-800 font-bold flex items-center gap-1 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200 text-[11px]"
+                            >
+                              <Phone className="w-3.5 h-3.5" />
+                              <span>تماس با راننده (۰۹۱۲۰۷۵۹۴۱۹)</span>
+                            </a>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
                 </div>
               )}
             </div>
+          )}
+
+          {/* ==========================================
+              SUBTAB: CUSTOMER FINANCIAL LEDGER & HUB
+             ========================================== */}
+          {activeSubTab === 'financial_hub' && currentUser && (
+            <CustomerFinancialHub
+              currentUser={currentUser}
+              orders={userOrders}
+              onOpenSettleModal={() => setShowOnlineSettleModal(true)}
+              onOpenDigitalCard={() => setShowDigitalPassModal(true)}
+              onOpenPriceAlerts={() => setShowPriceAlertsModal(true)}
+              showToast={showToast}
+            />
           )}
 
           {/* ==========================================
@@ -1806,7 +1889,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100 ">
                     {selectedOrderForDetails.items.map((item, iIdx) => {
-                      const unitPrice = item.unit === 'carton' ? item.product.priceCarton : item.product.priceBox;
+                      const unitPrice = item.unit === 'carton' ? item.product.cartonPrice : item.product.boxPrice;
                       const lineTotal = unitPrice * item.quantity;
                       return (
                         <tr key={iIdx} className="hover:bg-slate-50/50 ">
@@ -1845,6 +1928,35 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Customer Modals */}
+      {showOnlineSettleModal && currentUser && (
+        <CustomerOnlineSettleModal
+          currentUser={currentUser}
+          initialAmount={3850000}
+          onClose={() => setShowOnlineSettleModal(false)}
+          onSuccess={(amt) => {
+            setShowOnlineSettleModal(false);
+          }}
+          showToast={showToast}
+        />
+      )}
+
+      {showDigitalPassModal && currentUser && (
+        <CustomerDigitalPassModal
+          currentUser={currentUser}
+          onClose={() => setShowDigitalPassModal(false)}
+          showToast={showToast}
+        />
+      )}
+
+      {showPriceAlertsModal && (
+        <CustomerPriceAlertsModal
+          products={availableProducts}
+          onClose={() => setShowPriceAlertsModal(false)}
+          showToast={showToast}
+        />
       )}
 
     </section>

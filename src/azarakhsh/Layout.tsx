@@ -167,6 +167,72 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'فروش، مالی و لجستیک'
   },
   {
+    id: 'pos-products',
+    title: 'محصولات فروشگاه حضوری',
+    titleEn: 'pos_products / POS Products',
+    description: 'مدیریت کالاهای صندوق، دسته‌بندی نوشیدنی و قهوه',
+    badge: 'POS',
+    iconName: 'Package',
+    appFolder: 'pos_products',
+    group: 'commerce',
+    groupTitle: 'فروش، مالی و لجستیک'
+  },
+  {
+    id: 'warehouse-stock',
+    title: 'موجودی انبار و کاردکس',
+    titleEn: 'warehouse_stock / Stock & Kardex',
+    description: 'مدیریت موجودی کالا و تاریخچه ورود و خروج',
+    badge: 'انبار',
+    iconName: 'Archive',
+    appFolder: 'warehouse',
+    group: 'commerce',
+    groupTitle: 'فروش، مالی و لجستیک'
+  },
+  {
+    id: 'ledger',
+    title: 'حساب‌های دفتری (نسیه)',
+    titleEn: 'ledger / Credit Ledger',
+    description: 'مدیریت حساب مشتریان اعتباری و تسویه‌ها',
+    badge: 'مالی',
+    iconName: 'BookOpen',
+    appFolder: 'finance',
+    group: 'commerce',
+    groupTitle: 'فروش، مالی و لجستیک'
+  },
+  {
+    id: 'reports',
+    title: 'گزارشات فروش و کالا',
+    titleEn: 'reports / Analytics',
+    description: 'آمار فروش روزانه و تحلیل تک محصول',
+    badge: 'گزارش',
+    iconName: 'BarChart3',
+    appFolder: 'reports',
+    group: 'commerce',
+    groupTitle: 'فروش، مالی و لجستیک'
+  },
+  {
+    id: 'roles-permissions',
+    title: 'مدیریت نقش‌ها و دسترسی‌ها',
+    titleEn: 'roles / RBAC Auth',
+    description: 'تعریف ادمین انبار و صندوق‌دار',
+    badge: 'دسترسی',
+    iconName: 'ShieldAlert',
+    appFolder: 'users',
+    group: 'auth',
+    groupTitle: 'احراز هویت و دسترسی'
+  },
+  {
+    id: 'sms',
+    title: 'سرویس پیامک کاوه‌نگار',
+    titleEn: 'sms / Kavenegar',
+    description: 'سرویس احراز هویت پیامکی و اطلاع‌رسانی',
+    badge: 'API',
+    iconName: 'MessageSquare',
+    appFolder: 'sms',
+    group: 'setup',
+    groupTitle: 'راه‌اندازی و زیرساخت'
+  },
+  {
     id: 'blog-tinymce',
     title: '۱۱. اپلیکیشن وبلاگ و TinyMCE',
     titleEn: 'blog / SEO Article App',
@@ -178,12 +244,46 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'محتوا و پشتیبانی'
   },
   {
-    id: 'tickets-support',
-    title: '۱۲. اپلیکیشن تیکت و چت آنلاین',
-    titleEn: 'tickets / Support Ticket App',
-    description: 'تیکت‌های مشتریان، پیوست تصویر فیش واریز و گفتگوی آنلاین با اپراتور',
+    id: 'warehouse-contact',
+    title: 'فرم تماس با انبار و استعلام عمده',
+    titleEn: 'warehouse_contact / Warehouse Contact App',
+    description: 'مدیریت پیام‌های فرم تماس، استعلام نرخ عمده کارتن و پاسخگویی مدیریت انبار جنت‌آباد',
+    badge: 'تماس',
     iconName: 'MessageSquare',
-    appFolder: 'tickets',
+    appFolder: 'warehouse_contact',
+    group: 'support',
+    groupTitle: 'محتوا و پشتیبانی'
+  },
+  {
+    id: 'regular-customers',
+    title: 'مشتریان معمولی و عمده',
+    titleEn: 'regular_customers / Regular & Wholesale Customers',
+    description: 'مدیریت پروفایل مشتریان، کدهای اقتصادی، تایید هویت واحدهای صنفی و اعتبار خرید',
+    badge: 'مشتریان',
+    iconName: 'Users',
+    appFolder: 'regular_customers',
+    group: 'auth',
+    groupTitle: 'احراز هویت و دسترسی'
+  },
+  {
+    id: 'footer-settings',
+    title: 'تنظیمات فوتر وب‌سایت',
+    titleEn: 'footer_settings / Website Footer App',
+    description: 'مدیریت متون فوتر، لینک‌های سریع، اطلاعات تماس انبار مرکزی و کپی‌رایت',
+    badge: 'فوتر',
+    iconName: 'Sliders',
+    appFolder: 'footer_settings',
+    group: 'config',
+    groupTitle: 'تنظیمات و برندینگ'
+  },
+  {
+    id: 'notifications',
+    title: 'سیستم نوتیفیکیشن و اطلاعیه‌ها',
+    titleEn: 'notifications / User Notifications App',
+    description: 'ارسال هشدارهای تغییرات نرخ کارتن، وضعیت سفارشات و اخبار انبار به کاربران',
+    badge: 'نوتیف',
+    iconName: 'Bell',
+    appFolder: 'notifications',
     group: 'support',
     groupTitle: 'محتوا و پشتیبانی'
   },

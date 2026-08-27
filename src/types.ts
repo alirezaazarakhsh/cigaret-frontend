@@ -12,11 +12,23 @@ export interface PosReceiptInvoice {
   createdAt: string;
   customerName: string;
   customerPhone?: string;
+  customerAddress?: string;
   items: PosSaleItem[];
   subtotal: number;
   discountAmount: number;
   finalTotal: number;
-  paymentMethod: "pos_terminal" | "cash" | "ledger";
+  paymentMethod: "pos_terminal" | "cash" | "ledger" | "split" | "usd" | "eur";
+  splitPaymentDetails?: {
+    paidNow: number;
+    paidVia: "pos_terminal" | "cash";
+    remainingToLedger: number;
+  };
+  foreignCurrencyDetails?: {
+    currency: "USD" | "EUR";
+    amount: number;
+    rate: number;
+    tomanEquivalent: number;
+  };
   terminalRefNumber?: string;
   notes?: string;
   cashier: string;
@@ -52,8 +64,57 @@ export interface PosCustomer {
   id: string;
   name: string;
   phone: string;
+  address?: string; // آدرس مغازه یا فروشگاه مشتری
+  city?: string; // شهر
   createdAt: string;
-  balance: number; // positive: owes us (بدهکار), negative: we owe them (بستانکار)
+  balance: number; // positive: owes us (بدهکار), negative: we owe them (بستانکار), 0: تسویه
+  notes?: string; // یادداشت‌ها یا توضیحات اعتباری
+  loyaltyPoints?: number; // امتیاز باشگاه مشتریان
+  creditLimit?: number; // سقف اعتبار نسیه
+}
+
+export type StaffRole = 'super_admin' | 'warehouse_manager' | 'cashier' | 'accountant';
+
+export type StaffPermission = 
+  | 'manage_pos'             // فروش و ثبت فاکتور صندوق
+  | 'manage_inventory'       // انبارداری، اصلاح موجودی و انبارگردانی
+  | 'quick_add_product'      // تعریف کالا جدید از صندوق و انبار
+  | 'manage_ledger'          // حساب‌های دفتری و ثبت بدهی/تسویه
+  | 'view_reports'           // گزارشات مالی و حسابداری
+  | 'monthly_comparison'     // چارت و تحلیل مقایسه‌ای ماه‌ها
+  | 'manage_staff'           // مدیریت پرسنل و دسترسی‌ها
+  | 'customer_app_connect';  // مدیریت باشگاه مشتریان و اپلیکیشن همراه
+
+export interface WarehouseStaffUser {
+  id: string;
+  fullName: string;
+  phone: string;
+  pinCode: string;
+  role: StaffRole;
+  roleTitleFa: string;
+  permissions: StaffPermission[];
+  status: 'active' | 'suspended';
+  createdAt: string;
+  lastLogin?: string;
+  avatarColor?: string;
+}
+
+export interface MonthlySalesRecord {
+  monthKey: string;
+  monthName: string;
+  monthNumber: number;
+  year: number;
+  totalSales: number;
+  totalProfit: number;
+  cartonsSold: number;
+  boxesSold: number;
+  packsSold?: number;
+  invoiceCount: number;
+  posTerminalSales: number;
+  cashSales: number;
+  ledgerSales: number;
+  splitSales: number;
+  growthRatePercent?: number;
 }
 
 export interface PosLedgerTransaction {
@@ -117,6 +178,7 @@ export interface UserProfile {
   // تصویر مهر کاربر مشتری یا تصاویر مهرهای مغازه‌داران (قابل تغییر توسط ویزیتور)
   stampImage?: string; // تصویر مهر مشتری
   customerStamps?: Record<string, string>; // مهرهایی که ویزیتور برای مغازه‌داران خود ذخیره می‌کند (شناسه مغازه -> آدرس تصویر مهر)
+  orderHistory?: OrderInvoice[];
 }
 
 export type CigaretteCategory = 
@@ -271,7 +333,10 @@ export interface OrderInvoice {
     | 'در انتظار تأیید انبار' 
     | 'ارسال شده به سامانه مرکزی' 
     | 'واریز شده و ثبت فیش'
-    | 'فیش واریزی ارسال شده (در انتظار بررسی)';
+    | 'فیش واریزی ارسال شده (در انتظار بررسی)'
+    | 'تسویه با کارتخوان پای باجه'
+    | 'منظور به حساب دفتری و نسیه'
+    | 'پرداخت آنلاین پیش‌فاکتور';
   retailShop?: RetailShopCustomer;
   visitorCode?: string;
   visitorCommission?: number; // مبلغ سود ویزیتور از این سفارش

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   Barcode, 
   Search, 
@@ -28,6 +28,7 @@ import {
   Volume2, 
   VolumeX, 
   X,
+  Menu,
   Users,
   PieChart,
   FileText,
@@ -48,15 +49,45 @@ import {
   DollarSign,
   Terminal,
   History,
-  Zap
+  Zap,
+  MapPin,
+  Edit2,
+  PhoneCall,
+  Coins,
+  Split,
+  FileCheck,
+  Building,
+  Check,
+  UserPlus,
+  ShieldCheck,
+  Smartphone,
+  PackagePlus,
+  QrCode,
+  UserCheck,
+  Settings,
+  ChevronDown
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
   LineChart, Line
 } from 'recharts';
-import { CigaretteProduct, CigaretteCategory, PosSaleItem, PosReceiptInvoice, StockAdjustmentLog, PosCustomer, PosLedgerTransaction } from '../../types';
+import { 
+  CigaretteProduct, 
+  CigaretteCategory, 
+  PosSaleItem, 
+  PosReceiptInvoice, 
+  StockAdjustmentLog, 
+  PosCustomer, 
+  PosLedgerTransaction,
+  WarehouseStaffUser,
+  StaffPermission
+} from '../../types';
 import { formatToman, formatNumberFa, getProductStockInfo } from '../../utils/formatters';
-import { generatePosThermalReceiptPdf, generateMonthlyReportPdf } from '../../utils/pdfGenerator';
+import { generatePosThermalReceiptPdf, generateMonthlyReportPdf, generateDailyReportPdf, generateAnnualReportPdf } from '../../utils/pdfGenerator';
+import { StaffAccessManagerModal } from './StaffAccessManagerModal';
+import { MonthlySalesComparisonView } from './MonthlySalesComparisonView';
+import { QuickAddProductModal } from './QuickAddProductModal';
+import { CustomerAppConnectModal } from './CustomerAppConnectModal';
 
 interface AccountingPosPanelProps {
   products: CigaretteProduct[];
@@ -64,14 +95,73 @@ interface AccountingPosPanelProps {
   onReturnToStore: () => void;
 }
 
+const DEFAULT_STAFF_MEMBERS: WarehouseStaffUser[] = [
+  {
+    id: 'staff_1',
+    fullName: 'مهندس حسینی (مدیر ارشد و مالک)',
+    phone: '09120759419',
+    pinCode: '09120759419',
+    role: 'super_admin',
+    roleTitleFa: 'مدیریت ارشد بنکداری',
+    permissions: [
+      'manage_pos',
+      'manage_inventory',
+      'quick_add_product',
+      'manage_ledger',
+      'view_reports',
+      'monthly_comparison',
+      'manage_staff',
+      'customer_app_connect'
+    ],
+    status: 'active',
+    createdAt: '1403/01/01',
+    avatarColor: 'bg-indigo-600'
+  },
+  {
+    id: 'staff_2',
+    fullName: 'مهندس علیرضا رضایی (مدیر انبار مرکزی)',
+    phone: '09123456789',
+    pinCode: '1234',
+    role: 'warehouse_manager',
+    roleTitleFa: 'مدیر انبار و بنکداری',
+    permissions: [
+      'manage_pos',
+      'manage_inventory',
+      'quick_add_product',
+      'manage_ledger',
+      'view_reports',
+      'monthly_comparison'
+    ],
+    status: 'active',
+    createdAt: '1403/03/15',
+    avatarColor: 'bg-blue-600'
+  },
+  {
+    id: 'staff_3',
+    fullName: 'محمد قاسم‌پور (صندوق‌دار شیفت)',
+    phone: '09351112233',
+    pinCode: '5678',
+    role: 'cashier',
+    roleTitleFa: 'صندوق‌دار فروشگاه و انبار',
+    permissions: [
+      'manage_pos',
+      'quick_add_product',
+      'customer_app_connect'
+    ],
+    status: 'active',
+    createdAt: '1403/04/10',
+    avatarColor: 'bg-emerald-600'
+  }
+];
+
 const AUTHORIZED_PHONE = '09120759419';
 const VALID_PASSWORDS = ['alirezazzz9419@S', 'azarakhsh2025', '09120759419', 'admin1234'];
 
 // Initial mock ledger customers
 const INITIAL_LEDGER_CUSTOMERS: PosCustomer[] = [
-  { id: 'cust_1', name: 'مغازه سوپرمارکت پارس (حسینی)', phone: '09121112233', createdAt: '1403/05/10', balance: 4500000 },
-  { id: 'cust_2', name: 'فروشگاه سیگار و توتون ملل', phone: '09124445566', createdAt: '1403/05/12', balance: -1200000 },
-  { id: 'cust_3', name: 'هایپرمارکت آریا (موسوی)', phone: '09127778899', createdAt: '1403/05/15', balance: 0 },
+  { id: 'cust_1', name: 'مغازه سوپرمارکت پارس (حسینی)', phone: '09121112233', address: 'تهران، خیابان شریعتی، بالاتر از پل رومی، پلاک ۴۱۲', city: 'تهران', createdAt: '1403/05/10', balance: 4500000, notes: 'سقف اعتبار ۱۰ میلیون تومان' },
+  { id: 'cust_2', name: 'فروشگاه سیگار و توتون ملل', phone: '09124445566', address: 'کرج، عظیمیه، میدان اسبی، روبروی مرکز تجاری', city: 'کرج', createdAt: '1403/05/12', balance: -1200000, notes: 'مشتری خوش‌حساب عمده' },
+  { id: 'cust_3', name: 'هایپرمارکت آریا (موسوی)', phone: '09127778899', address: 'تهران، سعادت‌آباد، میدان کاج، نبش خیابان مروارید', city: 'تهران', createdAt: '1403/05/15', balance: 0, notes: 'تسویه هفتگی' },
 ];
 
 // Initial mock sales receipts for daily/monthly analytics
@@ -215,8 +305,9 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [loginError, setLoginError] = useState('');
 
   // Active Sub Tab
-  const [activeSubTab, setActiveSubTab] = useState<'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'django-docs' | 'analytics'>('pos');
+  const [activeSubTab, setActiveSubTab] = useState<'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics'>('pos');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showToolsDropdown, setShowToolsDropdown] = useState(false);
 
   // Products stock state
   const [productsList, setProductsList] = useState<CigaretteProduct[]>(initialProducts);
@@ -230,6 +321,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   // POS Cart State
   const [posCart, setPosCart] = useState<PosSaleItem[]>([]);
+  const [posMobileView, setPosMobileView] = useState<'shelf' | 'cart'>('shelf');
   const [barcodeInput, setBarcodeInput] = useState('');
   const [posSearch, setPosSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
@@ -237,9 +329,32 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [customerPhone, setCustomerPhone] = useState('');
   const [selectedLedgerCustomerId, setSelectedLedgerCustomerId] = useState<string>('');
   const [posDiscount, setPosDiscount] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState<'pos_terminal' | 'cash' | 'ledger'>('pos_terminal');
+  const [paymentMethod, setPaymentMethod] = useState<'pos_terminal' | 'cash' | 'ledger' | 'split' | 'usd' | 'eur'>('pos_terminal');
+  const [foreignCurrencyAmount, setForeignCurrencyAmount] = useState<number>(100);
+  const [foreignExchangeRate, setForeignExchangeRate] = useState<number>(71500);
+  const [splitPaidAmount, setSplitPaidAmount] = useState<number>(0);
+  const [splitPaidVia, setSplitPaidVia] = useState<'pos_terminal' | 'cash'>('pos_terminal');
   const [terminalRef, setTerminalRef] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
+
+  // Currency Exchange Rate settings
+  const [usdRate, setUsdRate] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('sovin_usd_rate');
+      if (saved) return Number(saved);
+    } catch {}
+    return 71500;
+  });
+
+  const [eurRate, setEurRate] = useState<number>(() => {
+    try {
+      const saved = localStorage.getItem('sovin_eur_rate');
+      if (saved) return Number(saved);
+    } catch {}
+    return 76000;
+  });
+
+  const [showCurrencyRateModal, setShowCurrencyRateModal] = useState<boolean>(false);
 
   // Ledger Customers state
   const [posCustomers, setPosCustomers] = useState<PosCustomer[]>(() => {
@@ -262,11 +377,22 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     ];
   });
 
-  // New Customer Modal
+  // Customer Search & Filter State in Ledger Tab
+  const [customerSearchQuery, setCustomerSearchQuery] = useState('');
+  const [customerStatusFilter, setCustomerStatusFilter] = useState<'all' | 'debtors' | 'creditors' | 'settled'>('all');
+
+  // New & Edit Customer Modal State
   const [showNewCustomerModal, setShowNewCustomerModal] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<PosCustomer | null>(null);
   const [newCustName, setNewCustName] = useState('');
   const [newCustPhone, setNewCustPhone] = useState('');
+  const [newCustAddress, setNewCustAddress] = useState('');
+  const [newCustCity, setNewCustCity] = useState('تهران');
+  const [newCustNotes, setNewCustNotes] = useState('');
   const [newCustInitialBalance, setNewCustInitialBalance] = useState<number>(0);
+
+  // Customer Account Statement / History Modal
+  const [customerHistoryModalCust, setCustomerHistoryModalCust] = useState<PosCustomer | null>(null);
 
   // Record Payment for Customer Modal
   const [selectedCustomerForPayment, setSelectedCustomerForPayment] = useState<PosCustomer | null>(null);
@@ -349,6 +475,57 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [activeReceiptToPrint, setActiveReceiptToPrint] = useState<PosReceiptInvoice | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
 
+  // Staff & Managers Access State
+  const [staffList, setStaffList] = useState<WarehouseStaffUser[]>(() => {
+    try {
+      const saved = localStorage.getItem('sovin_pos_staff');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return DEFAULT_STAFF_MEMBERS;
+  });
+
+  const [currentStaff, setCurrentStaff] = useState<WarehouseStaffUser>(() => staffList[0] || DEFAULT_STAFF_MEMBERS[0]);
+  const [showStaffModal, setShowStaffModal] = useState<boolean>(false);
+  const [showQuickAddProductModal, setShowQuickAddProductModal] = useState<boolean>(false);
+  const [showCustomerAppModal, setShowCustomerAppModal] = useState<boolean>(false);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sovin_pos_staff', JSON.stringify(staffList));
+    } catch {}
+  }, [staffList]);
+
+  // Quick Add Product Handler
+  const handleQuickAddProduct = (newProduct: CigaretteProduct, addToCartDirectly: boolean) => {
+    const updated = [newProduct, ...productsList];
+    setProductsList(updated);
+    if (onUpdateProductsStock) {
+      onUpdateProductsStock(updated);
+    }
+    if (addToCartDirectly) {
+      handleAddProductToPos(newProduct, newProduct.isBoxOnly ? 'box' : 'box');
+    }
+    setSuccessBanner(`کالای «${newProduct.nameFa}» با موفقیت در انبار و صندوق ثبت شد.`);
+    setTimeout(() => setSuccessBanner(null), 3000);
+  };
+
+  const handleSaveCurrencyRates = (newUsd: number, newEur: number) => {
+    setUsdRate(newUsd);
+    setEurRate(newEur);
+    try {
+      localStorage.setItem('sovin_usd_rate', newUsd.toString());
+      localStorage.setItem('sovin_eur_rate', newEur.toString());
+    } catch {}
+    if (paymentMethod === 'usd') setForeignExchangeRate(newUsd);
+    if (paymentMethod === 'eur') setForeignExchangeRate(newEur);
+    setShowCurrencyRateModal(false);
+    setSuccessBanner(`نرخ جدید ارز با موفقیت ثبت شد (دلار: ${newUsd.toLocaleString()} / یورو: ${newEur.toLocaleString()})`);
+    setTimeout(() => setSuccessBanner(null), 3000);
+  };
+
   const barcodeInputRef = useRef<HTMLInputElement>(null);
 
   // Save state helpers
@@ -420,14 +597,19 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       return;
     }
 
-    playBeep();
-    setPosCart(prev => {
-      const existingIdx = prev.findIndex(item => item.product.id === product.id && item.unit === unit);
-      const unitPrice = unit === 'carton' 
+    const isDrink = product.category === 'drinks_coffee';
+    const effectiveUnit = isDrink ? 'pack' : unit;
+    const unitPrice = isDrink 
+      ? (product.packPrice || product.boxPrice || 50000)
+      : unit === 'carton' 
         ? product.cartonPrice 
         : unit === 'box' 
           ? product.boxPrice 
           : Math.round(product.boxPrice / 10);
+
+    playBeep();
+    setPosCart(prev => {
+      const existingIdx = prev.findIndex(item => item.product.id === product.id && item.unit === effectiveUnit);
 
       if (existingIdx >= 0) {
         const updated = [...prev];
@@ -443,7 +625,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           ...prev,
           {
             product,
-            unit,
+            unit: effectiveUnit,
             quantity: 1,
             unitPrice,
             totalPrice: unitPrice,
@@ -452,7 +634,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       }
     });
 
-    const unitTitle = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
+    const unitTitle = isDrink ? 'عدد (تکی)' : unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
     setSuccessBanner(`«${product.nameFa}» (${unitTitle}) به فاکتور جاری اضافه شد.`);
     setTimeout(() => setSuccessBanner(null), 2500);
   };
@@ -545,8 +727,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       return;
     }
 
-    if (paymentMethod === 'ledger' && !selectedLedgerCustomerId && !customerName) {
-      alert('برای فروش حساب دفتری (نسیه)، انتخاب مشتری الزامی است.');
+    if ((paymentMethod === 'ledger' || paymentMethod === 'split') && !selectedLedgerCustomerId && !customerName) {
+      alert('برای فروش حساب دفتری (نسیه) یا پرداخت ترکیبی، انتخاب مشتری الزامی است.');
       return;
     }
 
@@ -555,6 +737,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
     const selectedCustObj = posCustomers.find(c => c.id === selectedLedgerCustomerId);
     const finalCustomerName = selectedCustObj ? selectedCustObj.name : (customerName.trim() || 'مشتری حضوری');
+    const finalCustomerAddress = selectedCustObj?.address || undefined;
+
+    // Calculate split payment values if applicable
+    const validSplitPaid = Math.min(posFinalTotal, Math.max(0, splitPaidAmount));
+    const remainingToLedger = Math.max(0, posFinalTotal - validSplitPaid);
 
     const newReceipt: PosReceiptInvoice = {
       id: `rcpt_${Date.now()}`,
@@ -562,11 +749,23 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       createdAt: `${now.toLocaleDateString('fa-IR')} ${now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`,
       customerName: finalCustomerName,
       customerPhone: selectedCustObj ? selectedCustObj.phone : (customerPhone.trim() || undefined),
+      customerAddress: finalCustomerAddress,
       items: [...posCart],
       subtotal: posSubtotal,
       discountAmount: posDiscount,
       finalTotal: posFinalTotal,
       paymentMethod,
+      splitPaymentDetails: paymentMethod === 'split' ? {
+        paidNow: validSplitPaid,
+        paidVia: splitPaidVia,
+        remainingToLedger,
+      } : undefined,
+      foreignCurrencyDetails: (paymentMethod === 'usd' || paymentMethod === 'eur') ? {
+        currency: paymentMethod.toUpperCase() as 'USD' | 'EUR',
+        amount: foreignCurrencyAmount,
+        rate: foreignExchangeRate,
+        tomanEquivalent: foreignCurrencyAmount * foreignExchangeRate,
+      } : undefined,
       terminalRefNumber: terminalRef.trim() || undefined,
       notes: orderNotes.trim() || undefined,
       cashier: 'صندوق‌دار مرکزی انبار سوین',
@@ -598,7 +797,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       };
     });
 
-    // Handle Ledger Account Update if Payment method is Ledger
+    // Handle Ledger Account Update if Payment method is Ledger or Split
     if (paymentMethod === 'ledger' && selectedCustObj) {
       const updatedCustomers = posCustomers.map(c => {
         if (c.id === selectedCustObj.id) {
@@ -614,7 +813,25 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         date: newReceipt.createdAt,
         amount: posFinalTotal,
         type: 'debit',
-        description: `فروش نسیه فاکتور ${receiptNum}`,
+        description: `فروش نسیه کامل فاکتور ${receiptNum}`,
+      };
+      setLedgerTransactions(prev => [newLedgerTx, ...prev]);
+    } else if (paymentMethod === 'split' && selectedCustObj && remainingToLedger > 0) {
+      const updatedCustomers = posCustomers.map(c => {
+        if (c.id === selectedCustObj.id) {
+          return { ...c, balance: c.balance + remainingToLedger };
+        }
+        return c;
+      });
+      setPosCustomers(updatedCustomers);
+
+      const newLedgerTx: PosLedgerTransaction = {
+        id: `tx_${Date.now()}`,
+        customerId: selectedCustObj.id,
+        date: newReceipt.createdAt,
+        amount: remainingToLedger,
+        type: 'debit',
+        description: `باقیمانده فاکتور ترکیبی ${receiptNum} (پرداخت شده: ${formatToman(validSplitPaid)})`,
       };
       setLedgerTransactions(prev => [newLedgerTx, ...prev]);
     }
@@ -633,7 +850,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       deltaBoxes: item.unit === 'box' ? -item.quantity : 0,
       finalStockCartons: updatedProducts.find(p => p.id === item.product.id)?.stockCartons || 0,
       date: newReceipt.createdAt,
-      note: `فاکتور فروش حضوری ${receiptNum} (${paymentMethod === 'pos_terminal' ? 'کارتخوان' : paymentMethod === 'cash' ? 'نقدی' : 'حساب دفتری'})`,
+      note: `فاکتور فروش حضوری ${receiptNum} (${paymentMethod === 'pos_terminal' ? 'کارتخوان' : paymentMethod === 'cash' ? 'نقدی' : paymentMethod === 'ledger' ? 'حساب دفتری' : 'ترکیبی'})`,
     }));
 
     const updatedReceipts = [newReceipt, ...receiptsList];
@@ -656,6 +873,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     setActiveReceiptToPrint(newReceipt);
     setPosCart([]);
     setPosDiscount(0);
+    setSplitPaidAmount(0);
     setCustomerName('مشتری حضوری فروشگاه');
     setCustomerPhone('');
     setSelectedLedgerCustomerId('');
@@ -670,6 +888,9 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       id: `cust_${Date.now()}`,
       name: newCustName.trim(),
       phone: newCustPhone.trim() || '-',
+      address: newCustAddress.trim() || undefined,
+      city: newCustCity.trim() || 'تهران',
+      notes: newCustNotes.trim() || undefined,
       createdAt: new Date().toLocaleDateString('fa-IR'),
       balance: newCustInitialBalance || 0,
     };
@@ -677,7 +898,55 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     setShowNewCustomerModal(false);
     setNewCustName('');
     setNewCustPhone('');
+    setNewCustAddress('');
+    setNewCustCity('تهران');
+    setNewCustNotes('');
     setNewCustInitialBalance(0);
+  };
+
+  // Open Edit Customer Modal
+  const handleOpenEditCustomer = (cust: PosCustomer) => {
+    setEditingCustomer(cust);
+    setNewCustName(cust.name);
+    setNewCustPhone(cust.phone === '-' ? '' : cust.phone);
+    setNewCustAddress(cust.address || '');
+    setNewCustCity(cust.city || 'تهران');
+    setNewCustNotes(cust.notes || '');
+    setNewCustInitialBalance(cust.balance);
+    setShowNewCustomerModal(true);
+  };
+
+  // Save Edit Customer
+  const handleSaveEditCustomer = () => {
+    if (!editingCustomer || !newCustName.trim()) return;
+    const updated = posCustomers.map(c => {
+      if (c.id !== editingCustomer.id) return c;
+      return {
+        ...c,
+        name: newCustName.trim(),
+        phone: newCustPhone.trim() || '-',
+        address: newCustAddress.trim() || undefined,
+        city: newCustCity.trim() || undefined,
+        notes: newCustNotes.trim() || undefined,
+        balance: newCustInitialBalance,
+      };
+    });
+    setPosCustomers(updated);
+    setShowNewCustomerModal(false);
+    setEditingCustomer(null);
+    setNewCustName('');
+    setNewCustPhone('');
+    setNewCustAddress('');
+    setNewCustCity('تهران');
+    setNewCustNotes('');
+    setNewCustInitialBalance(0);
+  };
+
+  // Delete Customer
+  const handleDeleteCustomer = (customerId: string) => {
+    if (!window.confirm('آیا از حذف این مشتری و سوابق دفتری او مطمئن هستید؟')) return;
+    setPosCustomers(prev => prev.filter(c => c.id !== customerId));
+    setLedgerTransactions(prev => prev.filter(tx => tx.customerId !== customerId));
   };
 
   // Record payment for customer ledger
@@ -1023,6 +1292,14 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       if (rcpt.paymentMethod === 'pos_terminal') dayObj.posSales += rcpt.finalTotal;
       else if (rcpt.paymentMethod === 'cash') dayObj.cashSales += rcpt.finalTotal;
       else if (rcpt.paymentMethod === 'ledger') dayObj.ledgerSales += rcpt.finalTotal;
+      else if (rcpt.paymentMethod === 'split') {
+        const paidNow = rcpt.splitPaymentDetails?.paidNow || 0;
+        const paidVia = rcpt.splitPaymentDetails?.paidVia || 'pos_terminal';
+        const remaining = rcpt.splitPaymentDetails?.remainingToLedger || 0;
+        if (paidVia === 'pos_terminal') dayObj.posSales += paidNow;
+        else dayObj.cashSales += paidNow;
+        dayObj.ledgerSales += remaining;
+      }
 
       rcpt.items.forEach(it => {
         if (it.unit === 'carton') dayObj.cartons += it.quantity;
@@ -1080,6 +1357,14 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       if (rcpt.paymentMethod === 'pos_terminal') monthObj.posSales += rcpt.finalTotal;
       else if (rcpt.paymentMethod === 'cash') monthObj.cashSales += rcpt.finalTotal;
       else if (rcpt.paymentMethod === 'ledger') monthObj.ledgerSales += rcpt.finalTotal;
+      else if (rcpt.paymentMethod === 'split') {
+        const paidNow = rcpt.splitPaymentDetails?.paidNow || 0;
+        const paidVia = rcpt.splitPaymentDetails?.paidVia || 'pos_terminal';
+        const remaining = rcpt.splitPaymentDetails?.remainingToLedger || 0;
+        if (paidVia === 'pos_terminal') monthObj.posSales += paidNow;
+        else monthObj.cashSales += paidNow;
+        monthObj.ledgerSales += remaining;
+      }
 
       rcpt.items.forEach(it => {
         if (it.unit === 'carton') monthObj.cartons += it.quantity;
@@ -1146,6 +1431,14 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       if (r.paymentMethod === 'pos_terminal') posTerminalSales += r.finalTotal;
       else if (r.paymentMethod === 'cash') cashSales += r.finalTotal;
       else if (r.paymentMethod === 'ledger') ledgerSales += r.finalTotal;
+      else if (r.paymentMethod === 'split') {
+        const paidNow = r.splitPaymentDetails?.paidNow || 0;
+        const paidVia = r.splitPaymentDetails?.paidVia || 'pos_terminal';
+        const remaining = r.splitPaymentDetails?.remainingToLedger || 0;
+        if (paidVia === 'pos_terminal') posTerminalSales += paidNow;
+        else cashSales += paidNow;
+        ledgerSales += remaining;
+      }
 
       r.items.forEach(it => {
         if (it.unit === 'carton') cartonsSold += it.quantity;
@@ -1267,8 +1560,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-600 selection:text-white print:hidden" dir="rtl">
       
       {/* Header Section */}
-      <header className="bg-white/95 print:hidden backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[100] px-4 sm:px-8 py-3 shadow-md w-full transition-all duration-300">
-        <div className="max-w-[1800px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
+      <header className="bg-white/95 print:hidden backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[100] px-4 sm:px-6 py-3 shadow-md w-full transition-all duration-300">
+        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
           
           <div className="flex items-center justify-between w-full md:w-auto">
             <div className="flex items-center gap-2.5 sm:gap-3">
@@ -1284,9 +1577,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     آنلاین
                   </span>
                 </div>
-                <p className="text-[9px] sm:text-[11px] text-slate-500">
-                  مدیریت انبار مرکزی • کاربر: <strong className="text-indigo-600 font-mono">۰۹۱۲۰۷۵۹۴۱۹</strong>
-                </p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-[9px] sm:text-[11px] text-slate-500">
+                    کاربر: <strong className="text-indigo-600 font-bold">{currentStaff.fullName}</strong> ({currentStaff.roleTitleFa})
+                  </p>
+                </div>
               </div>
             </div>
 
@@ -1300,15 +1595,15 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               </button>
               <button 
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 sm:p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all"
+                className="p-2 sm:p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center"
               >
-                {isMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Layers className="w-5 h-5 sm:w-6 sm:h-6" />}
+                {isMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
               </button>
             </div>
           </div>
 
           {/* Navigation Tabs - Responsive Drawer on Mobile */}
-          <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center gap-1.5 bg-slate-50 md:bg-slate-100 p-2 md:p-1 rounded-2xl border border-slate-200 w-full md:w-auto overflow-y-auto max-h-[70vh] md:max-h-none`}>
+          <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center gap-1.5 bg-slate-50 md:bg-slate-100 p-2 md:p-1 rounded-2xl border border-slate-200 w-full md:w-auto overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-none [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full`}>
             <button
               onClick={() => { setActiveSubTab('pos'); setIsMenuOpen(false); }}
               className={`flex items-center gap-2 px-3 py-3 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
@@ -1368,6 +1663,18 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </button>
 
             <button
+              onClick={() => { setActiveSubTab('monthly_compare'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeSubTab === 'monthly_compare'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>تحلیل مقایسه‌ای ماه‌ها</span>
+            </button>
+
+            <button
               onClick={() => { setActiveSubTab('ledger'); setIsMenuOpen(false); }}
               className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                 activeSubTab === 'ledger'
@@ -1378,42 +1685,70 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               <Receipt className="w-4 h-4" />
               <span>دفتر فاکتورها</span>
             </button>
-
-            <button
-              onClick={() => { setActiveSubTab('django-docs'); setIsMenuOpen(false); }}
-              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'django-docs'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <BookOpen className="w-4 h-4" />
-              <span>azarakhsh</span>
-            </button>
           </div>
 
-          {/* Quick Actions */}
-          <div className="flex items-center justify-center md:justify-end gap-2">
+          {/* Quick Tools & Actions */}
+          <div className="flex items-center justify-center md:justify-end gap-2 relative">
+            
+            {/* Tools & Settings Dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowToolsDropdown(!showToolsDropdown)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all active:scale-95"
+                title="ابزارها و تنظیمات صندوق"
+              >
+                <Settings className="w-4 h-4 text-indigo-600" />
+                <span>ابزارها</span>
+                <ChevronDown className="w-3 h-3 text-slate-500" />
+              </button>
+
+              {showToolsDropdown && (
+                <div className="absolute left-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                  <button
+                    onClick={() => { setShowCurrencyRateModal(true); setShowToolsDropdown(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                  >
+                    <Coins className="w-4 h-4 text-blue-600" />
+                    <span>تنظیم نرخ ارز (دلار/یورو)</span>
+                  </button>
+                  <button
+                    onClick={() => { setShowCustomerAppModal(true); setShowToolsDropdown(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                  >
+                    <Smartphone className="w-4 h-4 text-indigo-600" />
+                    <span>اتصال اپلیکیشن مشتریان</span>
+                  </button>
+                  <button
+                    onClick={() => { setShowStaffModal(true); setShowToolsDropdown(false); }}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                  >
+                    <span className="w-4 h-4 text-emerald-600 flex items-center justify-center">🛡️</span>
+                    <span>تغییر دسترسی کاربر</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
               title={soundEnabled ? 'صدا فعال است' : 'صدا قطع است'}
-              className="p-2.5 rounded-xl bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-200 transition-colors"
+              className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-200 transition-colors"
             >
               {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
             </button>
 
             <button
               onClick={onReturnToStore}
-              className="flex items-center gap-1.5 px-3 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-200 transition-colors whitespace-nowrap"
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-200 transition-colors whitespace-nowrap"
             >
               <ArrowRight className="w-4 h-4" />
-              <span>کاتالوگ فروشگاه</span>
+              <span>کاتالوگ</span>
             </button>
 
             <button
               onClick={handleLogout}
               title="خروج از پنل حسابداری"
-              className="p-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-colors"
+              className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-colors"
             >
               <LogOut className="w-4 h-4" />
             </button>
@@ -1431,7 +1766,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 print:hidden max-w-[1800px] w-full mx-auto p-4 sm:p-8">
+      <main className="flex-1 print:hidden max-w-[1600px] w-full mx-auto p-4 sm:p-6">
         <AnimatePresence mode="wait">
           
           {/* TAB 1: POS & Barcode Scanner */}
@@ -1441,395 +1776,659 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="grid grid-cols-1 lg:grid-cols-12 gap-6"
+              className="space-y-4"
             >
-              
-              {/* Left/Middle: Barcode Scanner & Quick Shelf (7 Cols) */}
-              <div className="lg:col-span-7 space-y-4">
-                
-                {/* Barcode Fast Input Card */}
-                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm relative overflow-hidden">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <h2 className="text-sm font-black text-slate-900">
-                      اسکن بارکد / جستجوی کالا
-                    </h2>
-                  </div>
-
-                  <form onSubmit={handleBarcodeSubmit} className="relative">
-                    <Barcode className="w-6 h-6 absolute right-4 top-1/2 -translate-y-1/2 text-indigo-500" />
-                    <input
-                      ref={barcodeInputRef}
-                      type="text"
-                      value={barcodeInput}
-                      onChange={(e) => setBarcodeInput(e.target.value)}
-                      placeholder="بارکد یا نام کالا را اسکن یا تایپ کنید..."
-                      className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl pr-14 pl-28 py-4 text-sm font-bold text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-mono"
-                    />
-                    <button
-                      type="submit"
-                      className="absolute left-2.5 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-sm transition-colors"
-                    >
-                      ثبت ↵
-                    </button>
-                  </form>
-                </div>
-
-                {/* Quick Shelf Catalog Filter */}
-                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-sm">
-                  <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                    <div className="relative flex-1">
-                      <Search className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input
-                        type="text"
-                        value={posSearch}
-                        onChange={(e) => setPosSearch(e.target.value)}
-                        placeholder="جستجوی سریع در شلف..."
-                        className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none font-medium"
-                      />
-                    </div>
-
-                    <select
-                      value={selectedCategory}
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                      className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
-                    >
-                      <option value="all">همه دسته‌ها</option>
-                      <option value="cigarettes">سیگارهای اورجینال</option>
-                      <option value="iqos_devices">دستگاه‌های ایکاس</option>
-                      <option value="iqos_heets">استیک‌های تیریا</option>
-                      <option value="pods_vapes">پاد و سالت</option>
-                      <option value="tobacco">توتون و سیگار برگ</option>
-                      <option value="accessories">اکسسوری و فندک</option>
-                    </select>
-                  </div>
-
-                  {/* Products Grid for Fast Touch/Click adding */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-h-[500px] overflow-y-auto pr-1">
-                    {filteredPosProducts.map((prod) => {
-                      const stockInfo = getProductStockInfo(prod);
-                      return (
-                        <div
-                          key={prod.id}
-                          onClick={() => handleAddProductToPos(prod, prod.isBoxOnly ? 'box' : 'box')}
-                          className={`bg-slate-50 hover:bg-blue-50/40 border border-slate-200 hover:border-indigo-400 rounded-2xl p-3 cursor-pointer transition-all duration-150 flex flex-col justify-between group active:scale-95 ${
-                            !stockInfo.isAvailable ? 'opacity-50 grayscale' : ''
-                          }`}
-                        >
-                          <div>
-                            <div className="w-full h-24 rounded-xl overflow-hidden bg-white mb-2 border border-slate-200">
-                              <img
-                                src={prod.image}
-                                alt={prod.nameFa}
-                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                              />
-                            </div>
-                            <h4 className="text-xs font-bold text-slate-900 line-clamp-2 leading-tight">
-                              {prod.nameFa}
-                            </h4>
-                            <div className="text-[10px] text-slate-500 mt-1 font-mono">
-                              {stockInfo.isAvailable ? (
-                                <span className="text-indigo-600 font-bold">{stockInfo.textSummary}</span>
-                              ) : (
-                                <span className="text-rose-600 font-bold">ناموجود</span>
-                              )}
-                            </div>
-                          </div>
-
-                          <div className="mt-2 pt-2 border-t border-slate-200 flex flex-col gap-1">
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-slate-500 font-bold">قیمت کارتن:</span>
-                              <span className="text-xs font-black text-indigo-700 font-mono">
-                                {formatToman(prod.cartonPrice)}
-                              </span>
-                            </div>
-                            <div className="flex items-center justify-between">
-                              <span className="text-[10px] text-slate-500 font-bold">قیمت باکس:</span>
-                              <span className="text-xs font-black text-emerald-600 font-mono">
-                                {formatToman(prod.boxPrice)}
-                              </span>
-                            </div>
-                            <div className="mt-1 flex items-center justify-between gap-2">
-                              <button 
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedProductForInsights(prod);
-                                  setShowInsightsModal(true);
-                                }}
-                                className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-colors border border-slate-200"
-                                title="تحلیل فروش"
-                              >
-                                <BarChart3 className="w-3.5 h-3.5" />
-                              </button>
-                              <button className="flex-1 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors flex items-center justify-center gap-1 text-[10px] font-bold">
-                                <Plus className="w-3 h-3" />
-                                <span>افزودن</span>
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
+              {/* Mobile/Tablet Segmented Switcher for POS */}
+              <div className="lg:hidden flex items-center bg-slate-200/90 p-1 rounded-2xl border border-slate-300/80 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => setPosMobileView('shelf')}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                    posMobileView === 'shelf'
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                      : 'text-slate-700 hover:text-slate-900'
+                  }`}
+                >
+                  <Search className="w-4 h-4" />
+                  <span>قفسه کالا و بارکدخوان</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPosMobileView('cart')}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 relative ${
+                    posMobileView === 'cart'
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                      : 'text-slate-700 hover:text-slate-900'
+                  }`}
+                >
+                  <Receipt className="w-4 h-4" />
+                  <span>فاکتور جاری و پرداخت</span>
+                  {posCart.length > 0 && (
+                    <span className="bg-rose-500 text-white text-[10px] px-2 py-0.5 rounded-full font-mono font-bold shadow-xs">
+                      {posCart.length}
+                    </span>
+                  )}
+                </button>
               </div>
 
-              {/* Right: Active POS Register & Checkout (5 Cols) */}
-              <div className="lg:col-span-5 space-y-4">
-                <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xl flex flex-col justify-between min-h-[640px]">
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                {/* Left/Middle: Barcode Scanner & Quick Shelf (7 Cols) */}
+                <div className={`${posMobileView === 'cart' ? 'hidden' : 'block'} lg:block lg:col-span-7 space-y-4`}>
                   
-                  {/* Header of Active Bill */}
-                  <div>
-                    <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
-                      <div className="flex items-center gap-2">
-                        <Receipt className="w-5 h-5 text-indigo-600" />
-                        <h3 className="text-sm font-black text-slate-900">فاکتور جاری صندوق فروش</h3>
+                  {/* Barcode Fast Input Card */}
+                  <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-6 shadow-sm relative overflow-hidden">
+                    <div className="flex items-center justify-between gap-3 mb-3 sm:mb-4">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+                        <h2 className="text-xs sm:text-sm font-black text-slate-900">
+                          اسکن بارکد / جستجوی کالا
+                        </h2>
                       </div>
-                      {posCart.length > 0 && (
-                        <button
-                          onClick={() => setPosCart([])}
-                          className="text-xs text-rose-600 hover:text-rose-700 flex items-center gap-1 font-bold"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          <span>پاک کردن</span>
-                        </button>
-                      )}
+                      <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                        اسکنر خودکار فعال
+                      </span>
                     </div>
 
-                    {/* Customer Selection / Ledger Customer Bar */}
-                    <div className="mb-3 bg-slate-50 p-3 rounded-2xl border border-slate-200 space-y-2">
-                      <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                        <span>انتخاب خریدار / حساب دفتری:</span>
-                        <button 
-                          onClick={() => setActiveSubTab('customers')} 
-                          className="text-indigo-600 hover:underline text-[11px] font-bold"
-                        >
-                          + مدیریت حساب‌ها
-                        </button>
+                    <form onSubmit={handleBarcodeSubmit} className="relative flex items-center">
+                      <Barcode className="w-5 h-5 sm:w-6 sm:h-6 absolute right-3.5 sm:right-4 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none" />
+                      <input
+                        ref={barcodeInputRef}
+                        type="text"
+                        value={barcodeInput}
+                        onChange={(e) => setBarcodeInput(e.target.value)}
+                        placeholder="بارکد یا نام کالا را اسکن یا تایپ کنید..."
+                        className="w-full bg-slate-50 border-2 border-slate-200 rounded-2xl pr-11 sm:pr-14 pl-24 sm:pl-28 py-3.5 sm:py-4 text-xs sm:text-sm font-bold text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all font-mono"
+                      />
+                      <button
+                        type="submit"
+                        className="absolute left-2 top-1/2 -translate-y-1/2 px-4 sm:px-5 py-2 sm:py-2.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-xl text-xs font-black shadow-sm transition-all"
+                      >
+                        ثبت ↵
+                      </button>
+                    </form>
+                  </div>
+
+                  {/* Quick Shelf Catalog Filter */}
+                  <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-sm">
+                    <div className="flex flex-col sm:flex-row gap-2.5 sm:gap-3 mb-4">
+                      <div className="relative flex-1">
+                        <Search className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input
+                          type="text"
+                          value={posSearch}
+                          onChange={(e) => setPosSearch(e.target.value)}
+                          placeholder="جستجوی سریع در شلف..."
+                          className="w-full bg-slate-50 border border-slate-200 rounded-xl pr-10 pl-4 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:border-indigo-500 focus:outline-none font-medium"
+                        />
                       </div>
 
                       <select
-                        value={selectedLedgerCustomerId}
-                        onChange={(e) => {
-                          setSelectedLedgerCustomerId(e.target.value);
-                          const found = posCustomers.find(c => c.id === e.target.value);
-                          if (found) {
-                            setCustomerName(found.name);
-                            setCustomerPhone(found.phone);
-                          } else {
-                            setCustomerName('مشتری حضوری فروشگاه');
-                            setCustomerPhone('');
-                          }
-                        }}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500"
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value)}
+                        className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:border-indigo-500 focus:outline-none"
                       >
-                        <option value="">-- مشتری حضوری عمومی (نقدی) --</option>
-                        {posCustomers.map(cust => (
-                          <option key={cust.id} value={cust.id}>
-                            {cust.name} ({cust.balance > 0 ? `بدهکار: ${formatToman(cust.balance)}` : cust.balance < 0 ? `بستانکار: ${formatToman(Math.abs(cust.balance))}` : 'تسویه'})
-                          </option>
-                        ))}
+                        <option value="all">همه دسته‌ها</option>
+                        <option value="cigarettes">سیگارهای اورجینال</option>
+                        <option value="iqos_devices">دستگاه‌های ایکاس</option>
+                        <option value="iqos_heets">استیک‌های تیریا</option>
+                        <option value="pods_vapes">پاد و سالت</option>
+                        <option value="tobacco">توتون و سیگار برگ</option>
+                        <option value="accessories">اکسسوری و فندک</option>
                       </select>
                     </div>
 
-                    {/* Scanned Items List */}
-                    <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1">
-                      {posCart.length === 0 ? (
-                        <div className="py-12 text-center text-slate-400">
-                          <Barcode className="w-12 h-12 mx-auto mb-2 opacity-30 animate-pulse text-indigo-500" />
-                          <p className="text-xs font-bold text-slate-600">سبد خرید صندوق خالی است</p>
-                          <p className="text-[11px] mt-1 text-slate-400">بارکد کالا را با دستگاه بارکدخوان اسکن نمایید</p>
-                        </div>
-                      ) : (
-                        posCart.map((item, idx) => (
+                    {/* Products Grid for Fast Touch/Click adding */}
+                    <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-2.5 sm:gap-3 max-h-[520px] overflow-y-auto pr-1">
+                      {filteredPosProducts.map((prod) => {
+                        const stockInfo = getProductStockInfo(prod);
+                        return (
                           <div
-                            key={`${item.product.id}_${item.unit}_${idx}`}
-                            className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col gap-2"
+                            key={prod.id}
+                            onClick={() => handleAddProductToPos(prod, prod.isBoxOnly ? 'box' : 'box')}
+                            className={`bg-slate-50 hover:bg-blue-50/40 border border-slate-200 hover:border-indigo-400 rounded-2xl p-2.5 sm:p-3 cursor-pointer transition-all duration-150 flex flex-col justify-between group active:scale-98 ${
+                              !stockInfo.isAvailable ? 'opacity-50 grayscale' : ''
+                            }`}
                           >
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-2">
+                            <div>
+                              <div className="w-full h-20 sm:h-24 rounded-xl overflow-hidden bg-white mb-2 border border-slate-200">
                                 <img
-                                  src={item.product.image}
-                                  alt={item.product.nameFa}
-                                  className="w-10 h-10 rounded-lg object-cover bg-white border border-slate-200"
+                                  src={prod.image}
+                                  alt={prod.nameFa}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                                 />
-                                <div>
-                                  <h5 className="text-xs font-bold text-slate-900 leading-tight">
-                                    {item.product.nameFa}
-                                  </h5>
-                                  <span className="text-[10px] text-slate-500 font-mono">
-                                    نرخ واحد: {formatToman(item.unitPrice)}
+                              </div>
+                              <h4 className="text-[11px] sm:text-xs font-bold text-slate-900 line-clamp-2 leading-snug">
+                                {prod.nameFa}
+                              </h4>
+                              <div className="text-[9px] sm:text-[10px] text-slate-500 mt-1 font-mono">
+                                {stockInfo.isAvailable ? (
+                                  <span className="text-indigo-600 font-bold">{stockInfo.textSummary}</span>
+                                ) : (
+                                  <span className="text-rose-600 font-bold">ناموجود</span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="mt-2 pt-2 border-t border-slate-200 flex flex-col gap-1">
+                              {prod.category === 'drinks_coffee' ? (
+                                <div className="flex items-center justify-between py-0.5">
+                                  <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold">قیمت تکی:</span>
+                                  <span className="text-[11px] sm:text-xs font-black text-indigo-700 font-mono">
+                                    {formatToman(prod.packPrice || prod.boxPrice)}
+                                  </span>
+                                </div>
+                              ) : (
+                                <>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold">کارتن:</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-indigo-700 font-mono">
+                                      {formatToman(prod.cartonPrice)}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-[9px] sm:text-[10px] text-slate-500 font-bold">باکس:</span>
+                                    <span className="text-[11px] sm:text-xs font-black text-emerald-600 font-mono">
+                                      {formatToman(prod.boxPrice)}
+                                    </span>
+                                  </div>
+                                </>
+                              )}
+                              <div className="mt-1 flex items-center justify-between gap-1.5">
+                                <button 
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedProductForInsights(prod);
+                                    setShowInsightsModal(true);
+                                  }}
+                                  className="p-1.5 rounded-lg bg-slate-100 text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 transition-colors border border-slate-200"
+                                  title="تحلیل فروش"
+                                >
+                                  <BarChart3 className="w-3.5 h-3.5" />
+                                </button>
+                                <button 
+                                  type="button"
+                                  className="flex-1 py-1.5 px-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-1 text-[10px] font-bold"
+                                >
+                                  <Plus className="w-3.5 h-3.5" />
+                                  <span>{prod.category === 'drinks_coffee' ? 'افزودن تکی' : 'افزودن'}</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Floating Bottom Bar on Mobile/Tablet when in Shelf view and cart has items */}
+                  {posCart.length > 0 && posMobileView === 'shelf' && (
+                    <div className="lg:hidden sticky bottom-4 z-40 bg-slate-900/95 backdrop-blur-md text-white p-3 sm:p-3.5 rounded-2xl shadow-2xl border border-slate-700 flex items-center justify-between animate-in fade-in slide-in-from-bottom-2 duration-200">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-mono font-bold text-xs shadow-md">
+                          {posCart.length}
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-bold">مبلغ کل فاکتور:</span>
+                          <span className="text-xs sm:text-sm font-black font-mono text-emerald-400">
+                            {formatToman(posFinalTotal)}
+                          </span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setPosMobileView('cart')}
+                        className="px-3.5 sm:px-4 py-2 sm:py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white text-xs font-black rounded-xl shadow-lg flex items-center gap-1.5 active:scale-95 transition-all"
+                      >
+                        <span>تکمیل و تسویه فاکتور</span>
+                        <ArrowRight className="w-4 h-4 rotate-180" />
+                      </button>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Right: Active POS Register & Checkout (5 Cols) */}
+                <div className={`${posMobileView === 'shelf' ? 'hidden' : 'block'} lg:block lg:col-span-5 space-y-4`}>
+                  <div className="bg-white border border-slate-200 rounded-3xl p-4 sm:p-5 shadow-xl flex flex-col justify-between min-h-[600px] sm:min-h-[640px]">
+                    
+                    {/* Header of Active Bill */}
+                    <div>
+                      {/* Mobile back to shelf link */}
+                      <div className="lg:hidden flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-200">
+                        <button
+                          type="button"
+                          onClick={() => setPosMobileView('shelf')}
+                          className="text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline p-1"
+                        >
+                          <ArrowRight className="w-4 h-4" />
+                          <span>بازگشت به قفسه و افزودن کالای بیشتر</span>
+                        </button>
+                        <span className="text-[10px] text-slate-500 font-mono font-bold">
+                          {posCart.length} ردیف کالا
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between pb-3 border-b border-slate-200 mb-3">
+                        <div className="flex items-center gap-2">
+                          <Receipt className="w-5 h-5 text-indigo-600" />
+                          <h3 className="text-xs sm:text-sm font-black text-slate-900">فاکتور جاری صندوق فروش</h3>
+                        </div>
+                        {posCart.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setPosCart([])}
+                            className="text-xs text-rose-600 hover:text-rose-700 flex items-center gap-1 font-bold active:scale-95 transition-all"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>پاک کردن</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Customer Selection / Ledger Customer Bar */}
+                      <div className="mb-3 bg-slate-50 p-2.5 sm:p-3 rounded-2xl border border-slate-200 space-y-2">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                          <span>انتخاب خریدار / حساب دفتری:</span>
+                          <button 
+                            type="button"
+                            onClick={() => setActiveSubTab('customers')} 
+                            className="text-indigo-600 hover:underline text-[11px] font-bold"
+                          >
+                            + مدیریت حساب‌ها
+                          </button>
+                        </div>
+
+                        <select
+                          value={selectedLedgerCustomerId}
+                          onChange={(e) => {
+                            setSelectedLedgerCustomerId(e.target.value);
+                            const found = posCustomers.find(c => c.id === e.target.value);
+                            if (found) {
+                              setCustomerName(found.name);
+                              setCustomerPhone(found.phone);
+                            } else {
+                              setCustomerName('مشتری حضوری فروشگاه');
+                              setCustomerPhone('');
+                            }
+                          }}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500"
+                        >
+                          <option value="">-- مشتری حضوری عمومی (نقدی) --</option>
+                          {posCustomers.map(cust => (
+                            <option key={cust.id} value={cust.id}>
+                              {cust.name} ({cust.balance > 0 ? `بدهکار: ${formatToman(cust.balance)}` : cust.balance < 0 ? `بستانکار: ${formatToman(Math.abs(cust.balance))}` : 'تسویه'})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Scanned Items List */}
+                      <div className="space-y-2 max-h-[260px] sm:max-h-[280px] overflow-y-auto pr-1">
+                        {posCart.length === 0 ? (
+                          <div className="py-10 sm:py-12 text-center text-slate-400">
+                            <Barcode className="w-10 h-10 sm:w-12 sm:h-12 mx-auto mb-2 opacity-30 animate-pulse text-indigo-500" />
+                            <p className="text-xs font-bold text-slate-600">سبد خرید صندوق خالی است</p>
+                            <p className="text-[11px] mt-1 text-slate-400">بارکد کالا را اسکن کرده یا از قفسه انتخاب نمایید</p>
+                            <button
+                              type="button"
+                              onClick={() => setPosMobileView('shelf')}
+                              className="mt-3 lg:hidden px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-xs font-bold border border-indigo-200"
+                            >
+                              بازگشت به قفسه کالاها
+                            </button>
+                          </div>
+                        ) : (
+                          posCart.map((item, idx) => (
+                            <div
+                              key={`${item.product.id}_${item.unit}_${idx}`}
+                              className="bg-slate-50 border border-slate-200 rounded-2xl p-2.5 sm:p-3 flex flex-col gap-2"
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <img
+                                    src={item.product.image}
+                                    alt={item.product.nameFa}
+                                    className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-cover bg-white border border-slate-200 shrink-0"
+                                  />
+                                  <div>
+                                    <h5 className="text-[11px] sm:text-xs font-bold text-slate-900 leading-tight">
+                                      {item.product.nameFa}
+                                    </h5>
+                                    <span className="text-[9px] sm:text-[10px] text-slate-500 font-mono">
+                                      نرخ: {formatToman(item.unitPrice)}
+                                    </span>
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemovePosItem(idx)}
+                                  className="text-slate-400 hover:text-rose-600 p-1 active:scale-90"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-200">
+                                {/* Unit Selector / Badge */}
+                                <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 text-[10px] font-bold">
+                                  {item.product.category === 'drinks_coffee' ? (
+                                    <span className="px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded font-bold">
+                                      عدد (تکی)
+                                    </span>
+                                  ) : (
+                                    <>
+                                      {!item.product.isBoxOnly && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleChangePosUnit(idx, 'carton')}
+                                          className={`px-2 py-1 rounded transition-colors ${item.unit === 'carton' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                                        >
+                                          کارتن
+                                        </button>
+                                      )}
+                                      <button
+                                        type="button"
+                                        onClick={() => handleChangePosUnit(idx, 'box')}
+                                        className={`px-2 py-1 rounded transition-colors ${item.unit === 'box' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                                      >
+                                        باکس
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleChangePosUnit(idx, 'pack')}
+                                        className={`px-2 py-1 rounded transition-colors ${item.unit === 'pack' ? 'bg-indigo-600 text-white' : 'text-slate-600 hover:bg-slate-100'}`}
+                                      >
+                                        پاکت
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+
+                                {/* Quantity Stepper & Subtotal */}
+                                <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-1 bg-white px-2 py-1 rounded-xl border border-slate-200">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdatePosQty(idx, 1)}
+                                      className="w-5 h-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded flex items-center justify-center font-bold active:scale-90"
+                                    >
+                                      +
+                                    </button>
+                                    <span className="text-xs font-mono font-bold text-slate-900 min-w-[20px] text-center">
+                                      {formatNumberFa(item.quantity)}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdatePosQty(idx, -1)}
+                                      className="w-5 h-5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded flex items-center justify-center font-bold active:scale-90"
+                                    >
+                                      -
+                                    </button>
+                                  </div>
+
+                                  <span className="text-[11px] sm:text-xs font-black text-emerald-600 font-mono whitespace-nowrap">
+                                    {formatToman(item.totalPrice)}
                                   </span>
                                 </div>
                               </div>
-
-                              <button
-                                onClick={() => handleRemovePosItem(idx)}
-                                className="text-slate-400 hover:text-rose-600 p-1"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
                             </div>
-
-                            <div className="flex items-center justify-between pt-2 border-t border-slate-200">
-                              {/* Unit Selector (Carton, Box, Pack) */}
-                              <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 text-[10px] font-bold">
-                                {!item.product.isBoxOnly && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleChangePosUnit(idx, 'carton')}
-                                    className={`px-2 py-1 rounded ${item.unit === 'carton' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}
-                                  >
-                                    کارتن
-                                  </button>
-                                )}
-                                <button
-                                  type="button"
-                                  onClick={() => handleChangePosUnit(idx, 'box')}
-                                  className={`px-2 py-1 rounded ${item.unit === 'box' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}
-                                >
-                                  باکس
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => handleChangePosUnit(idx, 'pack')}
-                                  className={`px-2 py-1 rounded ${item.unit === 'pack' ? 'bg-indigo-600 text-white' : 'text-slate-600'}`}
-                                >
-                                  پاکت
-                                </button>
-                              </div>
-
-                              {/* Quantity Stepper */}
-                              <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-xl border border-slate-200">
-                                <button
-                                  onClick={() => handleUpdatePosQty(idx, 1)}
-                                  className="w-5 h-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded flex items-center justify-center font-bold"
-                                >
-                                  +
-                                </button>
-                                <span className="text-xs font-mono font-bold text-slate-900 min-w-[20px] text-center">
-                                  {formatNumberFa(item.quantity)}
-                                </span>
-                                <button
-                                  onClick={() => handleUpdatePosQty(idx, -1)}
-                                  className="w-5 h-5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded flex items-center justify-center font-bold"
-                                >
-                                  -
-                                </button>
-                              </div>
-
-                              {/* Subtotal */}
-                              <span className="text-xs font-black text-emerald-600 font-mono">
-                                {formatToman(item.totalPrice)}
-                              </span>
-                            </div>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Checkout & Payment Options */}
-                  <div className="pt-4 border-t border-slate-200 space-y-3">
-                    
-                    {/* Payment Method Tabs (No Cheque, cleanly Cash, POS Terminal, Ledger) */}
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 mb-1.5">روش پرداخت و تسویه:</label>
-                      <div className="grid grid-cols-3 gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('pos_terminal')}
-                          className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
-                            paymentMethod === 'pos_terminal'
-                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
-                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          <CreditCard className="w-4 h-4" />
-                          <span>کارتخوان</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('cash')}
-                          className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
-                            paymentMethod === 'cash'
-                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
-                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          <Banknote className="w-4 h-4" />
-                          <span>نقدی</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => setPaymentMethod('ledger')}
-                          className={`p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
-                            paymentMethod === 'ledger'
-                              ? 'bg-purple-600 text-white border-purple-600 shadow-md'
-                              : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          <Clock className="w-4 h-4" />
-                          <span>حساب دفتری (نسیه)</span>
-                        </button>
+                          ))
+                        )}
                       </div>
                     </div>
 
-                    {paymentMethod === 'pos_terminal' && (
+                    {/* Checkout & Payment Options */}
+                    <div className="pt-3 sm:pt-4 border-t border-slate-200 space-y-3">
+                      
+                      {/* Payment Method Tabs */}
                       <div>
-                        <input
-                          type="text"
-                          value={terminalRef}
-                          onChange={(e) => setTerminalRef(e.target.value)}
-                          placeholder="شماره پیگیری کارتخوان (اختیاری)"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 font-mono focus:outline-none focus:border-indigo-500"
-                        />
-                      </div>
-                    )}
+                        <label className="block text-[11px] font-bold text-slate-600 mb-1.5">روش پرداخت و تسویه:</label>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod('pos_terminal')}
+                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                              paymentMethod === 'pos_terminal'
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            <span>کارتخوان</span>
+                          </button>
 
-                    {/* Financial Totals */}
-                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-1.5 text-xs">
-                      <div className="flex justify-between text-slate-600 font-medium">
-                        <span>جمع ناخالص:</span>
-                        <span className="font-mono">{formatToman(posSubtotal)}</span>
-                      </div>
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod('cash')}
+                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                              paymentMethod === 'cash'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Banknote className="w-4 h-4" />
+                            <span>نقدی</span>
+                          </button>
 
-                      <div className="flex items-center justify-between text-slate-600">
-                        <span>تخفیف دستی:</span>
-                        <div className="flex items-center gap-1">
-                          <input
-                            type="number"
-                            value={posDiscount || ''}
-                            onChange={(e) => setPosDiscount(Number(e.target.value) || 0)}
-                            placeholder="۰"
-                            className="w-24 bg-white border border-slate-200 rounded px-2 py-0.5 text-left font-mono text-xs text-emerald-600 focus:outline-none"
-                          />
-                          <span className="text-[10px]">تومان</span>
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod('ledger')}
+                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                              paymentMethod === 'ledger'
+                                ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Clock className="w-4 h-4" />
+                            <span>نسیه دفتری</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPaymentMethod('split');
+                              if (splitPaidAmount === 0 && posFinalTotal > 0) {
+                                setSplitPaidAmount(Math.floor(posFinalTotal / 2));
+                              }
+                            }}
+                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                              paymentMethod === 'split'
+                                ? 'bg-amber-600 text-white border-amber-600 shadow-md'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Split className="w-4 h-4" />
+                            <span>ترکیبی (نقد+نسیه)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPaymentMethod('usd');
+                              setForeignExchangeRate(usdRate);
+                            }}
+                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                              paymentMethod === 'usd'
+                                ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Coins className="w-4 h-4" />
+                            <span>دلار (USD)</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPaymentMethod('eur');
+                              setForeignExchangeRate(eurRate);
+                            }}
+                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                              paymentMethod === 'eur'
+                                ? 'bg-cyan-600 text-white border-cyan-600 shadow-md'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Coins className="w-4 h-4" />
+                            <span>یورو (EUR)</span>
+                          </button>
                         </div>
                       </div>
 
-                      <div className="flex justify-between text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
-                        <span>مبلغ قابل پرداخت:</span>
-                        <span className="text-base font-mono text-emerald-600">{formatToman(posFinalTotal)}</span>
+                      {(paymentMethod === 'usd' || paymentMethod === 'eur') && (
+                        <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-2.5 sm:p-3 space-y-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-blue-900 flex items-center gap-1">
+                              <Coins className="w-3.5 h-3.5 text-blue-600" />
+                              ارز دریافتی ({paymentMethod === 'usd' ? '$ USD' : '€ EUR'}):
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={foreignCurrencyAmount || ''}
+                                onChange={(e) => setForeignCurrencyAmount(Math.max(0, Number(e.target.value) || 0))}
+                                placeholder="100"
+                                className="w-20 sm:w-24 bg-white border border-blue-300 rounded-lg px-2 py-1 text-left font-mono font-bold text-xs text-blue-950 focus:outline-none"
+                              />
+                              <span className="text-[10px] text-blue-800">{paymentMethod === 'usd' ? '$' : '€'}</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-blue-800">نرخ روز تبدیل (تومان):</span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={foreignExchangeRate || ''}
+                                onChange={(e) => setForeignExchangeRate(Math.max(0, Number(e.target.value) || 0))}
+                                placeholder="71500"
+                                className="w-24 sm:w-28 bg-white border border-blue-300 rounded-lg px-2 py-1 text-left font-mono font-bold text-xs text-blue-950 focus:outline-none"
+                              />
+                              <span className="text-[10px] text-blue-800">تومان</span>
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-blue-200 flex items-center justify-between font-bold">
+                            <span className="text-blue-900">معادل محاسبه شده:</span>
+                            <span className="font-mono text-emerald-700 text-xs sm:text-sm font-black">
+                              {formatToman(foreignCurrencyAmount * foreignExchangeRate)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {paymentMethod === 'split' && (
+                        <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-2.5 sm:p-3 space-y-2 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-amber-900 flex items-center gap-1">
+                              <Coins className="w-3.5 h-3.5 text-amber-600" />
+                              پرداخت نقدی / پوز:
+                            </span>
+                            <div className="flex items-center gap-1">
+                              <input
+                                type="number"
+                                value={splitPaidAmount || ''}
+                                onChange={(e) => setSplitPaidAmount(Math.max(0, Number(e.target.value) || 0))}
+                                placeholder="۰"
+                                className="w-24 sm:w-28 bg-white border border-amber-300 rounded-lg px-2 py-1 text-left font-mono font-bold text-xs text-amber-950 focus:outline-none"
+                              />
+                              <span className="text-[10px] text-amber-800">تومان</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px]">
+                            <span className="text-amber-800">روش پرداخت نقدی:</span>
+                            <div className="flex items-center gap-2">
+                              <label className="flex items-center gap-1 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="splitVia"
+                                  checked={splitPaidVia === 'pos_terminal'}
+                                  onChange={() => setSplitPaidVia('pos_terminal')}
+                                  className="text-amber-600"
+                                />
+                                <span className="font-bold">کارتخوان</span>
+                              </label>
+                              <label className="flex items-center gap-1 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name="splitVia"
+                                  checked={splitPaidVia === 'cash'}
+                                  onChange={() => setSplitPaidVia('cash')}
+                                  className="text-amber-600"
+                                />
+                                <span className="font-bold">نقد</span>
+                              </label>
+                            </div>
+                          </div>
+
+                          <div className="pt-2 border-t border-amber-200 flex items-center justify-between font-bold">
+                            <span className="text-amber-900">مانده در دفتر نسیه:</span>
+                            <span className="font-mono text-rose-600 text-xs sm:text-sm font-black">
+                              {formatToman(Math.max(0, posFinalTotal - splitPaidAmount))}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+
+                      {(paymentMethod === 'pos_terminal' || (paymentMethod === 'split' && splitPaidVia === 'pos_terminal')) && (
+                        <div>
+                          <input
+                            type="text"
+                            value={terminalRef}
+                            onChange={(e) => setTerminalRef(e.target.value)}
+                            placeholder="شماره پیگیری کارتخوان (اختیاری)"
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 placeholder-slate-400 font-mono focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      )}
+
+                      {/* Financial Totals */}
+                      <div className="bg-slate-50 p-3 sm:p-3.5 rounded-2xl border border-slate-200 space-y-1.5 text-xs">
+                        <div className="flex justify-between text-slate-600 font-medium">
+                          <span>جمع ناخالص:</span>
+                          <span className="font-mono">{formatToman(posSubtotal)}</span>
+                        </div>
+
+                        <div className="flex items-center justify-between text-slate-600">
+                          <span>تخفیف دستی:</span>
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="number"
+                              value={posDiscount || ''}
+                              onChange={(e) => setPosDiscount(Number(e.target.value) || 0)}
+                              placeholder="۰"
+                              className="w-20 sm:w-24 bg-white border border-slate-200 rounded px-2 py-0.5 text-left font-mono text-xs text-emerald-600 focus:outline-none"
+                            />
+                            <span className="text-[10px]">تومان</span>
+                          </div>
+                        </div>
+
+                        <div className="flex justify-between text-xs sm:text-sm font-black text-slate-900 pt-2 border-t border-slate-200">
+                          <span>مبلغ قابل پرداخت:</span>
+                          <span className="text-sm sm:text-base font-mono text-emerald-600">{formatToman(posFinalTotal)}</span>
+                        </div>
                       </div>
+
+                      {/* Submit Sale Action Button */}
+                      <button
+                        type="button"
+                        onClick={handleFinalizePosSale}
+                        disabled={posCart.length === 0}
+                        className="w-full py-3.5 sm:py-4 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white rounded-2xl font-black text-xs sm:text-sm shadow-xl shadow-emerald-600/20 transition-all active:scale-98 flex items-center justify-center gap-2"
+                      >
+                        <CheckCircle2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                        <span>ثبت نهایی فاکتور و کسر از انبار</span>
+                      </button>
+
                     </div>
 
-                    {/* Submit Sale Action Button */}
-                    <button
-                      onClick={handleFinalizePosSale}
-                      disabled={posCart.length === 0}
-                      className="w-full py-4 px-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-50 text-white rounded-2xl font-black text-sm shadow-xl shadow-emerald-600/20 transition-all active:scale-98 flex items-center justify-center gap-2"
-                    >
-                      <CheckCircle2 className="w-5 h-5" />
-                      <span>ثبت نهایی فاکتور و کسر از انبار</span>
-                    </button>
-
                   </div>
-
                 </div>
+
               </div>
 
             </motion.div>
@@ -1882,8 +2481,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 </div>
 
                 {/* Table of Inventory */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right text-xs">
+                <div className="overflow-x-auto rounded-2xl border border-slate-200">
+                  <table className="w-full text-right text-xs min-w-[780px]">
                     <thead>
                       <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
                         <th className="p-3">تصویر</th>
@@ -1923,6 +2522,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
                             {/* Carton Stock Stepper */}
                             <td className="p-3 text-center">
+                              {prod.category !== 'drinks_coffee' && (
                               <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
                                 <button
                                   type="button"
@@ -1944,10 +2544,12 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                                   -
                                 </button>
                               </div>
+                              )}
                             </td>
 
                             {/* Box Stock Stepper */}
                             <td className="p-3 text-center">
+                              {prod.category !== 'drinks_coffee' && (
                               <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
                                 <button
                                   type="button"
@@ -1969,13 +2571,20 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                                   -
                                 </button>
                               </div>
+                              )}
                             </td>
 
                             <td className="p-3 text-left font-mono font-bold text-slate-800">
-                              <div>{formatToman(prod.cartonPrice)}</div>
-                              <div className="text-[10px] text-slate-400 font-normal mt-0.5">
-                                {formatToman(prod.boxPrice)} باکس / {formatToman(prod.packPrice)} پاکت
-                              </div>
+                              {prod.category === 'drinks_coffee' ? (
+                                <div>{formatToman(prod.packPrice || prod.boxPrice || 50000)} (تکی)</div>
+                              ) : (
+                                <>
+                                  <div>{formatToman(prod.cartonPrice)}</div>
+                                  <div className="text-[10px] text-slate-400 font-normal mt-0.5">
+                                    {formatToman(prod.boxPrice)} باکس / {formatToman(prod.packPrice)} پاکت
+                                  </div>
+                                </>
+                              )}
                             </td>
                             <td className="p-3 text-left font-mono font-black text-emerald-600">
                               {formatToman(productTotalVal)}
@@ -1983,7 +2592,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                             <td className="p-3 text-center">
                               {stockInfo.isAvailable ? (
                                 <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap">
-                                  موجود ({formatNumberFa(Math.floor(stockInfo.cartons))} کارتن)
+                                  {prod.category === 'drinks_coffee' ? `موجود (${formatNumberFa(stockInfo.cartons)} عدد)` : `موجود (${formatNumberFa(Math.floor(stockInfo.cartons))} کارتن)`}
                                 </span>
                               ) : (
                                 <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap">
@@ -1992,6 +2601,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                               )}
                             </td>
                             <td className="p-3 text-center">
+                              {prod.category !== 'drinks_coffee' && (
                               <button
                                 onClick={() => {
                                   setSelectedProductForAdjustment(prod);
@@ -2003,6 +2613,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                               >
                                 ثبت بار / اصلاح
                               </button>
+                              )}
                             </td>
                           </tr>
                         );
@@ -2042,82 +2653,309 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           )}
 
           {/* TAB 3: Ledger Accounts & Credit Customers */}
-          {activeSubTab === 'customers' && (
-            <motion.div
-              key="customers-tab"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="text-lg font-black text-slate-900">مدیریت حساب‌های دفتری و بدهکاران / بستانکاران</h2>
-                    <p className="text-xs text-slate-500 mt-1">ثبت مشتریان نسیه، مانده بدهی و دریافت وجه تسویه حساب</p>
-                  </div>
-                  <button
-                    onClick={() => setShowNewCustomerModal(true)}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5"
-                  >
-                    <Users className="w-4 h-4" />
-                    <span>+ تعریف مشتری دفتری جدید</span>
-                  </button>
-                </div>
+          {activeSubTab === 'customers' && (() => {
+            const totalDebtorBalance = posCustomers
+              .filter(c => c.balance > 0)
+              .reduce((sum, c) => sum + c.balance, 0);
+            const totalCreditorBalance = posCustomers
+              .filter(c => c.balance < 0)
+              .reduce((sum, c) => sum + Math.abs(c.balance), 0);
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                  {posCustomers.map(cust => (
-                    <div key={cust.id} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-black text-sm text-slate-900">{cust.name}</h4>
-                          <span className="text-[10px] text-slate-400 font-mono">{cust.phone}</span>
-                        </div>
-                        <div className="text-xs text-slate-500 mb-2">تاریخ افتتاح حساب: {cust.createdAt}</div>
-                        <div className="text-xs">
-                          وضعیت حساب: {' '}
-                          <strong className={cust.balance > 0 ? 'text-rose-600' : cust.balance < 0 ? 'text-emerald-600' : 'text-slate-600'}>
-                            {cust.balance > 0 ? `بدهکار (${formatToman(cust.balance)})` : cust.balance < 0 ? `بستانکار (${formatToman(Math.abs(cust.balance))})` : 'تسویه کامل'}
-                          </strong>
-                        </div>
-                      </div>
-                      <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-end gap-2">
-                        <button
-                          onClick={() => {
-                            setSelectedCustomerForPayment(cust);
-                            setPaymentAmount(Math.abs(cust.balance));
-                            setPaymentType('credit');
-                          }}
-                          className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-700 transition-colors"
-                        >
-                          ثبت دریافت وجه (تسویه)
-                        </button>
-                      </div>
+            const filteredCustomers = posCustomers.filter(cust => {
+              const matchesSearch = 
+                cust.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+                cust.phone.includes(customerSearchQuery) ||
+                (cust.city && cust.city.includes(customerSearchQuery)) ||
+                (cust.address && cust.address.includes(customerSearchQuery));
+
+              if (!matchesSearch) return false;
+              if (customerStatusFilter === 'debtors') return cust.balance > 0;
+              if (customerStatusFilter === 'creditors') return cust.balance < 0;
+              if (customerStatusFilter === 'settled') return cust.balance === 0;
+              return true;
+            });
+
+            return (
+              <motion.div
+                key="customers-tab"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="space-y-6"
+              >
+                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+                  
+                  {/* Header */}
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+                    <div>
+                      <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                        <Users className="w-5 h-5 text-indigo-600" />
+                        <span>مدیریت پیشرفته حساب‌های دفتری و بدهکاران / بستانکاران</span>
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-1">
+                        ثبت مشتریان نسیه، مانده بدهی، گردش حساب و تسویه با فاکتورهای صندوق
+                      </p>
                     </div>
-                  ))}
-                </div>
+                    <button
+                      onClick={() => {
+                        setEditingCustomer(null);
+                        setNewCustName('');
+                        setNewCustPhone('');
+                        setNewCustAddress('');
+                        setNewCustCity('تهران');
+                        setNewCustNotes('');
+                        setNewCustInitialBalance(0);
+                        setShowNewCustomerModal(true);
+                      }}
+                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-98"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>+ تعریف مشتری دفتری جدید</span>
+                    </button>
+                  </div>
 
-                {/* Ledger Transactions Audit History */}
-                <h3 className="text-sm font-black text-slate-900 mb-3">ریز گردش حساب‌های دفتری</h3>
-                <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  {ledgerTransactions.map(tx => {
-                    const cust = posCustomers.find(c => c.id === tx.customerId);
-                    return (
-                      <div key={tx.id} className="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex items-center justify-between text-xs">
-                        <div>
-                          <span className="font-bold text-slate-900">{cust?.name || 'مشتری دفتری'}</span>
-                          <p className="text-[10px] text-slate-500 mt-0.5">{tx.date} • {tx.description}</p>
+                  {/* Summary Metric Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="bg-rose-50/70 border border-rose-200 p-4 rounded-2xl">
+                      <span className="text-xs text-rose-700 font-bold flex items-center gap-1">
+                        <Clock className="w-4 h-4" />
+                        مجموع مطالبات (طلب فروشگاه از بدهکاران)
+                      </span>
+                      <div className="text-xl font-black text-rose-700 mt-2 font-mono">{formatToman(totalDebtorBalance)}</div>
+                      <span className="text-[10px] text-rose-600 font-bold mt-1 block">
+                        تعداد مشتریان بدهکار: {posCustomers.filter(c => c.balance > 0).length} نفر
+                      </span>
+                    </div>
+
+                    <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-2xl">
+                      <span className="text-xs text-emerald-700 font-bold flex items-center gap-1">
+                        <Wallet className="w-4 h-4" />
+                        مجموع بستانکاری مشتریان
+                      </span>
+                      <div className="text-xl font-black text-emerald-700 mt-2 font-mono">{formatToman(totalCreditorBalance)}</div>
+                      <span className="text-[10px] text-emerald-600 font-bold mt-1 block">
+                        تعداد بستانکاران: {posCustomers.filter(c => c.balance < 0).length} نفر
+                      </span>
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
+                      <span className="text-xs text-slate-600 font-bold flex items-center gap-1">
+                        <Users className="w-4 h-4 text-indigo-600" />
+                        کل طرف‌های حساب دفتری
+                      </span>
+                      <div className="text-xl font-black text-slate-900 mt-2 font-mono">{posCustomers.length} مشتری</div>
+                      <span className="text-[10px] text-slate-500 font-bold mt-1 block">
+                        حساب‌های کاملاً تسویه: {posCustomers.filter(c => c.balance === 0).length} طرف حساب
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Search and Filter Row */}
+                  <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                    <div className="relative w-full md:w-80">
+                      <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
+                      <input
+                        type="text"
+                        value={customerSearchQuery}
+                        onChange={(e) => setCustomerSearchQuery(e.target.value)}
+                        placeholder="جستجوی نام مشتری، شماره تلفن، شهر یا آدرس..."
+                        className="w-full bg-white border border-slate-200 rounded-xl pr-9 pl-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-bold"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto">
+                      <button
+                        onClick={() => setCustomerStatusFilter('all')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                          customerStatusFilter === 'all'
+                            ? 'bg-indigo-600 text-white shadow-xs'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        همه ({posCustomers.length})
+                      </button>
+                      <button
+                        onClick={() => setCustomerStatusFilter('debtors')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                          customerStatusFilter === 'debtors'
+                            ? 'bg-rose-600 text-white shadow-xs'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        فقط بدهکاران ({posCustomers.filter(c => c.balance > 0).length})
+                      </button>
+                      <button
+                        onClick={() => setCustomerStatusFilter('creditors')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                          customerStatusFilter === 'creditors'
+                            ? 'bg-emerald-600 text-white shadow-xs'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        فقط بستانکاران ({posCustomers.filter(c => c.balance < 0).length})
+                      </button>
+                      <button
+                        onClick={() => setCustomerStatusFilter('settled')}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                          customerStatusFilter === 'settled'
+                            ? 'bg-slate-700 text-white shadow-xs'
+                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                        }`}
+                      >
+                        تسویه شده ({posCustomers.filter(c => c.balance === 0).length})
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Customer Cards Grid */}
+                  {filteredCustomers.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
+                      <Users className="w-10 h-10 mx-auto mb-2 opacity-30 text-indigo-500" />
+                      <p className="text-xs font-bold text-slate-600">مشتری با این مشخصات یافت نشد</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {filteredCustomers.map(cust => (
+                        <div 
+                          key={cust.id} 
+                          className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between hover:border-indigo-300 hover:shadow-md transition-all"
+                        >
+                          <div>
+                            {/* Card Top: Name & Badges */}
+                            <div className="flex items-start justify-between gap-2 mb-2.5">
+                              <div>
+                                <h4 className="font-black text-sm text-slate-900 leading-snug">{cust.name}</h4>
+                                {cust.phone && cust.phone !== '-' && (
+                                  <a 
+                                    href={`tel:${cust.phone}`}
+                                    className="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-mono mt-0.5 font-bold"
+                                    dir="ltr"
+                                  >
+                                    <PhoneCall className="w-3 h-3" />
+                                    <span>{cust.phone}</span>
+                                  </a>
+                                )}
+                              </div>
+                              <span 
+                                className={`px-2.5 py-1 rounded-xl text-[10px] font-black whitespace-nowrap ${
+                                  cust.balance > 0 
+                                    ? 'bg-rose-100 text-rose-700 border border-rose-200' 
+                                    : cust.balance < 0 
+                                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
+                                      : 'bg-slate-200/80 text-slate-700'
+                                }`}
+                              >
+                                {cust.balance > 0 ? `بدهکار: ${formatToman(cust.balance)}` : cust.balance < 0 ? `بستانکار: ${formatToman(Math.abs(cust.balance))}` : 'تسویه کامل'}
+                              </span>
+                            </div>
+
+                            {/* Address / Location */}
+                            {cust.address && (
+                              <div className="flex items-start gap-1 text-[11px] text-slate-500 mb-2 leading-relaxed">
+                                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                                <span>{cust.address}</span>
+                              </div>
+                            )}
+
+                            {/* Notes / Credit Limit */}
+                            {cust.notes && (
+                              <div className="bg-white/80 border border-slate-200/60 rounded-xl px-2.5 py-1.5 text-[10px] text-slate-600 mb-2 font-bold">
+                                📝 {cust.notes}
+                              </div>
+                            )}
+
+                            <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1">
+                              <span>افتتاح حساب: {cust.createdAt}</span>
+                              {cust.city && <span className="font-bold text-slate-500">📍 {cust.city}</span>}
+                            </div>
+                          </div>
+
+                          {/* Card Actions */}
+                          <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-1.5">
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleOpenEditCustomer(cust)}
+                                title="ویرایش اطلاعات مشتری"
+                                className="p-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors"
+                              >
+                                <Edit2 className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteCustomer(cust.id)}
+                                title="حذف مشتری"
+                                className="p-1.5 bg-white border border-slate-200 hover:bg-rose-50 text-rose-600 rounded-lg transition-colors"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => setCustomerHistoryModalCust(cust)}
+                                className="px-2.5 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-xl text-[11px] font-bold transition-colors flex items-center gap-1"
+                              >
+                                <History className="w-3.5 h-3.5" />
+                                <span>گردش حساب</span>
+                              </button>
+
+                              <button
+                                onClick={() => {
+                                  setSelectedCustomerForPayment(cust);
+                                  setPaymentAmount(Math.abs(cust.balance));
+                                  setPaymentType(cust.balance >= 0 ? 'credit' : 'debit');
+                                }}
+                                className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[11px] font-bold hover:bg-emerald-700 transition-colors shadow-xs"
+                              >
+                                تسویه / دریافت وجه
+                              </button>
+                            </div>
+                          </div>
                         </div>
-                        <span className={`font-mono font-black ${tx.type === 'debit' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                          {tx.type === 'debit' ? `+${formatToman(tx.amount)} (بدهکاری)` : `-${formatToman(tx.amount)} (واریزی)`}
-                        </span>
-                      </div>
-                    );
-                  })}
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Ledger Transactions Audit History */}
+                  <div className="pt-4 border-t border-slate-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                        <History className="w-4 h-4 text-indigo-600" />
+                        <span>آخرین تراکنش‌ها و ریز گردش دفاتر حساب</span>
+                      </h3>
+                      <span className="text-xs text-slate-500 font-mono font-bold">
+                        {ledgerTransactions.length} تراکنش ثبت شده
+                      </span>
+                    </div>
+
+                    <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+                      {ledgerTransactions.map(tx => {
+                        const cust = posCustomers.find(c => c.id === tx.customerId);
+                        return (
+                          <div key={tx.id} className="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex items-center justify-between text-xs hover:bg-slate-100/80 transition-colors">
+                            <div className="flex items-center gap-2.5">
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
+                                tx.type === 'debit' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                              }`}>
+                                {tx.type === 'debit' ? 'بدهی' : 'واریز'}
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-900">{cust?.name || 'مشتری دفتری'}</span>
+                                <p className="text-[11px] text-slate-500 mt-0.5">{tx.date} • {tx.description}</p>
+                              </div>
+                            </div>
+                            <span className={`font-mono font-black text-sm ${tx.type === 'debit' ? 'text-rose-600' : 'text-emerald-600'}`}>
+                              {tx.type === 'debit' ? `+${formatToman(tx.amount)}` : `-${formatToman(tx.amount)}`}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
                 </div>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            );
+          })()}
 
           {/* TAB 4: Daily & Monthly Sales Reports */}
           {activeSubTab === 'reports' && (
@@ -2290,10 +3128,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 </div>
 
                 {/* Sub-Tab Navigation for Reports */}
-                <div className="border-b border-slate-200 flex items-center gap-4 text-xs font-bold pt-2">
+                <div className="border-b border-slate-200 flex items-center gap-2 sm:gap-4 text-xs font-bold pt-2 overflow-x-auto whitespace-nowrap pb-1">
                   <button
                     onClick={() => setReportSubTab('daily')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 ${reportSubTab === 'daily' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${reportSubTab === 'daily' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                   >
                     <Calendar className="w-4 h-4" />
                     <span>🗓️ گزارش فروش روزانه (بر اساس تاریخ)</span>
@@ -2302,7 +3140,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
                   <button
                     onClick={() => setReportSubTab('monthly')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 ${reportSubTab === 'monthly' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${reportSubTab === 'monthly' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                   >
                     <CalendarRange className="w-4 h-4" />
                     <span>📅 گزارش فروش ماهانه (بر اساس ماه)</span>
@@ -2311,7 +3149,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
                   <button
                     onClick={() => setReportSubTab('products')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 ${reportSubTab === 'products' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${reportSubTab === 'products' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                   >
                     <Package className="w-4 h-4" />
                     <span>🛍️ ریز گزارش اقلام فروخته شده (محصولات)</span>
@@ -2319,7 +3157,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
                   <button
                     onClick={() => setReportSubTab('receipts')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 ${reportSubTab === 'receipts' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
+                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${reportSubTab === 'receipts' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
                   >
                     <FileText className="w-4 h-4" />
                     <span>🧾 لیست تمام فاکتورهای این بازه</span>
@@ -2329,13 +3167,13 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 {/* SUB-VIEW 1: DAILY SALES TABLE */}
                 {reportSubTab === 'daily' && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                       <h3 className="text-sm font-black text-slate-900">جدول تفکیکی فروش روز به روز (بر اساس تاریخ شمسی)</h3>
                       <span className="text-xs text-slate-500">جهت مشاهده ریز فاکتورهای هر روز، روی دکمه «ریز گزارش روزانه» کلیک کنید.</span>
                     </div>
 
-                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                      <table className="w-full text-right text-xs">
+                    <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
+                      <table className="w-full text-right text-xs min-w-[720px]">
                         <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                           <tr>
                             <th className="p-3">تاریخ فروش</th>
@@ -2397,13 +3235,13 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 {/* SUB-VIEW 2: MONTHLY SALES TABLE */}
                 {reportSubTab === 'monthly' && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                       <h3 className="text-sm font-black text-slate-900">جدول خلاصه عملکرد ماهانه فروشگاه (ماه به ماه)</h3>
                       <span className="text-xs text-slate-500">تحلیل درآمد کل ماه‌ها و میانگین فروش روزانه هر ماه</span>
                     </div>
 
-                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                      <table className="w-full text-right text-xs">
+                    <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
+                      <table className="w-full text-right text-xs min-w-[720px]">
                         <thead className="bg-purple-50 text-purple-900 font-bold border-b border-purple-200">
                           <tr>
                             <th className="p-3">ماه و سال</th>
@@ -2460,13 +3298,13 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 {/* SUB-VIEW 3: PRODUCTS SALES BREAKDOWN */}
                 {reportSubTab === 'products' && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                       <h3 className="text-sm font-black text-slate-900">گزارش خروجی کالاها و رتبه‌بندی اقلام پرفروش</h3>
                       <span className="text-xs text-slate-500">تفکیک دقیق تعداد کارتن، باکس و پاکت فروخته شده هر محصول</span>
                     </div>
 
-                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                      <table className="w-full text-right text-xs">
+                    <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
+                      <table className="w-full text-right text-xs min-w-[700px]">
                         <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                           <tr>
                             <th className="p-3">رتبه</th>
@@ -2507,13 +3345,13 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 {/* SUB-VIEW 4: RECEIPTS AUDIT LIST */}
                 {reportSubTab === 'receipts' && (
                   <div className="space-y-4">
-                    <div className="flex items-center justify-between">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
                       <h3 className="text-sm font-black text-slate-900">لیست تمام فاکتورهای فروش در این بازه انتخاب شده</h3>
                       <span className="text-xs text-slate-500">قابلیت مشاهده فیش، چاپ مجدد و بررسی روش تسویه</span>
                     </div>
 
-                    <div className="border border-slate-200 rounded-2xl overflow-hidden shadow-2xs">
-                      <table className="w-full text-right text-xs">
+                    <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
+                      <table className="w-full text-right text-xs min-w-[700px]">
                         <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                           <tr>
                             <th className="p-3">شماره فاکتور</th>
@@ -2575,7 +3413,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
                   <div>
                     <h2 className="text-lg font-black text-slate-900">دفتر فاکتورهای فروش و تراکنش‌های صندوق</h2>
-                    <p className="text-xs text-slate-500 mt-1">مشاهده فیش‌های صادر شده، چاپ مجدد فیش حرارتی 80mm و ریز اقلام مشتریان</p>
+                    <p className="text-xs text-slate-500 mt-1">مشاهده فاکتورهای صادر شده، چاپ مجدد فاکتور فروش و ریز اقلام مشتریان</p>
                   </div>
                 </div>
 
@@ -2628,210 +3466,18 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </motion.div>
           )}
 
-          {/* TAB 6: azarakhsh API & Documentation */}
-          {activeSubTab === 'django-docs' && (
+          {/* TAB: Monthly Sales Comparison */}
+          {activeSubTab === 'monthly_compare' && (
             <motion.div
-              key="django-tab"
+              key="monthly-compare-tab"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
             >
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
-                <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-xl shadow-lg shadow-indigo-100">
-                    AZ
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-black text-slate-900">مستندات یکپارچه سیستم azarakhsh</h2>
-                    <p className="text-sm text-slate-500">راهنمای کامل اتصال بخش‌های مختلف سایت به Django (مدل‌ها، سریالایزرها، ویوها و مسیرها)</p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  
-                  {/* Category 1: Products & Inventory */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-indigo-700">
-                      <Package className="w-5 h-5" />
-                      <h3 className="text-base font-black">۱. بخش محصولات و انبارداری (Azarakhsh)</h3>
-                    </div>
-                    
-                    <div className="bg-slate-900 rounded-2xl p-4 overflow-hidden border border-slate-800 shadow-xl">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] text-slate-500 font-mono">azarakhsh/models.py</span>
-                        <div className="flex gap-1">
-                          <div className="w-2 h-2 rounded-full bg-rose-500" />
-                          <div className="w-2 h-2 rounded-full bg-amber-500" />
-                          <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        </div>
-                      </div>
-                      <pre className="text-[11px] text-emerald-400 font-mono leading-relaxed overflow-x-auto" dir="ltr">{`class Product(models.Model):
-    name_fa = models.CharField(max_length=255, verbose_name="نام فارسی")
-    barcode = models.CharField(max_length=100, unique=True, verbose_name="بارکد")
-    carton_price = models.BigIntegerField(default=0)
-    box_price = models.BigIntegerField(default=0)
-    pack_price = models.BigIntegerField(default=0)
-    boxes_per_carton = models.IntegerField(default=50)
-    packs_per_box = models.IntegerField(default=10)
-    stock_cartons = models.IntegerField(default=0)
-    
-    is_pos_only = models.BooleanField(default=False)
-    image = models.ImageField(upload_to='products/', null=True)
-
-    def __str__(self):
-        return self.name_fa`}</pre>
-                    </div>
-
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                      <h4 className="text-xs font-black text-slate-900 mb-2">Serializer & API View</h4>
-                      <pre className="text-[10px] text-slate-600 font-mono leading-tight" dir="ltr">{`# serializers.py
-class ProductSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Product
-        fields = '__all__'
-
-# views.py
-class ProductViewSet(viewsets.ModelViewSet):
-    queryset = Product.objects.all()
-    serializer_class = ProductSerializer`}</pre>
-                    </div>
-                  </div>
-
-                  {/* Category 2: POS & Receipts */}
-                  <div className="space-y-4">
-                    <div className="flex items-center gap-2 text-rose-700">
-                      <Receipt className="w-5 h-5" />
-                      <h3 className="text-base font-black">۲. بخش صندوق و فاکتور فروش (POS)</h3>
-                    </div>
-                    
-                    <div className="bg-slate-900 rounded-2xl p-4 overflow-hidden border border-slate-800 shadow-xl">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] text-slate-500 font-mono">azarakhsh/pos_models.py</span>
-                        <div className="flex gap-1">
-                          <div className="w-2 h-2 rounded-full bg-rose-500" />
-                          <div className="w-2 h-2 rounded-full bg-amber-500" />
-                          <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                        </div>
-                      </div>
-                      <pre className="text-[11px] text-emerald-400 font-mono leading-relaxed overflow-x-auto" dir="ltr">{`class PosReceipt(models.Model):
-    receipt_number = models.CharField(max_length=50, unique=True)
-    customer_name = models.CharField(max_length=150, default="مشتری حضوری")
-    payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS) # cash, card, ledger
-    subtotal = models.BigIntegerField()
-    discount = models.BigIntegerField(default=0)
-    final_total = models.BigIntegerField()
-    terminal_ref = models.CharField(max_length=100, null=True, blank=True)
-    cashier = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-class SaleItem(models.Model):
-    receipt = models.ForeignKey(PosReceipt, related_name='items', on_delete=models.CASCADE)
-    product = models.ForeignKey(Product, on_delete=models.PROTECT)
-    unit = models.CharField(max_length=10) # carton, box, pack
-    quantity = models.IntegerField()
-    unit_price = models.BigIntegerField()
-    total_price = models.BigIntegerField()`}</pre>
-                    </div>
-
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                      <h4 className="text-xs font-black text-slate-900 mb-2">Customer & Ledger System</h4>
-                      <pre className="text-[10px] text-slate-600 font-mono leading-tight" dir="ltr">{`class Customer(models.Model):
-    name = models.CharField(max_length=200)
-    phone = models.CharField(max_length=15, unique=True)
-    balance = models.BigIntegerField(default=0) # Debt or Credit
-
-class LedgerTransaction(models.Model):
-    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
-    amount = models.BigIntegerField()
-    tx_type = models.CharField(choices=[('debt', 'Credit Sale'), ('payment', 'Cash Settlement')])
-    description = models.TextField()
-    date = models.DateTimeField(auto_now_add=True)`}</pre>
-                    </div>
-
-                    <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200">
-                      <h4 className="text-xs font-black text-slate-900 mb-2">Stock Adjustments & Audit Logs</h4>
-                      <pre className="text-[10px] text-slate-600 font-mono leading-tight" dir="ltr">{`class StockLog(models.Model):
-    product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    change_cartons = models.IntegerField()
-    change_boxes = models.IntegerField()
-    reason = models.CharField(max_length=100) # 'Sale', 'Purchase', 'Damage', 'Correction'
-    performed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    created_at = models.DateTimeField(auto_now_add=True)`}</pre>
-                    </div>
-
-                    <div className="bg-indigo-900 p-5 rounded-2xl shadow-xl">
-                      <h4 className="text-xs font-black text-emerald-400 mb-3 flex items-center gap-2">
-                        <Terminal className="w-4 h-4" />
-                        Frontend to Backend Integration Example
-                      </h4>
-                      <pre className="text-[10px] text-slate-300 font-mono leading-relaxed" dir="ltr">{`// Finalizing a sale and updating Django
-const finalizePosSale = async (receiptData) => {
-  const response = await fetch('/api/pos/finalize-receipt/', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(receiptData)
-  });
-  if (!response.ok) throw new Error('Backend Sync Failed');
-  return await response.json();
-};`}                </pre>
-                    </div>
-
-                    <div className="p-4 bg-indigo-50 border border-indigo-100 rounded-2xl">
-                      <div className="flex items-center gap-2 mb-2">
-                        <CreditCard className="w-4 h-4 text-indigo-600" />
-                        <h4 className="text-xs font-black text-indigo-900">اتصال به دستگاه کارتخوان (POS)</h4>
-                      </div>
-                      <p className="text-[11px] text-slate-600 leading-relaxed">
-                        برای ثبت شماره پیگیری تراکنش (Terminal Ref)، مدل PosReceipt فیلد `terminal_ref` را دارد. در اپلیکیشن صندوق، پس از تایید تراکنش بانکی، این کد در فاکتور ذخیره و به سمت سرور ارسال می‌شود.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Category 3: URLs & Global Integration */}
-                  <div className="xl:col-span-2 space-y-4 pt-4 border-t border-slate-100">
-                    <div className="flex items-center gap-2 text-emerald-700">
-                      <RefreshCw className="w-5 h-5" />
-                      <h3 className="text-base font-black">۳. مسیرها و یکپارچه‌سازی نهایی (URL Routing)</h3>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div className="bg-slate-900 p-4 rounded-2xl font-mono text-[11px] text-emerald-300" dir="ltr">
-                        <span className="text-slate-500 block mb-2"># urls.py (Global)</span>
-                        {`urlpatterns = [
-    path('api/v1/pos/', include('azarakhsh.urls')),
-    path('api/v1/auth/', include('accounts.urls')),
-]`}
-                      </div>
-                      <div className="bg-slate-900 p-4 rounded-2xl font-mono text-[11px] text-emerald-300" dir="ltr">
-                        <span className="text-slate-500 block mb-2"># azarakhsh/urls.py</span>
-                        {`router = DefaultRouter()
-router.register('products', ProductViewSet)
-router.register('receipts', PosReceiptViewSet)
-urlpatterns = router.urls`}
-                      </div>
-                      <div className="bg-indigo-900 p-4 rounded-2xl font-mono text-[11px] text-indigo-100" dir="ltr">
-                        <span className="text-indigo-300 block mb-2"># Sync Logic (Frontend)</span>
-                        {`// Sync offline data
-async function sync() {
-  const local = getLocalReceipts();
-  await axios.post('/api/pos/sync/', local);
-}`}
-                      </div>
-                    </div>
-                  </div>
-
-                </div>
-
-                <div className="bg-amber-50 border border-amber-200 p-4 rounded-2xl flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div className="text-xs text-amber-800 leading-relaxed">
-                    <strong>نکته امنیتی:</strong> تمامی API‌های بخش صندوق باید با استفاده از JWT Token و سطح دسترسی IsAuthenticated محافظت شوند. کدهای بالا نمونه‌های پایه جهت پیاده‌سازی مدل‌های دیتابیس در جنگو می‌باشند.
-                  </div>
-                </div>
-              </div>
+              <MonthlySalesComparisonView receiptsList={receiptsList} />
             </motion.div>
           )}
+
 
         </AnimatePresence>
       </main>
@@ -2859,7 +3505,7 @@ async function sync() {
               <div>
                 <h4 className="text-xs font-bold text-slate-900">{selectedProductForAdjustment.nameFa}</h4>
                 <p className="text-[11px] text-indigo-600 font-mono mt-0.5">
-                  موجودی فعلی: {formatNumberFa(selectedProductForAdjustment.stockCartons)} کارتن ({formatNumberFa(selectedProductForAdjustment.stockCartons * (selectedProductForAdjustment.boxesPerCarton || 50))} باکس)
+                  موجودی فعلی: {selectedProductForAdjustment.category === 'drinks_coffee' ? formatNumberFa(selectedProductForAdjustment.stockCartons) + ' عدد' : formatNumberFa(selectedProductForAdjustment.stockCartons) + ' کارتن (' + formatNumberFa(selectedProductForAdjustment.stockCartons * (selectedProductForAdjustment.boxesPerCarton || 50)) + ' باکس)'}
                 </p>
               </div>
             </div>
@@ -3126,20 +3772,32 @@ async function sync() {
         </div>
       )}
 
-      {/* New Customer Modal */}
+      {/* New / Edit Customer Modal */}
       {showNewCustomerModal && (
         <div 
           className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4" 
           dir="rtl"
-          onClick={() => setShowNewCustomerModal(false)}
+          onClick={() => {
+            setShowNewCustomerModal(false);
+            setEditingCustomer(null);
+          }}
         >
           <div 
             className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-black text-slate-900">تعریف مشتری دفتری جدید</h3>
-              <button onClick={() => setShowNewCustomerModal(false)} className="text-slate-400 hover:text-slate-900">
+            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                <Users className="w-4 h-4 text-indigo-600" />
+                <span>{editingCustomer ? 'ویرایش مشخصات طرف حساب دفتری' : 'تعریف مشتری دفتری جدید'}</span>
+              </h3>
+              <button 
+                onClick={() => {
+                  setShowNewCustomerModal(false);
+                  setEditingCustomer(null);
+                }} 
+                className="text-slate-400 hover:text-slate-900"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
@@ -3151,44 +3809,251 @@ async function sync() {
                   type="text"
                   value={newCustName}
                   onChange={(e) => setNewCustName(e.target.value)}
-                  placeholder="مثال: فروشگاه سیگار ملل"
+                  placeholder="مثال: فروشگاه سیگار و توتون ملل (حسینی)"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-bold"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">شماره همراه:</label>
+                  <input
+                    type="tel"
+                    dir="ltr"
+                    value={newCustPhone}
+                    onChange={(e) => setNewCustPhone(e.target.value)}
+                    placeholder="0912..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">شهر / منطقه:</label>
+                  <input
+                    type="text"
+                    value={newCustCity}
+                    onChange={(e) => setNewCustCity(e.target.value)}
+                    placeholder="تهران / کرج..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-bold"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">آدرس فروشگاه / محل تحویل:</label>
+                <textarea
+                  rows={2}
+                  value={newCustAddress}
+                  onChange={(e) => setNewCustAddress(e.target.value)}
+                  placeholder="خیابان، پلاک، طبقه یا نشانی دقیق مغازه..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 resize-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">یادداشت / سقف اعتبار:</label>
+                <input
+                  type="text"
+                  value={newCustNotes}
+                  onChange={(e) => setNewCustNotes(e.target.value)}
+                  placeholder="مثال: تسویه هفتگی، سقف اعتبار ۲۰ میلیون تومان"
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">شماره همراه:</label>
-                <input
-                  type="tel"
-                  dir="ltr"
-                  value={newCustPhone}
-                  onChange={(e) => setNewCustPhone(e.target.value)}
-                  placeholder="0912..."
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-indigo-500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-600 mb-1">مانده بدهی اولیه (تومان):</label>
+                <label className="block text-xs font-bold text-slate-600 mb-1">
+                  {editingCustomer ? 'مانده بدهی فعلی (تومان):' : 'مانده بدهی اولیه افتتاح حساب (تومان):'}
+                </label>
                 <input
                   type="number"
                   value={newCustInitialBalance || ''}
                   onChange={(e) => setNewCustInitialBalance(Number(e.target.value) || 0)}
-                  placeholder="۰"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-indigo-500"
+                  placeholder="۰ (مثبت = بدهکار، منفی = بستانکار)"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-indigo-500 font-bold"
                 />
+                <span className="text-[10px] text-slate-400 mt-1 block">
+                  عدد مثبت یعنی مشتری بدهکار است؛ عدد منفی به معنی بستانکاری مشتری است.
+                </span>
               </div>
 
               <button
-                onClick={handleCreateNewCustomer}
+                onClick={editingCustomer ? handleSaveEditCustomer : handleCreateNewCustomer}
                 className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black shadow-lg transition-colors mt-2"
               >
-                ثبت مشتری در حساب‌های دفتری
+                {editingCustomer ? 'ذخیره تغییرات مشخصات مشتری' : 'ثبت مشتری در حساب‌های دفتری'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* Customer Account Statement & Transaction History Modal */}
+      {customerHistoryModalCust && (() => {
+        const cust = customerHistoryModalCust;
+        const custTransactions = ledgerTransactions.filter(tx => tx.customerId === cust.id);
+        const custReceipts = receiptsList.filter(
+          r => r.customerName === cust.name || (r.customerPhone && cust.phone && r.customerPhone === cust.phone)
+        );
+
+        return (
+          <div 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" 
+            dir="rtl"
+            onClick={() => setCustomerHistoryModalCust(null)}
+          >
+            <div 
+              className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full p-6 shadow-2xl my-8 space-y-5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-700 font-black">
+                    <History className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black text-slate-900">{cust.name}</h3>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      صورت‌حساب مالی، گردش بدهی و واریزی‌ها • تاریخ افتتاح: {cust.createdAt}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setCustomerHistoryModalCust(null)}
+                  className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Customer Info Card */}
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200 grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px]">وضعیت مانده حساب:</span>
+                  <span className={`font-black text-sm font-mono mt-0.5 block ${
+                    cust.balance > 0 ? 'text-rose-600' : cust.balance < 0 ? 'text-emerald-600' : 'text-slate-700'
+                  }`}>
+                    {cust.balance > 0 ? `بدهکار: ${formatToman(cust.balance)}` : cust.balance < 0 ? `بستانکار: ${formatToman(Math.abs(cust.balance))}` : 'تسویه کامل'}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">تلفن تماس:</span>
+                  <span className="font-bold text-slate-800 font-mono block mt-0.5" dir="ltr">{cust.phone}</span>
+                </div>
+                <div>
+                  <span className="text-slate-400 block text-[10px]">شهر / منطقه:</span>
+                  <span className="font-bold text-slate-800 block mt-0.5">{cust.city || '-'}</span>
+                </div>
+                {cust.address && (
+                  <div className="col-span-2 sm:col-span-3">
+                    <span className="text-slate-400 block text-[10px]">آدرس:</span>
+                    <span className="font-bold text-slate-700 block mt-0.5">{cust.address}</span>
+                  </div>
+                )}
+                {cust.notes && (
+                  <div className="col-span-2 sm:col-span-3 bg-white p-2 rounded-xl border border-slate-200 text-[11px] text-slate-600">
+                    <strong>یادداشت دفتری:</strong> {cust.notes}
+                  </div>
+                )}
+              </div>
+
+              {/* Transactions List */}
+              <div>
+                <h4 className="text-xs font-black text-slate-900 mb-2.5 flex items-center justify-between">
+                  <span>ریز گردش بدهکاری‌ها و واریزی‌های دفتری</span>
+                  <span className="text-slate-400 font-mono font-normal text-[11px]">
+                    {custTransactions.length} تراکنش ثبت شده
+                  </span>
+                </h4>
+
+                <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  {custTransactions.length === 0 ? (
+                    <div className="py-6 text-center text-slate-400 text-xs bg-slate-50 rounded-xl">
+                      تراکنشی برای این مشتری ثبت نشده است
+                    </div>
+                  ) : (
+                    custTransactions.map(tx => (
+                      <div 
+                        key={tx.id}
+                        className="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <span className="font-bold text-slate-900 block">{tx.description}</span>
+                          <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">{tx.date}</span>
+                        </div>
+                        <span className={`font-mono font-black text-sm ${
+                          tx.type === 'debit' ? 'text-rose-600' : 'text-emerald-600'
+                        }`}>
+                          {tx.type === 'debit' ? `+${formatToman(tx.amount)} (بدهکاری)` : `-${formatToman(tx.amount)} (واریزی)`}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Recent Invoices of this Customer */}
+              {custReceipts.length > 0 && (
+                <div className="pt-3 border-t border-slate-100">
+                  <h4 className="text-xs font-black text-slate-900 mb-2">فاکتورهای صادر شده در صندوق</h4>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                    {custReceipts.map(rcpt => (
+                      <div 
+                        key={rcpt.id}
+                        className="bg-slate-50 border border-slate-200/80 px-3 py-2 rounded-xl flex items-center justify-between text-xs"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-black text-indigo-600">{rcpt.receiptNumber}</span>
+                          <span className="text-[10px] text-slate-400">{rcpt.createdAt}</span>
+                          <span className="text-[10px] bg-white px-2 py-0.5 rounded border text-slate-600">
+                            {rcpt.paymentMethod === 'pos_terminal' ? 'کارتخوان' : rcpt.paymentMethod === 'cash' ? 'نقدی' : rcpt.paymentMethod === 'ledger' ? 'نسیه دفتری' : 'ترکیبی'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-slate-900">{formatToman(rcpt.finalTotal)}</span>
+                          <button
+                            onClick={() => {
+                              setCustomerHistoryModalCust(null);
+                              setActiveReceiptToPrint(rcpt);
+                            }}
+                            className="p-1 text-slate-400 hover:text-indigo-600"
+                            title="مشاهده و چاپ فاکتور"
+                          >
+                            <Printer className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Modal Actions */}
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  onClick={() => {
+                    const custToPay = cust;
+                    setCustomerHistoryModalCust(null);
+                    setSelectedCustomerForPayment(custToPay);
+                    setPaymentAmount(Math.abs(custToPay.balance));
+                    setPaymentType(custToPay.balance >= 0 ? 'credit' : 'debit');
+                  }}
+                  className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-colors"
+                >
+                  ثبت دریافت / پرداخت تسویه
+                </button>
+                <button
+                  onClick={() => setCustomerHistoryModalCust(null)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                >
+                  بستن
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Customer Record Payment Modal */}
       {selectedCustomerForPayment && (
@@ -3271,7 +4136,7 @@ async function sync() {
           <motion.div 
             initial={{ opacity: 0, scale: 0.9, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white border border-slate-200 rounded-[40px] max-w-sm w-full p-6 shadow-2xl flex flex-col"
+            className="bg-white border border-slate-200 rounded-[40px] max-w-xl w-full p-6 shadow-2xl flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             
@@ -3293,50 +4158,51 @@ async function sync() {
             `}</style>
             <div 
               id="thermal-receipt" 
-              className="bg-white text-black p-4 mx-auto font-mono text-xs border border-slate-200 relative"
+              className="bg-white text-slate-900 p-5 mx-auto text-xs border border-slate-200 rounded-2xl relative"
               style={{ 
-                width: '320px', 
-                boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
-                filter: 'grayscale(100%)'
+                width: '340px', 
+                boxShadow: '0 10px 25px -5px rgba(0,0,0,0.08)',
               }}
             >
-              <div className="text-center border-b-[1.5px] border-dashed border-black pb-3 mb-3">
-                <div className="font-black text-lg text-black mb-1">پخش سیگار سوین</div>
-                <div className="text-[11px] text-black/80 font-bold">فاکتور فروش و رسید فیش حرارتی</div>
-                <div className="text-[10px] text-black/70 mt-1">پشتیبانی انبار: ۰۹۱۲۰۷۵۹۴۱۹</div>
+              <div className="text-center border-b-2 border-slate-900 pb-3 mb-3">
+                <div className="font-black text-lg text-slate-900 mb-1">فروشگاه و پخش سوین</div>
+                <div className="inline-block text-[11px] text-slate-800 font-bold bg-slate-100 px-2.5 py-0.5 rounded border border-slate-300">
+                  فاکتور رسمی فروش و تحویل کالا
+                </div>
+                <div className="text-[10px] text-slate-600 mt-1.5 font-medium">پشتیبانی و سفارشات: ۰۹۱۲۰۷۵۹۴۱۹</div>
               </div>
 
-              <div className="space-y-1 text-[11px] border-b-[1.5px] border-dashed border-black pb-3 mb-3 text-black font-bold">
-                <div className="flex justify-between">
-                  <span>شماره فیش:</span>
-                  <span className="font-black">{activeReceiptToPrint.receiptNumber}</span>
+              <div className="space-y-1.5 text-[11px] bg-slate-50 border border-slate-200 rounded-lg p-2.5 mb-3 text-slate-800 font-medium">
+                <div className="flex justify-between items-center">
+                  <span>شماره فاکتور:</span>
+                  <span className="font-mono font-black text-slate-900">{activeReceiptToPrint.receiptNumber}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span>تاریخ:</span>
-                  <span>{activeReceiptToPrint.createdAt}</span>
+                <div className="flex justify-between items-center">
+                  <span>تاریخ ثبت:</span>
+                  <span className="font-bold text-slate-700">{activeReceiptToPrint.createdAt}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className="flex justify-between items-center">
                   <span>خریدار:</span>
-                  <span>{activeReceiptToPrint.customerName || 'مشتری حضوری'}</span>
+                  <span className="font-bold text-slate-900">{activeReceiptToPrint.customerName || 'مشتری حضوری فروشگاه'}</span>
                 </div>
               </div>
 
               {/* Items */}
-              <div className="border-b-[1.5px] border-dashed border-black pb-3 mb-3">
-                <table className="w-full table-fixed text-right text-[11px] text-black font-bold">
+              <div className="border-b-2 border-slate-900 pb-3 mb-3">
+                <table className="w-full table-fixed text-right text-[11px] text-slate-800 font-semibold">
                   <thead>
-                    <tr className="border-b border-black/30">
-                      <th className="pb-1 text-right w-[45%]">شرح کالا</th>
-                      <th className="pb-1 text-center w-[25%]">تعداد</th>
-                      <th className="pb-1 text-left w-[30%]">مبلغ</th>
+                    <tr className="border-b border-slate-300 bg-slate-100/70 text-slate-900">
+                      <th className="py-1.5 px-1 text-right w-[46%] font-black">شرح کالا</th>
+                      <th className="py-1.5 px-1 text-center w-[24%] font-black">تعداد</th>
+                      <th className="py-1.5 px-1 text-left w-[30%] font-black">مبلغ (تومان)</th>
                     </tr>
                   </thead>
                   <tbody>
                     {activeReceiptToPrint.items.map((it, idx) => (
-                      <tr key={idx} className="border-b border-black/10">
-                        <td className="py-1 pl-1 leading-tight text-right">{it.product.nameFa}</td>
-                        <td className="py-1 text-center font-black whitespace-nowrap">{it.quantity} {it.unit === 'carton' ? 'کارتن' : it.unit === 'box' ? 'باکس' : 'پاکت'}</td>
-                        <td className="py-1 text-left font-black whitespace-nowrap">{formatNumberFa(it.totalPrice)}</td>
+                      <tr key={idx} className="border-b border-slate-100">
+                        <td className="py-1.5 px-1 leading-tight text-right text-slate-900 font-bold">{it.product.nameFa}</td>
+                        <td className="py-1.5 px-1 text-center font-bold text-slate-700 whitespace-nowrap">{formatNumberFa(it.quantity)} {it.unit === 'carton' ? 'کارتن' : it.unit === 'box' ? 'باکس' : 'پاکت'}</td>
+                        <td className="py-1.5 px-1 text-left font-black text-slate-900 whitespace-nowrap">{formatNumberFa(it.totalPrice)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -3344,33 +4210,43 @@ async function sync() {
               </div>
 
               {/* Financial Breakdown */}
-              <div className="space-y-1.5 text-[11px] text-black font-bold">
-                <div className="flex justify-between">
-                  <span>جمع کل فاکتور:</span>
-                  <span>{formatToman(activeReceiptToPrint.subtotal)}</span>
+              <div className="space-y-2 text-[11px] bg-slate-50 border border-slate-300 rounded-xl p-3 text-slate-800">
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-slate-600">جمع کل اقلام:</span>
+                  <span className="font-bold text-slate-900">{formatToman(activeReceiptToPrint.subtotal)}</span>
                 </div>
                 {activeReceiptToPrint.discountAmount > 0 && (
-                  <div className="flex justify-between">
-                    <span>تخفیف:</span>
+                  <div className="flex justify-between items-center text-emerald-700 font-bold">
+                    <span>تخفیف اعطایی:</span>
                     <span>-{formatToman(activeReceiptToPrint.discountAmount)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-sm font-black text-black pt-2 mt-2 border-t-[1.5px] border-dashed border-black">
-                  <span>مبلغ پرداختی:</span>
-                  <span>{formatToman(activeReceiptToPrint.finalTotal)}</span>
+                <div className="flex justify-between items-center text-xs font-black text-slate-900 pt-2 border-t-2 border-dashed border-slate-400">
+                  <span className="text-slate-950">مبلغ نهایی پرداختی:</span>
+                  <span className="text-sm font-black text-slate-950">{formatToman(activeReceiptToPrint.finalTotal)}</span>
                 </div>
-                <div className="flex justify-between text-[10px] text-black/70 pt-2">
+                <div className="flex justify-between items-center text-[10px] text-slate-600 pt-1.5 border-t border-slate-200">
                   <span>روش تسویه:</span>
-                  <span>{activeReceiptToPrint.paymentMethod === 'pos_terminal' ? 'کارتخوان' : activeReceiptToPrint.paymentMethod === 'cash' ? 'نقدی' : 'حساب دفتری (نسیه)'}</span>
+                  <span className="font-bold text-indigo-900">
+                    {activeReceiptToPrint.paymentMethod === 'pos_terminal' 
+                      ? 'کارتخوان بانکی' 
+                      : activeReceiptToPrint.paymentMethod === 'cash' 
+                        ? 'پرداخت نقدی' 
+                        : activeReceiptToPrint.paymentMethod === 'ledger'
+                          ? 'حساب دفتری (نسیه)'
+                          : activeReceiptToPrint.paymentMethod === 'usd' || activeReceiptToPrint.paymentMethod === 'eur'
+                            ? `پرداخت ارزی (${activeReceiptToPrint.foreignCurrencyDetails?.currency}): ${activeReceiptToPrint.foreignCurrencyDetails?.amount} (نرخ: ${formatNumberFa(activeReceiptToPrint.foreignCurrencyDetails?.rate || 0)})`
+                            : `ترکیبی (${activeReceiptToPrint.splitPaymentDetails ? `پرداخت: ${formatToman(activeReceiptToPrint.splitPaymentDetails.paidNow)} / دفتری: ${formatToman(activeReceiptToPrint.splitPaymentDetails.remainingToLedger)}` : 'نقد + نسیه'})`}
+                  </span>
                 </div>
               </div>
 
-              <div className="text-center pt-4 mt-4 border-t-[1.5px] border-dashed border-black text-[10px] font-bold text-black/80">
-                <p>با سپاس از خرید شما از پخش سوین</p>
-                <div className="mt-3 font-mono text-xl tracking-[0.2em] opacity-80">
+              <div className="text-center pt-3 mt-3 border-t border-dashed border-slate-300 text-[10px] font-bold text-slate-600">
+                <p>با سپاس از خرید و حسن اعتماد شما</p>
+                <div className="mt-2 font-mono text-base tracking-[0.25em] text-slate-800 font-black">
                   |||||||||||||||||||||
                 </div>
-                <div className="text-[8px] mt-1 tracking-widest">{activeReceiptToPrint.receiptNumber}</div>
+                <div className="text-[9px] mt-0.5 tracking-wider font-mono text-slate-500">{activeReceiptToPrint.receiptNumber}</div>
               </div>
 
             </div>
@@ -3379,23 +4255,23 @@ async function sync() {
             <div className="mt-6 flex flex-col gap-3 print:hidden">
               <button
                 onClick={() => handleDownloadThermalPdf(activeReceiptToPrint)}
-                className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all"
+                className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-[0.98] transition-all cursor-pointer"
               >
                 <Download className="w-5 h-5" />
-                <span>دانلود فایل PDF فاکتور</span>
+                <span>دانلود فایل PDF فاکتور رسمی</span>
               </button>
               
               <button
                 onClick={handlePrintReceipt}
-                className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-[0.98] transition-all"
+                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-black flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 active:scale-[0.98] transition-all cursor-pointer"
               >
                 <Printer className="w-5 h-5" />
-                <span>چاپ مستقیم (فیش حرارتی)</span>
+                <span>چاپ مستقیم فاکتور فروش</span>
               </button>
               
               <button
                 onClick={() => setActiveReceiptToPrint(null)}
-                className="w-full py-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-sm font-black active:scale-[0.98] transition-all"
+                className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-sm font-black active:scale-[0.98] transition-all cursor-pointer"
               >
                 بستن و بازگشت به صندوق
               </button>
@@ -3522,11 +4398,11 @@ async function sync() {
               {/* Modal Footer */}
               <div className="flex items-center justify-between pt-3 border-t border-slate-100">
                 <button
-                  onClick={() => window.print()}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm hover:bg-indigo-700"
+                  onClick={() => generateDailyReportPdf(dayData)}
+                  className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all"
                 >
-                  <Printer className="w-4 h-4" />
-                  <span>چاپ خلاصه گزارش روزانه</span>
+                  <Download className="w-4 h-4" />
+                  <span>دانلود PDF گزارش روزانه</span>
                 </button>
 
                 <button
@@ -3667,11 +4543,15 @@ async function sync() {
 
       {/* Product Insights Modal */}
       {showInsightsModal && selectedProductForInsights && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm"
+          onClick={() => setShowInsightsModal(false)}
+        >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             className="bg-white w-full max-w-2xl rounded-[32px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-white">
               <div className="flex items-center gap-4">
@@ -3774,6 +4654,120 @@ async function sync() {
             </div>
           </motion.div>
         </div>
+      )}
+
+      {/* Staff & Access Permissions Management Modal */}
+      {showStaffModal && (
+        <StaffAccessManagerModal
+          staffList={staffList}
+          currentStaff={currentStaff}
+          onUpdateStaffList={setStaffList}
+          onSwitchCurrentStaff={setCurrentStaff}
+          onClose={() => setShowStaffModal(false)}
+        />
+      )}
+
+      {/* Currency Rate Settings Modal */}
+      {showCurrencyRateModal && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm"
+          onClick={() => setShowCurrencyRateModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white border border-slate-200 rounded-[28px] max-w-md w-full p-6 shadow-2xl space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-md">
+                  <Coins className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">
+                    تنظیم نرخ ارز (دلار و یورو)
+                  </h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    تعیین نرخ مبادله‌ای ارز برای تسویه فاکتورها
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowCurrencyRateModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1.5">
+                  نرخ دلار آمریکا (USD به تومان)
+                </label>
+                <input
+                  type="number"
+                  defaultValue={usdRate}
+                  id="modal_usd_rate"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm font-bold"
+                  placeholder="مثال: 71500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-black text-slate-700 mb-1.5">
+                  نرخ یورو اروپا (EUR به تومان)
+                </label>
+                <input
+                  type="number"
+                  defaultValue={eurRate}
+                  id="modal_eur_rate"
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm font-bold"
+                  placeholder="مثال: 76000"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                onClick={() => setShowCurrencyRateModal(false)}
+                className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors"
+              >
+                انصراف
+              </button>
+              <button
+                onClick={() => {
+                  const uInput = (document.getElementById('modal_usd_rate') as HTMLInputElement)?.value;
+                  const eInput = (document.getElementById('modal_eur_rate') as HTMLInputElement)?.value;
+                  const newU = Number(uInput) || usdRate;
+                  const newE = Number(eInput) || eurRate;
+                  handleSaveCurrencyRates(newU, newE);
+                }}
+                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
+              >
+                ذخیره تنظیمات نرخ
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Customer App & Live Cloud Database Connect Modal */}
+      {showCustomerAppModal && (
+        <CustomerAppConnectModal
+          customers={posCustomers}
+          receiptsList={receiptsList}
+          products={productsList}
+          onClose={() => setShowCustomerAppModal(false)}
+          onAddInPersonPickupReceipt={(newRcpt) => {
+            setReceiptsList(prev => [newRcpt, ...prev]);
+            try {
+              const current = JSON.parse(localStorage.getItem('pos_receipts_history') || '[]');
+              localStorage.setItem('pos_receipts_history', JSON.stringify([newRcpt, ...current]));
+            } catch {}
+          }}
+        />
       )}
 
     </div>

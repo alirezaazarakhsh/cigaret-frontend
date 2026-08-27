@@ -57,7 +57,7 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
   };
 
   return (
-    <section className="py-8 px-4 max-w-7xl mx-auto" id="contact-section">
+    <section className="py-8 px-4 sm:px-6 max-w-[1600px] w-full mx-auto" id="contact-section">
       
       {/* Header Banner */}
       <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs mb-8">

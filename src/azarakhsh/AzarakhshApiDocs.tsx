@@ -19,6 +19,12 @@ import { DjangoConfigDocs } from './DjangoConfigDocs';
 import { SiteSettingsDocs } from './SiteSettingsDocs';
 import { SliderDocs } from './SliderDocs';
 import { PosDocs } from './PosDocs';
+import { PosProductsDocs } from './PosProductsDocs';
+import { WarehouseStockDocs } from './WarehouseStockDocs';
+import { LedgerDocs } from './LedgerDocs';
+import { ReportsDocs } from './ReportsDocs';
+import { RolesPermissionsDocs } from './RolesPermissionsDocs';
+import { KavenegarSmsDocs } from './KavenegarSmsDocs';
 import { SwaggerRedocDocs } from './SwaggerRedocDocs';
 import { AuthUsersDocs } from './AuthUsersDocs';
 import { CategoriesDocs } from './CategoriesDocs';
@@ -28,6 +34,10 @@ import { ShippingDocs } from './ShippingDocs';
 import { BlogTinyMceDocs } from './BlogTinyMceDocs';
 import { TicketsSupportDocs } from './TicketsSupportDocs';
 import { VisitorsDocs } from './VisitorsDocs';
+import { WarehouseContactDocs } from './WarehouseContactDocs';
+import { RegularCustomersDocs } from './RegularCustomersDocs';
+import { FooterDocs } from './FooterDocs';
+import { NotificationsDocs } from './NotificationsDocs';
 
 interface AzarakhshApiDocsProps {
   onReturnToApp?: () => void;
@@ -196,6 +206,26 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
         return <VisitorsDocs />;
       case 'pos':
         return <PosDocs />;
+      case 'pos-products':
+        return <PosProductsDocs />;
+      case 'warehouse-stock':
+        return <WarehouseStockDocs />;
+      case 'ledger':
+        return <LedgerDocs />;
+      case 'reports':
+        return <ReportsDocs />;
+      case 'roles-permissions':
+        return <RolesPermissionsDocs />;
+      case 'sms':
+        return <KavenegarSmsDocs />;
+      case 'warehouse-contact':
+        return <WarehouseContactDocs />;
+      case 'regular-customers':
+        return <RegularCustomersDocs />;
+      case 'footer-settings':
+        return <FooterDocs />;
+      case 'notifications':
+        return <NotificationsDocs />;
       default:
         return <ZeroToHeroDocs />;
     }
