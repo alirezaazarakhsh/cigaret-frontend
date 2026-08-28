@@ -404,19 +404,225 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
       fontEmbedCSS: '',
     });
 
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
-    pdf.save(`پیش_فاکتور_${config.companyName}_${invoice.orderId}.pdf`);
-    return true;
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297);
+      pdf.save(`پیش_فاکتور_${config.companyName}_${invoice.orderId}.pdf`);
+      return true;
+    } catch (saveErr) {
+      console.warn('PDF save issue, falling back to downloadable printable file:', saveErr);
+      fallbackDownloadInvoice(invoice, config);
+      return true;
+    }
   } catch (error) {
-    console.error('Error generating Invoice PDF:', error);
-    window.print();
-    return false;
+    console.error('Error generating Invoice PDF image, downloading printable document:', error);
+    fallbackDownloadInvoice(invoice, config);
+    return true;
   } finally {
     if (document.body.contains(printContainer)) {
       document.body.removeChild(printContainer);
     }
   }
+}
+
+/**
+ * Universal fallback: Generates and downloads a self-contained, high-resolution printable HTML/PDF document.
+ */
+function fallbackDownloadInvoice(invoice: OrderInvoice, config: any) {
+  const trackingCode = invoice.trackingCode || invoice.orderId;
+  const printableHtml = `<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <title>پیش‌فاکتور رسمی ${invoice.orderId} - پخش دخانیات ${config.companyName}</title>
+  <style>
+    @page { size: A4 portrait; margin: 10mm; }
+    * { box-sizing: border-box; }
+    body {
+      font-family: Tahoma, 'Vazirmatn', -apple-system, sans-serif;
+      background: #f8fafc;
+      color: #0f172a;
+      margin: 0;
+      padding: 20px;
+      direction: rtl;
+    }
+    .invoice-card {
+      background: #ffffff;
+      border: 2px solid #1d4ed8;
+      border-radius: 12px;
+      padding: 24px;
+      max-width: 800px;
+      margin: 0 auto;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    .header-table td { vertical-align: top; }
+    .title { font-size: 18px; font-weight: 900; color: #1e3a8a; }
+    .subtitle { font-size: 12px; color: #475569; font-weight: bold; margin-top: 4px; }
+    .cred-bar { background: #0f172a; color: #ffffff; padding: 8px 12px; border-radius: 8px; font-size: 11px; margin: 16px 0; }
+    .info-box { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 12px; font-size: 12px; margin-bottom: 16px; }
+    .items-table { font-size: 12px; margin-bottom: 16px; }
+    .items-table th { background: #1d4ed8; color: #ffffff; padding: 10px 8px; border: 1px solid #1d4ed8; }
+    .items-table td { padding: 8px; border: 1px solid #e2e8f0; }
+    .totals-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px; }
+    .totals-box td { padding: 8px 12px; }
+    .grand-total { font-weight: 900; color: #1d4ed8; font-size: 14px; background: #dbeafe; }
+    .footer-terms { font-size: 11px; color: #475569; line-height: 1.8; }
+    .signatures { margin-top: 24px; border-top: 1px dashed #cbd5e1; padding-top: 16px; font-size: 12px; text-align: center; }
+    .print-btn {
+      display: block;
+      width: 100%;
+      max-width: 800px;
+      margin: 0 auto 16px auto;
+      padding: 12px;
+      background: #1d4ed8;
+      color: #fff;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    @media print {
+      .print-btn { display: none !important; }
+      body { padding: 0; background: #fff; }
+      .invoice-card { box-shadow: none; border: 1px solid #000; }
+    }
+  </style>
+</head>
+<body>
+  <button class="print-btn" onclick="window.print()">🖨️ چاپ یا ذخیره PDF پیش‌فاکتور (کلیک کنید)</button>
+  <div class="invoice-card">
+    <table class="header-table">
+      <tr>
+        <td style="text-align: right;">
+          <div class="title">صورتحساب فروش کالا و خدمات (پیش‌فاکتور رسمی)</div>
+          <div class="subtitle">سامانه پخش سراسری دخانیات ${config.companyName}</div>
+          <div style="font-size: 11px; margin-top: 4px; color: #334155;">تلفن ترابری و تدارکات: <strong dir="ltr">${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>
+        </td>
+        <td style="text-align: left; width: 220px; font-size: 12px; line-height: 1.8;">
+          <div><strong>شماره فاکتور:</strong> ${invoice.orderId}</div>
+          <div><strong>کد رهگیری:</strong> ${trackingCode}</div>
+          <div><strong>تاریخ صدور:</strong> ${invoice.createdAt}</div>
+          <div><strong>وضعیت:</strong> ${invoice.paymentStatus}</div>
+        </td>
+      </tr>
+    </table>
+
+    <div class="cred-bar">
+      <span>شناسه ملی: <strong>${config.nationalIdCompany || '۱۰۱۰۳۸۵۲۹۱۰'}</strong></span> &nbsp;|&nbsp;
+      <span>کد اقتصادی: <strong>${config.economicCodeCompany || '۴۱۱۴۹۸۷۵۳۱۱۹'}</strong></span> &nbsp;|&nbsp;
+      <span>نوع فعالیت: <strong>${config.activityTypeCompany || 'پخش عمده دخانیات'}</strong></span>
+    </div>
+
+    <div class="info-box">
+      <table>
+        <tr>
+          <td style="width: 50%; vertical-align: top; line-height: 1.8;">
+            <div><strong>خریدار / بنکدار:</strong> ${invoice.customer.shopOwnerName}</div>
+            <div><strong>نام فروشگاه:</strong> ${invoice.customer.shopName || '—'}</div>
+            <div><strong>شماره تماس:</strong> <span dir="ltr">${invoice.customer.shopPhone}</span></div>
+          </td>
+          <td style="width: 50%; vertical-align: top; line-height: 1.8;">
+            <div><strong>شهر مقصد:</strong> ${invoice.customer.city}</div>
+            <div><strong>روش ارسال:</strong> ${invoice.customer.shippingMethod}</div>
+            <div><strong>آدرس:</strong> ${invoice.customer.address}</div>
+          </td>
+        </tr>
+      </table>
+    </div>
+
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th style="width: 6%;">ردیف</th>
+          <th style="text-align: right; width: 40%;">شرح کالا و برند</th>
+          <th style="width: 14%;">واحد</th>
+          <th style="width: 10%;">تعداد</th>
+          <th style="width: 15%; text-align: left;">نرخ واحد (تومان)</th>
+          <th style="width: 15%; text-align: left;">مبلغ کل (تومان)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${invoice.items.map((item, idx) => {
+          const unitPrice = item.unit === 'carton' ? item.product.cartonPrice : item.product.boxPrice;
+          const itemTotal = unitPrice * item.quantity;
+          return `
+            <tr>
+              <td style="text-align: center;">${idx + 1}</td>
+              <td><strong>${item.product.nameFa}</strong><div style="font-size: 10px; color: #64748b;">${item.product.brand} - ${item.product.origin}</div></td>
+              <td style="text-align: center;">${item.unit === 'carton' ? `کارتن (${item.product.boxesPerCarton} باکسی)` : 'باکس (۱۰ تایی)'}</td>
+              <td style="text-align: center; font-weight: bold;">${formatNumberFa(item.quantity)}</td>
+              <td style="text-align: left;">${formatToman(unitPrice)}</td>
+              <td style="text-align: left; font-weight: bold; color: #1d4ed8;">${formatToman(itemTotal)}</td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+    </table>
+
+    <table>
+      <tr>
+        <td class="footer-terms" style="vertical-align: top;">
+          <div style="font-weight: bold; color: #1e3a8a; margin-bottom: 4px;">قوانین و شرایط تحویل بار:</div>
+          <div>• کلیه بارها با بسته‌بندی پلمپ شرکتی و هولوگرام تضمین اصالت ارسال می‌گردد.</div>
+          <div>• تسویه فقط از طریق فیش واریز بانکی / حواله پایا و ساتنا انجام می‌پذیرد.</div>
+          <div>• هماهنگی ترابری و صدور بیجک: <strong>${config.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹'}</strong></div>
+        </td>
+        <td style="width: 280px; vertical-align: top;">
+          <table class="totals-box">
+            <tr>
+              <td>تعداد کارتن:</td>
+              <td style="text-align: left; font-weight: bold;">${formatNumberFa(invoice.totalCartons)} کارتن</td>
+            </tr>
+            <tr>
+              <td>جمع اقلام:</td>
+              <td style="text-align: left; font-weight: bold;">${formatToman(invoice.subtotal)}</td>
+            </tr>
+            ${invoice.discountAmount > 0 ? `
+              <tr>
+                <td style="color: #047857; font-weight: bold;">تخفیف تیراژ:</td>
+                <td style="text-align: left; color: #047857; font-weight: bold;">-${formatToman(invoice.discountAmount)}</td>
+              </tr>
+            ` : ''}
+            <tr>
+              <td>هزینه ارسال:</td>
+              <td style="text-align: left; font-weight: bold;">${invoice.shippingCost > 0 ? formatToman(invoice.shippingCost) : 'تحویل انبار (رایگان)'}</td>
+            </tr>
+            <tr class="grand-total">
+              <td>مبلغ نهایی:</td>
+              <td style="text-align: left;">${formatToman(invoice.finalTotal)}</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <table class="signatures">
+      <tr>
+        <td style="width: 50%;">
+          <strong>امضاء و مهر مدیریت پخش دخانیات ${config.companyName}</strong>
+          <div style="margin-top: 30px; color: #94a3b8;">...................................</div>
+        </td>
+        <td style="width: 50%;">
+          <strong>امضاء و تأیید خریدار / بنکدار</strong>
+          <div style="margin-top: 30px; color: #94a3b8;">...................................</div>
+        </td>
+      </tr>
+    </table>
+  </div>
+</body>
+</html>`;
+
+  const blob = new Blob([printableHtml], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `پیش_فاکتور_${config.companyName}_${invoice.orderId}.html`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
 }
 
 /**
@@ -465,7 +671,7 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
         <div style="font-size: 18px; font-weight: 900; color: #0f172a; margin-bottom: 4px; letter-spacing: -0.5px;">
           ${config.companyName ? `فروشگاه و بنکداری ${config.companyName}` : 'فروشگاه و پخش سراسری سوین'}
         </div>
-        <div style="display: inline-block; font-size: 11px; font-weight: 800; color: #1e293b; background: #f1f5f9; padding: 3px 12px; border-radius: 6px; margin-bottom: 4px; border: 1px solid #cbd5e1;">
+        <div style="display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 800; color: #1e293b; background: #f1f5f9; padding: 3px 14px; border-radius: 6px; margin-bottom: 4px; border: 1px solid #cbd5e1;">
           فاکتور رسمی فروش و تحویل کالا
         </div>
         <div style="font-size: 10px; color: #475569; margin-top: 4px;">

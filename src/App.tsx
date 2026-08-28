@@ -57,6 +57,7 @@ import { UserProfilePanel } from './components/UserProfilePanel';
 import { LivePriceTable } from './components/LivePriceTable';
 import { NotificationModal } from './components/NotificationModal';
 import { PwaInstallGuide } from './components/PwaInstallGuide';
+import { AppUpdateNotifier } from './components/AppUpdateNotifier';
 import { AccountingPosPanel } from './components/shopmanage/AccountingPosPanel';
 import { AzarakhshApiDocs } from './azarakhsh/AzarakhshApiDocs';
 import { HeroBannerSlider } from './components/HeroBannerSlider';
@@ -911,6 +912,9 @@ export default function App() {
         isOpenOnly={isPwaModalOpen} 
         onCloseModal={() => setIsPwaModalOpen(false)} 
       />
+
+      {/* Auto-update toast notifier for installed PWA & web users */}
+      <AppUpdateNotifier />
 
       {/* Products Mega Menu Modal */}
       <ProductsMegaMenu

@@ -3574,12 +3574,12 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       {/* Add New Product Modal */}
       {showAddProductModal && (
         <div 
-          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" 
+          className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto no-scrollbar" 
           dir="rtl"
           onClick={() => setShowAddProductModal(false)}
         >
           <div 
-            className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl my-8"
+            className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto modal-overscroll-contain"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
@@ -3898,12 +3898,12 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
         return (
           <div 
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto no-scrollbar" 
             dir="rtl"
             onClick={() => setCustomerHistoryModalCust(null)}
           >
             <div 
-              className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full p-6 shadow-2xl my-8 space-y-5"
+              className="bg-white border border-slate-200 rounded-3xl max-w-2xl w-full p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto modal-overscroll-contain space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
@@ -4166,7 +4166,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             >
               <div className="text-center border-b-2 border-slate-900 pb-3 mb-3">
                 <div className="font-black text-lg text-slate-900 mb-1">فروشگاه و پخش سوین</div>
-                <div className="inline-block text-[11px] text-slate-800 font-bold bg-slate-100 px-2.5 py-0.5 rounded border border-slate-300">
+                <div className="inline-block whitespace-nowrap text-[11px] text-slate-800 font-bold bg-slate-100 px-3 py-0.5 rounded border border-slate-300">
                   فاکتور رسمی فروش و تحویل کالا
                 </div>
                 <div className="text-[10px] text-slate-600 mt-1.5 font-medium">پشتیبانی و سفارشات: ۰۹۱۲۰۷۵۹۴۱۹</div>
@@ -4299,12 +4299,12 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
         return (
           <div 
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto no-scrollbar" 
             dir="rtl"
             onClick={() => setSelectedDateForDetailModal(null)}
           >
             <div 
-              className="bg-white border border-slate-200 rounded-3xl max-w-3xl w-full p-6 shadow-2xl my-8 space-y-5"
+              className="bg-white border border-slate-200 rounded-3xl max-w-3xl w-full p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto modal-overscroll-contain space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
               
@@ -4439,12 +4439,12 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
         return (
           <div 
-            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto" 
+            className="fixed inset-0 z-50 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto no-scrollbar" 
             dir="rtl"
             onClick={() => setSelectedMonthForDetailModal(null)}
           >
             <div 
-              className="bg-white border border-slate-200 rounded-3xl max-w-3xl w-full p-6 shadow-2xl my-8 space-y-5"
+              className="bg-white border border-slate-200 rounded-3xl max-w-3xl w-full p-6 shadow-2xl my-auto max-h-[90vh] overflow-y-auto modal-overscroll-contain space-y-5"
               onClick={(e) => e.stopPropagation()}
             >
               

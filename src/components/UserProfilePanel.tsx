@@ -1854,8 +1854,8 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
 
       {/* Order Details Modal */}
       {selectedOrderForDetails && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-2xl w-full space-y-4 shadow-2xl">
+        <div className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-2xl w-full space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto modal-overscroll-contain">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">

@@ -60,6 +60,58 @@ export type NavigationTab =
   | 'invoice'
   | 'chat-support';
 
+export type CustomerTierId = 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond_black';
+
+export interface CustomerTierConfig {
+  id: CustomerTierId;
+  nameFa: string;
+  badgeTitle: string;
+  cardTitle: string;
+  themeColor: string;
+  cardGradient: string;
+  cardBorder: string;
+  badgeBg: string;
+  badgeText: string;
+  textColor: string;
+  accentColor: string;
+  discountRate: number; // درصد تخفیف ویژه
+  defaultCreditLimit: number; // سقف اعتبار پیش‌فرض
+  description: string;
+}
+
+export interface BankDepositSlip {
+  id: string;
+  customerId: string;
+  customerName: string;
+  customerPhone: string;
+  purpose: 'settle_debt' | 'charge_wallet' | 'order_deposit';
+  orderId?: string;
+  amount: number;
+  trackingNumber: string; // شماره پیگیری / ارجاع فیش
+  bankOrigin?: string; // بانک مبدا
+  senderCardLast4?: string; // ۴ رقم آخر کارت واریزکننده
+  depositDate: string; // تاریخ واریز
+  depositTime?: string; // ساعت واریز
+  slipImage?: string; // تصویر بارگذاری شده فیش
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  notes?: string;
+  createdAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+}
+
+export interface WalletTransaction {
+  id: string;
+  customerId: string;
+  date: string;
+  amount: number;
+  type: 'deposit' | 'withdraw'; // شارژ یا کسر برای خرید
+  description: string;
+  relatedSlipId?: string;
+  relatedOrderId?: string;
+}
+
 export interface PosCustomer {
   id: string;
   name: string;
@@ -70,7 +122,10 @@ export interface PosCustomer {
   balance: number; // positive: owes us (بدهکار), negative: we owe them (بستانکار), 0: تسویه
   notes?: string; // یادداشت‌ها یا توضیحات اعتباری
   loyaltyPoints?: number; // امتیاز باشگاه مشتریان
-  creditLimit?: number; // سقف اعتبار نسیه
+  creditLimit?: number; // سقف اعتبار نسیه تعیین‌شده از دیتابیس توسط مدیریت
+  tierId?: CustomerTierId; // سطح کارت مشتری (برنز، نقره‌ای، طلایی، پلاتینیوم، الماس مشکی)
+  walletBalance?: number; // موجودی کیف پول الکترونیکی مشتری
+  customCardColor?: string; // رنگ یا گرادیانت سفارشی کارت
 }
 
 export type StaffRole = 'super_admin' | 'warehouse_manager' | 'cashier' | 'accountant';
@@ -179,6 +234,11 @@ export interface UserProfile {
   stampImage?: string; // تصویر مهر مشتری
   customerStamps?: Record<string, string>; // مهرهایی که ویزیتور برای مغازه‌داران خود ذخیره می‌کند (شناسه مغازه -> آدرس تصویر مهر)
   orderHistory?: OrderInvoice[];
+  
+  // کارت رتبه، کیف پول و سقف اعتبار خرید از دیتابیس
+  tierId?: CustomerTierId;
+  creditLimit?: number; // سقف اعتبار خرید دفتری (تومان)
+  walletBalance?: number; // موجودی کیف پول کاربر
 }
 
 export type CigaretteCategory = 

@@ -32,41 +32,49 @@
     font-family: 'Samim', sans-serif !important;
   }
 
-  /* Beautiful Modern Premium Scrollbars across the entire app */
+  /* Beautiful Modern Subtle Scrollbars across the entire app */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 6px;
+    height: 6px;
   }
 
   ::-webkit-scrollbar-track {
-    background: #f1f5f9;
+    background: transparent;
   }
 
   ::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
-    border-radius: 100px;
-    border: 3px solid #f1f5f9;
+    background: #cbd5e1;
+    border-radius: 9999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: linear-gradient(180deg, #2563eb 0%, #1e40af 100%);
-    border: 2px solid #f1f5f9;
+    background: #94a3b8;
   }
 
   /* Support standard scrollbar properties for Firefox */
   * {
     scrollbar-width: thin;
-    scrollbar-color: #3b82f6 transparent;
+    scrollbar-color: #cbd5e1 transparent;
   }
 
   /* Utility to hide scrollbar if requested */
   .no-scrollbar::-webkit-scrollbar {
-    display: none;
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
   }
 
   .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+    overflow: -moz-scrollbars-none;
+  }
+
+  /* Modal scroll containment to isolate modal scrolling and prevent scroll chaining to body */
+  .modal-overscroll-contain {
+    overscroll-behavior: contain !important;
+    overscroll-behavior-y: contain !important;
+    -webkit-overflow-scrolling: touch;
   }
 
   /* Only raw code snippets in technical panels use monospace */

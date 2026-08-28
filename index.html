@@ -22,15 +22,99 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Safe Service Worker Registration & Auto-Update Engine
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(reg => {
-              reg.update();
-              console.log('Service Worker Registered & Updated!');
+        const isDevOrIframe = window.self !== window.top || 
+          window.location.hostname.includes('ais-dev-') || 
+          window.location.hostname === 'localhost' || 
+          window.location.hostname === '127.0.0.1';
+
+        if (isDevOrIframe) {
+          // Unregister any lingering service workers in dev/iframe environment to prevent fetch errors & stale caches
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            for (const registration of registrations) {
+              registration.unregister().catch(() => {});
+            }
+          }).catch(() => {});
+        } else {
+          // Register in production/standalone PWA mode
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+              .then(registration => {
+                // Store registration for programmatic checks
+                window.swRegistration = registration;
+
+                // 1. Check for update immediately on load
+                registration.update().catch(() => {});
+
+                // 2. Periodic update check (every 15 minutes)
+                setInterval(() => {
+                  registration.update().catch(() => {});
+                }, 15 * 60 * 1000);
+
+                // 3. Check for update when user re-opens / switches back to the PWA app
+                document.addEventListener('visibilitychange', () => {
+                  if (document.visibilityState === 'visible') {
+                    registration.update().catch(() => {});
+                  }
+                });
+
+                // 4. Check when phone connects to internet
+                window.addEventListener('online', () => {
+                  registration.update().catch(() => {});
+                });
+
+                // 5. Listen for new worker installed / waiting
+                registration.addEventListener('updatefound', () => {
+                  const newWorker = registration.installing;
+                  if (newWorker) {
+                    newWorker.addEventListener('statechange', () => {
+                      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        // Notify React UI that an update is ready
+                        window.dispatchEvent(new CustomEvent('pwa-update-ready', {
+                          detail: { message: 'نسخه جدید سایت آماده شد و خودکار جایگزین می‌گردد.' }
+                        }));
+                      }
+                    });
+                  }
+                });
+              })
+              .catch(err => {
+                console.debug('Service Worker not active in this environment');
+              });
+          });
+
+          // Reload page when new Service Worker takes control (seamless update)
+          let refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+              refreshing = true;
+              window.location.reload();
+            }
+          });
+        }
+      }
+
+      // Manual update checker function accessible globally
+      window.checkForAppUpdates = function() {
+        if ('serviceWorker' in navigator && window.swRegistration) {
+          return window.swRegistration.update()
+            .then(() => {
+              console.log('PWA update check completed');
+              return true;
             })
-            .catch(err => console.log('Service Worker Registration failed:', err));
-        });
+            .catch(() => false);
+        }
+        return Promise.resolve(false);
+      };
+
+      // Track PWA Installation
+      window.addEventListener('appinstalled', () => {
+        localStorage.setItem('pwa_installed', 'true');
+        window.dispatchEvent(new Event('pwa-installed-change'));
+      });
+      if (window.matchMedia('(display-mode: standalone)').matches || navigator.standalone) {
+        localStorage.setItem('pwa_installed', 'true');
       }
     </script>
   </body>

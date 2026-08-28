@@ -10,7 +10,8 @@ import {
   Layers,
   Sparkles,
   ArrowLeft,
-  Chrome
+  Chrome,
+  RefreshCw
 } from 'lucide-react';
 
 interface PwaInstallGuideProps {
@@ -27,6 +28,21 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isAndroidOrChrome, setIsAndroidOrChrome] = useState(false);
   const [isIOS, setIsIOS] = useState(false);
+  const [isCheckingUpdate, setIsCheckingUpdate] = useState(false);
+  const [updateStatusText, setUpdateStatusText] = useState<string | null>(null);
+
+  const handleManualCheckUpdate = async () => {
+    setIsCheckingUpdate(true);
+    setUpdateStatusText('در حال بررسی سرور برای نسخه جدید...');
+    if ((window as any).checkForAppUpdates) {
+      await (window as any).checkForAppUpdates();
+    }
+    setTimeout(() => {
+      setIsCheckingUpdate(false);
+      setUpdateStatusText('شما هم‌اکنون از آخرین نسخه و آخرین لیست قیمت‌ها استفاده می‌کنید.');
+      setTimeout(() => setUpdateStatusText(null), 5000);
+    }, 1200);
+  };
 
   useEffect(() => {
     // Detect OS
@@ -37,9 +53,11 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
     setIsAndroidOrChrome(isAndroidDevice || (!isIosDevice && 'BeforeInstallPromptEvent' in window));
 
     // Check if already installed
+    const isInstalledAlready = localStorage.getItem('pwa_installed') === 'true';
     const isStandalone = window.matchMedia('(display-mode: standalone)').matches 
       || (navigator as any).standalone 
-      || document.referrer.includes('android-app://');
+      || document.referrer.includes('android-app://')
+      || isInstalledAlready;
 
     // Only show banner if not standalone and not dismissed
     const isDismissed = localStorage.getItem('pwa_banner_dismissed') === 'true';
@@ -265,12 +283,49 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
                   </ol>
                 </div>
 
+                {/* 3. Automatic Updates Notice */}
+                <div className="border border-emerald-200 rounded-2xl p-4 bg-emerald-50/70 space-y-2">
+                  <div className="flex items-center gap-2 text-emerald-800">
+                    <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <h4 className="text-xs font-black">به‌روزرسانی ۱۰۰٪ خودکار (بدون نیاز به نصب مجدد):</h4>
+                  </div>
+                  <p className="text-[11px] text-emerald-900 leading-relaxed font-bold">
+                    با نصب این وب‌اپلیکیشن، تمام تغییرات سایت، محصولات، آپدیت‌های سیستمی و نرخ لحظه‌ای قیمت‌ها به صورت اتوماتیک در پس‌زمینه با سرور همگام می‌شوند و هیچ‌گاه نیاز به حذف و نصب مجدد نخواهید داشت.
+                  </p>
+                  
+                  {updateStatusText && (
+                    <div className="p-2 bg-white/80 rounded-xl text-[10px] text-emerald-900 font-black border border-emerald-200 animate-in fade-in">
+                      {updateStatusText}
+                    </div>
+                  )}
+
+                  <div className="pt-1">
+                    <button
+                      onClick={handleManualCheckUpdate}
+                      disabled={isCheckingUpdate}
+                      className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-[10px] font-black flex items-center gap-1.5 transition-all shadow-xs"
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                      <span>{isCheckingUpdate ? 'در حال بررسی نسخه سرور...' : 'استعلام و بررسی نسخه جدید هم‌اکنون'}</span>
+                    </button>
+                  </div>
+                </div>
+
               </div>
 
             </div>
 
             {/* Footer buttons */}
-            <div className="p-5 border-t border-slate-100 flex justify-end">
+            <div className="p-4 border-t border-slate-100 flex items-center justify-between gap-2 bg-slate-50">
+              <button
+                onClick={handleManualCheckUpdate}
+                disabled={isCheckingUpdate}
+                className="text-[11px] text-slate-500 hover:text-blue-600 font-bold flex items-center gap-1 transition-colors"
+              >
+                <RefreshCw className={`w-3 h-3 ${isCheckingUpdate ? 'animate-spin' : ''}`} />
+                <span>بررسی آپدیت</span>
+              </button>
+
               <button
                 onClick={handleCloseModalInternal}
                 className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-md"

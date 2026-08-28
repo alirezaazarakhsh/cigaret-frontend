@@ -81,9 +81,9 @@ export const BlogPostModal: React.FC<BlogPostModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
       <div 
-        className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[92vh] overflow-y-auto p-5 sm:p-8 shadow-2xl relative text-slate-900 scrollbar-thin"
+        className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[92vh] overflow-y-auto modal-overscroll-contain p-5 sm:p-8 shadow-2xl relative text-slate-900 my-auto"
         id="blog-article-modal"
       >
         {/* Close Button */}

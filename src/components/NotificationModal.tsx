@@ -70,11 +70,11 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200" 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 no-scrollbar overflow-hidden" 
       dir="rtl"
     >
       <div 
-        className="bg-white border border-slate-200 rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[90vh] transition-all"
+        className="bg-white border border-slate-200 rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[90vh] transition-all my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         
@@ -160,7 +160,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
         </div>
 
         {/* Notifications Scroll Container */}
-        <div className="p-3 sm:p-5 overflow-y-auto space-y-3 flex-1">
+        <div className="p-3 sm:p-5 overflow-y-auto modal-overscroll-contain space-y-3 flex-1">
           {filtered.length === 0 ? (
             <div className="text-center py-12 space-y-3">
               <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto text-slate-400">

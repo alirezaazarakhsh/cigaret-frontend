@@ -78,10 +78,13 @@ export const Header: React.FC<HeaderProps> = ({
     const checkStandalone = () => {
       const isStandaloneMode = 
         window.matchMedia('(display-mode: standalone)').matches || 
-        (window.navigator as any).standalone === true;
+        (window.navigator as any).standalone === true ||
+        localStorage.getItem('pwa_installed') === 'true';
       setIsStandalone(isStandaloneMode);
     };
     checkStandalone();
+    window.addEventListener('pwa-installed-change', checkStandalone);
+    return () => window.removeEventListener('pwa-installed-change', checkStandalone);
   }, []);
 
   const navTabs = ALL_NAV_TABS.filter(tab => !tab.requiresAuth || currentUser !== null);

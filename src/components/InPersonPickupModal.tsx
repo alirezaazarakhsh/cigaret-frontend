@@ -157,9 +157,9 @@ export const InPersonPickupModal: React.FC<InPersonPickupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+    <div className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
       <div 
-        className="bg-white border border-slate-200 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto"
+        className="bg-white border border-slate-200 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto max-h-[92vh] flex flex-col"
         id="in-person-pickup-modal"
       >
         
@@ -189,7 +189,7 @@ export const InPersonPickupModal: React.FC<InPersonPickupModalProps> = ({
 
         {/* STEP 1: FORM */}
         {step === 'form' && (
-          <form onSubmit={handleSubmitPickupOrder} className="p-5 sm:p-6 space-y-6 max-h-[80vh] overflow-y-auto">
+          <form onSubmit={handleSubmitPickupOrder} className="p-5 sm:p-6 space-y-6 max-h-[80vh] overflow-y-auto modal-overscroll-contain">
             
             {/* WAREHOUSE ADDRESS BANNER */}
             <div className="bg-amber-50 border border-amber-200/90 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
@@ -485,7 +485,7 @@ export const InPersonPickupModal: React.FC<InPersonPickupModalProps> = ({
 
         {/* STEP 2: DIGITAL PICKUP PASS & COUNTER SLIP */}
         {step === 'success_pass' && generatedPass && (
-          <div className="p-6 space-y-6 max-h-[85vh] overflow-y-auto">
+          <div className="p-6 space-y-6 max-h-[85vh] overflow-y-auto modal-overscroll-contain">
             
             {/* SUCCESS CONFIRMATION BANNER */}
             <div className="text-center space-y-2">

@@ -209,18 +209,18 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
 
   return (
     <div 
-      className="fixed inset-0 z-[250] bg-slate-900/75 backdrop-blur-md flex items-center justify-center p-4 sm:p-6 py-16 sm:py-20 overflow-y-auto"
+      className="fixed inset-0 z-[250] bg-slate-900/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden no-scrollbar"
       dir="rtl"
       onClick={onClose}
     >
       <div 
-        className="bg-white border border-slate-200 rounded-[28px] max-w-3xl w-full p-6 shadow-2xl my-auto max-h-[85vh] overflow-y-auto space-y-6"
+        className="bg-white border border-slate-200 rounded-[28px] max-w-3xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
+        {/* Modal Header (Pinned at Top) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6 shrink-0 bg-white">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-md">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-md shrink-0">
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
@@ -233,7 +233,7 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={handleOpenAdd}
               className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition-all"
@@ -250,156 +250,159 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
           </div>
         </div>
 
-        {/* Current Active Staff Banner */}
-        <div className="bg-indigo-50/80 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-black flex items-center justify-center text-sm shadow-sm">
-              {currentStaff.fullName.slice(0, 1)}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-bold text-slate-500">کاربر فعال در حال کار:</span>
-                <span className="text-sm font-black text-indigo-950">{currentStaff.fullName}</span>
-                <span className="px-2 py-0.5 bg-indigo-200/80 text-indigo-900 rounded-md text-[10px] font-black">
-                  {currentStaff.roleTitleFa}
-                </span>
+        {/* Modal Scrollable Body */}
+        <div className="p-5 sm:p-6 overflow-y-auto modal-overscroll-contain space-y-6 flex-1">
+          {/* Current Active Staff Banner */}
+          <div className="bg-indigo-50/80 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-indigo-600 text-white font-black flex items-center justify-center text-sm shadow-sm">
+                {currentStaff.fullName.slice(0, 1)}
               </div>
-              <p className="text-[11px] text-indigo-700 font-mono mt-0.5">
-                تلفن: {currentStaff.phone} • {currentStaff.permissions.length} دسترسی فعال
-              </p>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-slate-500">کاربر فعال در حال کار:</span>
+                  <span className="text-sm font-black text-indigo-950">{currentStaff.fullName}</span>
+                  <span className="px-2 py-0.5 bg-indigo-200/80 text-indigo-900 rounded-md text-[10px] font-black">
+                    {currentStaff.roleTitleFa}
+                  </span>
+                </div>
+                <p className="text-[11px] text-indigo-700 font-mono mt-0.5">
+                  تلفن: {currentStaff.phone} • {currentStaff.permissions.length} دسترسی فعال
+                </p>
+              </div>
+            </div>
+            <span className="text-[11px] text-indigo-600 bg-white px-3 py-1.5 rounded-xl border border-indigo-200 font-bold self-start sm:self-auto">
+              ✓ ورود تایید شده با پین
+            </span>
+          </div>
+
+          {/* Staff Cards List */}
+          <div className="space-y-3">
+            <h4 className="text-xs font-black text-slate-700 flex items-center justify-between">
+              <span>لیست پرسنل و مدیران انبار سوین ({staffList.length} کاربر)</span>
+              <span className="text-[11px] text-slate-400 font-normal">برای تغییر کاربر جاری روی دکمه «سوییچ به این کاربر» کلیک کنید</span>
+            </h4>
+
+            <div className="space-y-3">
+              {staffList.map((staff) => {
+                const isCurrent = staff.id === currentStaff.id;
+                return (
+                  <div 
+                    key={staff.id}
+                    className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
+                      isCurrent 
+                        ? 'bg-white border-indigo-400 shadow-md ring-2 ring-indigo-500/20' 
+                        : staff.status === 'suspended'
+                          ? 'bg-slate-100/60 border-slate-200 opacity-60'
+                          : 'bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm'
+                    }`}
+                  >
+                    <div className="flex items-start sm:items-center gap-3.5 flex-1">
+                      <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white font-black text-sm shrink-0 ${staff.avatarColor || 'bg-slate-700'}`}>
+                        {staff.fullName.slice(0, 1)}
+                      </div>
+                      <div className="space-y-1 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h5 className="font-black text-sm text-slate-900">{staff.fullName}</h5>
+                          {isCurrent && (
+                            <span className="px-2 py-0.5 bg-emerald-500 text-white rounded-md text-[10px] font-black">
+                              فعال فعلی
+                            </span>
+                          )}
+                          <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black ${
+                            staff.role === 'super_admin'
+                              ? 'bg-purple-100 text-purple-800 border border-purple-200'
+                              : staff.role === 'warehouse_manager'
+                                ? 'bg-blue-100 text-blue-800 border border-blue-200'
+                                : staff.role === 'accountant'
+                                  ? 'bg-amber-100 text-amber-800 border border-amber-200'
+                                  : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
+                          }`}>
+                            {staff.roleTitleFa}
+                          </span>
+                          <span className="text-xs text-slate-500 font-mono">({staff.phone})</span>
+                        </div>
+
+                        {/* Permissions chips */}
+                        <div className="flex flex-wrap gap-1 pt-1">
+                          {staff.permissions.map(permKey => {
+                            const permObj = ALL_PERMISSIONS.find(p => p.key === permKey);
+                            return (
+                              <span 
+                                key={permKey} 
+                                className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-bold border border-slate-200"
+                              >
+                                {permObj?.label || permKey}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Actions & Status */}
+                    <div className="flex items-center justify-between sm:justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+                      <div className="text-[10px] text-slate-400 hidden lg:block text-left pl-2">
+                        <div>ثبت: {staff.createdAt}</div>
+                        <div>{staff.status === 'active' ? '🟢 فعال' : '🔴 معلق'}</div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleOpenEdit(staff)}
+                          title="ویرایش مشخصات و دسترسی‌ها"
+                          className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl border border-slate-200 transition-colors"
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleToggleStatus(staff.id)}
+                          title={staff.status === 'active' ? 'تعلیق کاربر' : 'فعال‌سازی کاربر'}
+                          className={`p-2 rounded-xl border transition-colors ${
+                            staff.status === 'active' 
+                              ? 'bg-slate-50 hover:bg-amber-50 text-amber-600 border-slate-200' 
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}
+                        >
+                          {staff.status === 'active' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                        </button>
+                        {staff.role !== 'super_admin' && (
+                          <button
+                            onClick={() => handleDeleteStaff(staff.id)}
+                            title="حذف کاربر"
+                            className="p-2 bg-slate-50 hover:bg-rose-50 text-rose-600 rounded-xl border border-slate-200 transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+
+                        {!isCurrent && staff.status === 'active' && (
+                          <button
+                            onClick={() => {
+                              setSwitchTargetStaff(staff);
+                              setPinVerifyInput('');
+                              setPinError('');
+                            }}
+                            className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-sm"
+                          >
+                            <UserCheck className="w-4 h-4" />
+                            <span>سوییچ</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </div>
-          <span className="text-[11px] text-indigo-600 bg-white px-3 py-1.5 rounded-xl border border-indigo-200 font-bold self-start sm:self-auto">
-            ✓ ورود تایید شده با پین
-          </span>
         </div>
 
-        {/* Staff Cards List */}
-        <div className="space-y-3">
-          <h4 className="text-xs font-black text-slate-700 flex items-center justify-between">
-            <span>لیست پرسنل و مدیران انبار سوین ({staffList.length} کاربر)</span>
-            <span className="text-[11px] text-slate-400 font-normal">برای تغییر کاربر جاری روی دکمه «سوییچ به این کاربر» کلیک کنید</span>
-          </h4>
-
-          <div className="space-y-3">
-            {staffList.map((staff) => {
-              const isCurrent = staff.id === currentStaff.id;
-              return (
-                <div 
-                  key={staff.id}
-                  className={`border rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all ${
-                    isCurrent 
-                      ? 'bg-white border-indigo-400 shadow-md ring-2 ring-indigo-500/20' 
-                      : staff.status === 'suspended'
-                        ? 'bg-slate-100/60 border-slate-200 opacity-60'
-                        : 'bg-white border-slate-200 hover:border-indigo-200 hover:shadow-sm'
-                  }`}
-                >
-                  <div className="flex items-start sm:items-center gap-3.5 flex-1">
-                    <div className={`w-11 h-11 rounded-2xl flex items-center justify-center text-white font-black text-sm shrink-0 ${staff.avatarColor || 'bg-slate-700'}`}>
-                      {staff.fullName.slice(0, 1)}
-                    </div>
-                    <div className="space-y-1 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h5 className="font-black text-sm text-slate-900">{staff.fullName}</h5>
-                        {isCurrent && (
-                          <span className="px-2 py-0.5 bg-emerald-500 text-white rounded-md text-[10px] font-black">
-                            فعال فعلی
-                          </span>
-                        )}
-                        <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black ${
-                          staff.role === 'super_admin'
-                            ? 'bg-purple-100 text-purple-800 border border-purple-200'
-                            : staff.role === 'warehouse_manager'
-                              ? 'bg-blue-100 text-blue-800 border border-blue-200'
-                              : staff.role === 'accountant'
-                                ? 'bg-amber-100 text-amber-800 border border-amber-200'
-                                : 'bg-emerald-100 text-emerald-800 border border-emerald-200'
-                        }`}>
-                          {staff.roleTitleFa}
-                        </span>
-                        <span className="text-xs text-slate-500 font-mono">({staff.phone})</span>
-                      </div>
-
-                      {/* Permissions chips */}
-                      <div className="flex flex-wrap gap-1 pt-1">
-                        {staff.permissions.map(permKey => {
-                          const permObj = ALL_PERMISSIONS.find(p => p.key === permKey);
-                          return (
-                            <span 
-                              key={permKey} 
-                              className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded-md text-[10px] font-bold border border-slate-200"
-                            >
-                              {permObj?.label || permKey}
-                            </span>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Actions & Status */}
-                  <div className="flex items-center justify-between sm:justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
-                    <div className="text-[10px] text-slate-400 hidden lg:block text-left pl-2">
-                      <div>ثبت: {staff.createdAt}</div>
-                      <div>{staff.status === 'active' ? '🟢 فعال' : '🔴 معلق'}</div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        onClick={() => handleOpenEdit(staff)}
-                        title="ویرایش مشخصات و دسترسی‌ها"
-                        className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl border border-slate-200 transition-colors"
-                      >
-                        <Edit2 className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => handleToggleStatus(staff.id)}
-                        title={staff.status === 'active' ? 'تعلیق کاربر' : 'فعال‌سازی کاربر'}
-                        className={`p-2 rounded-xl border transition-colors ${
-                          staff.status === 'active' 
-                            ? 'bg-slate-50 hover:bg-amber-50 text-amber-600 border-slate-200' 
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        }`}
-                      >
-                        {staff.status === 'active' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                      </button>
-                      {staff.role !== 'super_admin' && (
-                        <button
-                          onClick={() => handleDeleteStaff(staff.id)}
-                          title="حذف کاربر"
-                          className="p-2 bg-slate-50 hover:bg-rose-50 text-rose-600 rounded-xl border border-slate-200 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      )}
-
-                      {!isCurrent && staff.status === 'active' && (
-                        <button
-                          onClick={() => {
-                            setSwitchTargetStaff(staff);
-                            setPinVerifyInput('');
-                            setPinError('');
-                          }}
-                          className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-sm"
-                        >
-                          <UserCheck className="w-4 h-4" />
-                          <span>سوییچ</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Footer */}
-        <div className="pt-3 border-t border-slate-100 flex items-center justify-end">
+        {/* Footer (Pinned at Bottom) */}
+        <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end shrink-0">
           <button
             onClick={onClose}
-            className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+            className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition-colors"
           >
             بستن پنجره
           </button>
@@ -409,11 +412,11 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
       {/* Switch PIN Verification Sub-Modal */}
       {switchTargetStaff && (
         <div 
-          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 no-scrollbar"
           onClick={() => setSwitchTargetStaff(null)}
         >
           <div 
-            className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4"
+            className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-center">
@@ -460,11 +463,11 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
       {/* Add / Edit Staff Form Modal */}
       {showAddModal && (
         <div 
-          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 z-60 bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 overflow-hidden no-scrollbar"
           onClick={() => setShowAddModal(false)}
         >
           <div 
-            className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8"
+            className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in-95 duration-150"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
