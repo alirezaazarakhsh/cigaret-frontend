@@ -27,7 +27,7 @@ load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-sevin-tobacco-production-key-9419@')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY') or os.getenv('SECRET_KEY') or 'django-insecure-azarakhsh-tobacco-super-secret-key-prod-9419@'
 
 DEBUG = os.getenv('DJANGO_DEBUG', 'False') == 'True'
 

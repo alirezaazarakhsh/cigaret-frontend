@@ -323,11 +323,13 @@ class FooterSettingAdmin(admin.ModelAdmin):
 
     @admin.display(description="آخرین به‌روزرسانی (شمسی)")
     def get_shamsi_updated_at(self, obj):
+        if not obj or not obj.updated_at:
+            return "-"
         try:
             import jdatetime
             return jdatetime.datetime.fromgregorian(datetime=obj.updated_at).strftime("%Y/%m/%d - %H:%M")
         except Exception:
-            return obj.updated_at.strftime("%Y-%m-%d %H:%M")
+            return obj.updated_at.strftime("%Y-%m-%d %H:%M") if obj.updated_at else "-"
 
     # افزایش عرض باکس‌های متنی طولانی فوتر برای بهبود زیبایی و خوانایی
     def formfield_for_dbfield(self, db_field, request, **kwargs):

@@ -499,28 +499,28 @@ export const siteSettingsApi = {
 // ==========================================
 export const footerApi = {
   /**
-   * Fetches footer configuration on GET /footer-settings/settings/ or /footer/settings/
+   * Fetches footer configuration on GET /footer-settings/settings/ or /footer_settings/settings/ or /footer/settings/
    */
   async getSettings(): Promise<FooterSettingsData | null> {
     const ts = Date.now();
-    // 1. Try /footer-settings/settings/
-    let response = await httpClient.get<any>(`/footer-settings/settings/?_t=${ts}`);
-    
-    // 2. Fallback to /footer/settings/ or /footer-settings/
-    if (!response.success || !response.data) {
-      response = await httpClient.get<any>(`/footer/settings/?_t=${ts}`);
-    }
-    if (!response.success || !response.data) {
-      response = await httpClient.get<any>(`/footer-settings/?_t=${ts}`);
-    }
+    const candidateEndpoints = [
+      `/footer-settings/settings/?_t=${ts}`,
+      `/footer_settings/settings/?_t=${ts}`,
+      `/footer/settings/?_t=${ts}`,
+      `/footer-settings/?_t=${ts}`,
+      `/footer_settings/?_t=${ts}`,
+    ];
 
-    if (response.success && response.data) {
-      const data = (response.data && response.data.data) ? response.data.data : response.data;
-      if (typeof data === 'object' && data !== null) {
-        try {
-          localStorage.setItem(STORAGE_KEYS.FOOTER_SETTINGS, JSON.stringify(data));
-        } catch {}
-        return data as FooterSettingsData;
+    for (const endpoint of candidateEndpoints) {
+      const response = await httpClient.get<any>(endpoint);
+      if (response.success && response.data) {
+        const data = (response.data && response.data.data) ? response.data.data : response.data;
+        if (typeof data === 'object' && data !== null && (data.company_title || data.phone_number || data.columns)) {
+          try {
+            localStorage.setItem(STORAGE_KEYS.FOOTER_SETTINGS, JSON.stringify(data));
+          } catch {}
+          return data as FooterSettingsData;
+        }
       }
     }
 
@@ -535,7 +535,10 @@ export const footerApi = {
    * Updates footer configuration on PUT /footer-settings/settings/update/
    */
   async updateSettings(settingsData: Partial<FooterSettingsData>): Promise<boolean> {
-    const response = await httpClient.put('/footer-settings/settings/update/', settingsData);
+    let response = await httpClient.put('/footer-settings/settings/update/', settingsData);
+    if (!response.success) {
+      response = await httpClient.put('/footer_settings/settings/update/', settingsData);
+    }
     if (response.success) {
       try {
         const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.FOOTER_SETTINGS) || '{}');
@@ -582,7 +585,7 @@ function updateLocalProductList(product: CigaretteProduct, action: 'add' | 'upda
 // ==========================================
 export const contactApi = {
   /**
-   * Submits contact message to POST /warehouse-contact/send-message/
+   * Submits contact message to POST /warehouse-contact/send-message/ or /warehouse_contact/send-message/
    */
   async sendMessage(payload: {
     fullName: string;
@@ -591,14 +594,30 @@ export const contactApi = {
     message: string;
     businessName?: string;
   }): Promise<{ success: boolean; message: string }> {
-    const response = await httpClient.post<any>('/warehouse-contact/send-message/', {
+    const body = {
       full_name: payload.fullName,
       phone: payload.phone,
       subject: payload.subject || 'استعلام قیمت و خرید عمده',
       message: payload.businessName 
         ? `[نام فروشگاه/بنکداری: ${payload.businessName}]\n${payload.message}`
         : payload.message,
-    });
+    };
+
+    // 1. Try /warehouse-contact/send-message/
+    let response = await httpClient.post<any>('/warehouse-contact/send-message/', body);
+
+    // 2. Fallback to /warehouse_contact/send-message/
+    if (!response.success) {
+      response = await httpClient.post<any>('/warehouse_contact/send-message/', body);
+    }
+
+    // 3. Fallback to /warehouse-contact/messages/ or /warehouse_contact/messages/
+    if (!response.success) {
+      response = await httpClient.post<any>('/warehouse-contact/messages/', body);
+    }
+    if (!response.success) {
+      response = await httpClient.post<any>('/warehouse_contact/messages/', body);
+    }
 
     if (response.success) {
       return {
