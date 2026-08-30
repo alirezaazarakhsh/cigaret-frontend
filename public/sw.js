@@ -1,7 +1,7 @@
 // Service Worker - Sevin Wholesale PWA
 // Cache-First strategy for static assets with instant update lifecycle
 
-const CURRENT_VERSION = 'v3.5.0';
+const CURRENT_VERSION = 'v3.5.2';
 const CACHE_NAME = `sevin-static-${CURRENT_VERSION}`;
 
 // Core shell assets to precache on install for instant offline availability
@@ -70,10 +70,27 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // A. Dynamic API / Telemetry / Backend endpoints: Network-Only (never stale)
-  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/auth/')) {
+  // A. Dynamic API / Database / Settings / CRM endpoints: Network-Only (Strict Zero-Cache)
+  const isDynamicOrApi = 
+    url.pathname.startsWith('/api/') || 
+    url.pathname.startsWith('/auth/') ||
+    url.pathname.startsWith('/products/') ||
+    url.pathname.startsWith('/orders/') ||
+    url.pathname.startsWith('/site-settings/') ||
+    url.pathname.startsWith('/footer-settings/') ||
+    url.pathname.startsWith('/retail-shops/') ||
+    url.pathname.startsWith('/pos/') ||
+    url.pathname.startsWith('/tickets/') ||
+    url.pathname.startsWith('/live-rates/') ||
+    url.search.includes('_nocache') ||
+    url.search.includes('no-cache') ||
+    request.headers.get('cache-control')?.includes('no-cache') ||
+    request.headers.get('cache-control')?.includes('no-store') ||
+    request.headers.get('pragma') === 'no-cache';
+
+  if (isDynamicOrApi) {
     event.respondWith(
-      fetch(request).catch(() => {
+      fetch(request, { cache: 'no-store' }).catch(() => {
         return new Response(JSON.stringify({ error: 'Network error or offline' }), {
           status: 503,
           headers: { 'Content-Type': 'application/json' }
@@ -83,11 +100,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // B. HTML Navigations & Document Requests: Network-First (with Cache Fallback)
+  // B. HTML Navigations & Document Requests: Network-First with forced no-cache revalidation
   // Ensures user always gets the latest index.html pointing to newly hashed asset chunks
   if (request.mode === 'navigate' || request.destination === 'document') {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'no-cache' })
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();

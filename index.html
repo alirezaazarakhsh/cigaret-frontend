@@ -24,7 +24,23 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      // Safe Service Worker Registration & Auto-Update Engine
+      // Safe Service Worker Registration & Anti-Stale Auto-Update Engine
+      // Enforces strict 'no-cache' policy and versioned cache busting for instant DB sync
+      const SW_VERSION = 'v3.5.2';
+      const SW_BUILD_TIME = '1725016000'; // Versioned build identifier
+
+      // 1. Proactive Cache Purging: Delete any outdated or legacy caches on page load
+      if ('caches' in window) {
+        caches.keys().then((keys) => {
+          for (const key of keys) {
+            if (!key.includes(SW_VERSION)) {
+              console.log('[SW-CacheBust] Purging legacy cache:', key);
+              caches.delete(key).catch(() => {});
+            }
+          }
+        }).catch(() => {});
+      }
+
       if ('serviceWorker' in navigator) {
         const isDevOrIframe = window.self !== window.top || 
           window.location.hostname.includes('ais-dev-') || 
@@ -39,46 +55,63 @@
             }
           }).catch(() => {});
         } else {
-          // Register in production/standalone PWA mode
+          // Register in production/standalone PWA mode with forced 'no-cache' policy
           window.addEventListener('load', () => {
-            navigator.serviceWorker.register('/sw.js')
+            // Versioned cache-busting query parameter forces browser HTTP stack to bypass intermediate/proxy caches
+            const swUrl = `/sw.js?v=${SW_VERSION}&b=${SW_BUILD_TIME}`;
+
+            // Modern W3C updateViaCache: 'none' guarantees browser NEVER serves stale service worker from HTTP cache
+            navigator.serviceWorker.register(swUrl, { updateViaCache: 'none' })
               .then(registration => {
                 // Store registration for programmatic checks
                 window.swRegistration = registration;
 
-                // 1. Check for update immediately on load
-                registration.update().catch(() => {});
-
-                // 2. Periodic update check (every 15 minutes)
-                setInterval(() => {
-                  registration.update().catch(() => {});
-                }, 15 * 60 * 1000);
-
-                // 3. Check for update when user re-opens / switches back to the PWA app
-                document.addEventListener('visibilitychange', () => {
-                  if (document.visibilityState === 'visible') {
+                // Function to trigger update check with anti-cache guarantees
+                const triggerUpdateCheck = () => {
+                  if (registration) {
                     registration.update().catch(() => {});
                   }
-                });
+                };
 
-                // 4. Check when phone connects to internet
-                window.addEventListener('online', () => {
-                  registration.update().catch(() => {});
-                });
+                // 1. Check for update immediately on load
+                triggerUpdateCheck();
 
-                // 5. Listen for new worker installed / waiting
-                registration.addEventListener('updatefound', () => {
-                  const newWorker = registration.installing;
-                  if (newWorker) {
-                    newWorker.addEventListener('statechange', () => {
-                      if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                        // Notify React UI that an update is ready
-                        window.dispatchEvent(new CustomEvent('pwa-update-ready', {
-                          detail: { message: 'نسخه جدید سایت آماده شد و خودکار جایگزین می‌گردد.' }
-                        }));
-                      }
-                    });
+                // 2. High-frequency update check (every 60 seconds) so DB modifications are quickly detected
+                setInterval(triggerUpdateCheck, 60 * 1000);
+
+                // 3. Trigger update check when user focuses window or returns to the tab
+                window.addEventListener('focus', triggerUpdateCheck);
+
+                // 4. Trigger update check when user switches back to the PWA app
+                document.addEventListener('visibilitychange', () => {
+                  if (document.visibilityState === 'visible') {
+                    triggerUpdateCheck();
                   }
+                });
+
+                // 5. Trigger update check when phone/browser reconnects to internet
+                window.addEventListener('online', triggerUpdateCheck);
+
+                // 6. Handle installing and waiting workers: force skip-waiting so new data takes over immediately
+                const handleWorker = (worker) => {
+                  if (!worker) return;
+                  worker.addEventListener('statechange', () => {
+                    if (worker.state === 'installed' && navigator.serviceWorker.controller) {
+                      // Signal worker to immediately take control
+                      worker.postMessage({ type: 'SKIP_WAITING' });
+                      window.dispatchEvent(new CustomEvent('pwa-update-ready', {
+                        detail: { message: 'نسخه جدید و اطلاعات تازه پایگاه داده بارگذاری شد.' }
+                      }));
+                    }
+                  });
+                };
+
+                if (registration.waiting) {
+                  registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+
+                registration.addEventListener('updatefound', () => {
+                  handleWorker(registration.installing);
                 });
               })
               .catch(err => {
@@ -86,7 +119,7 @@
               });
           });
 
-          // Reload page when new Service Worker takes control (seamless update)
+          // Reload page when new Service Worker takes control (seamless instant transition to fresh data)
           let refreshing = false;
           navigator.serviceWorker.addEventListener('controllerchange', () => {
             if (!refreshing) {
@@ -97,12 +130,28 @@
         }
       }
 
+      // Global utility: Purge all caches and force hard refresh with fresh database content
+      window.forceBustAndReload = async function() {
+        if ('caches' in window) {
+          try {
+            const keys = await caches.keys();
+            await Promise.all(keys.map(k => caches.delete(k)));
+          } catch (e) {}
+        }
+        if ('serviceWorker' in navigator && window.swRegistration) {
+          try {
+            await window.swRegistration.update();
+          } catch (e) {}
+        }
+        window.location.reload();
+      };
+
       // Manual update checker function accessible globally
       window.checkForAppUpdates = function() {
         if ('serviceWorker' in navigator && window.swRegistration) {
           return window.swRegistration.update()
             .then(() => {
-              console.log('PWA update check completed');
+              console.log('[SW] PWA update check completed with no-cache policy');
               return true;
             })
             .catch(() => false);
