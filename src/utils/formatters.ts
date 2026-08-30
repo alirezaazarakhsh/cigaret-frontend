@@ -49,7 +49,7 @@ export function getProductStockInfo(product: {
 export function calculateItemSubtotal(
   cartonPrice: number,
   boxPrice: number,
-  unit: 'box' | 'carton' | 'pack',
+  unit: 'box' | 'carton' | 'pack' | 'single' | 'kg',
   quantity: number
 ): number {
   if (unit === 'carton') {
@@ -58,11 +58,14 @@ export function calculateItemSubtotal(
   if (unit === 'box') {
     return boxPrice * quantity;
   }
+  if (unit === 'single' || unit === 'kg') {
+    return boxPrice * quantity;
+  }
   return Math.round(boxPrice / 10) * quantity;
 }
 
 export function getApplicableDiscount(
-  unit: 'box' | 'carton' | 'pack',
+  unit: 'box' | 'carton' | 'pack' | 'single' | 'kg',
   quantity: number,
   tierDiscounts: WholesaleTierDiscount[]
 ): number {

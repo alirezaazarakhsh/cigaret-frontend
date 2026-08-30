@@ -27,7 +27,8 @@ import {
   FolderTree,
   Terminal,
   FileCode,
-  Check
+  Check,
+  BadgeDollarSign
 } from 'lucide-react';
 import { AzarakhshSectionId, DocSectionMeta, DocGroup } from './types';
 
@@ -167,6 +168,28 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'فروش، مالی و لجستیک'
   },
   {
+    id: 'cash-register',
+    title: 'گزارش و تسویه صندوق روزانه',
+    titleEn: 'cash_register / Daily Cash Close',
+    description: 'مدیریت شیفت صندوق، محاسبه مغایرت نقد و پوز، ذخیره در دیتابیس و گزارش بستن صندوق',
+    badge: 'تسویه صندوق',
+    iconName: 'BadgeDollarSign',
+    appFolder: 'cash_register',
+    group: 'commerce',
+    groupTitle: 'فروش، مالی و لجستیک'
+  },
+  {
+    id: 'currency-rates',
+    title: 'تنظیمات نرخ ارز و قیمت‌گذاری دلار/تومان',
+    titleEn: 'currency_rates / Exchange Rates & Multi-Currency',
+    description: 'مدیریت نرخ ارز (دلار، درهم، یورو)، بروزرسانی هوشمند قیمت محصولات بر اساس نرخ روز و محاسبه قیمت فروش',
+    badge: 'نرخ ارز',
+    iconName: 'Coins',
+    appFolder: 'currency_rates',
+    group: 'commerce',
+    groupTitle: 'فروش، مالی و لجستیک'
+  },
+  {
     id: 'pos-products',
     title: 'محصولات فروشگاه حضوری',
     titleEn: 'pos_products / POS Products',
@@ -287,6 +310,28 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     group: 'support',
     groupTitle: 'محتوا و پشتیبانی'
   },
+  {
+    id: 'tickets-support',
+    title: '۱۱. اپلیکیشن تیکت پشتیبانی مشتریان معمولی',
+    titleEn: 'tickets / Customer Ticket App',
+    description: 'ثبت تصویر فیش واریز، پیگیری ترابری، مرجوعی کالا و چت آنلاین پشتیبانی مشتریان',
+    badge: 'تیکت مشتری',
+    iconName: 'MessageSquare',
+    appFolder: 'tickets',
+    group: 'support',
+    groupTitle: 'محتوا و پشتیبانی'
+  },
+  {
+    id: 'visitor-tickets',
+    title: '۱۲. اپلیکیشن تیکتینگ ویزیتوران و تسویه پورسانت',
+    titleEn: 'visitor_tickets / Visitor Tickets & Commission Payout App',
+    description: 'درخواست تسویه پورسانت ۲.۵٪ سود، ثبت مغازه‌دار جدید در باشگاه و مغایرت فاکتور ویزیتوری',
+    badge: 'تیکت ویزیتور',
+    iconName: 'BadgeDollarSign',
+    appFolder: 'visitor_tickets',
+    group: 'support',
+    groupTitle: 'محتوا و پشتیبانی'
+  },
 ];
 
 const renderIcon = (iconName: string) => {
@@ -303,6 +348,7 @@ const renderIcon = (iconName: string) => {
     case 'BookOpen': return <BookOpen className="w-4 h-4" />;
     case 'MessageSquare': return <MessageSquare className="w-4 h-4" />;
     case 'Users': return <Users className="w-4 h-4" />;
+    case 'BadgeDollarSign': return <BadgeDollarSign className="w-4 h-4" />;
     default: return <Package className="w-4 h-4" />;
   }
 };

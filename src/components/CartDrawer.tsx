@@ -29,8 +29,8 @@ interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  onUpdateQuantity: (productId: string, unit: 'box' | 'carton', quantity: number) => void;
-  onRemoveItem: (productId: string, unit: 'box' | 'carton') => void;
+  onUpdateQuantity: (productId: string, unit: CartItem['unit'], quantity: number) => void;
+  onRemoveItem: (productId: string, unit: CartItem['unit']) => void;
   onClearCart: () => void;
   currentUser?: UserProfile | null;
   retailShops?: RetailShopCustomer[];
@@ -52,8 +52,6 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   djangoConfig,
   onOrderSubmitted,
 }) => {
-  if (!isOpen) return null;
-
   // Drawer flow steps: 'cart' -> 'payment_receipt'
   const [activeStep, setActiveStep] = useState<'cart' | 'payment_receipt'>('cart');
   const [selectedShop, setSelectedShop] = useState<RetailShopCustomer | null>(null);
@@ -319,6 +317,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
      currentUser.shopName.includes('سوپرمارکت') ||
      !currentUser.address)
   );
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">

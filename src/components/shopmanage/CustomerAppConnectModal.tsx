@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   Smartphone, 
   QrCode, 
@@ -46,6 +47,7 @@ import {
   CheckCheck,
   Receipt
 } from 'lucide-react';
+import { getCustomerPortalUrl, getWebAppBaseUrl } from '../../services/apiConfig';
 import { PosCustomer, PosReceiptInvoice, CigaretteProduct, CigaretteCategory } from '../../types';
 import { formatToman, formatNumberFa } from '../../utils/formatters';
 
@@ -84,6 +86,8 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
   onAddInPersonPickupReceipt,
 }) => {
   const [selectedCustomer, setSelectedCustomer] = useState<PosCustomer | null>(customers[0] || null);
+  const [selectedLinkType, setSelectedLinkType] = useState<'customer' | 'catalog' | 'pickup'>('customer');
+  const [isQrEnlarged, setIsQrEnlarged] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [syncStatus, setSyncStatus] = useState<'idle' | 'syncing' | 'synced'>('synced');
   const [smsSending, setSmsSending] = useState(false);
@@ -114,10 +118,25 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
   // Viewing Thermal Receipt Modal inside App
   const [viewingReceipt, setViewingReceipt] = useState<PosReceiptInvoice | null>(null);
 
-  // Generate unique web app sync portal URL for the customer
+  // Generate unique web app sync portal URLs (Vercel production address)
   const customerPortalUrl = selectedCustomer 
-    ? `https://sevin-cigar.ir/app/c/${selectedCustomer.id}?phone=${selectedCustomer.phone}`
-    : 'https://sevin-cigar.ir/app';
+    ? getCustomerPortalUrl(selectedCustomer.id, selectedCustomer.phone)
+    : `${getWebAppBaseUrl()}/app`;
+
+  const catalogPortalUrl = `${getWebAppBaseUrl()}/app?tab=catalog`;
+  const pickupPortalUrl = `${getWebAppBaseUrl()}/app?tab=pickup`;
+
+  const currentActiveUrl = selectedLinkType === 'customer' 
+    ? customerPortalUrl 
+    : selectedLinkType === 'catalog' 
+      ? catalogPortalUrl 
+      : pickupPortalUrl;
+
+  const currentActiveTitle = selectedLinkType === 'customer'
+    ? `لینک و QR کد اختصاصی: ${selectedCustomer?.name || 'مشتری'}`
+    : selectedLinkType === 'catalog'
+      ? 'QR کد کاتالوگ عمومی و قیمت لحظه‌ای انبار'
+      : 'QR کد نوبت‌گیری و تحویل اکسپرس باجه انبار';
 
   // Customer Invoices Filter
   const customerInvoices = useMemo(() => {
@@ -474,43 +493,164 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
                     </div>
                   </div>
 
-                  {/* Direct Link & SMS Dispatch */}
-                  <div className="pt-3 border-t border-slate-200 space-y-2.5">
-                    <label className="block text-[11px] font-bold text-slate-700">لینک اختصاصی وب‌اپلیکیشن برای نصب در گوشی مشتری:</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        readOnly
-                        dir="ltr"
-                        value={customerPortalUrl}
-                        className="flex-1 bg-white border border-slate-200 rounded-xl px-3 py-2 text-[10px] font-mono text-slate-600 select-all"
-                      />
-                      <button
-                        onClick={handleCopyLink}
-                        className="px-3.5 py-2 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 shrink-0"
-                      >
-                        {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                        <span>{copiedLink ? 'کپی شد' : 'کپی لینک'}</span>
-                      </button>
-                    </div>
+                  {/* QR Code & Direct Link Hub */}
+                  <div className="pt-3 border-t border-slate-200 space-y-3">
+                    
+                    {/* Link Type Selector Tabs */}
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                        <span className="flex items-center gap-1">
+                          <QrCode className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>انتخاب نوع لینک و بارکد QR برای مشتری:</span>
+                        </span>
+                        <span className="text-[10px] text-indigo-600 font-bold">تولید خودکار QR Code</span>
+                      </label>
+                      
+                      <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100/90 rounded-xl border border-slate-200 text-[10px] font-bold">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLinkType('customer')}
+                          className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                            selectedLinkType === 'customer'
+                              ? 'bg-white text-indigo-700 shadow-xs border border-indigo-200 font-black'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Users className="w-3 h-3" />
+                          <span className="truncate">لینک اختصاصی مشتری</span>
+                        </button>
 
-                    <div className="flex items-center gap-2 pt-1">
-                      <button
-                        onClick={handleSendAppSms}
-                        disabled={smsSending}
-                        className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 active:scale-98"
-                      >
-                        <Send className="w-4 h-4" />
-                        <span>{smsSending ? 'در حال ارسال پیامک اختصاصی...' : 'ارسال پیامک لینک نصب اپلیکیشن به شماره مشتری'}</span>
-                      </button>
-                    </div>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLinkType('catalog')}
+                          className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                            selectedLinkType === 'catalog'
+                              ? 'bg-white text-indigo-700 shadow-xs border border-indigo-200 font-black'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Package className="w-3 h-3" />
+                          <span className="truncate">کاتالوگ عمومی</span>
+                        </button>
 
-                    {smsSentNotice && (
-                      <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-bold text-center flex items-center justify-center gap-2 animate-in fade-in">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                        <span>پیامک حاوی لینک اختصاصی اپلیکیشن و صورت‌حساب به شماره {selectedCustomer.phone} با موفقیت ارسال شد.</span>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedLinkType('pickup')}
+                          className={`py-1.5 px-2 rounded-lg transition-all flex items-center justify-center gap-1 ${
+                            selectedLinkType === 'pickup'
+                              ? 'bg-white text-indigo-700 shadow-xs border border-indigo-200 font-black'
+                              : 'text-slate-600 hover:text-slate-900'
+                          }`}
+                        >
+                          <Clock className="w-3 h-3" />
+                          <span className="truncate">نوبت‌گیری فوری باجه</span>
+                        </button>
                       </div>
-                    )}
+                    </div>
+
+                    {/* QR Code and Actions Card */}
+                    <div className="bg-white border border-slate-200 rounded-2xl p-3 shadow-xs space-y-3">
+                      <div className="flex flex-col sm:flex-row items-center gap-3">
+                        
+                        {/* Interactive QR Code Box */}
+                        <div 
+                          onClick={() => setIsQrEnlarged(true)}
+                          className="group relative cursor-pointer bg-slate-50 hover:bg-slate-100/80 p-2.5 rounded-2xl border border-slate-200 transition-all shrink-0 flex flex-col items-center justify-center shadow-2xs"
+                          title="برای بزرگ‌نمایی تمام‌صفحه QR کد کلیک کنید"
+                        >
+                          <div className="bg-white p-2 rounded-xl shadow-xs border border-slate-200/80">
+                            <QRCodeSVG 
+                              value={currentActiveUrl}
+                              size={110}
+                              level="M"
+                              includeMargin={false}
+                            />
+                          </div>
+                          <span className="text-[9px] font-bold text-slate-500 group-hover:text-indigo-600 mt-1.5 flex items-center gap-1">
+                            <Maximize2 className="w-2.5 h-2.5" />
+                            <span>بزرگ‌نمایی QR کد</span>
+                          </span>
+                        </div>
+
+                        {/* Details & Link Info */}
+                        <div className="flex-1 space-y-2 min-w-0 text-right w-full">
+                          <div>
+                            <h5 className="font-black text-xs text-slate-900 flex items-center gap-1">
+                              <Sparkles className="w-3 h-3 text-amber-500" />
+                              <span>{currentActiveTitle}</span>
+                            </h5>
+                            <p className="text-[10px] text-slate-500 mt-0.5 leading-relaxed">
+                              {selectedLinkType === 'customer'
+                                ? 'مشتری با اسکن این QR کد وارد حساب دفتری، مشاهده فاکتورهای رسمی و ثبت سفارش اختصاصی می‌شود.'
+                                : selectedLinkType === 'catalog'
+                                  ? 'مناسب برای اسکن توسط تمامی مراجعین حضوری جهت مشاهده استعلام قیمت و کاتالوگ.'
+                                  : 'مشتری بدون معطلی کارتن‌ها را رزرو کرده و نوبت تحویل باجه انبار دریافت می‌کند.'}
+                            </p>
+                          </div>
+
+                          {/* URL input and Copy */}
+                          <div className="flex items-center gap-1.5">
+                            <input
+                              type="text"
+                              readOnly
+                              dir="ltr"
+                              value={currentActiveUrl}
+                              className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1.5 text-[10px] font-mono text-slate-600 select-all"
+                            />
+                            <button
+                              onClick={() => {
+                                navigator.clipboard.writeText(currentActiveUrl);
+                                setCopiedLink(true);
+                                setTimeout(() => setCopiedLink(false), 2000);
+                              }}
+                              className="px-2.5 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-xl text-[10px] font-bold transition-colors flex items-center gap-1 shrink-0"
+                            >
+                              {copiedLink ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                              <span>{copiedLink ? 'کپی شد' : 'کپی'}</span>
+                            </button>
+                            <a
+                              href={currentActiveUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="p-1.5 bg-slate-100 border border-slate-200 text-slate-600 hover:text-indigo-600 hover:bg-slate-200 rounded-xl transition-colors shrink-0"
+                              title="باز کردن در پنجره جدید"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                        </div>
+
+                      </div>
+
+                      {/* SMS dispatch & Print actions */}
+                      <div className="flex items-center gap-2 pt-1 border-t border-slate-100">
+                        {selectedLinkType === 'customer' && (
+                          <button
+                            onClick={handleSendAppSms}
+                            disabled={smsSending}
+                            className="flex-1 py-2 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white rounded-xl text-[11px] font-black transition-all flex items-center justify-center gap-1.5 shadow-xs active:scale-98"
+                          >
+                            <Send className="w-3.5 h-3.5" />
+                            <span>{smsSending ? 'در حال ارسال پیامک...' : 'ارسال پیامک لینک به شماره مشتری'}</span>
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setIsQrEnlarged(true)}
+                          className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 rounded-xl text-[11px] font-bold transition-colors flex items-center justify-center gap-1.5 shrink-0"
+                        >
+                          <QrCode className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>نمایش استند و QR بزرگ</span>
+                        </button>
+                      </div>
+
+                      {smsSentNotice && (
+                        <div className="p-2 bg-emerald-50 border border-emerald-200 rounded-xl text-[11px] text-emerald-800 font-bold text-center flex items-center justify-center gap-1.5 animate-in fade-in">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          <span>پیامک حاوی لینک و اطلاعات دسترسی به شماره {selectedCustomer.phone} با موفقیت ارسال شد.</span>
+                        </div>
+                      )}
+
+                    </div>
                   </div>
                 </div>
               )}
@@ -905,8 +1045,14 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
 
                           {/* QR Code Pass for Warehouse Counter Scanner */}
                           <div className="bg-white p-3 rounded-2xl inline-block mx-auto shadow-md">
-                            <QrCode className="w-24 h-24 text-slate-950 mx-auto" />
-                            <span className="text-[9px] font-black text-slate-800 block mt-1">نشان دادن به مسئول باجه</span>
+                            <QRCodeSVG 
+                              value={`SVN-PICKUP:${activePickupPass.orderId}:${activePickupPass.token}`}
+                              size={104}
+                              level="M"
+                              includeMargin={false}
+                              className="mx-auto"
+                            />
+                            <span className="text-[9px] font-black text-slate-800 block mt-1.5">نشان دادن به مسئول باجه</span>
                           </div>
 
                           <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 text-[11px] space-y-1 text-right">
@@ -1262,7 +1408,7 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
         <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
           <div className="text-slate-500 flex items-center gap-1.5">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>پشتیبانی کامل از بارکدخوان، رزرو باجه، چاپ فیش حرارتی و همگام‌سازی ابری</span>
+            <span>پشتیبانی کامل از بارکدخوان، تولید زنده QR Code، رزرو باجه و همگام‌سازی ابری</span>
           </div>
           <button
             onClick={onClose}
@@ -1273,6 +1419,127 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
         </div>
 
       </div>
+
+      {/* Fullscreen Enlarged QR Lightbox Modal */}
+      {isQrEnlarged && (
+        <div 
+          className="fixed inset-0 z-[200] bg-black/90 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsQrEnlarged(false);
+          }}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl text-center space-y-4 animate-in zoom-in-95 border border-slate-200"
+            onClick={(e) => e.stopPropagation()}
+            dir="rtl"
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2 text-right">
+                <div className="p-2 bg-indigo-50 text-indigo-700 rounded-xl">
+                  <QrCode className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="font-black text-sm text-slate-900">{currentActiveTitle}</h4>
+                  <span className="text-[10px] text-slate-500 block">انبار پخش عمده دخانیات سوین</span>
+                </div>
+              </div>
+              <button
+                onClick={() => setIsQrEnlarged(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Link Type Selector Inside Lightbox */}
+            <div className="grid grid-cols-3 gap-1 bg-slate-100 p-1 rounded-xl text-[10px] font-bold">
+              <button
+                type="button"
+                onClick={() => setSelectedLinkType('customer')}
+                className={`py-1.5 px-1 rounded-lg transition-all ${
+                  selectedLinkType === 'customer'
+                    ? 'bg-white text-indigo-700 shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                مشتری
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedLinkType('catalog')}
+                className={`py-1.5 px-1 rounded-lg transition-all ${
+                  selectedLinkType === 'catalog'
+                    ? 'bg-white text-indigo-700 shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                کاتالوگ
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedLinkType('pickup')}
+                className={`py-1.5 px-1 rounded-lg transition-all ${
+                  selectedLinkType === 'pickup'
+                    ? 'bg-white text-indigo-700 shadow-xs font-black'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                باجه اکسپرس
+              </button>
+            </div>
+
+            {/* High-Resolution QR Display */}
+            <div className="bg-slate-50 p-6 rounded-3xl border-2 border-dashed border-indigo-200 inline-block mx-auto shadow-inner">
+              <div className="bg-white p-4 rounded-2xl shadow-md border border-slate-200/80">
+                <QRCodeSVG 
+                  value={currentActiveUrl}
+                  size={200}
+                  level="H"
+                  includeMargin={true}
+                  className="mx-auto"
+                />
+              </div>
+            </div>
+
+            {/* Instruction */}
+            <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3 text-[11px] text-indigo-950 font-medium leading-relaxed">
+              📷 دوربین گوشی هوشمند خود را روبه‌روی این کیو‌آر کد بگیرید تا لینک بدون نیاز به نصب باز شود.
+            </div>
+
+            {/* URL Input Box */}
+            <div className="flex items-center gap-1.5">
+              <input
+                type="text"
+                readOnly
+                dir="ltr"
+                value={currentActiveUrl}
+                className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-[10px] font-mono text-slate-700 select-all"
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(currentActiveUrl);
+                  setCopiedLink(true);
+                  setTimeout(() => setCopiedLink(false), 2000);
+                }}
+                className="px-3 py-2 bg-indigo-600 text-white hover:bg-indigo-700 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 shrink-0"
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedLink ? 'کپی شد' : 'کپی'}</span>
+              </button>
+            </div>
+
+            {/* Close Button */}
+            <button
+              onClick={() => setIsQrEnlarged(false)}
+              className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors"
+            >
+              بستن پنجره QR کد
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

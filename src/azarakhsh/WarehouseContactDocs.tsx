@@ -7,15 +7,14 @@ export const WarehouseContactDocs: React.FC = () => {
     {
       name: 'warehouse_contact_warehousemessage',
       verboseName: 'پیام‌ها و فرم تماس با انبار مرکزی',
-      description: 'ثبت و پیگیری پیام‌های ارسالی مشتریان، مغازه‌داران و ویزیتوران جهت تماس با انبار جنت‌آباد',
+      description: 'ثبت و پیگیری پیام‌های ارسالی مشتریان، مغازه‌داران و ویزیتوران جهت تماس با انبار مرکزی',
       fields: [
-        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه' },
+        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه پیام' },
         { name: 'full_name', type: 'CharField(max_length=150)', verbose: 'نام و نام خانوادگی' },
         { name: 'phone', type: 'CharField(max_length=15)', verbose: 'شماره تماس' },
         { name: 'subject', type: 'CharField(max_length=200)', verbose: 'موضوع درخواست' },
         { name: 'message', type: 'TextField', verbose: 'متن پیام یا سفارش عمده' },
         { name: 'is_read', type: 'BooleanField(default=False)', verbose: 'خوانده شده توسط مدیریت' },
-        { name: 'admin_reply', type: 'TextField(blank=True)', verbose: 'پاسخ انباردار / مدیریت' },
         { name: 'created_at', type: 'DateTimeField', verbose: 'تاریخ ثبت پیام' },
       ]
     }
@@ -24,36 +23,182 @@ export const WarehouseContactDocs: React.FC = () => {
   const endpoints: ApiEndpointMeta[] = [
     {
       method: 'POST',
-      path: '/api/v1/warehouse-contact/messages/',
+      path: '/api/v1/warehouse-contact/send-message/',
       auth: 'AllowAny',
-      description: 'ارسال پیام جدید یا استعلام عمده به انبار مرکزی جنت‌آباد توسط کاربر',
+      description: 'ارسال پیام جدید یا استعلام عمده به انبار مرکزی سوین توسط کاربر وب‌سایت',
       requestBody: JSON.stringify({
         full_name: "رضا کریمی",
         phone: "09123456789",
         subject: "استعلام قیمت کارتن مارلبرو قرمز",
-        message: "لطفا شرایط خرید عمده ۱۰۰ کارتن را اعلام فرمایید."
+        message: "لطفا شرایط خرید عمده ۱۰ کارتن را اعلام فرمایید."
       }, null, 2),
       responseBody: JSON.stringify({
-        success: true,
+        status: "success",
         message: "پیام شما با موفقیت ثبت شد. کارشناسان انبار به زودی تماس خواهند گرفت.",
-        id: 142
+        data: {
+          id: 142,
+          full_name: "رضا کریمی",
+          created_at: "1403/06/07 - 14:30"
+        }
       }, null, 2)
     },
     {
       method: 'GET',
-      path: '/api/v1/warehouse-contact/messages/',
+      path: '/api/v1/warehouse-contact/messages/list/',
       auth: 'IsAdminUser',
-      description: 'دریافت فهرست تمام پیام‌های دریافتی در پنل ادمین'
+      description: 'دریافت فهرست تمام پیام‌های دریافتی از فرم تماس سایت در پنل ادمین'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v1/warehouse-contact/messages/{id}/',
+      auth: 'IsAdminUser',
+      description: 'حذف پیام دریافتی از دیتابیس توسط ادمین'
     }
   ];
+
+  const viewsCode = `"""
+warehouse_contact/views.py
+ویوهای ساده و صریح APIView جهت دریافت فرم تماس کاربر و مدیریت پیام‌ها
+"""
+
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAdminUser
+from django.shortcuts import get_object_or_404
+from drf_yasg.utils import swagger_auto_schema
+
+from .models import WarehouseMessage
+from .serializers import WarehouseMessageSerializer
+
+
+class WarehouseMessageCreateAPIView(APIView):
+    """
+    اندپوینت عمومی جهت ثبت پیام تماس با ما توسط کاربران وب‌سایت
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="ثبت پیام فرم تماس با ما (عمومی)",
+        request_body=WarehouseMessageSerializer,
+        responses={201: dict}
+    )
+    def post(self, request):
+        serializer = WarehouseMessageSerializer(data=request.data)
+        if serializer.is_valid():
+            msg = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'پیام شما با موفقیت ثبت شد. کارشناسان انبار به زودی تماس خواهند گرفت.',
+                'data': WarehouseMessageSerializer(msg).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class WarehouseMessageListAPIView(APIView):
+    """
+    اندپوینت دریافت لیست پیام‌های فرم تماس برای مدیریت و انباردار
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست پیام‌های فرم تماس (مدیریت)",
+        responses={200: WarehouseMessageSerializer(many=True)}
+    )
+    def get(self, request):
+        unread_only = request.query_params.get('unread', 'false').lower() == 'true'
+        queryset = WarehouseMessage.objects.all()
+
+        if unread_only:
+            queryset = queryset.filter(is_read=False)
+
+        serializer = WarehouseMessageSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class WarehouseMessageDetailAPIView(APIView):
+    """
+    مشاهده جزئیات پیام و علامت‌گذاری به عنوان خوانده‌شده یا حذف
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="مشاهده جزئیات پیام فرم تماس (مدیریت)",
+        responses={200: WarehouseMessageSerializer}
+    )
+    def get(self, request, pk):
+        msg = get_object_or_404(WarehouseMessage, pk=pk)
+        msg.is_read = True
+        msg.save()
+        serializer = WarehouseMessageSerializer(msg)
+        return Response({
+            'status': 'success',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="حذف پیام فرم تماس (مدیریت)",
+        responses={200: dict}
+    )
+    def delete(self, request, pk):
+        msg = get_object_or_404(WarehouseMessage, pk=pk)
+        msg.delete()
+        return Response({
+            'status': 'success',
+            'message': 'پیام فرم تماس با موفقیت حذف شد.'
+        }, status=status.HTTP_200_OK)
+`;
+
+  const urlsCode = `"""
+warehouse_contact/urls.py
+مسیرهای APIView جهت ثبت پیام عمومی و دریافت لیست پیام‌ها توسط ادمین
+"""
+
+from django.urls import path
+from .views import (
+    WarehouseMessageCreateAPIView,
+    WarehouseMessageListAPIView,
+    WarehouseMessageDetailAPIView,
+)
+
+app_name = 'warehouse_contact'
+
+urlpatterns = [
+    # ۱. ثبت پیام عمومی فرم تماس با ما
+    path('send-message/', WarehouseMessageCreateAPIView.as_view(), name='send-message'),
+
+    # ۲. فهرست تمام پیام‌های دریافتی (مدیریت)
+    path('messages/list/', WarehouseMessageListAPIView.as_view(), name='messages-list'),
+
+    # ۳. مشاهده جزئیات و حذف پیام (مدیریت)
+    path('messages/<int:pk>/', WarehouseMessageDetailAPIView.as_view(), name='messages-detail'),
+]
+`;
+
+  const notesCode = `## 📌 راهنمای به‌روزرسانی اپلیکیشن warehouse_contact
+
+فیلدهای پاسخ مدیریت بر اساس درخواست حذف گردیده است. اکنون کاربران فرم تماس را پر کرده و پیام در دیتابیس جهت مشاهده ادمین ذخیره می‌شود.
+
+### 📂 فایل‌های کپی در پروژه جنگو:
+1. **\`warehouse_contact/models.py\`**: مدل ساده \`WarehouseMessage\`
+2. **\`warehouse_contact/serializers.py\`**: سریالایزر \`WarehouseMessageSerializer\`
+3. **\`warehouse_contact/views.py\`**: ویوهای ارسال پیام و لیست پیام‌های ادمین
+4. **\`warehouse_contact/urls.py\`**: مسیرهای API
+5. **\`warehouse_contact/admin.py\`**: پنل ادمین
+`;
 
   return (
     <AppDocTemplate
       appFolder="warehouse_contact"
       title="فرم تماس با انبار و استعلام عمده"
       titleEn="warehouse_contact / Warehouse Contact Form App"
-      badge="Contact & Inquiry"
-      description="ماژول مدیریت فرم تماس، استعلام قیمت عمده و ارتباط مستقیم با انبار مرکزی جنت‌آباد با قابلیت پاسخگویی مدیریتی."
+      badge="Contact Form"
+      description="ماژول فرم تماس با ما سایت، دریافت پیام‌های عمومی مشتریان و ثبت در دیتابیس برای مشاهده ادمین."
       icon={<MessageSquare className="w-6 h-6 text-emerald-500" />}
       modelsCode={`from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -64,12 +209,11 @@ class WarehouseMessage(models.Model):
     subject = models.CharField(_("موضوع درخواست"), max_length=200)
     message = models.TextField(_("متن پیام"))
     is_read = models.BooleanField(_("خوانده شده"), default=False)
-    admin_reply = models.TextField(_("پاسخ مدیریت انبار"), blank=True, null=True)
-    created_at = models.DateTimeField(_("تاریخ ثبت"), auto_now_add=True)
+    created_at = models.DateTimeField(_("تاریخ ثبت پیام"), auto_now_add=True)
 
     class Meta:
-        verbose_name = _("پیام تماس با انبار")
-        verbose_name_plural = _("مدیریت پیام‌ها و فرم تماس با انبار")
+        verbose_name = _("پیام تماس با ما")
+        verbose_name_plural = _("مدیریت پیام‌ها و فرم تماس سایت")
         ordering = ['-created_at']
 
     def __str__(self):
@@ -83,42 +227,24 @@ class WarehouseMessageAdmin(admin.ModelAdmin):
     list_display = ('full_name', 'phone', 'subject', 'is_read', 'created_at')
     list_filter = ('is_read', 'created_at')
     search_fields = ('full_name', 'phone', 'subject', 'message')
-    list_editable = ('is_read',)
     readonly_fields = ('created_at',)
+    fields = ('full_name', 'phone', 'subject', 'message', 'is_read', 'created_at')
 `}
       serializersCode={`from rest_framework import serializers
 from .models import WarehouseMessage
 
 class WarehouseMessageSerializer(serializers.ModelSerializer):
+    """
+    سریالایزر پیام فرم تماس با ما
+    """
     class Meta:
         model = WarehouseMessage
-        fields = ['id', 'full_name', 'phone', 'subject', 'message', 'is_read', 'admin_reply', 'created_at']
-        read_only_fields = ['id', 'is_read', 'admin_reply', 'created_at']
+        fields = ['id', 'full_name', 'phone', 'subject', 'message', 'is_read', 'created_at']
+        read_only_fields = ['id', 'is_read', 'created_at']
 `}
-      viewsCode={`from rest_framework import viewsets, permissions
-from .models import WarehouseMessage
-from .serializers import WarehouseMessageSerializer
-
-class WarehouseMessageViewSet(viewsets.ModelViewSet):
-    queryset = WarehouseMessage.objects.all()
-    serializer_class = WarehouseMessageSerializer
-
-    def get_permissions(self):
-        if self.action == 'create':
-            return [permissions.AllowAny()]
-        return [permissions.IsAdminUser()]
-`}
-      urlsCode={`from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import WarehouseMessageViewSet
-
-router = DefaultRouter()
-router.register('messages', WarehouseMessageViewSet, basename='warehouse-message')
-
-urlpatterns = [
-    path('', include(router.urls)),
-]
-`}
+      viewsCode={viewsCode}
+      urlsCode={urlsCode}
+      notesCode={notesCode}
       erdTables={erdTables}
       endpoints={endpoints}
     />

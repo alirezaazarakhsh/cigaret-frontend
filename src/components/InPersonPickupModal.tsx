@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { 
   X, 
   MapPin, 
@@ -562,8 +563,12 @@ export const InPersonPickupModal: React.FC<InPersonPickupModalProps> = ({
               {/* Pass Barcode & QR Code Section */}
               <div className="bg-white rounded-2xl p-4 text-slate-900 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-14 h-14 bg-slate-100 rounded-xl p-1 border border-slate-200 flex items-center justify-center shrink-0">
-                    <QrCode className="w-12 h-12 text-slate-800" />
+                  <div className="w-14 h-14 bg-white rounded-xl p-1 border border-slate-200 flex items-center justify-center shrink-0 shadow-2xs">
+                    <QRCodeSVG 
+                      value={`SVN-PICKUP:${generatedPass.passNumber}:${generatedPass.barcode}`} 
+                      size={48} 
+                      level="M" 
+                    />
                   </div>
                   <div>
                     <span className="text-[10px] text-slate-500 block">بارکد اختصاصی اسکن انباردار باجه:</span>

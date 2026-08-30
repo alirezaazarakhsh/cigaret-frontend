@@ -188,10 +188,12 @@ class ChequeRecord(models.Model):
 
   const adminCode = `"""
 finance/admin.py
-پنل ادمین حساب‌های دفتری و چک‌ها
+پنل ادمین حساب‌های دفتری و چک‌ها با تاریخ شمسی
 """
 from django.contrib import admin
 from django.utils.html import format_html
+from jalali_date.admin import ModelAdminJalaliMixin
+from jalali_date import datetime2jalali, date2jalali
 from .models import CustomerLedger, LedgerTransaction, ChequeRecord
 
 
@@ -202,10 +204,11 @@ class LedgerTransactionInline(admin.TabularInline):
 
 
 @admin.register(CustomerLedger)
-class CustomerLedgerAdmin(admin.ModelAdmin):
-    list_display = ('customer', 'credit_limit_display', 'current_balance_display', 'is_blocked', 'last_settled_at')
+class CustomerLedgerAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
+    list_display = ('customer', 'credit_limit_display', 'current_balance_display', 'is_blocked', 'last_settled_at_jalali')
     list_filter = ('is_blocked',)
-    search_fields = ('customer__full_name', 'customer__phone')
+    search_fields = ('customer__full_name', 'customer__phone', 'customer__business_name')
+    autocomplete_fields = ('customer',)
     inlines = [LedgerTransactionInline]
 
     def credit_limit_display(self, obj):
@@ -217,20 +220,40 @@ class CustomerLedgerAdmin(admin.ModelAdmin):
         return format_html(f'<b style="color: {color};">{obj.current_balance:,} تومان</b>')
     current_balance_display.short_description = "مانده بدهی جاری"
 
+    @admin.display(description="تاریخ آخرین تسویه کامل", ordering='last_settled_at')
+    def last_settled_at_jalali(self, obj):
+        if obj.last_settled_at:
+            return datetime2jalali(obj.last_settled_at).strftime('%Y/%m/%d ساعت %H:%M')
+        return "-"
+
 
 @admin.register(LedgerTransaction)
-class LedgerTransactionAdmin(admin.ModelAdmin):
-    list_display = ('created_at', 'ledger', 'transaction_type', 'document_ref', 'debit_amount', 'credit_amount', 'balance_after')
+class LedgerTransactionAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
+    list_display = ('created_at_jalali', 'ledger', 'transaction_type', 'document_ref', 'debit_amount', 'credit_amount', 'balance_after')
     list_filter = ('transaction_type', 'created_at')
     search_fields = ('document_ref', 'ledger__customer__full_name', 'description')
-    readonly_fields = ('created_at',)
+    readonly_fields = ('created_at_jalali_display',)
+    autocomplete_fields = ('ledger', 'recorded_by')
+
+    @admin.display(description="تاریخ تراکنش", ordering='created_at')
+    def created_at_jalali(self, obj):
+        if obj.created_at:
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d ساعت %H:%M')
+        return "-"
+
+    @admin.display(description="زمان ثبت سند")
+    def created_at_jalali_display(self, obj):
+        if obj.created_at:
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d ساعت %H:%M')
+        return "-"
 
 
 @admin.register(ChequeRecord)
-class ChequeRecordAdmin(admin.ModelAdmin):
-    list_display = ('sayad_number', 'ledger', 'bank_name', 'amount_display', 'due_date', 'status_badge')
+class ChequeRecordAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
+    list_display = ('sayad_number', 'ledger', 'bank_name', 'amount_display', 'due_date_jalali', 'status_badge')
     list_filter = ('status', 'bank_name', 'due_date')
     search_fields = ('sayad_number', 'ledger__customer__full_name')
+    autocomplete_fields = ('ledger',)
 
     def amount_display(self, obj):
         return f"{obj.amount:,} تومان"
@@ -243,6 +266,12 @@ class ChequeRecordAdmin(admin.ModelAdmin):
             f'{obj.get_status_display()}</span>'
         )
     status_badge.short_description = "وضعیت"
+
+    @admin.display(description="تاریخ سررسید", ordering='due_date')
+    def due_date_jalali(self, obj):
+        if obj.due_date:
+            return date2jalali(obj.due_date).strftime('%Y/%m/%d')
+        return "-"
 `;
 
   const serializersCode = `"""
@@ -278,43 +307,170 @@ class ChequeRecordSerializer(serializers.ModelSerializer):
 
   const viewsCode = `"""
 finance/views.py
-ویوهای حساب‌های دفتری، تسویه بدهی و استیتمنت مالی
+ویوهای اختصاصی صریح با استفاده از APIView (بدون ViewSet) جهت مدیریت حساب‌های دفتری (نسیه)، تسویه بدهی و چک‌های صیادی
 """
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+
+from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.shortcuts import get_object_or_404
 from django.db import transaction
+from drf_yasg.utils import swagger_auto_schema
+
 from .models import CustomerLedger, LedgerTransaction, ChequeRecord
 from .serializers import CustomerLedgerSerializer, LedgerTransactionSerializer, ChequeRecordSerializer
 
 
-class CustomerLedgerViewSet(viewsets.ModelViewSet):
-    queryset = CustomerLedger.objects.all()
-    serializer_class = CustomerLedgerSerializer
-    permission_classes = [permissions.IsAuthenticated]
+class CustomerLedgerListAPIView(APIView):
+    """
+    اندپوینت دریافت لیست حساب‌های دفتری مشتریان
+    """
+    permission_classes = [IsAuthenticated]
 
-    @action(detail=True, methods=['get'], url_path='statement')
-    def statement(self, request, pk=None):
-        ledger = self.get_object()
-        txs = ledger.transactions.all()[:50]
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست حساب‌های دفتری مشتریان",
+        responses={200: CustomerLedgerSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = CustomerLedger.objects.select_related('customer').all()
+        serializer = CustomerLedgerSerializer(queryset, many=True)
         return Response({
-            'customer_name': ledger.customer.full_name,
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class CustomerLedgerCreateAPIView(APIView):
+    """
+    اندپوینت افتتاح حساب دفتری جدید برای مشتری (ادمین / حسابدار)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="افتتاح حساب دفتری جدید (حسابداری)",
+        request_body=CustomerLedgerSerializer,
+        responses={201: CustomerLedgerSerializer}
+    )
+    def post(self, request):
+        serializer = CustomerLedgerSerializer(data=request.data)
+        if serializer.is_valid():
+            ledger = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'حساب دفتری مشتری با موفقیت افتتاح شد.',
+                'data': CustomerLedgerSerializer(ledger).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomerLedgerDetailAPIView(APIView):
+    """
+    اندپوینت دریافت جزئیات یک حساب دفتری بر اساس ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت مشخصات یک حساب دفتری",
+        responses={200: CustomerLedgerSerializer}
+    )
+    def get(self, request, pk):
+        ledger = get_object_or_404(CustomerLedger, pk=pk)
+        serializer = CustomerLedgerSerializer(ledger)
+        return Response({
+            'status': 'success',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class CustomerLedgerUpdateAPIView(APIView):
+    """
+    اندپوینت تغییر سقف اعتبار یا مسدودسازی حساب دفتری مشتری (ادمین)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش مشخصات و سقف اعتبار حساب دفتری (حسابداری)",
+        request_body=CustomerLedgerSerializer,
+        responses={200: CustomerLedgerSerializer}
+    )
+    def put(self, request, pk):
+        ledger = get_object_or_404(CustomerLedger, pk=pk)
+        serializer = CustomerLedgerSerializer(ledger, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اطلاعات حساب دفتری بروزرسانی شد.',
+                'data': CustomerLedgerSerializer(updated).data
+            }, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomerLedgerDeleteAPIView(APIView):
+    """
+    اندپوینت بستن / حذف حساب دفتری (ادمین)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="حذف حساب دفتری (حسابداری)",
+        responses={200: dict}
+    )
+    def delete(self, request, pk):
+        ledger = get_object_or_404(CustomerLedger, pk=pk)
+        ledger.delete()
+        return Response({
+            'status': 'success',
+            'message': 'حساب دفتری حذف گردید.'
+        }, status=status.HTTP_200_OK)
+
+
+class CustomerLedgerStatementAPIView(APIView):
+    """
+    اندپوینت دریافت صورت‌حساب ریز تراکنش‌های دفتری و مانده بدهی مشتری
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت صورت‌حساب ریز تراکنش‌های دفتری",
+        responses={200: dict}
+    )
+    def get(self, request, pk):
+        ledger = get_object_or_404(CustomerLedger.objects.select_related('customer'), pk=pk)
+        txs = ledger.transactions.all()[:100]
+        return Response({
+            'status': 'success',
+            'customer_name': ledger.customer.get_full_name() or ledger.customer.username,
             'credit_limit': ledger.credit_limit,
             'current_debt': ledger.current_balance,
             'is_blocked': ledger.is_blocked,
             'transactions': LedgerTransactionSerializer(txs, many=True).data
-        })
+        }, status=status.HTTP_200_OK)
 
-    @action(detail=False, methods=['post'], url_path='settle-payment')
+
+class SettlePaymentAPIView(APIView):
+    """
+    اندپوینت ثبت سند پرداخت بدهی (نقدی / واریز پایا-ساتنا) و کسر آنی از مانده بدهی مشتری
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="ثبت سند تسویه بدهی و کسر از دفتر حساب",
+        responses={201: dict}
+    )
     @transaction.atomic
-    def settle_payment(self, request):
-        user_id = request.data.get('customer_id')
+    def post(self, request):
+        customer_id = request.data.get('customer_id')
         payment_type = request.data.get('payment_type', LedgerTransaction.TransactionType.BANK_TRANSFER)
         amount = int(request.data.get('amount', 0))
         doc_ref = request.data.get('reference_code', 'SETTLE')
         desc = request.data.get('description', 'تسویه حساب دفتری')
 
-        ledger = CustomerLedger.objects.select_for_update().get(customer_id=user_id)
+        ledger = get_object_or_404(CustomerLedger.objects.select_for_update(), customer_id=customer_id)
         new_balance = max(0, ledger.current_balance - amount)
         ledger.current_balance = new_balance
         ledger.save()
@@ -331,33 +487,248 @@ class CustomerLedgerViewSet(viewsets.ModelViewSet):
         )
 
         return Response({
-            'success': True,
-            'transaction_id': tx.id,
-            'settled_amount': amount,
-            'remaining_debt': new_balance
+            'status': 'success',
+            'message': 'سند تسویه حساب دفتری با موفقیت ثبت گردید.',
+            'data': {
+                'transaction_id': tx.id,
+                'settled_amount': amount,
+                'remaining_debt': new_balance
+            }
         }, status=status.HTTP_201_CREATED)
 
 
-class ChequeViewSet(viewsets.ModelViewSet):
-    queryset = ChequeRecord.objects.all()
-    serializer_class = ChequeRecordSerializer
-    permission_classes = [permissions.IsAuthenticated]
+class LedgerTransactionListAPIView(APIView):
+    """
+    اندپوینت دریافت کلیه تراکنش‌های مالی حساب‌های دفتری
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت گردش کلیه تراکنش‌های دفتری",
+        responses={200: LedgerTransactionSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = LedgerTransaction.objects.select_related('ledger__customer', 'recorded_by').all()
+        serializer = LedgerTransactionSerializer(queryset[:200], many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class LedgerTransactionDetailAPIView(APIView):
+    """
+    اندپوینت دریافت جزئیات یک تراکنش دفتری
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات یک تراکنش مالی",
+        responses={200: LedgerTransactionSerializer}
+    )
+    def get(self, request, pk):
+        tx = get_object_or_404(LedgerTransaction, pk=pk)
+        serializer = LedgerTransactionSerializer(tx)
+        return Response({
+            'status': 'success',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class ChequeListAPIView(APIView):
+    """
+    اندپوینت دریافت لیست چک‌های صیادی
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست چک‌های صیادی",
+        responses={200: ChequeRecordSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = ChequeRecord.objects.select_related('ledger__customer').all()
+        serializer = ChequeRecordSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class ChequeCreateAPIView(APIView):
+    """
+    اندپوینت ثبت چک صیادی جدید (حسابداری)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="ثبت چک صیادی جدید",
+        request_body=ChequeRecordSerializer,
+        responses={201: ChequeRecordSerializer}
+    )
+    def post(self, request):
+        serializer = ChequeRecordSerializer(data=request.data)
+        if serializer.is_valid():
+            cheque = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'چک صیادی با موفقیت در سیستم ثبت گردید.',
+                'data': ChequeRecordSerializer(cheque).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChequeDetailAPIView(APIView):
+    """
+    اندپوینت دریافت مشخصات یک چک صیادی بر اساس ID
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت مشخصات یک چک صیادی",
+        responses={200: ChequeRecordSerializer}
+    )
+    def get(self, request, pk):
+        cheque = get_object_or_404(ChequeRecord, pk=pk)
+        serializer = ChequeRecordSerializer(cheque)
+        return Response({
+            'status': 'success',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class ChequeUpdateAPIView(APIView):
+    """
+    اندپوینت تغییر وضعیت چک صیادی (وصول شده، برگشتی، عودت)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش وضعیت چک صیادی (وصول/برگشت)",
+        request_body=ChequeRecordSerializer,
+        responses={200: ChequeRecordSerializer}
+    )
+    def put(self, request, pk):
+        cheque = get_object_or_404(ChequeRecord, pk=pk)
+        serializer = ChequeRecordSerializer(cheque, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'وضعیت چک صیادی بروزرسانی شد.',
+                'data': ChequeRecordSerializer(updated).data
+            }, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ChequeDeleteAPIView(APIView):
+    """
+    اندپوینت حذف چک صیادی (ادمین)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="حذف چک صیادی (حسابداری)",
+        responses={200: dict}
+    )
+    def delete(self, request, pk):
+        cheque = get_object_or_404(ChequeRecord, pk=pk)
+        cheque.delete()
+        return Response({
+            'status': 'success',
+            'message': 'چک صیادی حذف گردید.'
+        }, status=status.HTTP_200_OK)
 `;
 
   const urlsCode = `"""
 finance/urls.py
+مسیرهای صریح صادرشده برای APIView (بدون استفاده از Router یا ViewSet)
 """
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import CustomerLedgerViewSet, ChequeViewSet
 
-router = DefaultRouter()
-router.register('ledgers', CustomerLedgerViewSet, basename='customer-ledger')
-router.register('cheques', ChequeViewSet, basename='cheque')
+from django.urls import path
+from .views import (
+    CustomerLedgerListAPIView,
+    CustomerLedgerCreateAPIView,
+    CustomerLedgerDetailAPIView,
+    CustomerLedgerUpdateAPIView,
+    CustomerLedgerDeleteAPIView,
+    CustomerLedgerStatementAPIView,
+    SettlePaymentAPIView,
+    LedgerTransactionListAPIView,
+    LedgerTransactionDetailAPIView,
+    ChequeListAPIView,
+    ChequeCreateAPIView,
+    ChequeDetailAPIView,
+    ChequeUpdateAPIView,
+    ChequeDeleteAPIView,
+)
+
+app_name = 'finance'
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # ۱. حساب‌های دفتری (نسیه)
+    path('ledgers/list/', CustomerLedgerListAPIView.as_view(), name='ledger-list'),
+    path('ledgers/create/', CustomerLedgerCreateAPIView.as_view(), name='ledger-create'),
+    path('ledgers/<int:pk>/', CustomerLedgerDetailAPIView.as_view(), name='ledger-detail'),
+    path('ledgers/<int:pk>/update/', CustomerLedgerUpdateAPIView.as_view(), name='ledger-update'),
+    path('ledgers/<int:pk>/delete/', CustomerLedgerDeleteAPIView.as_view(), name='ledger-delete'),
+    path('ledgers/<int:pk>/statement/', CustomerLedgerStatementAPIView.as_view(), name='ledger-statement'),
+
+    # ۲. تسویه حساب و ثبت بدهی/بستانکاری
+    path('ledgers/settle-payment/', SettlePaymentAPIView.as_view(), name='settle-payment'),
+
+    # ۳. ریز گردش تراکنش‌ها
+    path('transactions/list/', LedgerTransactionListAPIView.as_view(), name='transaction-list'),
+    path('transactions/<int:pk>/', LedgerTransactionDetailAPIView.as_view(), name='transaction-detail'),
+
+    # ۴. چک‌های صیادی
+    path('cheques/list/', ChequeListAPIView.as_view(), name='cheque-list'),
+    path('cheques/create/', ChequeCreateAPIView.as_view(), name='cheque-create'),
+    path('cheques/<int:pk>/', ChequeDetailAPIView.as_view(), name='cheque-detail'),
+    path('cheques/<int:pk>/update/', ChequeUpdateAPIView.as_view(), name='cheque-update'),
+    path('cheques/<int:pk>/delete/', ChequeDeleteAPIView.as_view(), name='cheque-delete'),
 ]
+`;
+
+  const notesCode = `## 📌 راهنمای جامع معماری و استفاده از اپلیکیشن حسابداری و حساب‌های دفتری (finance)
+
+### 💡 ویژگی‌های کلیدی ماژول finance:
+1. **کنترل سقف اعتبار (Credit Limit):** سیستم پیش از صدور هر فاکتور نسیه یا ثبت سفارش عمده، مانده بدهی قبلی + مبلغ فاکتور جدید را بررسی کرده و در صورت تجاوز از \`credit_limit\`، از ثبت سفارش جلوگیری می‌کند.
+2. **بررسی مسدودی حساب:** حسابدار می‌تواند حساب‌های بدهکار بدحساب را مسدود (\`is_blocked=True\`) کند تا امکان ثبت هیچ‌گونه سفارش جدیدی نداشته باشند.
+3. **تراکنش‌های اتمیک تسویه بدهی:** تسویه حساب از طریق اندپوینت \`settle-payment/\` با استفاده از \`transaction.atomic()\` صورت می‌گیرد؛ یعنی هم‌زمان با ثبت تراکنش بستانکاری، مانده بدهی \`current_balance\` در دیتابیس کسر می‌گردد.
+4. **مدیریت چک‌های صیادی:** ثبت شناسه صیادی ۱۶ رقمی، تاریخ سررسید، وضعیت وصول/برگشت و اتصال مستقیم به حساب دفتری صادرکننده چک.
+
+---
+
+### 💻 نحوه استفاده از API تسویه بدهی در React (فرانت‌اند):
+
+\`\`\`typescript
+// نمونه فراخوانی API تسویه بدهی مشتری
+const settleCustomerDebt = async (customerId: number, amount: number, refCode: string) => {
+  const response = await fetch('http://localhost:8000/api/v1/finance/ledgers/settle-payment/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': \`Bearer \${token}\`
+    },
+    body: JSON.stringify({
+      customer_id: customerId,
+      amount: amount,
+      payment_type: 'bank_transfer',
+      reference_code: refCode,
+      description: 'تسویه نقد واریزی به حساب بانک سامان'
+    })
+  });
+
+  const result = await response.json();
+  if (result.status === 'success') {
+    console.log("مانده بدهی جدید:", result.data.remaining_debt);
+  }
+};
+\`\`\`
 `;
 
   return (
@@ -373,6 +744,7 @@ urlpatterns = [
       serializersCode={serializersCode}
       viewsCode={viewsCode}
       urlsCode={urlsCode}
+      notesCode={notesCode}
       erdTables={erdTables}
       endpoints={endpoints}
     />

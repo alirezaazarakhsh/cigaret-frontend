@@ -20,8 +20,9 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   invoice,
   onClose,
 }) => {
-  if (!invoice) return null;
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
+  if (!invoice) return null;
 
   // دریافت تنظیمات داینامیک برند و حساب‌ها از لوکال استوریج (همگام با پنل بک‌اند)
   const djangoConfig = (() => {

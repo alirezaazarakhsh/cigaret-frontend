@@ -74,6 +74,47 @@ export const AuthUsersDocs: React.FC = () => {
     },
     {
       method: 'POST',
+      path: '/api/v1/accounts/pos-login/',
+      auth: 'AllowAny',
+      description: 'ورود پرسنل و مدیران به صندوق هوشمند POS سوین (صدور JWT و واکشی فوری پرمیژن‌های دسترسی)',
+      requestBody: JSON.stringify({
+        phone: "09120759419",
+        password: "alirezazzz9419@S"
+      }, null, 2),
+      responseBody: JSON.stringify({
+        status: "success",
+        message: "ورود به صندوق با موفقیت انجام شد.",
+        tokens: {
+          access: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          refresh: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        },
+        user: {
+          id: 1,
+          fullName: "مهندس حسینی (مدیر ارشد و مالک)",
+          phone: "09120759419",
+          role: "super_admin",
+          roleTitleFa: "مدیریت ارشد بنکداری",
+          permissions: [
+            "manage_pos",
+            "manage_inventory",
+            "quick_add_product",
+            "manage_ledger",
+            "view_reports",
+            "monthly_comparison",
+            "manage_staff",
+            "customer_app_connect",
+            "send_sms",
+            "manage_tickets",
+            "delete_receipts"
+          ]
+        }
+      }, null, 2),
+      curlExample: `curl -X POST http://localhost:8000/api/v1/accounts/pos-login/ \\
+  -H "Content-Type: application/json" \\
+  -d '{"phone":"09120759419","password":"alirezazzz9419@S"}'`
+    },
+    {
+      method: 'POST',
       path: '/api/v1/accounts/token/',
       auth: 'AllowAny',
       description: 'ورود با شماره موبایل و رمز عبور (صدور Access Token با انقضای ۳۰ دقیقه و Refresh Token با انقضای ۷ روز)',

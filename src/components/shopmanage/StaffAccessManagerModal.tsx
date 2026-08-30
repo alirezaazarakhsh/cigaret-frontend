@@ -35,6 +35,10 @@ const ALL_PERMISSIONS: { key: StaffPermission; label: string; desc: string }[] =
   { key: 'monthly_comparison', label: 'تحلیل مقایسه‌ای ماه‌ها', desc: 'مشاهده چارت‌های تحلیلی و مقایسه دوره‌ای ماه‌ها' },
   { key: 'customer_app_connect', label: 'باشگاه مشتریان و اپلیکیشن', desc: 'مدیریت اتصال اپلیکیشن همراه و بارکد مشتریان' },
   { key: 'manage_staff', label: 'مدیریت پرسنل و دسترسی‌ها', desc: 'تعریف و تغییر سطح دسترسی مدیران انبار و پرسنل' },
+  { key: 'send_sms', label: 'سامانه پیامکی کاوه‌نگار', desc: 'ارسال پیامک، تغییر الگوها و پایش گزارشات پیامکی' },
+  { key: 'manage_tickets', label: 'پاسخگویی به تیکت‌ها', desc: 'مشاهده، پاسخ و پشتیبانی تیکت‌های مشتریان و همکاران' },
+  { key: 'manage_notifications', label: 'اعلانات و نوتیفیکیشن‌ها', desc: 'مشاهده، ویرایش و ارسال اطلاعیه به کاربران سایت' },
+  { key: 'delete_receipts', label: 'ابطال و حذف فاکتورها', desc: 'دسترسی مدیریت جهت ابطال یا حذف فاکتورهای فروش' },
 ];
 
 export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = ({

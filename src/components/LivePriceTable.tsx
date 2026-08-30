@@ -205,10 +205,12 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
                           <span className="text-[11px] font-bold text-slate-700 ">
                             {formatNumberFa(product.boxesPerCarton)} باکس ({formatNumberFa(product.boxesPerCarton * 10)} پاکت)
                           </span>
-                          <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
-                            <ShieldCheck className="w-3 h-3" />
-                            {product.hologram}
-                          </span>
+                          {product.hologram && product.hologram !== 'بدون هولوگرام' && product.hologram !== 'ندارد' && (
+                            <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3" />
+                              {product.hologram}
+                            </span>
+                          )}
                         </div>
                       </td>
 

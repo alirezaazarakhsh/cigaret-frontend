@@ -114,10 +114,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           />
 
           {/* Hologram badge */}
-          <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-xs border border-slate-200 text-slate-800 text-[10px] px-2 py-0.5 rounded-lg flex items-center gap-1 font-bold shadow-xs">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            {product.hologram}
-          </div>
+          {product.hologram && product.hologram !== 'بدون هولوگرام' && product.hologram !== 'ندارد' && (
+            <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-xs border border-slate-200 text-slate-800 text-[10px] px-2 py-0.5 rounded-lg flex items-center gap-1 font-bold shadow-xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+              {product.hologram}
+            </div>
+          )}
 
           {/* Detailed Stock Info Badge (Carton / Box / Pack) */}
           <div className="absolute bottom-2 right-2 left-2 flex items-center justify-between text-[10px] bg-white/95 backdrop-blur-xs px-2.5 py-1 rounded-xl border border-slate-200 shadow-xs">
@@ -179,45 +181,75 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         </div>
 
-        {/* Dual Price Cards (Carton & Box or Box-Only) */}
-        {product.isBoxOnly ? (
-          <div className="mb-3">
-            <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-2.5 flex items-center justify-between gap-2">
-              <div className="min-w-0">
-                <div className="text-[10px] font-bold text-amber-900 flex items-center gap-1 whitespace-nowrap">
-                  <Boxes className="w-3.5 h-3.5 text-amber-700 shrink-0" />
-                  فروش تک‌باکسی
-                </div>
-                <div className="text-[10px] text-amber-700 font-medium truncate mt-0.5">۱۰ پاکت پلمپ</div>
-              </div>
-              <div className="text-xs sm:text-sm font-black text-amber-950 font-mono whitespace-nowrap shrink-0">
-                {formatToman(product.boxPrice)}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-1.5 sm:gap-2 mb-3">
-            <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-2 flex flex-col justify-between min-w-0">
-              <div className="text-[10px] font-bold text-blue-900 flex items-center gap-1 whitespace-nowrap">
-                <Package className="w-3 h-3 text-blue-700 shrink-0" />
-                <span className="truncate">کارتن ({formatNumberFa(product.boxesPerCarton)} باکس)</span>
-              </div>
-              <div className="text-xs sm:text-sm font-black text-blue-950 mt-1 font-mono whitespace-nowrap truncate">
-                {formatToman(product.cartonPrice)}
-              </div>
-            </div>
+        {/* Dual or Single Price Cards based on active packaging levels */}
+        {(() => {
+          const showCarton = product.hasCarton !== false && !product.isBoxOnly && (product.cartonPrice || 0) > 0;
+          const showBox = product.hasBox !== false && (product.boxPrice || 0) > 0;
+          const showPack = product.hasPack === true || ((product.packPrice || 0) > 0) || ((product.pricePerUnit || 0) > 0);
 
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-2 flex flex-col justify-between min-w-0">
-              <div className="text-[10px] font-bold text-slate-700 flex items-center gap-1 whitespace-nowrap">
-                <Boxes className="w-3 h-3 text-slate-600 shrink-0" />
-                <span className="truncate">تک‌باکس (۱۰ پاکت)</span>
+          if (showCarton && showBox) {
+            return (
+              <div className="grid grid-cols-2 gap-1.5 sm:gap-2 mb-3">
+                <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-2 flex flex-col justify-between min-w-0">
+                  <div className="text-[10px] font-bold text-blue-900 flex items-center gap-1 whitespace-nowrap">
+                    <Package className="w-3 h-3 text-blue-700 shrink-0" />
+                    <span className="truncate">کارتن ({formatNumberFa(product.boxesPerCarton)} باکس)</span>
+                  </div>
+                  <div className="text-xs sm:text-sm font-black text-blue-950 mt-1 font-mono whitespace-nowrap truncate">
+                    {formatToman(product.cartonPrice)}
+                  </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-2 flex flex-col justify-between min-w-0">
+                  <div className="text-[10px] font-bold text-slate-700 flex items-center gap-1 whitespace-nowrap">
+                    <Boxes className="w-3 h-3 text-slate-600 shrink-0" />
+                    <span className="truncate">باکس ({formatNumberFa(product.packsPerBox || 10)} پاکت)</span>
+                  </div>
+                  <div className="text-xs sm:text-sm font-black text-slate-900 mt-1 font-mono whitespace-nowrap truncate">
+                    {formatToman(product.boxPrice)}
+                  </div>
+                </div>
               </div>
-              <div className="text-xs sm:text-sm font-black text-slate-900 mt-1 font-mono whitespace-nowrap truncate">
-                {formatToman(product.boxPrice)}
+            );
+          }
+
+          if (showBox) {
+            return (
+              <div className="mb-3 bg-amber-50/80 border border-amber-200 rounded-2xl p-2.5 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold text-amber-900 flex items-center gap-1 whitespace-nowrap">
+                    <Boxes className="w-3.5 h-3.5 text-amber-700 shrink-0" />
+                    فروش باکسی / جعبه‌ای
+                  </div>
+                  <div className="text-[10px] text-amber-700 font-medium truncate mt-0.5">
+                    {formatNumberFa(product.packsPerBox || 10)} {product.unitName || 'عدد'}
+                  </div>
+                </div>
+                <div className="text-xs sm:text-sm font-black text-amber-950 font-mono whitespace-nowrap shrink-0">
+                  {formatToman(product.boxPrice)}
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            );
+          }
+
+          if (showPack) {
+            return (
+              <div className="mb-3 bg-emerald-50/80 border border-emerald-200 rounded-2xl p-2.5 flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-[10px] font-bold text-emerald-900 flex items-center gap-1 whitespace-nowrap">
+                    <Tag className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                    فروش تکی / {product.unitName || 'پاکت'}
+                  </div>
+                </div>
+                <div className="text-xs sm:text-sm font-black text-emerald-950 font-mono whitespace-nowrap shrink-0">
+                  {formatToman(product.packPrice || product.pricePerUnit || 0)}
+                </div>
+              </div>
+            );
+          }
+
+          return null;
+        })()}
 
         {/* Wholesale Tier Discount Notification */}
         {!product.isBoxOnly && product.tierDiscounts.length > 0 && (
@@ -257,8 +289,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         ) : (
           <>
-            {/* Carton Row (Only if not isBoxOnly) */}
-            {!product.isBoxOnly && (
+            {/* Carton Row */}
+            {(product.hasCarton !== false && !product.isBoxOnly && (product.cartonPrice || 0) > 0) && (
               <div className="flex items-center justify-between gap-1.5 bg-blue-50/50 border border-blue-100 rounded-2xl p-1.5">
                 <div className="flex items-center gap-1.5 min-w-0">
                   <span className="text-[11px] font-black text-blue-950 whitespace-nowrap shrink-0">کارتن:</span>
@@ -310,54 +342,56 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             )}
 
             {/* Box Row */}
-            <div className="flex items-center justify-between gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl p-1.5">
-              <div className="flex items-center gap-1.5 min-w-0">
-                <span className="text-[11px] font-black text-slate-800 whitespace-nowrap shrink-0">باکس:</span>
-                <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shrink-0 shadow-2xs">
-                  <button
-                    type="button"
-                    onClick={() => setBoxQty(q => q + 1)}
-                    className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-900 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
-                    title="افزایش باکس"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                  <span className="w-6 sm:w-7 text-center font-bold text-xs text-slate-900 font-mono shrink-0">
-                    {formatNumberFa(boxQty)}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setBoxQty(q => Math.max(0, q - 1))}
-                    className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
-                    title="کاهش باکس"
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
+            {(product.hasBox !== false && (product.boxPrice || 0) > 0) && (
+              <div className="flex items-center justify-between gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl p-1.5">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className="text-[11px] font-black text-slate-800 whitespace-nowrap shrink-0">باکس:</span>
+                  <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shrink-0 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => setBoxQty(q => q + 1)}
+                      className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-900 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
+                      title="افزایش باکس"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                    <span className="w-6 sm:w-7 text-center font-bold text-xs text-slate-900 font-mono shrink-0">
+                      {formatNumberFa(boxQty)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setBoxQty(q => Math.max(0, q - 1))}
+                      className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
+                      title="کاهش باکس"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <button
-                type="button"
-                onClick={handleAddBox}
-                className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-[11px] flex items-center justify-center gap-1 transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-xs ${
-                  boxJustAdded
-                    ? 'bg-emerald-600 text-white'
-                    : 'bg-slate-800 hover:bg-slate-900 text-white'
-                }`}
-              >
-                {boxJustAdded ? (
-                  <>
-                    <Check className="w-3 h-3 shrink-0" />
-                    <span>افزوده شد</span>
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-3 h-3 shrink-0" />
-                    <span>+ باکس</span>
-                  </>
-                )}
-              </button>
-            </div>
+                <button
+                  type="button"
+                  onClick={handleAddBox}
+                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-[11px] flex items-center justify-center gap-1 transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-xs ${
+                    boxJustAdded
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-slate-800 hover:bg-slate-900 text-white'
+                  }`}
+                >
+                  {boxJustAdded ? (
+                    <>
+                      <Check className="w-3 h-3 shrink-0" />
+                      <span>افزوده شد</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="w-3 h-3 shrink-0" />
+                      <span>+ باکس</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            )}
 
             {/* Combined Quick Order Button (If both or either selected) */}
             {(cartonQty > 0 && boxQty > 0) && (

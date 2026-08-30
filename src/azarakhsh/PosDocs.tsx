@@ -62,7 +62,7 @@ export const PosDocs: React.FC = () => {
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه' },
         { name: 'sale_id', type: 'ForeignKey(PosSale)', isFk: true, fkTarget: 'pos_sale', verbose: 'فاکتور فروش' },
-        { name: 'product_id', type: 'ForeignKey(CigaretteProduct)', isFk: true, fkTarget: 'catalog_cigaretteproduct', verbose: 'محصول' },
+        { name: 'product_id', type: 'ForeignKey(Product)', isFk: true, fkTarget: 'products_product', verbose: 'محصول' },
         { name: 'unit', type: 'CharField(choices: carton, box, pack, single)', verbose: 'واحد فروش' },
         { name: 'quantity', type: 'PositiveIntegerField', verbose: 'تعداد' },
         { name: 'unit_price', type: 'BigIntegerField', verbose: 'قیمت واحد (تومان)' },
@@ -77,51 +77,67 @@ export const PosDocs: React.FC = () => {
       path: '/api/v1/pos/checkout/',
       auth: 'IsAuthenticated (Cashier / Admin)',
       description: 'ثبت آنی فاکتور فروش حضوری، کسر خودکار از انبار، ثبت تراکنش در شیفت و تولید اطلاعات چاپ فاکتور رسمی فروش',
-      requestBody: JSON.stringify({
-        shift_id: 12,
-        customer_name: "مشتری حضوری",
-        customer_phone: "09123456789",
-        payment_method: "pos_card",
-        card_ref_number: "98234710293",
-        discount_amount: 50000,
-        items: [
-          { product_id: 1, unit: "carton", quantity: 1, unit_price: 38500000 },
-          { product_id: 4, unit: "box", quantity: 2, unit_price: 750000 },
-          { product_id: 901, unit: "single", quantity: 2, unit_price: 45000 }
-        ]
-      }, null, 2),
-      responseBody: JSON.stringify({
-        success: true,
-        receipt_number: "POS-1403-8821",
-        sale_id: 1042,
-        final_amount: 40040000,
-        thermal_print_payload: {
-          store_name: "پخش عمده دخانیات سوین (شعبه مرکزی)",
-          receipt_no: "POS-1403-8821",
-          date: "۱۴۰۳/۰۶/۰۴ - ۱۶:۴۵",
-          cashier: "علی احمدی",
-          items_count: 5,
-          total: 40040000
-        }
-      }, null, 2)
+      curlExample: `curl -X POST http://localhost:8000/api/v1/pos/checkout/ \\
+  -H "Authorization: Bearer <JWT_TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "shift_id": 12,
+    "customer_name": "مشتری حضوری",
+    "customer_phone": "09123456789",
+    "payment_method": "pos_card",
+    "card_ref_number": "98234710293",
+    "discount_amount": 50000,
+    "items": [
+      {"product_id": 1, "unit": "carton", "quantity": 1, "unit_price": 38500000},
+      {"product_id": 4, "unit": "box", "quantity": 2, "unit_price": 750000}
+    ]
+  }'`,
+      responseBody: `{
+  "status": "success",
+  "message": "فاکتور فروش با موفقیت صادر و از انبار کسر گردید.",
+  "receipt_number": "POS-1403-8821",
+  "sale_id": 1042,
+  "final_amount": 40040000,
+  "thermal_payload": {
+    "store_title": "پخش عمده دخانیات سوین - انبار مرکزی جنت‌آباد",
+    "receipt_no": "POS-1403-8821",
+    "date": "۱۴۰۳/۰۶/۰۴ - ۱۶:۴۵",
+    "cashier": "علی احمدی",
+    "final_total": 40040000
+  }
+}`
     },
     {
       method: 'POST',
       path: '/api/v1/pos/shifts/open/',
       auth: 'IsAuthenticated',
-      description: 'شروع شیفت جدید کاری صندوق‌دار و ثبت تنخواه اولیه کشو'
+      description: 'شروع شیفت جدید کاری صندوق‌دار و ثبت تنخواه اولیه کشو',
+      curlExample: `curl -X POST http://localhost:8000/api/v1/pos/shifts/open/ \\
+  -H "Authorization: Bearer <JWT_TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"register_id": 1, "opening_cash": 2000000}'`
     },
     {
       method: 'POST',
-      path: '/api/v1/pos/shifts/close/',
+      path: '/api/v1/pos/shifts/<id>/close/',
       auth: 'IsAuthenticated',
-      description: 'بستن شیفت کاری، محاسبه سرجمع فروش نقدی و کارتی و ثبت مغایرت نهایی'
+      description: 'بستن شیفت کاری، محاسبه سرجمع فروش نقدی و کارتی و ثبت مغایرت نهایی',
+      curlExample: `curl -X POST http://localhost:8000/api/v1/pos/shifts/12/close/ \\
+  -H "Authorization: Bearer <JWT_TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"closing_cash_actual": 15400000, "notes": "تسویه کامل صندوق"}'`
     },
     {
       method: 'GET',
-      path: '/api/v1/pos/receipt/{id}/print-data/',
+      path: '/api/v1/pos/registers/list/',
       auth: 'IsAuthenticated',
-      description: 'دریافت ساختار استاندارد متنی ESC/POS جهت ارسال مستقیم به پرینتر حرارتی ۸۰ میلی‌متری'
+      description: 'دریافت لیست پایانه‌ها و صندوق‌های فروشگاهی فعال'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/pos/sales/<id>/',
+      auth: 'IsAuthenticated',
+      description: 'دریافت ساختار کامل فاکتور و اطلاعات چاپ فاکتور حرارتی (ESC/POS)'
     }
   ];
 
@@ -129,10 +145,11 @@ export const PosDocs: React.FC = () => {
 pos/models.py
 مدل‌های صندوق فروشگاهی، شیفت کاری، فاکتورهای حضوری، کسر لحظه‌ای انبار و فاکتور فروش رسمی
 """
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 from accounts.models import User
-from catalog.models import CigaretteProduct
+from products.models import Product
 
 
 class PosRegister(models.Model):
@@ -214,7 +231,7 @@ class PosSaleItem(models.Model):
         SINGLE = 'single', _('شات / عدد')
 
     sale = models.ForeignKey(PosSale, on_delete=models.CASCADE, related_name='items', verbose_name=_("فاکتور فروش"))
-    product = models.ForeignKey(CigaretteProduct, on_delete=models.PROTECT, verbose_name=_("محصول"))
+    product = models.ForeignKey(Product, on_delete=models.PROTECT, verbose_name=_("محصول"))
     unit = models.CharField(_("واحد فروش"), max_length=20, choices=SaleUnit.choices, default=SaleUnit.CARTON)
     quantity = models.PositiveIntegerField(_("تعداد"), default=1)
     unit_price = models.BigIntegerField(_("قیمت واحد (تومان)"))
@@ -232,6 +249,7 @@ class PosSaleItem(models.Model):
 pos/admin.py
 مدیریت پنل ادمین جنگو برای صندوق‌های فروشگاهی، چاپ فیش و تسویه شیفت
 """
+
 from django.contrib import admin
 from django.utils.html import format_html
 from .models import PosRegister, PosShift, PosSale, PosSaleItem
@@ -299,10 +317,11 @@ class PosSaleAdmin(admin.ModelAdmin):
 pos/serializers.py
 سریالایزرهای ثبت فروش سریع، شیفت کاری و فیش پرینتر
 """
+
 from rest_framework import serializers
 from django.db import transaction
 from .models import PosRegister, PosShift, PosSale, PosSaleItem
-from catalog.models import CigaretteProduct
+from products.models import Product
 
 
 class PosRegisterSerializer(serializers.ModelSerializer):
@@ -312,7 +331,7 @@ class PosRegisterSerializer(serializers.ModelSerializer):
 
 
 class PosShiftSerializer(serializers.ModelSerializer):
-    cashier_name = serializers.CharField(source='cashier.full_name', read_only=True)
+    cashier_name = serializers.CharField(source='cashier.get_full_name', read_only=True)
 
     class Meta:
         model = PosShift
@@ -321,7 +340,7 @@ class PosShiftSerializer(serializers.ModelSerializer):
 
 
 class PosSaleItemSerializer(serializers.ModelSerializer):
-    product_name = serializers.CharField(source='product.name_fa', read_only=True)
+    product_name = serializers.CharField(source='product.name', read_only=True)
 
     class Meta:
         model = PosSaleItem
@@ -348,7 +367,7 @@ class PosCheckoutSerializer(serializers.Serializer):
 
         # ۱. محاسبه مبالغ و اعتبارسنجی کالاها
         for item in items_data:
-            product = CigaretteProduct.objects.select_for_update().get(id=item['product_id'])
+            product = Product.objects.select_for_update().get(id=item['product_id'])
             qty = item['quantity']
             unit = item.get('unit', 'carton')
             unit_price = item['unit_price']
@@ -406,104 +425,260 @@ class PosCheckoutSerializer(serializers.Serializer):
 
   const viewsCode = `"""
 pos/views.py
-ویوهای عملیاتی صندوق، پرداخت، شروع/پایان شیفت و صدور فاکتور رسمی فروش
+ویوهای اختصاصی صریح با استفاده از APIView (بدون ViewSet) جهت مدیریت صندوق‌های فروشگاهی، شیفت کاری و پرداخت
 """
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+
+from rest_framework import status
+from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from .models import PosRegister, PosShift, PosSale
+from drf_yasg.utils import swagger_auto_schema
+
+from .models import PosRegister, PosShift, PosSale, PosSaleItem
 from .serializers import (
-    PosRegisterSerializer, PosShiftSerializer, PosCheckoutSerializer, PosSaleItemSerializer
+    PosRegisterSerializer,
+    PosShiftSerializer,
+    PosCheckoutSerializer,
+    PosSaleItemSerializer
 )
 
 
-class PosRegisterViewSet(viewsets.ModelViewSet):
-    queryset = PosRegister.objects.filter(is_active=True)
-    serializer_class = PosRegisterSerializer
-    permission_classes = [permissions.IsAuthenticated]
+class PosRegisterListAPIView(APIView):
+    """
+    اندپوینت دریافت لیست پایانه‌ها و صندوق‌های فروشگاهی فعال
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست صندوق‌های فعال (صندوق‌دار/ادمین)",
+        responses={200: PosRegisterSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = PosRegister.objects.filter(is_active=True)
+        serializer = PosRegisterSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
 
 
-class PosShiftViewSet(viewsets.ModelViewSet):
-    queryset = PosShift.objects.all()
-    serializer_class = PosShiftSerializer
-    permission_classes = [permissions.IsAuthenticated]
+class PosRegisterCreateAPIView(APIView):
+    """
+    اندپوینت ثبت و افزودن پایانه صندوق فروشگاهی جدید
+    """
+    permission_classes = [IsAdminUser]
 
-    @action(detail=False, methods=['post'], url_path='open')
-    def open_shift(self, request):
+    @swagger_auto_schema(
+        operation_summary="ثبت پایانه صندوق جدید (مدیریت)",
+        request_body=PosRegisterSerializer,
+        responses={201: PosRegisterSerializer}
+    )
+    def post(self, request):
+        serializer = PosRegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            register = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'پایانه صندوق جدید با موفقیت ایجاد گردید.',
+                'data': PosRegisterSerializer(register).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PosShiftOpenAPIView(APIView):
+    """
+    اندپوینت شروع شیفت کاری جدید صندوق‌دار و ثبت تنخواه اولیه کشو
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="شروع شیفت جدید کاری و ثبت تنخواه اولیه",
+        request_body=PosShiftSerializer,
+        responses={201: PosShiftSerializer}
+    )
+    def post(self, request):
         register_id = request.data.get('register_id')
         opening_cash = request.data.get('opening_cash', 0)
-        
+
         # بستن هر شیفت باز قبلی توسط این کاربر
         active_shift = PosShift.objects.filter(cashier=request.user, status=PosShift.ShiftStatus.OPEN).first()
         if active_shift:
             return Response({'error': 'شما هم‌اکنون یک شیفت باز فعال دارید.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        register = PosRegister.objects.get(id=register_id)
+        register = get_object_or_404(PosRegister, id=register_id)
         shift = PosShift.objects.create(
             register=register,
             cashier=request.user,
             opening_cash=opening_cash,
             status=PosShift.ShiftStatus.OPEN
         )
-        return Response(PosShiftSerializer(shift).data, status=status.HTTP_201_CREATED)
+        return Response({
+            'status': 'success',
+            'message': 'شیفت جدید صندوق با موفقیت باز گردید.',
+            'data': PosShiftSerializer(shift).data
+        }, status=status.HTTP_201_CREATED)
 
-    @action(detail=True, methods=['post'], url_path='close')
-    def close_shift(self, request, pk=None):
-        shift = self.get_object()
+
+class PosShiftCloseAPIView(APIView):
+    """
+    اندپوینت بستن شیفت کاری، محاسبه سرجمع فروش نقدی و کارتی و ثبت مغایرت نهایی
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="بستن شیفت کاری و تسویه حساب صندوق",
+        responses={200: PosShiftSerializer}
+    )
+    def post(self, request, pk):
+        shift = get_object_or_404(PosShift, pk=pk, cashier=request.user, status=PosShift.ShiftStatus.OPEN)
         actual_cash = request.data.get('closing_cash_actual', 0)
         expected_cash = shift.opening_cash + shift.total_cash_sales
-        
+
         shift.closing_cash_actual = actual_cash
         shift.cash_discrepancy = actual_cash - expected_cash
         shift.closed_at = timezone.now()
         shift.status = PosShift.ShiftStatus.CLOSED
         shift.notes = request.data.get('notes', '')
         shift.save()
-        return Response(PosShiftSerializer(shift).data)
 
-
-class PosSaleViewSet(viewsets.ModelViewSet):
-    queryset = PosSale.objects.all()
-    permission_classes = [permissions.IsAuthenticated]
-
-    @action(detail=False, methods=['post'], url_path='checkout')
-    def checkout(self, request):
-        serializer = PosCheckoutSerializer(data=request.data, context={'request': request})
-        serializer.is_valid(raise_exception=True)
-        sale = serializer.save()
-        
         return Response({
-            'success': True,
-            'receipt_number': sale.receipt_number,
-            'sale_id': sale.id,
-            'final_amount': sale.final_amount,
-            'thermal_payload': {
-                'store_title': "پخش عمده دخانیات سوین - انبار مرکزی جنت‌آباد",
-                'receipt_no': sale.receipt_number,
-                'date': sale.created_at.strftime('%Y/%m/%d %H:%M'),
-                'cashier': sale.cashier.full_name,
-                'final_total': sale.final_amount
+            'status': 'success',
+            'message': 'شیفت کاری صندوق‌دار با موفقیت بسته و تسویه گردید.',
+            'data': PosShiftSerializer(shift).data
+        }, status=status.HTTP_200_OK)
+
+
+class PosCheckoutAPIView(APIView):
+    """
+    اندپوینت ثبت آنی فاکتور فروش حضوری، کسر خودکار از انبار و صدور فاکتور حرارتی
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="ثبت آنی فاکتور فروش حضوری و کسر از انبار",
+        request_body=PosCheckoutSerializer,
+        responses={201: dict}
+    )
+    def post(self, request):
+        serializer = PosCheckoutSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            sale = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'فاکتور فروش با موفقیت صادر و از انبار کسر گردید.',
+                'receipt_number': sale.receipt_number,
+                'sale_id': sale.id,
+                'final_amount': sale.final_amount,
+                'thermal_payload': {
+                    'store_title': "پخش عمده دخانیات سوین - انبار مرکزی جنت‌آباد",
+                    'receipt_no': sale.receipt_number,
+                    'date': sale.created_at.strftime('%Y/%m/%d %H:%M'),
+                    'cashier': sale.cashier.full_name if hasattr(sale.cashier, 'full_name') else sale.cashier.username,
+                    'final_total': sale.final_amount
+                }
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PosSaleDetailAPIView(APIView):
+    """
+    اندپوینت مشاهده جزئیات فاکتور فروش و دریافت داده‌های چاپ پرینتر حرارتی
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت ساختار فاکتور فروش و فیش پرینتر حرارتی",
+        responses={200: dict}
+    )
+    def get(self, request, pk):
+        sale = get_object_or_404(PosSale, pk=pk)
+        items = PosSaleItemSerializer(sale.items.all(), many=True).data
+        return Response({
+            'status': 'success',
+            'data': {
+                'id': sale.id,
+                'receipt_number': sale.receipt_number,
+                'customer_name': sale.customer_name,
+                'subtotal_amount': sale.subtotal_amount,
+                'discount_amount': sale.discount_amount,
+                'final_amount': sale.final_amount,
+                'payment_method': sale.payment_method,
+                'card_ref_number': sale.card_ref_number,
+                'items': items,
+                'created_at': sale.created_at
             }
-        }, status=status.HTTP_201_CREATED)
+        }, status=status.HTTP_200_OK)
 `;
 
   const urlsCode = `"""
 pos/urls.py
-مسیریابی روت‌های اپلیکیشن صندوق فروشگاهی
+مسیرهای صریح صادرشده برای APIView (بدون استفاده از Router یا ViewSet)
 """
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import PosRegisterViewSet, PosShiftViewSet, PosSaleViewSet
 
-router = DefaultRouter()
-router.register('registers', PosRegisterViewSet, basename='pos-register')
-router.register('shifts', PosShiftViewSet, basename='pos-shift')
-router.register('sales', PosSaleViewSet, basename='pos-sale')
+from django.urls import path
+from .views import (
+    PosRegisterListAPIView,
+    PosRegisterCreateAPIView,
+    PosShiftOpenAPIView,
+    PosShiftCloseAPIView,
+    PosCheckoutAPIView,
+    PosSaleDetailAPIView,
+)
+
+app_name = 'pos'
 
 urlpatterns = [
-    path('', include(router.urls)),
+    # ۱. لیست پایانه‌ها و صندوق‌های فروشگاهی فعال
+    path('registers/list/', PosRegisterListAPIView.as_view(), name='register-list'),
+
+    # ۲. ایجاد پایانه صندوق جدید (مخصوص ادمین)
+    path('registers/create/', PosRegisterCreateAPIView.as_view(), name='register-create'),
+
+    # ۳. شروع شیفت جدید کاری و ثبت تنخواه اولیه
+    path('shifts/open/', PosShiftOpenAPIView.as_view(), name='shift-open'),
+
+    # ۴. بستن شیفت کاری و تسویه حساب صندوق
+    path('shifts/<int:pk>/close/', PosShiftCloseAPIView.as_view(), name='shift-close'),
+
+    # ۵. ثبت آنی فاکتور فروش حضوری، کسر از انبار و پرینت حرارتی
+    path('checkout/', PosCheckoutAPIView.as_view(), name='pos-checkout'),
+
+    # ۶. دریافت اطلاعات فاکتور فروش و داده‌های فیش پرینتر
+    path('sales/<int:pk>/', PosSaleDetailAPIView.as_view(), name='sale-detail'),
 ]
+`;
+
+  const notesCode = `## 📌 راهنمای استفاده از سیستم صندوق فروشگاهی و تسویه با APIView
+
+### ۱. دلیل پیاده‌سازی صریح با APIView (عدم استفاده از ViewSet):
+* این ماژول کاملاً با کلاس‌های **APIView** صریح پیاده‌سازی شده و وابستگی به ViewSet یا Routerهای استاندارد DRF ندارد.
+* **مزیت:** کسر اتمیک موجودی انبار با \`transaction.atomic()\`, ثبت دقیق مغایرت صندوق در زمان بستن شیفت، تولید لود پرینتر حرارتی ۸۰ میلی‌متری و هماهنگی کامل با مستندات سواگر \`drf_yasg\`.
+
+---
+
+### ۲. نحوه فراخوانی در فرانت‌اند React:
+\`\`\`typescript
+// ثبت فاکتور فروش حضوری در صندوق
+const checkoutPos = async (checkoutData: any) => {
+  const response = await fetch('http://localhost:8000/api/v1/pos/checkout/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': \`Bearer \${token}\`
+    },
+    body: JSON.stringify(checkoutData)
+  });
+  const res = await response.json();
+  if (res.status === 'success') {
+    console.log("شماره فاکتور حرارتی:", res.receipt_number);
+  }
+};
+\`\`\`
 `;
 
   return (
@@ -511,17 +686,17 @@ urlpatterns = [
       appFolder="pos"
       title="اپلیکیشن حسابداری و صندوق فروشگاهی (POS)"
       titleEn="pos / Point of Sale & Thermal Invoice App"
-      badge="POS • Thermal Print • Live Register"
-      description="ماژول یکپارچه صندوق فروشگاهی، پایانه‌های کارتخوان متصل، مدیریت شیفت و تنخواه صندوق‌دار، کسر آنی انبار با تراکنش اتمیک و قالب آماده پرینتر حرارتی ۸۰ میلی‌متری."
+      badge="POS • Thermal Print • Live Register APIView"
+      description="ماژول یکپارچه صندوق فروشگاهی، پایانه‌های کارتخوان متصل، مدیریت شیفت و تنخواه صندوق‌دار، کسر آنی انبار با تراکنش اتمیک و قالب آماده پرینتر حرارتی ۸۰ میلی‌متری. این اپلیکیشن بر پایه APIView صریح (دقیقاً مشابه الگوی regular_customers بدون ViewSet) پیاده‌سازی شده است."
       icon={<MonitorSmartphone className="w-6 h-6 text-indigo-500" />}
       modelsCode={modelsCode}
       adminCode={adminCode}
       serializersCode={serializersCode}
       viewsCode={viewsCode}
       urlsCode={urlsCode}
+      notesCode={notesCode}
       erdTables={erdTables}
       endpoints={endpoints}
     />
   );
 };
-

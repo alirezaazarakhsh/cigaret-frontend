@@ -87,6 +87,10 @@ class SiteBranding(models.Model):
         blank=True
     )
     
+    # تنظیمات حالت آزمایشی / داده‌های فیک
+    is_demo_mode = models.BooleanField(_('فعال بودن حالت داده‌های آزمایشی (Demo / Mock Mode)'), default=False)
+    demo_mode_label = models.CharField(_('عنوان حالت آزمایشی'), max_length=100, default='حالت داده‌های آزمایشی')
+
     # نوار اعلان بالای هدر (Announcement Bar)
     is_announcement_active = models.BooleanField(_('فعال بودن نوار اعلان بالای سایت'), default=True)
     announcement_text = models.CharField(
@@ -316,6 +320,28 @@ class ShippingTextsSetting(models.Model):
 
     def __str__(self):
         return "متون و اطلاعیه‌های بخش باربری"
+
+
+class SiteMaintenance(models.Model):
+    """
+    تنظیمات صفحه تعمیرات / بروزرسانی سایت همراه با تایمر پایان از سمت دیتابیس
+    """
+    is_maintenance_mode = models.BooleanField(_('فعال بودن حالت تعمیرات و بروزرسانی'), default=False)
+    maintenance_title = models.CharField(_('عنوان پیام بروزرسانی'), max_length=200, default='سامانه در حال بروزرسانی و ارتقا می‌باشد')
+    maintenance_message = models.TextField(
+        _('متن کامل پیام تعمیرات'), 
+        default='کاربران گرامی، به منظور ارتقای زیرساخت‌ها و اضافه نمودن امکانات جدید، سامانه به مدت محدود از دسترس خارج می‌باشد. از شکیبایی شما سپاسگزاریم.'
+    )
+    estimated_end_time = models.DateTimeField(_('زمان تخمینی پایان تعمیرات (تایمر معکوس)'), null=True, blank=True)
+    allowed_ips = models.TextField(_('آدرس‌های IP مجاز برای دسترسی ادمین (جداشده با کاما)'), default='127.0.0.1', blank=True)
+
+    class Meta:
+        verbose_name = _('تنظیمات حالت تعمیرات و بروزرسانی سایت')
+        verbose_name_plural = _('تنظیمات حالت تعمیرات و تایمر بروزرسانی')
+
+    def __str__(self):
+        status_str = "فعال (درحال تعمیرات)" if self.is_maintenance_mode else "غیرفعال (سایت آنلاین)"
+        return f"حالت تعمیرات: {status_str}"
 `;
 
   const adminCode = `"""

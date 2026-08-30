@@ -18,7 +18,7 @@ interface NotificationModalProps {
   onClose: () => void;
   notifications: NotificationItem[];
   currentUser: UserProfile | null;
-  onMarkAsRead: (id: string) => void;
+  onMarkAsRead: (id: string | number) => void;
   onMarkAllAsRead: () => void;
 }
 

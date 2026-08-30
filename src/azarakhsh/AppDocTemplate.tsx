@@ -48,16 +48,20 @@ export interface ApiEndpointMeta {
 
 interface AppDocTemplateProps {
   appFolder: string;
-  title: string;
-  titleEn: string;
+  title?: string;
+  appTitle?: string;
+  titleEn?: string;
   badge?: string;
-  description: string;
-  icon: React.ReactNode;
+  description?: string;
+  appDescription?: string;
+  icon: any;
   modelsCode: string;
   adminCode: string;
   serializersCode: string;
   viewsCode: string;
   urlsCode: string;
+  servicesCode?: string;
+  servicesFileName?: string;
   notesCode?: string;
   erdTables?: TableErdMeta[];
   endpoints?: ApiEndpointMeta[];
@@ -66,19 +70,36 @@ interface AppDocTemplateProps {
 export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
   appFolder,
   title,
+  appTitle,
   titleEn,
   badge = 'DRF App',
   description,
+  appDescription,
   icon,
   modelsCode,
   adminCode,
   serializersCode,
   viewsCode,
   urlsCode,
+  servicesCode,
+  servicesFileName = 'services.py',
   notesCode,
   erdTables = [],
   endpoints = [],
 }) => {
+  const displayTitle = title || appTitle || appFolder;
+  const displayTitleEn = titleEn || `${appFolder} / Django App`;
+  const displayDescription = description || appDescription || '';
+
+  const renderIcon = () => {
+    if (!icon) return null;
+    if (React.isValidElement(icon)) return icon;
+    if (typeof icon === 'function' || (typeof icon === 'object' && icon !== null)) {
+      const IconComp = icon as React.ComponentType<{ className?: string }>;
+      return <IconComp className="w-6 h-6" />;
+    }
+    return icon;
+  };
   const [activeTab, setActiveTab] = useState<CodeTab>('models');
   const [activeEndpointIdx, setActiveEndpointIdx] = useState<number>(0);
   const [copiedEndpointIdx, setCopiedEndpointIdx] = useState<number | null>(null);
@@ -91,6 +112,10 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
     { id: 'urls', label: 'مسیرها (urls.py)', file: `${appFolder}/urls.py`, icon: 'Globe' },
   ];
 
+  if (servicesCode) {
+    tabs.push({ id: 'services', label: `سرویس‌ها (${servicesFileName})`, file: `${appFolder}/${servicesFileName}`, icon: 'FileCode' });
+  }
+
   if (notesCode) {
     tabs.push({ id: 'notes', label: 'راهنمای تکمیلی', file: `${appFolder}/README.md`, icon: 'Terminal' });
   }
@@ -102,6 +127,7 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
       case 'serializers': return serializersCode;
       case 'views': return viewsCode;
       case 'urls': return urlsCode;
+      case 'services': return servicesCode || '';
       case 'notes': return notesCode || '';
       default: return modelsCode;
     }
@@ -143,20 +169,20 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
 
           <div className="flex items-center gap-3.5 pt-1">
             <div className="w-12 h-12 rounded-2xl bg-blue-600/30 border border-blue-500/40 text-blue-400 flex items-center justify-center font-black shadow-inner shrink-0">
-              {icon}
+              {renderIcon()}
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-                {title}
+                {displayTitle}
               </h1>
               <div className="text-xs font-mono text-blue-300 font-semibold" dir="ltr">
-                {titleEn}
+                {displayTitleEn}
               </div>
             </div>
           </div>
 
           <p className="text-slate-300 text-xs sm:text-sm leading-relaxed max-w-3xl font-medium pt-1">
-            {description}
+            {displayDescription}
           </p>
         </div>
       </div>

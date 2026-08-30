@@ -63,7 +63,9 @@ import { AzarakhshApiDocs } from './azarakhsh/AzarakhshApiDocs';
 import { HeroBannerSlider } from './components/HeroBannerSlider';
 import { ProductsMegaMenu } from './components/ProductsMegaMenu';
 import { InPersonPickupModal } from './components/InPersonPickupModal';
-import { syncWithDjangoApi } from './services/djangoApi';
+import { BackendConnectionModal } from './components/BackendConnectionModal';
+import { syncWithDjangoApi, djangoDatabaseStore, djangoMarkNotificationRead, djangoMarkAllNotificationsRead } from './services/djangoApi';
+import { api } from './services/api';
 import { generatePriceListPdf } from './utils/pdfGenerator';
 import { formatToman, formatNumberFa } from './utils/formatters';
 
@@ -198,7 +200,7 @@ export default function App() {
       }
     }
     return {
-      apiUrl: 'https://crm.sevin-tobacco.ir/api/v1/',
+      apiUrl: 'https://cigar.sevinhost.ir/api/v1',
       apiToken: '',
       autoSync: false,
       syncIntervalMinutes: 10,
@@ -282,58 +284,58 @@ export default function App() {
   const [isProductsMenuOpen, setIsProductsMenuOpen] = useState<boolean>(false);
   const [isInPersonPickupOpen, setIsInPersonPickupOpen] = useState<boolean>(false);
   const [isPwaModalOpen, setIsPwaModalOpen] = useState<boolean>(false);
+  const [isBackendModalOpen, setIsBackendModalOpen] = useState<boolean>(false);
+
+  // Auto-fetch products from unified API layer on mount
+  useEffect(() => {
+    let isMounted = true;
+    api.products.getAll().then((loadedProducts) => {
+      if (isMounted && loadedProducts && loadedProducts.length > 0) {
+        setProducts(loadedProducts);
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Notifications state
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
-    return [
-      {
-        id: 'notif-1',
-        title: 'تغییر نرخ تعرفه باربری بین‌شهری',
-        message: 'تعرفه ارسال بار به استان‌های اصفهان و فارس در سیستم به‌روزرسانی شد.',
-        type: 'info',
-        targetAudience: 'all',
-        createdAt: '۱۴۰۳/۰۶/۰۲',
-        isRead: false,
-      },
-      {
-        id: 'notif-2',
-        title: 'ارسال بیجک باربری شورآباد',
-        message: 'بیجک بارگیری سفارش‌های جدید صادره از انبار شورآباد از طریق پیامک ارسال گردید.',
-        type: 'success',
-        targetAudience: 'all',
-        createdAt: '۱۴۰۳/۰۶/۰۱',
-        isRead: false,
-      },
-      {
-        id: 'notif-3',
-        title: 'اطلاعیه ویژه سفیران فروش (ویزیتورها)',
-        message: 'پورسانت‌های تسویه‌شده سفارشات هفته گذشته در پنل مالی ویزیتورها قابل مشاهده است.',
-        type: 'urgent',
-        targetAudience: 'visitors',
-        createdAt: '۱۴۰۳/۰۵/۲۸',
-        isRead: false,
-      }
-    ];
+    return djangoDatabaseStore.getNotifications();
   });
+
+  // Re-sync notifications when modal opens or on window focus
+  useEffect(() => {
+    const syncNotifs = () => {
+      setNotifications(djangoDatabaseStore.getNotifications());
+    };
+    if (isNotifModalOpen) {
+      syncNotifs();
+    }
+    window.addEventListener('storage', syncNotifs);
+    return () => window.removeEventListener('storage', syncNotifs);
+  }, [isNotifModalOpen]);
 
   const unreadNotifCount = useMemo(() => {
     if (!currentUser) return 0;
     return notifications.filter(n => {
-      if (n.isRead) return false;
-      if (n.targetAudience === 'all') return true;
+      if (n.isRead || n.is_read) return false;
+      if (!n.targetAudience || n.targetAudience === 'all') return true;
       if (currentUser.role === 'visitor' && n.targetAudience === 'visitors') return true;
       if (currentUser.role === 'customer' && n.targetAudience === 'customers') return true;
-      if (n.targetAudience === 'direct' && (n.targetUserId === currentUser.id || n.targetUserId === currentUser.phone)) return true;
+      if (n.targetAudience === 'direct' && (n.targetUserId === currentUser.id || n.targetUserId === currentUser.phone || String(n.user_id) === String(currentUser.id) || String(n.user) === String(currentUser.id))) return true;
       return false;
     }).length;
   }, [notifications, currentUser]);
 
-  const handleMarkNotifAsRead = (id: string) => {
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  const handleMarkNotifAsRead = (id: string | number) => {
+    djangoMarkNotificationRead(id, true);
+    setNotifications(djangoDatabaseStore.getNotifications());
   };
 
   const handleMarkAllNotifsAsRead = () => {
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    djangoMarkAllNotificationsRead();
+    setNotifications(djangoDatabaseStore.getNotifications());
   };
 
   const showToast = (msg: string) => {
@@ -941,6 +943,15 @@ export default function App() {
         currentUser={currentUser}
         products={products}
         onOrderSubmitted={handlePickupOrderSubmitted}
+        showToast={showToast}
+      />
+
+      {/* Backend API Base URL and Connection Management Modal */}
+      <BackendConnectionModal
+        isOpen={isBackendModalOpen}
+        onClose={() => setIsBackendModalOpen(false)}
+        products={products}
+        onProductsUpdated={(newProducts) => setProducts(newProducts)}
         showToast={showToast}
       />
 

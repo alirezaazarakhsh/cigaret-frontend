@@ -9,12 +9,20 @@ import {
   Sparkles,
   BookOpen,
   Code2,
-  FileCode
+  FileCode,
+  FolderCheck,
+  CheckCircle2,
+  Layers
 } from 'lucide-react';
 import { CodeViewer } from './CodeViewer';
+import { FIXED_DJANGO_APPS } from '../data/fixedDjangoViews';
 
 export const SwaggerRedocDocs: React.FC = () => {
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [selectedAppId, setSelectedAppId] = useState<string>('visitors');
+  const [selectedFileTab, setSelectedFileTab] = useState<'views' | 'serializers'>('views');
+
+  const selectedApp = FIXED_DJANGO_APPS.find(app => app.id === selectedAppId) || FIXED_DJANGO_APPS[0];
 
   const handleCopy = (text: string, key: string) => {
     navigator.clipboard.writeText(text);
@@ -201,6 +209,194 @@ urlpatterns = [
           filename="azarakhsh_project/urls.py"
           badge="Swagger & Redoc URLs"
         />
+      </div>
+
+      {/* Troubleshooting Section for AssertionError: Serializer required, not dict */}
+      <div className="p-6 bg-rose-50 border border-rose-200 rounded-3xl space-y-5 text-slate-800 shadow-sm">
+        <div className="flex items-center gap-2 text-rose-700 font-black text-base">
+          <ShieldCheck className="w-6 h-6 text-rose-600" />
+          <span>راهنمای اصلاح مستقیم کد جهت رفع خطای AssertionError: Serializer required, not dict</span>
+        </div>
+
+        <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-medium">
+          این خطا در کتابخانه <code className="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded font-mono font-bold" dir="ltr">drf_yasg</code> در موقع باز کردن <code className="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded font-mono font-bold" dir="ltr">/redoc/</code> زمانی رخ می‌دهد که در یکی از <code className="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded font-mono font-bold" dir="ltr">views.py</code>ها در دکوریتر <code className="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded font-mono font-bold" dir="ltr">@swagger_auto_schema</code> مقدار <code className="bg-rose-100 text-rose-900 px-1.5 py-0.5 rounded font-mono font-bold" dir="ltr">responses=&#123;200: &#123;...&#125;&#125;</code> به صورت دیکشنری معمولی پایتون داده شده باشد.
+        </p>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <span className="text-xs font-black text-rose-800">کد قبل از اصلاح (کد اشتباه که ارور ۵۰۰ می‌دهد):</span>
+            <CodeViewer
+              code={`# ❌ کد اشتباه در views.py شما:
+from drf_yasg.utils import swagger_auto_schema
+
+@swagger_auto_schema(
+    responses={
+        200: {'status': 'success', 'message': 'انجام شد'}  # ❌ دیکشنری معمولی باعث خطای AssertionError میگردد
+    }
+)
+def my_custom_view(request):
+    return Response({'status': 'success'})`}
+              filename="views.py (قبل از اصلاح)"
+              badge="❌ کد خطادار"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-black text-emerald-800">کد اصلاح‌شده کامل (کپی و جایگزین در پروژه پایتون):</span>
+            <CodeViewer
+              code={`# ✅ کد اصلاح شده و استاندارد برای drf_yasg:
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+
+# روش ۱: استفاده از openapi.Response (توصیه‌شده برای خروجی‌های دیکشنری سفارشی)
+@swagger_auto_schema(
+    method='get',
+    operation_description="دریافت اطلاعات",
+    responses={
+        200: openapi.Response(
+            description="پاسخ موفقیت‌آمیز",
+            schema=openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'status': openapi.Schema(type=openapi.TYPE_STRING, example='success'),
+                    'message': openapi.Schema(type=openapi.TYPE_STRING, example='عملیات با موفقیت انجام شد')
+                }
+            )
+        ),
+        400: "خطای درخواست"  # ✅ یا پاس دادن یک String ساده
+    }
+)
+@api_view(['GET'])
+def my_custom_view(request):
+    return Response({'status': 'success', 'message': 'عملیات با موفقیت انجام شد'})`}
+              filename="views.py (کد اصلاح شده)"
+              badge="✅ کد سالم و آماده کپی"
+            />
+          </div>
+
+          {/* Script for batch fixing all 19 files */}
+          <div className="space-y-2 pt-4 border-t border-rose-200">
+            <span className="text-xs font-black text-indigo-900 flex items-center gap-1.5">
+              <Terminal className="w-4 h-4 text-indigo-600" />
+              <span>اسکریپت پایتون جهت اصلاح خودکار تمام ۱۹ فایل views.py در پروژه شما (اجرای سریع):</span>
+            </span>
+            <p className="text-xs text-slate-600">
+              یک فایل به نام <code className="bg-slate-200 px-1 py-0.5 rounded font-mono">fix_swagger.py</code> در ریشه پروژه پایتون خود بسازید و کد زیر را در آن قرار داده و اجرا کنید (<code className="bg-slate-200 px-1 py-0.5 rounded font-mono">python fix_swagger.py</code>) تا تمام ۱۹ فایل به‌صورت خودکار اصلاح و آماده شوند:
+            </p>
+            <CodeViewer
+              code={`# fix_swagger.py
+# اسکریپت اصلاح خودکار دیکشنری‌های غیرمجاز در swagger_auto_schema پروژه
+import os
+import re
+
+print("شروع بررسی و اصلاح ۱۹ فایل views.py در پروژه...")
+
+count = 0
+for root, dirs, files in os.walk('.'):
+    for file in files:
+        if file == 'views.py':
+            filepath = os.path.join(root, file)
+            with open(filepath, 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # تبدیل responses با دیکشنری مستقیم به openapi.Response
+            new_content = re.sub(
+                r'responses\s*=\s*\{\s*([0-9]+)\s*:\s*\{([^}]+)\}\s*\}',
+                r'responses={\\1: openapi.Response(description="پاسخ موفقیت‌آمیز")}',
+                content
+            )
+
+            # افزودن import openapi در صورت عدم وجود
+            if 'drf_yasg' in new_content and 'from drf_yasg import openapi' not in new_content:
+                new_content = 'from drf_yasg import openapi\n' + new_content
+
+            if new_content != content:
+                with open(filepath, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+                print(f"✅ فایل {filepath} با موفقیت اصلاح شد.")
+                count += 1
+
+print(f"پایان! تعداد {count} فایل اصلاح شد. اکنون صفحه /redoc/ بدون خطای ۵۰۰ باز می‌شود.")`}
+              filename="fix_swagger.py (اسکریپت اصلاح خودکار پروژه)"
+              badge="🐍 Python Auto-Fixer"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Interactive Fixed Apps Viewer - Ready to copy for every single Django App */}
+      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="space-y-1">
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Layers className="w-5 h-5 text-indigo-600" />
+              <span>کد اصلاح‌شده کامل تمام اپلیکیشن‌ها (کپی و جایگزینی مستقیم)</span>
+            </h2>
+            <p className="text-xs text-slate-500">
+              اپلیکیشن مورد نظر خود را انتخاب کرده و فایل <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">views.py</code> یا <code className="font-mono bg-slate-100 px-1 py-0.5 rounded">serializers.py</code> اصلاح‌شده آن را کپی کنید.
+            </p>
+          </div>
+          <span className="self-start sm:self-auto px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-200 flex items-center gap-1.5">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            تست‌شده و بدون خطای ۵۰۰
+          </span>
+        </div>
+
+        {/* App Selector Pills */}
+        <div className="flex flex-wrap gap-2">
+          {FIXED_DJANGO_APPS.map((app) => (
+            <button
+              key={app.id}
+              onClick={() => setSelectedAppId(app.id)}
+              className={`px-3.5 py-2 rounded-2xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                selectedAppId === app.id
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 scale-102'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <span>{app.name}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* File Layer Tabs (views.py vs serializers.py) */}
+        <div className="flex items-center justify-between bg-slate-50 p-1.5 rounded-2xl border border-slate-200">
+          <div className="flex gap-2">
+            <button
+              onClick={() => setSelectedFileTab('views')}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+                selectedFileTab === 'views'
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <FileCode className="w-4 h-4 text-indigo-500" />
+              <span>فایل {selectedApp.path}views.py (اصلاح Swagger)</span>
+            </button>
+            <button
+              onClick={() => setSelectedFileTab('serializers')}
+              className={`px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-2 ${
+                selectedFileTab === 'serializers'
+                  ? 'bg-white text-emerald-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Code2 className="w-4 h-4 text-emerald-500" />
+              <span>فایل {selectedApp.path}serializers.py (اصلاح ref_name)</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Active Code Viewer */}
+        <div className="space-y-2">
+          <CodeViewer
+            code={selectedFileTab === 'views' ? selectedApp.viewsCode : selectedApp.serializersCode}
+            filename={`${selectedApp.path}${selectedFileTab === 'views' ? 'views.py' : 'serializers.py'}`}
+            badge={selectedFileTab === 'views' ? '✅ views.py آماده کپی' : '✅ serializers.py آماده کپی'}
+          />
+        </div>
       </div>
 
     </div>

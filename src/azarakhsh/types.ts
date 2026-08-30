@@ -11,9 +11,12 @@ export type AzarakhshSectionId =
   | 'shipping'
   | 'blog-tinymce'
   | 'tickets-support'
+  | 'visitor-tickets'
   | 'visitors'
   | 'slider'
   | 'pos'
+  | 'cash-register'
+  | 'currency-rates'
   | 'warehouse-contact'
   | 'regular-customers'
   | 'footer-settings'
@@ -24,7 +27,7 @@ export type AzarakhshSectionId =
   | 'reports'
   | 'roles-permissions';
 
-export type CodeTab = 'models' | 'admin' | 'serializers' | 'views' | 'urls' | 'notes';
+export type CodeTab = 'models' | 'admin' | 'serializers' | 'views' | 'urls' | 'notes' | 'services';
 
 export type DocGroup = 'setup' | 'config' | 'auth' | 'catalog' | 'commerce' | 'support';
 

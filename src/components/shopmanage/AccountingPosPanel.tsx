@@ -65,7 +65,10 @@ import {
   QrCode,
   UserCheck,
   Settings,
-  ChevronDown
+  ChevronDown,
+  Server,
+  Headphones,
+  Bell
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
@@ -80,7 +83,8 @@ import {
   PosCustomer, 
   PosLedgerTransaction,
   WarehouseStaffUser,
-  StaffPermission
+  StaffPermission,
+  DjangoCrmConfig
 } from '../../types';
 import { formatToman, formatNumberFa, getProductStockInfo } from '../../utils/formatters';
 import { generatePosThermalReceiptPdf, generateMonthlyReportPdf, generateDailyReportPdf, generateAnnualReportPdf } from '../../utils/pdfGenerator';
@@ -88,6 +92,19 @@ import { StaffAccessManagerModal } from './StaffAccessManagerModal';
 import { MonthlySalesComparisonView } from './MonthlySalesComparisonView';
 import { QuickAddProductModal } from './QuickAddProductModal';
 import { CustomerAppConnectModal } from './CustomerAppConnectModal';
+import { TicketManagementPanel } from './TicketManagementPanel';
+import { NotificationManagementPanel } from './NotificationManagementPanel';
+import { BackendConnectionModal } from '../BackendConnectionModal';
+import { 
+  djangoPosLogin, 
+  djangoSendPatternSMS, 
+  djangoFetchSmsLogs, 
+  djangoSaveSmsPattern, 
+  djangoSaveAllSmsPatterns,
+  djangoFetchSmsPatterns,
+  djangoFetchKavenegarSettings,
+  djangoSaveKavenegarSettings
+} from '../../services/djangoApi';
 
 interface AccountingPosPanelProps {
   products: CigaretteProduct[];
@@ -111,7 +128,11 @@ const DEFAULT_STAFF_MEMBERS: WarehouseStaffUser[] = [
       'view_reports',
       'monthly_comparison',
       'manage_staff',
-      'customer_app_connect'
+      'customer_app_connect',
+      'send_sms',
+      'manage_tickets',
+      'manage_notifications',
+      'delete_receipts'
     ],
     status: 'active',
     createdAt: '1403/01/01',
@@ -130,7 +151,10 @@ const DEFAULT_STAFF_MEMBERS: WarehouseStaffUser[] = [
       'quick_add_product',
       'manage_ledger',
       'view_reports',
-      'monthly_comparison'
+      'monthly_comparison',
+      'send_sms',
+      'manage_tickets',
+      'manage_notifications'
     ],
     status: 'active',
     createdAt: '1403/03/15',
@@ -305,7 +329,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [loginError, setLoginError] = useState('');
 
   // Active Sub Tab
-  const [activeSubTab, setActiveSubTab] = useState<'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics'>('pos');
+  const [activeSubTab, setActiveSubTab] = useState<'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications'>('pos');
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showToolsDropdown, setShowToolsDropdown] = useState(false);
 
@@ -481,22 +505,149 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       const saved = localStorage.getItem('sovin_pos_staff');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((s: WarehouseStaffUser) => {
+            if (s.role === 'super_admin' || s.phone === '09120759419') {
+              const allPossiblePerms: StaffPermission[] = [
+                'manage_pos',
+                'manage_inventory',
+                'quick_add_product',
+                'manage_ledger',
+                'view_reports',
+                'monthly_comparison',
+                'manage_staff',
+                'customer_app_connect',
+                'send_sms',
+                'manage_tickets',
+                'manage_notifications',
+                'delete_receipts'
+              ];
+              return {
+                ...s,
+                permissions: Array.from(new Set([...(s.permissions || []), ...allPossiblePerms]))
+              };
+            }
+            return s;
+          });
+        }
       }
     } catch {}
     return DEFAULT_STAFF_MEMBERS;
   });
 
-  const [currentStaff, setCurrentStaff] = useState<WarehouseStaffUser>(() => staffList[0] || DEFAULT_STAFF_MEMBERS[0]);
+  const [currentStaff, setCurrentStaff] = useState<WarehouseStaffUser>(() => {
+    try {
+      const saved = localStorage.getItem('sovin_pos_current_staff');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.role === 'super_admin' || parsed.phone === '09120759419') {
+          const allPossiblePerms: StaffPermission[] = [
+            'manage_pos',
+            'manage_inventory',
+            'quick_add_product',
+            'manage_ledger',
+            'view_reports',
+            'monthly_comparison',
+            'manage_staff',
+            'customer_app_connect',
+            'send_sms',
+            'manage_tickets',
+            'manage_notifications',
+            'delete_receipts'
+          ];
+          return {
+            ...parsed,
+            permissions: Array.from(new Set([...(parsed.permissions || []), ...allPossiblePerms]))
+          };
+        }
+        return parsed;
+      }
+    } catch {}
+    return staffList[0] || DEFAULT_STAFF_MEMBERS[0];
+  });
+
+  const [showCustomerAppModal, setShowCustomerAppModal] = useState<boolean>(false);
+  const [showBackendModal, setShowBackendModal] = useState<boolean>(false);
+  const [crmConfig, setCrmConfig] = useState<DjangoCrmConfig>(() => {
+    try {
+      const saved = localStorage.getItem('azarakhsh_crm_config');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {
+      apiUrl: 'https://api.azarakhsh-sovin.com',
+      apiKey: 'azarakhsh_pos_secret_key_2025',
+      autoSync: true,
+      lastSyncTime: '۱۴۰۳/۰۶/۱۰ - ۱۰:۰۰'
+    };
+  });
+
+  // Kavenegar SMS Gateway Live States
+  const [smsSubTab, setSmsSubTab] = useState<'settings_patterns' | 'sms_logs'>('settings_patterns');
+  const [kavenegarConfig, setKavenegarConfig] = useState<{
+    name: string;
+    api_token: string;
+    is_active: boolean;
+    debug_mode: boolean;
+  }>({
+    name: 'سامانه پیامک هوشمند سوین (Kavenegar Gateway)',
+    api_token: '366E417A5478474274416738367963385250466453673D3D',
+    is_active: true,
+    debug_mode: false,
+  });
+  const [showApiToken, setShowApiToken] = useState<boolean>(false);
+  const [smsLogs, setSmsLogs] = useState<any[]>([]);
+  const [smsPatterns, setSmsPatterns] = useState<any[]>([]);
+  const [smsSearch, setSmsSearch] = useState('');
+  const [smsStatusFilter, setSmsStatusFilter] = useState<'all' | 'delivered' | 'queued' | 'failed'>('all');
+  const [smsPatternFilter, setSmsPatternFilter] = useState<string>('all');
+  const [smsSuccessMessage, setSmsSuccessMessage] = useState('');
+  const [smsErrorMessage, setSmsErrorMessage] = useState('');
+  const [isSmsLoading, setIsSmsLoading] = useState(false);
+  const [savingPatternKey, setSavingPatternKey] = useState<Record<string, boolean>>({});
+  const [savedPatternKey, setSavedPatternKey] = useState<Record<string, boolean>>({});
+  const [isSavingAllPatterns, setIsSavingAllPatterns] = useState(false);
+
+  // Sync / Load SMS Data
+  useEffect(() => {
+    const loadSmsData = async () => {
+      try {
+        setIsSmsLoading(true);
+        const [logs, patterns, settings] = await Promise.all([
+          djangoFetchSmsLogs(crmConfig),
+          djangoFetchSmsPatterns(crmConfig),
+          djangoFetchKavenegarSettings(crmConfig)
+        ]);
+        setSmsLogs(logs);
+        setSmsPatterns(patterns);
+        if (settings) {
+          setKavenegarConfig(settings);
+        }
+      } catch (e) {
+        console.warn('Error fetching live SMS data:', e);
+      } finally {
+        setIsSmsLoading(false);
+      }
+    };
+    if (activeSubTab === 'sms_management') {
+      loadSmsData();
+    }
+  }, [crmConfig, activeSubTab]);
+
   const [showStaffModal, setShowStaffModal] = useState<boolean>(false);
   const [showQuickAddProductModal, setShowQuickAddProductModal] = useState<boolean>(false);
-  const [showCustomerAppModal, setShowCustomerAppModal] = useState<boolean>(false);
+  const [pendingBarcode, setPendingBarcode] = useState<string>('');
 
   useEffect(() => {
     try {
       localStorage.setItem('sovin_pos_staff', JSON.stringify(staffList));
     } catch {}
   }, [staffList]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sovin_pos_current_staff', JSON.stringify(currentStaff));
+    } catch {}
+  }, [currentStaff]);
 
   // Quick Add Product Handler
   const handleQuickAddProduct = (newProduct: CigaretteProduct, addToCartDirectly: boolean) => {
@@ -568,17 +719,39 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     } catch {}
   };
 
-  // Login handler
-  const handleLogin = (e: React.FormEvent) => {
+  // Login handler connected to Django API
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (VALID_PASSWORDS.includes(loginPass.trim())) {
-      setIsAuthenticated(true);
-      setLoginError('');
-      try {
-        localStorage.setItem('sovin_pos_auth', 'true');
-      } catch {}
-    } else {
-      setLoginError('رمز عبور یا کلید ورود نادرست است.');
+    try {
+      const res = await djangoPosLogin(loginPhone, loginPass, crmConfig);
+      if (res.success) {
+        setIsAuthenticated(true);
+        setCurrentStaff(res.user);
+        setLoginError('');
+        try {
+          localStorage.setItem('sovin_pos_auth', 'true');
+          localStorage.setItem('sovin_pos_current_staff', JSON.stringify(res.user));
+          
+          // Also insert this new logged in staff to staffList if not already present
+          if (!staffList.some(s => s.phone === res.user.phone)) {
+            const updatedStaffList = [res.user, ...staffList];
+            setStaffList(updatedStaffList);
+            localStorage.setItem('sovin_pos_staff', JSON.stringify(updatedStaffList));
+          }
+        } catch {}
+        
+        // Refresh live SMS logs list since a "welcome" SMS was just logged on login
+        setTimeout(async () => {
+          try {
+            const logs = await djangoFetchSmsLogs(crmConfig);
+            setSmsLogs(logs);
+          } catch {}
+        }, 1000);
+      } else {
+        setLoginError(res.message || 'رمز عبور یا کلید ورود نادرست است.');
+      }
+    } catch (err: any) {
+      setLoginError('خطا در ارتباط با سرور حسابداری جنگو.');
     }
   };
 
@@ -586,6 +759,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     setIsAuthenticated(false);
     try {
       localStorage.removeItem('sovin_pos_auth');
+      localStorage.removeItem('sovin_pos_current_staff');
     } catch {}
   };
 
@@ -645,25 +819,40 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     const query = barcodeInput.trim();
     if (!query) return;
 
+    // Search by exact barcode match, barcode ending, or product ID
     const found = productsList.find(p => 
       p.barcode === query || 
       p.id.toLowerCase() === query.toLowerCase() ||
-      p.barcode.endsWith(query)
+      (p.barcode && p.barcode.endsWith(query)) ||
+      (query.length >= 4 && p.barcode && query.endsWith(p.barcode))
     );
 
     if (found) {
-      handleAddProductToPos(found, found.isBoxOnly ? 'box' : 'box');
+      const unitToUse = found.isBoxOnly ? 'box' : (found.packPrice ? 'pack' : 'box');
+      handleAddProductToPos(found, unitToUse);
       setBarcodeInput('');
+      setSuccessBanner(`کالای «${found.nameFa}» با بارکد ${query} به فاکتور فروش افزوده شد.`);
+      setTimeout(() => setSuccessBanner(null), 2500);
+      barcodeInputRef.current?.focus();
     } else {
       const nameMatch = productsList.find(p => 
         p.nameFa.toLowerCase().includes(query.toLowerCase()) || 
         p.nameEn.toLowerCase().includes(query.toLowerCase())
       );
       if (nameMatch) {
-        handleAddProductToPos(nameMatch, nameMatch.isBoxOnly ? 'box' : 'box');
+        const unitToUse = nameMatch.isBoxOnly ? 'box' : (nameMatch.packPrice ? 'pack' : 'box');
+        handleAddProductToPos(nameMatch, unitToUse);
         setBarcodeInput('');
+        setSuccessBanner(`کالای «${nameMatch.nameFa}» به فاکتور فروش افزوده شد.`);
+        setTimeout(() => setSuccessBanner(null), 2500);
+        barcodeInputRef.current?.focus();
       } else {
-        alert(`کالایی با بارکد یا کد «${query}» در انبار یافت نشد.`);
+        // Barcode not found -> Open Quick Add Product popup with this barcode pre-filled
+        setPendingBarcode(query);
+        setShowQuickAddProductModal(true);
+        setBarcodeInput('');
+        setSuccessBanner(`کالایی با بارکد «${query}» در انبار یافت نشد. پاپ‌آپ ایجاد محصول جدید باز گردید.`);
+        setTimeout(() => setSuccessBanner(null), 4000);
       }
     }
   };
@@ -867,6 +1056,33 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
     if (onUpdateProductsStock) {
       onUpdateProductsStock(updatedProducts);
+    }
+
+    // Trigger SMS notification via Django API if customer phone is present
+    if (newReceipt.customerPhone && newReceipt.customerPhone.trim() !== '' && newReceipt.customerPhone.trim() !== '-') {
+      const isPartial = paymentMethod === 'ledger' || paymentMethod === 'split';
+      const templateName = isPartial ? 'pos_partial_payment' : 'pos_receipt';
+      const cleanPhone = newReceipt.customerPhone.trim();
+      const clientName = newReceipt.customerName.replace(/ /g, '_');
+      const finalAmountStr = `${newReceipt.finalTotal.toLocaleString()}_تومان`;
+      
+      // Fire and forget (or update state afterwards)
+      djangoSendPatternSMS(
+        cleanPhone,
+        templateName,
+        newReceipt.receiptNumber,
+        clientName,
+        finalAmountStr,
+        crmConfig
+      ).then(async (smsRes) => {
+        if (smsRes.success) {
+          // Softly refresh sms logs in state so it updates live
+          try {
+            const logs = await djangoFetchSmsLogs(crmConfig);
+            setSmsLogs(logs);
+          } catch {}
+        }
+      });
     }
 
     // Reset POS form & open print view
@@ -1685,49 +1901,101 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               <Receipt className="w-4 h-4" />
               <span>دفتر فاکتورها</span>
             </button>
+
+            <button
+              onClick={() => { setActiveSubTab('tickets'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeSubTab === 'tickets'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <Headphones className="w-4 h-4 text-indigo-600" />
+              <span>پاسخ به تیکت‌ها</span>
+              <span className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                جنگو
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setActiveSubTab('sms_management'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeSubTab === 'sms_management'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <Smartphone className="w-4 h-4 text-indigo-600" />
+              <span>سامانه پیامکی کاوه‌نگار</span>
+              <span className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                جنگو
+              </span>
+            </button>
+
+            <button
+              onClick={() => { setActiveSubTab('notifications'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                activeSubTab === 'notifications'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <Bell className="w-4 h-4 text-indigo-600" />
+              <span>اعلانات و نوتیفیکیشن‌ها</span>
+              <span className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
+                جنگو
+              </span>
+            </button>
           </div>
 
-          {/* Quick Tools & Actions */}
-          <div className="flex items-center justify-center md:justify-end gap-2 relative">
-            
-            {/* Tools & Settings Dropdown */}
-            <div className="relative">
-              <button
-                onClick={() => setShowToolsDropdown(!showToolsDropdown)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all active:scale-95"
-                title="ابزارها و تنظیمات صندوق"
-              >
-                <Settings className="w-4 h-4 text-indigo-600" />
-                <span>ابزارها</span>
-                <ChevronDown className="w-3 h-3 text-slate-500" />
-              </button>
+            {/* Quick Tools & Actions */}
+            <div className="flex items-center justify-center md:justify-end gap-2 relative">
+              
+              {/* Tools & Settings Dropdown */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowToolsDropdown(!showToolsDropdown)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all active:scale-95"
+                  title="ابزارها و تنظیمات صندوق"
+                >
+                  <Settings className="w-4 h-4 text-indigo-600" />
+                  <span>ابزارها</span>
+                  <ChevronDown className="w-3 h-3 text-slate-500" />
+                </button>
 
-              {showToolsDropdown && (
-                <div className="absolute left-0 mt-2 w-52 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
-                  <button
-                    onClick={() => { setShowCurrencyRateModal(true); setShowToolsDropdown(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                  >
-                    <Coins className="w-4 h-4 text-blue-600" />
-                    <span>تنظیم نرخ ارز (دلار/یورو)</span>
-                  </button>
-                  <button
-                    onClick={() => { setShowCustomerAppModal(true); setShowToolsDropdown(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                  >
-                    <Smartphone className="w-4 h-4 text-indigo-600" />
-                    <span>اتصال اپلیکیشن مشتریان</span>
-                  </button>
-                  <button
-                    onClick={() => { setShowStaffModal(true); setShowToolsDropdown(false); }}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                  >
-                    <span className="w-4 h-4 text-emerald-600 flex items-center justify-center">🛡️</span>
-                    <span>تغییر دسترسی کاربر</span>
-                  </button>
-                </div>
-              )}
-            </div>
+                {showToolsDropdown && (
+                  <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                    <button
+                      onClick={() => { setShowBackendModal(true); setShowToolsDropdown(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/90 rounded-xl transition-colors text-right"
+                    >
+                      <Server className="w-4 h-4 text-blue-600" />
+                      <span>اتصال API و وب‌سرویس جنگو</span>
+                    </button>
+                    <button
+                      onClick={() => { setShowCurrencyRateModal(true); setShowToolsDropdown(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <Coins className="w-4 h-4 text-blue-600" />
+                      <span>تنظیم نرخ ارز (دلار/یورو)</span>
+                    </button>
+                    <button
+                      onClick={() => { setShowCustomerAppModal(true); setShowToolsDropdown(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <Smartphone className="w-4 h-4 text-indigo-600" />
+                      <span>اتصال اپلیکیشن مشتریان</span>
+                    </button>
+                    <button
+                      onClick={() => { setShowStaffModal(true); setShowToolsDropdown(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <span className="w-4 h-4 text-emerald-600 flex items-center justify-center">🛡️</span>
+                      <span>تغییر دسترسی کاربر</span>
+                    </button>
+                  </div>
+                )}
+              </div>
 
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
@@ -1825,9 +2093,22 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                           اسکن بارکد / جستجوی کالا
                         </h2>
                       </div>
-                      <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
-                        اسکنر خودکار فعال
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setPendingBarcode('');
+                            setShowQuickAddProductModal(true);
+                          }}
+                          className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <PackagePlus className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>+ تعریف محصول جدید</span>
+                        </button>
+                        <span className="text-[10px] text-slate-400 font-mono hidden sm:inline">
+                          اسکنر خودکار فعال
+                        </span>
+                      </div>
                     </div>
 
                     <form onSubmit={handleBarcodeSubmit} className="relative flex items-center">
@@ -2618,7 +2899,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                           </tr>
                         );
                       })}
-                    </tbody>\n                  </table>
+                    </tbody>
+                  </table>
                 </div>
               </div>
 
@@ -3475,6 +3757,683 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               exit={{ opacity: 0, y: -10 }}
             >
               <MonthlySalesComparisonView receiptsList={receiptsList} />
+            </motion.div>
+          )}
+
+          {/* TAB: Ticket Management */}
+          {activeSubTab === 'tickets' && (
+            <motion.div
+              key="tickets-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              {!(currentStaff.role === 'super_admin' || currentStaff.permissions?.includes('manage_tickets')) ? (
+                <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center max-w-xl mx-auto shadow-sm space-y-6">
+                  <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500 text-3xl">
+                    🔒
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-black text-slate-900">عدم دسترسی به بخش پاسخگویی تیکت‌ها</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      شمای کاربری فعلی شما ({currentStaff.fullName}) فاقد دسترسی «پاسخگویی و مدیریت تیکت‌ها» است. لطفاً از طریق دکمه زیر دسترسی حساب خود را ارتقا دهید.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        setShowStaffModal(true);
+                      }}
+                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors active:scale-95 shadow-md shadow-indigo-600/10"
+                    >
+                      تغییر یا ارتقای دسترسی کاربر
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <TicketManagementPanel crmConfig={crmConfig} />
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB: SMS Gateway Management */}
+          {activeSubTab === 'sms_management' && (
+            <motion.div
+              key="sms-management-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              dir="rtl"
+              className="space-y-6"
+            >
+              {/* Permission check */}
+              {!(currentStaff.role === 'super_admin' || currentStaff.permissions?.includes('send_sms')) ? (
+                <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center max-w-xl mx-auto shadow-sm space-y-6">
+                  <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500 text-3xl">
+                    🔒
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-black text-slate-900">عدم دسترسی به پنل پیامکی کاوه‌نگار</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      شمای کاربری فعلی شما ({currentStaff.fullName}) فاقد دسترسی «ارسال و مدیریت پیامک» است. لطفاً از طریق دکمه زیر سطح دسترسی را ارتقا دهید.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        setShowStaffModal(true);
+                      }}
+                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors active:scale-95 shadow-md shadow-indigo-600/10"
+                    >
+                      تغییر یا ارتقای دسترسی کاربر
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Top Notification Banner */}
+                  {smsSuccessMessage && (
+                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center gap-2 shadow-xs">
+                      <span>✓</span>
+                      <span>{smsSuccessMessage}</span>
+                    </div>
+                  )}
+
+                  {smsErrorMessage && (
+                    <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-2xl flex items-center gap-2 shadow-xs">
+                      <span>⚠️</span>
+                      <span>{smsErrorMessage}</span>
+                    </div>
+                  )}
+
+                  {/* Sub-Tab Navigation Header */}
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-slate-200/90 rounded-2xl p-2 shadow-xs">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setSmsSubTab('settings_patterns')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
+                          smsSubTab === 'settings_patterns'
+                            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                        }`}
+                      >
+                        <span>⚙️</span>
+                        <span>تنظیمات درگاه و پترن‌ها (Gateway & Patterns)</span>
+                      </button>
+
+                      <button
+                        onClick={() => setSmsSubTab('sms_logs')}
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all relative ${
+                          smsSubTab === 'sms_logs'
+                            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
+                        }`}
+                      >
+                        <span>📜</span>
+                        <span>تاریخچه و لاگ‌های دیتابیس پیامک (SMS Database Logs)</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
+                          smsSubTab === 'sms_logs' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-700'
+                        }`}>
+                          {smsLogs.length}
+                        </span>
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs text-slate-500 font-bold px-3 py-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                      <span>سرویس کاوه‌نگار: متصل به دیتابیس جنگو</span>
+                    </div>
+                  </div>
+
+                  {/* SUB-TAB 1: Gateway Settings & Patterns */}
+                  {smsSubTab === 'settings_patterns' && (
+                    <div className="space-y-6">
+                      {/* Gateway Core Settings Card */}
+                      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-6">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                          <div>
+                            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                              <span>🔑</span>
+                              <span>تنظیمات وب‌سرویس کاوه‌نگار (Kavenegar SMS Gateway)</span>
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                              پیکربندی کلید API در جدول <code className="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600 font-mono text-[11px]">KavenegarSMSSetting</code> در پایگاه‌داده جنگو
+                            </p>
+                          </div>
+                          <span className="bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                            <span>درگاه فعال</span>
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                          {/* Setting: Gateway Title */}
+                          <div className="space-y-1.5">
+                            <label className="text-xs font-black text-slate-700">نام سامانه پیامکی:</label>
+                            <input
+                              type="text"
+                              value={kavenegarConfig.name}
+                              onChange={(e) => setKavenegarConfig(prev => ({ ...prev, name: e.target.value }))}
+                              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                              placeholder="مثال: سامانه پیامک هوشمند سوین"
+                            />
+                          </div>
+
+                          {/* Setting: API Token */}
+                          <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-black text-slate-700">کلید وب‌سرویس (API Token):</label>
+                              <button
+                                type="button"
+                                onClick={() => setShowApiToken(!showApiToken)}
+                                className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold"
+                              >
+                                {showApiToken ? 'مخفی‌سازی' : 'نمایش کلید'}
+                              </button>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type={showApiToken ? 'text' : 'password'}
+                                value={kavenegarConfig.api_token}
+                                onChange={(e) => setKavenegarConfig(prev => ({ ...prev, api_token: e.target.value }))}
+                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                                placeholder="توکن دریافتی از پنل کاوه‌نگار"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Toggles & Save Button */}
+                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-slate-100">
+                          <div className="flex flex-wrap items-center gap-6">
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={kavenegarConfig.is_active}
+                                onChange={(e) => setKavenegarConfig(prev => ({ ...prev, is_active: e.target.checked }))}
+                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                              />
+                              <span className="text-xs font-black text-slate-800">فعال بودن درگاه پیامک</span>
+                            </label>
+
+                            <label className="flex items-center gap-2 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={kavenegarConfig.debug_mode}
+                                onChange={(e) => setKavenegarConfig(prev => ({ ...prev, debug_mode: e.target.checked }))}
+                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
+                              />
+                              <span className="text-xs font-black text-slate-800">حالت اشکال‌زدایی / شبیه‌ساز بدون کسر شارژ</span>
+                            </label>
+                          </div>
+
+                          <button
+                            onClick={async () => {
+                              try {
+                                setIsSmsLoading(true);
+                                const res = await djangoSaveKavenegarSettings(kavenegarConfig, crmConfig);
+                                if (res) {
+                                  setSmsSuccessMessage('تنظیمات درگاه کاوه‌نگار با موفقیت در پایگاه‌داده جنگو ذخیره شد.');
+                                  setTimeout(() => setSmsSuccessMessage(''), 4000);
+                                }
+                              } catch {
+                                setSmsErrorMessage('خطا در ذخیره‌سازی تنظیمات درگاه.');
+                                setTimeout(() => setSmsErrorMessage(''), 4000);
+                              } finally {
+                                setIsSmsLoading(false);
+                              }
+                            }}
+                            disabled={isSmsLoading}
+                            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-black transition-all active:scale-95 shadow-md shadow-indigo-600/10 flex items-center justify-center gap-2"
+                          >
+                            <span>💾 ذخیره تنظیمات درگاه در سرور جنگو</span>
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Patterns Configuration Grid */}
+                      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                          <div>
+                            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                              <span>📑</span>
+                              <span>پترن‌ها و الگوهای خدماتی کاوه‌نگار (Pattern Templates)</span>
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-1">
+                              ثبت کد پترن انگلیسی برای هر بخش مطابق با تاییدیه وب‌سرویس خدماتی کاوه‌نگار (<code className="font-mono text-indigo-600 text-[11px]">SMSPattern</code> Model)
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center gap-3 self-start sm:self-auto">
+                            <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full font-mono">
+                              {smsPatterns.length} الگو تعریف شده
+                            </span>
+
+                            <button
+                              onClick={async () => {
+                                try {
+                                  setIsSavingAllPatterns(true);
+                                  const res = await djangoSaveAllSmsPatterns(smsPatterns, crmConfig);
+                                  if (res) {
+                                    setSmsSuccessMessage('تمامی کدهای پترن با موفقیت در پایگاه‌داده جنگو ذخیره و فعال شدند.');
+                                    setTimeout(() => setSmsSuccessMessage(''), 4000);
+                                  } else {
+                                    setSmsErrorMessage('خطا در ذخیره‌سازی گروهی پترن‌ها.');
+                                    setTimeout(() => setSmsErrorMessage(''), 4000);
+                                  }
+                                } catch {
+                                  setSmsErrorMessage('خطای ارتباطی در ذخیره پترن‌ها.');
+                                  setTimeout(() => setSmsErrorMessage(''), 4000);
+                                } finally {
+                                  setIsSavingAllPatterns(false);
+                                }
+                              }}
+                              disabled={isSavingAllPatterns || isSmsLoading}
+                              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-black transition-all active:scale-95 shadow-sm flex items-center gap-1.5"
+                            >
+                              {isSavingAllPatterns ? (
+                                <span>در حال ذخیره...</span>
+                              ) : (
+                                <>
+                                  <span>💾</span>
+                                  <span>ذخیره همه الگوها</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {isSmsLoading && smsPatterns.length === 0 ? (
+                          <div className="text-center py-12 text-xs text-slate-500">در حال دریافت الگوها از پایگاه‌داده...</div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            {smsPatterns.map((p) => {
+                              const isSaving = Boolean(savingPatternKey[p.name_fa]);
+                              const isSaved = Boolean(savedPatternKey[p.name_fa]);
+
+                              const handleSaveSingle = async () => {
+                                try {
+                                  setSavingPatternKey(prev => ({ ...prev, [p.name_fa]: true }));
+                                  const sRes = await djangoSaveSmsPattern(p.name_fa, p.pattern_code, crmConfig);
+                                  if (sRes) {
+                                    setSavedPatternKey(prev => ({ ...prev, [p.name_fa]: true }));
+                                    setSmsSuccessMessage(`کد پترن «${p.title_fa || p.name_fa}» با موفقیت در دیتابیس ذخیره شد.`);
+                                    setTimeout(() => {
+                                      setSavedPatternKey(prev => ({ ...prev, [p.name_fa]: false }));
+                                    }, 2500);
+                                    setTimeout(() => setSmsSuccessMessage(''), 3500);
+                                  } else {
+                                    setSmsErrorMessage('خطا در ذخیره‌سازی الگو.');
+                                    setTimeout(() => setSmsErrorMessage(''), 3500);
+                                  }
+                                } catch {
+                                  setSmsErrorMessage('خطای ارتباطی با وب‌سرویس.');
+                                  setTimeout(() => setSmsErrorMessage(''), 3500);
+                                } finally {
+                                  setSavingPatternKey(prev => ({ ...prev, [p.name_fa]: false }));
+                                }
+                              };
+
+                              return (
+                                <div
+                                  key={p.id || p.name_fa}
+                                  className="border border-slate-200/80 rounded-2xl p-4 bg-slate-50/40 hover:bg-white hover:border-indigo-300 transition-all shadow-xs space-y-3.5 relative flex flex-col justify-between"
+                                >
+                                  <div className="space-y-1.5">
+                                    <div className="flex items-start justify-between gap-2">
+                                      <h4 className="text-xs font-black text-slate-950">
+                                        {p.title_fa || p.name_fa}
+                                      </h4>
+                                      <span className="text-[10px] bg-slate-100 text-slate-700 font-mono px-2 py-0.5 rounded font-bold">
+                                        {p.name_fa}
+                                      </span>
+                                    </div>
+
+                                    <div className="text-[10px] text-slate-500 bg-white p-2 rounded-lg border border-slate-100/80 leading-relaxed font-mono">
+                                      <span className="font-sans font-bold text-slate-700">متغیرها: </span>
+                                      {p.tokens_info || 'token, token2, token3'}
+                                    </div>
+                                  </div>
+
+                                  <div className="space-y-1.5 pt-1">
+                                    <label className="text-[11px] font-black text-slate-700 flex items-center justify-between">
+                                      <span>کد پترن انگلیسی (Pattern Code):</span>
+                                      <span className="text-[10px] text-slate-400 font-mono">Kavenegar Template</span>
+                                    </label>
+                                    <div className="flex gap-2">
+                                      <input
+                                        type="text"
+                                        value={p.pattern_code || ''}
+                                        onChange={(e) => {
+                                          const newVal = e.target.value;
+                                          setSmsPatterns(prev => prev.map(item => item.name_fa === p.name_fa ? { ...item, pattern_code: newVal } : item));
+                                        }}
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            handleSaveSingle();
+                                          }
+                                        }}
+                                        className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        placeholder="e.g. pos_receipt_sms"
+                                        dir="ltr"
+                                      />
+                                      <button
+                                        onClick={handleSaveSingle}
+                                        disabled={isSaving}
+                                        className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all active:scale-95 flex items-center justify-center gap-1 min-w-[65px] ${
+                                          isSaved
+                                            ? 'bg-emerald-600 text-white'
+                                            : 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white'
+                                        }`}
+                                        title="ذخیره کد پترن در دیتابیس (Enter)"
+                                      >
+                                        {isSaving ? (
+                                          <span className="text-[11px]">...</span>
+                                        ) : isSaved ? (
+                                          <span>✓ ذخیره شد</span>
+                                        ) : (
+                                          <span>ذخیره</span>
+                                        )}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* SUB-TAB 2: SMS Database Logs (Django Admin Style) */}
+                  {smsSubTab === 'sms_logs' && (
+                    <div className="space-y-6">
+                      {/* Summary Metric Cards */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-1">
+                          <span className="text-[11px] font-bold text-slate-500">کل پیامک‌های ارسالی</span>
+                          <div className="text-xl font-black text-slate-900 font-mono">{smsLogs.length}</div>
+                        </div>
+
+                        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-1">
+                          <span className="text-[11px] font-bold text-emerald-600">رسیده به گوشی (Delivered)</span>
+                          <div className="text-xl font-black text-emerald-700 font-mono">
+                            {smsLogs.filter(l => l.status === 'delivered').length}
+                          </div>
+                        </div>
+
+                        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-1">
+                          <span className="text-[11px] font-bold text-amber-600">در صف ارسال (Queued)</span>
+                          <div className="text-xl font-black text-amber-700 font-mono">
+                            {smsLogs.filter(l => l.status === 'queued' || l.status === 'sent').length}
+                          </div>
+                        </div>
+
+                        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-1">
+                          <span className="text-[11px] font-bold text-indigo-600">مجموع هزینه ریالی</span>
+                          <div className="text-xl font-black text-indigo-700 font-mono">
+                            {smsLogs.reduce((acc, curr) => acc + (curr.cost_rial || 0), 0).toLocaleString()} <span className="text-xs font-sans">ریال</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Main Logs Table Container */}
+                      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-5">
+                        {/* Table Controls / Filters */}
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+                          <div>
+                            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                              <span>📊</span>
+                              <span>لاگ و تاریخچه پیامک‌های ارسالی دیتابیس (SmsLog Table)</span>
+                            </h3>
+                            <p className="text-xs text-slate-500 mt-0.5">
+                              دقیقاً مطابق با فیلدهای مدل جنگو <code className="font-mono text-indigo-600 text-[11px]">SmsLog</code> همراه با شناسه پیامک و وضعیت تحویل
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-3">
+                            {/* Search Filter */}
+                            <div className="relative min-w-[220px]">
+                              <input
+                                type="text"
+                                value={smsSearch}
+                                onChange={(e) => setSmsSearch(e.target.value)}
+                                placeholder="جستجو شماره، پترن، شناسه..."
+                                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
+                              />
+                              <span className="absolute right-2.5 top-2.5 text-slate-400 text-xs">🔍</span>
+                            </div>
+
+                            {/* Status Filter */}
+                            <select
+                              value={smsStatusFilter}
+                              onChange={(e: any) => setSmsStatusFilter(e.target.value)}
+                              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                            >
+                              <option value="all">تمام وضعیت‌ها</option>
+                              <option value="delivered">رسیده به گوشی (Delivered)</option>
+                              <option value="queued">در صف ارسال (Queued)</option>
+                              <option value="failed">ناموفق (Failed)</option>
+                            </select>
+
+                            {/* Refresh Button */}
+                            <button
+                              onClick={async () => {
+                                setIsSmsLoading(true);
+                                try {
+                                  const logs = await djangoFetchSmsLogs(crmConfig);
+                                  setSmsLogs(logs);
+                                  setSmsSuccessMessage('لاگ‌ها با موفقیت از دیتابیس جنگو به‌روزرسانی شدند.');
+                                  setTimeout(() => setSmsSuccessMessage(''), 3000);
+                                } catch {
+                                  setSmsErrorMessage('خطا در دریافت لاگ‌های جدید.');
+                                  setTimeout(() => setSmsErrorMessage(''), 3000);
+                                } finally {
+                                  setIsSmsLoading(false);
+                                }
+                              }}
+                              disabled={isSmsLoading}
+                              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors active:scale-95 flex items-center gap-1.5"
+                            >
+                              <span>🔄</span>
+                              <span>به‌روزرسانی لاگ‌ها</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Logs Table */}
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-right border-collapse">
+                            <thead>
+                              <tr className="border-b border-slate-200 text-slate-500 text-[11px] font-black bg-slate-50/70">
+                                <th className="py-3 px-3"># شناسه</th>
+                                <th className="py-3 px-3">زمان ارسال (شمسی)</th>
+                                <th className="py-3 px-3">شماره گیرنده</th>
+                                <th className="py-3 px-3">پترن / قالب</th>
+                                <th className="py-3 px-3">توکن‌های ارسالی</th>
+                                <th className="py-3 px-3">شناسه کاوه‌نگار</th>
+                                <th className="py-3 px-3">وضعیت تحویل</th>
+                                <th className="py-3 px-3">هزینه</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100 text-xs">
+                              {smsLogs
+                                .filter(log => {
+                                  if (smsStatusFilter !== 'all' && log.status !== smsStatusFilter) return false;
+                                  const q = smsSearch.trim().toLowerCase();
+                                  if (!q) return true;
+                                  return (
+                                    (log.recipient_phone || log.recipient || '').toLowerCase().includes(q) ||
+                                    (log.pattern || '').toLowerCase().includes(q) ||
+                                    (log.pattern_code || '').toLowerCase().includes(q) ||
+                                    (log.kavenegar_message_id || '').toLowerCase().includes(q)
+                                  );
+                                })
+                                .map((log, idx) => {
+                                  const isDelivered = log.status === 'delivered';
+                                  const isFailed = log.status === 'failed';
+                                  const isQueued = log.status === 'queued';
+
+                                  // Format Shamsi date
+                                  let shamsiDate = '-';
+                                  if (log.created_at) {
+                                    try {
+                                      shamsiDate = new Intl.DateTimeFormat('fa-IR', {
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit'
+                                      }).format(new Date(log.created_at));
+                                    } catch {
+                                      shamsiDate = log.created_at;
+                                    }
+                                  }
+
+                                  const tokens = log.tokens_sent || {};
+
+                                  return (
+                                    <tr key={log.id || idx} className="hover:bg-slate-50/80 transition-colors">
+                                      {/* ID */}
+                                      <td className="py-3 px-3 font-mono text-[11px] text-slate-500 font-bold">
+                                        {log.id}
+                                      </td>
+
+                                      {/* Date */}
+                                      <td className="py-3 px-3 font-mono text-slate-700 text-[11px] whitespace-nowrap">
+                                        {shamsiDate}
+                                      </td>
+
+                                      {/* Recipient */}
+                                      <td className="py-3 px-3 font-mono font-bold text-slate-900" dir="ltr">
+                                        {log.recipient_phone || log.recipient}
+                                      </td>
+
+                                      {/* Pattern */}
+                                      <td className="py-3 px-3">
+                                        <div className="font-bold text-slate-900 text-xs">{log.pattern || '-'}</div>
+                                        {log.pattern_code && (
+                                          <div className="font-mono text-[10px] text-indigo-600">{log.pattern_code}</div>
+                                        )}
+                                      </td>
+
+                                      {/* Tokens */}
+                                      <td className="py-3 px-3">
+                                        <div className="flex flex-wrap gap-1 max-w-xs">
+                                          {tokens.token && (
+                                            <span className="bg-slate-100 border border-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded font-mono">
+                                              T1: {tokens.token}
+                                            </span>
+                                          )}
+                                          {tokens.token2 && (
+                                            <span className="bg-slate-100 border border-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded font-mono">
+                                              T2: {tokens.token2}
+                                            </span>
+                                          )}
+                                          {tokens.token3 && (
+                                            <span className="bg-slate-100 border border-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded font-mono">
+                                              T3: {tokens.token3}
+                                            </span>
+                                          )}
+                                          {!tokens.token && !tokens.token2 && !tokens.token3 && (
+                                            <span className="text-slate-400 text-[11px]">-</span>
+                                          )}
+                                        </div>
+                                      </td>
+
+                                      {/* Message ID */}
+                                      <td className="py-3 px-3 font-mono text-[11px] text-slate-600" dir="ltr">
+                                        {log.kavenegar_message_id || '-'}
+                                      </td>
+
+                                      {/* Status Badge */}
+                                      <td className="py-3 px-3 whitespace-nowrap">
+                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                                          isDelivered ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                          isFailed ? 'bg-rose-50 text-rose-700 border border-rose-200' :
+                                          isQueued ? 'bg-amber-50 text-amber-700 border border-amber-200' :
+                                          'bg-blue-50 text-blue-700 border border-blue-200'
+                                        }`}>
+                                          <span className={`w-1.5 h-1.5 rounded-full ${
+                                            isDelivered ? 'bg-emerald-500' :
+                                            isFailed ? 'bg-rose-500' :
+                                            isQueued ? 'bg-amber-500' : 'bg-blue-500'
+                                          }`}></span>
+                                          <span>
+                                            {isDelivered ? 'رسیده به گوشی' : isFailed ? 'خطا در ارسال' : isQueued ? 'در صف ارسال' : 'ارسال‌شده'}
+                                          </span>
+                                        </span>
+                                      </td>
+
+                                      {/* Cost */}
+                                      <td className="py-3 px-3 font-mono text-slate-700 text-[11px] whitespace-nowrap">
+                                        {(log.cost_rial || 240).toLocaleString()} ریال
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+
+                              {smsLogs.length === 0 && (
+                                <tr>
+                                  <td colSpan={8} className="text-center py-12 text-slate-400 text-xs">
+                                    هنوز هیچ لاگ پیامکی در دیتابیس ثبت نشده است.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </motion.div>
+          )}
+
+          {/* TAB: Notification Management (Django UserNotification) */}
+          {activeSubTab === 'notifications' && (
+            <motion.div
+              key="notifications-management-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              dir="rtl"
+              className="space-y-6"
+            >
+              {/* Permission check */}
+              {!(currentStaff.role === 'super_admin' || currentStaff.permissions?.includes('manage_notifications')) ? (
+                <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center max-w-xl mx-auto shadow-sm space-y-6">
+                  <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500 text-3xl">
+                    🔒
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-black text-slate-900">عدم دسترسی به بخش اعلانات و نوتیفیکیشن‌ها</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      شمای کاربری فعلی شما ({currentStaff.fullName}) فاقد دسترسی «مدیریت و ارسال نوتیفیکیشن» است. لطفاً از طریق دکمه زیر سطح دسترسی را ارتقا دهید.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        setShowStaffModal(true);
+                      }}
+                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors active:scale-95 shadow-md shadow-indigo-600/10"
+                    >
+                      تغییر یا ارتقای دسترسی کاربر
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <NotificationManagementPanel
+                  crmConfig={crmConfig}
+                  customers={posCustomers}
+                  currentStaff={currentStaff}
+                  onOpenBackendModal={() => setShowBackendModal(true)}
+                />
+              )}
             </motion.div>
           )}
 
@@ -4769,6 +5728,38 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           }}
         />
       )}
+
+      {/* Backend API Connection & Sync Modal */}
+      {showBackendModal && (
+        <BackendConnectionModal
+          isOpen={showBackendModal}
+          onClose={() => setShowBackendModal(false)}
+          products={productsList}
+          onProductsUpdated={(updated) => {
+            setProductsList(updated);
+            if (onUpdateProductsStock) {
+              onUpdateProductsStock(updated);
+            }
+            setSuccessBanner('محصولات و موجودی انبار با وب‌سرویس بک‌اند با موفقیت همگام‌سازی شد.');
+            setTimeout(() => setSuccessBanner(null), 3500);
+          }}
+          showToast={(msg) => {
+            setSuccessBanner(msg);
+            setTimeout(() => setSuccessBanner(null), 3500);
+          }}
+        />
+      )}
+
+      {/* Quick Add Product Modal */}
+      <QuickAddProductModal
+        isOpen={showQuickAddProductModal}
+        onClose={() => {
+          setShowQuickAddProductModal(false);
+          setPendingBarcode('');
+        }}
+        onAddProduct={handleQuickAddProduct}
+        initialBarcode={pendingBarcode}
+      />
 
     </div>
   );

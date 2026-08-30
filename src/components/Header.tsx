@@ -24,7 +24,8 @@ import {
   Bell,
   Smartphone,
   Code,
-  Building2
+  Building2,
+  Store
 } from 'lucide-react';
 import { formatNumberFa } from '../utils/formatters';
 import { NavigationTab, UserProfile } from '../types';

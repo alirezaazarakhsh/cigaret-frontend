@@ -27,11 +27,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   onClose,
   onAddToCart,
 }) => {
-  if (!product) return null;
-
-  const [cartonQty, setCartonQty] = useState<number>(product.moq || 1);
+  const [cartonQty, setCartonQty] = useState<number>(product?.moq || 1);
   const [boxQty, setBoxQty] = useState<number>(0);
   const [added, setAdded] = useState(false);
+
+  if (!product) return null;
 
   const cartonTotalRaw = product.cartonPrice * cartonQty;
   const discountPercent = getApplicableDiscount('carton', cartonQty, product.tierDiscounts);
@@ -87,10 +87,12 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               <span className="text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">
                 مبدأ: {product.origin}
               </span>
-              <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                {product.hologram}
-              </span>
+              {product.hologram && product.hologram !== 'بدون هولوگرام' && product.hologram !== 'ندارد' && (
+                <span className="text-[11px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  {product.hologram}
+                </span>
+              )}
             </div>
             <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
               {product.nameFa}

@@ -64,14 +64,32 @@ pip install django==5.1.4 djangorestframework==3.15.2 djangorestframework-simple
     },
     {
       number: '۴',
+      title: 'ایجاد پروژه پایه جنگو و اپ‌های زیرمجموعه (Sub-Apps)',
+      desc: 'ساخت ساختار اصلی azarakhsh_project و ایجاد ۱۸ اپ زیرمجموعه ماژولار به همراه ساخت فایل‌های serializers.py و urls.py',
+      command: `# ۱. ساخت پروژه پایه جنگو
+django-admin startproject azarakhsh_project .
+
+# ۲. اسکریپت ساخت خودکار ۱۸ اپ زیرمجموعه به همراه serializers.py و urls.py
+for app in accounts roles regular_customers categories products orders pos_system ledger wallet shipping blog tickets visitors site_settings footer_settings sliders kavenegar_sms notifications; do
+    python manage.py startapp $app
+    touch $app/serializers.py
+    touch $app/urls.py
+    echo "from django.urls import path, include" > $app/urls.py
+    echo "from rest_framework.routers import DefaultRouter" >> $app/urls.py
+    echo -e "\nurlpatterns = []\n" >> $app/urls.py
+    echo "App '$app' created successfully"
+done`
+    },
+    {
+      number: '۵',
       title: 'اجرای مایگریشن‌ها و ایجاد سوپریوزر',
-      desc: 'اعمال جداول به دیتابیس و ساخت حساب کاربری مدیر ارشد سامانه',
-      command: `python manage.py makemigrations accounts categories products orders shipping blog tickets visitors site_settings
+      desc: 'اعمال جداول دیتابیس PostgreSQL و ساخت حساب کاربری مدیر ارشد سامانه',
+      command: `python manage.py makemigrations accounts roles regular_customers categories products orders pos_system ledger wallet shipping blog tickets visitors site_settings footer_settings sliders kavenegar_sms notifications
 python manage.py migrate
 python manage.py createsuperuser --username=admin --email=admin@sevin.ir`
     },
     {
-      number: '۵',
+      number: '۶',
       title: 'کانفیگ سرویس Systemd و وب‌سرور Nginx',
       desc: 'اجرای پس‌زمینه پایدار با Gunicorn و پروکسی معکوس امن با گواهی SSL رایگان Let\'s Encrypt',
       command: `# فایل /etc/systemd/system/azarakhsh.service
@@ -83,7 +101,7 @@ After=network.target
 User=www-data
 Group=www-data
 WorkingDirectory=/var/www/azarakhsh_backend
-ExecStart=/var/www/azarakhsh_backend/venv/bin/gunicorn --workers 4 --bind 127.0.0.1:8000 azarakhsh_project.wsgi:application
+ExecStart=/var/www/azarakhsh_backend/venv/bin/gunicorn --workers 4 --bind 127.0.0.1:8001 azarakhsh_project.wsgi:application
 
 [Install]
 WantedBy=multi-user.target
@@ -126,7 +144,7 @@ sudo systemctl enable azarakhsh`
       <div className="space-y-6">
         <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
           <Terminal className="w-5 h-5 text-blue-600" />
-          <span>مراحل اجرایی ۵ گانه در ترمینال سرور</span>
+          <span>مراحل اجرایی ۶ گانه در ترمینال سرور</span>
         </h2>
 
         <div className="grid grid-cols-1 gap-5">
@@ -182,69 +200,198 @@ sudo systemctl enable azarakhsh`
         </div>
       </div>
 
+      {/* Requirements.txt Specification */}
+      <div className="space-y-4">
+        <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
+          <FileCode className="w-5 h-5 text-emerald-600" />
+          <span>فایل کامل نیازمندی‌های پروژه (requirements.txt)</span>
+        </h2>
+
+        <CodeViewer
+          code={`# requirements.txt
+# لیست کامل تمام کتابخانه‌ها و پکیج‌های مورد نیاز برای پروژه جنگو ۵ آذرخش
+
+# هسته جنگو و وب‌سرویس REST API
+django==5.1.4
+djangorestframework==3.15.2
+djangorestframework-simplejwt==5.3.1
+
+# اتصال به دیتابیس PostgreSQL
+psycopg2-binary==2.9.9
+
+# هدرهای CORS و فیلترهای API
+django-cors-headers==4.3.1
+django-filter==24.2
+
+# مستندسازی خودکار API (سواگر و ریداک)
+drf-yasg==1.21.8
+drf-spectacular==0.27.2
+
+# ادیتور متن پیشرفته و مدیریت تصویر
+django-tinymce==4.1.0
+pillow==10.4.0
+
+# مدیریت متغیرهای محیطی
+python-dotenv==1.0.1
+
+# شمسی‌سازی تاریخ‌ها در ادمین و API
+django-jalali-date==2.0.0
+
+# وب‌سرورهای تولیدی (Production WSGI / ASGI)
+gunicorn==22.0.0
+uvicorn==0.30.1
+
+# پیامک کاوه‌نگار (در صورت نیاز به ارسال SMS)
+kavenegar==1.1.2
+requests==2.32.3
+`}
+          filename="requirements.txt"
+          title="فایل نیازمندی‌ها جهت نصب یکباره با pip install -r requirements.txt"
+          badge="Python Dependencies • Django 5.1 • DRF"
+        />
+      </div>
+
       {/* Docker Compose Production Setup */}
       <div className="space-y-4">
         <h2 className="text-base sm:text-lg font-black text-slate-900 flex items-center gap-2">
           <Server className="w-5 h-5 text-indigo-600" />
-          <span>راه‌اندازی با یک دستور از طریق Docker Compose</span>
+          <span>راه‌اندازی با یک دستور از طریق Docker Compose (خواندن دیتابیس و تنظیمات از فایل .env)</span>
         </h2>
 
-        <CodeViewer
-          code={`# docker-compose.yml
+        <div className="space-y-4">
+          <CodeViewer
+            code={`# docker-compose.yml
 version: '3.9'
 
 services:
+  # ۱. دیتابیس PostgreSQL 16 (خواندن اطلاعات از .env)
   db:
     image: postgres:16-alpine
-    container_name: azarakhsh_postgres
-    restart: always
+    container_name: azarakhsh_postgres_db
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      POSTGRES_DB: \${DB_NAME:-azarakhsh_db}
+      POSTGRES_USER: \${DB_USER:-azarakhsh_user}
+      POSTGRES_PASSWORD: \${DB_PASSWORD:-SevinStrongPass_9419@Secure}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    environment:
-      POSTGRES_DB: azarakhsh_db
-      POSTGRES_USER: azarakhsh_user
-      POSTGRES_PASSWORD: SevinStrongPass_9419@Secure
     ports:
-      - "5432:5432"
+      - "\${DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \${DB_USER:-azarakhsh_user} -d \${DB_NAME:-azarakhsh_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - azarakhsh_network
 
+  # ۲. ردیس جهت کش و صف تسک‌ها
   redis:
     image: redis:7-alpine
-    container_name: azarakhsh_redis
-    restart: always
+    container_name: azarakhsh_redis_cache
+    restart: unless-stopped
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - azarakhsh_network
 
+  # ۳. وب‌سرویس جنگو ۵ (Gunicorn روی پورت 8001)
   web:
-    build: .
-    container_name: azarakhsh_django_api
-    restart: always
-    command: gunicorn azarakhsh_project.wsgi:application --bind 0.0.0.0:8000 --workers 4
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: azarakhsh_django_web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=\${DB_PORT:-5432}
+      - DB_NAME=\${DB_NAME:-azarakhsh_db}
+      - DB_USER=\${DB_USER:-azarakhsh_user}
+      - DB_PASSWORD=\${DB_PASSWORD:-SevinStrongPass_9419@Secure}
+      - DJANGO_SECRET_KEY=\${DJANGO_SECRET_KEY}
+      - DJANGO_DEBUG=\${DJANGO_DEBUG:-True}
+      - DJANGO_ALLOWED_HOSTS=\${DJANGO_ALLOWED_HOSTS:-*}
     volumes:
       - .:/app
       - static_volume:/app/staticfiles
       - media_volume:/app/media
     ports:
-      - "8000:8000"
-    environment:
-      - DB_NAME=azarakhsh_db
-      - DB_USER=azarakhsh_user
-      - DB_PASSWORD=SevinStrongPass_9419@Secure
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DJANGO_SECRET_KEY=django-insecure-azarakhsh-master-key-prod-9419-sevin
-      - DEBUG=0
+      - "\${BACKEND_PORT:-8001}:8001"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - azarakhsh_network
+
+networks:
+  azarakhsh_network:
+    driver: bridge
 
 volumes:
   postgres_data:
+    name: azarakhsh_postgres_data
+  redis_data:
+    name: azarakhsh_redis_data
   static_volume:
-  media_volume:`}
-          filename="docker-compose.yml"
-          title="فایل استقرار کانتینری داکر کمپوز"
-          badge="Docker • PostgreSQL 16 • Redis • Gunicorn"
-        />
+    name: azarakhsh_static_data
+  media_volume:
+    name: azarakhsh_media_data`}
+            filename="docker-compose.yml"
+            title="فایل استقرار کانتینری داکر کمپوز (همگام با .env - پورت 8001)"
+            badge="Docker Compose • PostgreSQL 16 • Port 8001"
+          />
+
+          <CodeViewer
+            code={`# Dockerfile
+FROM python:3.12-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \\
+    PYTHONUNBUFFERED=1 \\
+    DEBIAN_FRONTEND=noninteractive
+
+WORKDIR /app
+
+# نصب ابزارهای پیش‌نیاز سیستمی، کلاینت PostgreSQL و بیلد C
+RUN apt-get update && apt-get install -y --no-install-recommends \\
+    build-essential \\
+    libpq-dev \\
+    gcc \\
+    curl \\
+    netcat-traditional \\
+    postgresql-client \\
+    libjpeg-dev \\
+    zlib1g-dev \\
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir --upgrade pip && \\
+    pip install --no-cache-dir -r requirements.txt
+
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+COPY . /app/
+
+RUN mkdir -p /app/staticfiles /app/media
+
+EXPOSE 8001
+
+ENTRYPOINT ["/app/entrypoint.sh"]
+
+CMD ["gunicorn", "azarakhsh_project.wsgi:application", "--bind", "0.0.0.0:8001", "--workers", "4", "--timeout", "120"]`}
+            filename="Dockerfile"
+            title="فایل ساخت ایمیج پایتون ۳.۱۲ و جنگو ۵ (Dockerfile روی پورت 8001)"
+            badge="Dockerfile • Python 3.12 • Port 8001"
+          />
+        </div>
       </div>
 
     </div>

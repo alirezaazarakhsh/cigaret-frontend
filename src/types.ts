@@ -138,7 +138,11 @@ export type StaffPermission =
   | 'view_reports'           // گزارشات مالی و حسابداری
   | 'monthly_comparison'     // چارت و تحلیل مقایسه‌ای ماه‌ها
   | 'manage_staff'           // مدیریت پرسنل و دسترسی‌ها
-  | 'customer_app_connect';  // مدیریت باشگاه مشتریان و اپلیکیشن همراه
+  | 'customer_app_connect'   // مدیریت باشگاه مشتریان و اپلیکیشن همراه
+  | 'send_sms'               // ارسال اس ام اس و پایش پنل پیامکی کاوه‌نگار
+  | 'manage_tickets'         // پاسخگویی و مدیریت تیکت‌های پشتیبانی
+  | 'manage_notifications'   // مدیریت و ارسال اعلانات به کاربران سایت و اپلیکیشن
+  | 'delete_receipts';       // دسترسی ادمین جهت حذف فاکتورها
 
 export interface WarehouseStaffUser {
   id: string;
@@ -249,7 +253,11 @@ export type CigaretteCategory =
   | 'pods_vapes'
   | 'tobacco'
   | 'accessories'
-  | 'drinks_coffee';
+  | 'drinks_coffee'
+  | 'charcoal'
+  | 'hookah'
+  | 'hookah_hose'
+  | 'hookah_accessories';
 
 export interface WholesaleTierDiscount {
   minCartons?: number;
@@ -285,18 +293,24 @@ export interface CigaretteProduct {
   badge?: 'پرفروش' | 'بار تازه' | 'وارداتی اصل' | 'تخفیف تیراژ' | 'موجودی محدود' | 'بار تازه سوین' | 'جدید' | string;
   priceTrend?: 'stable' | 'up' | 'down'; // نوسان قیمت لحظه‌ای
   lastPriceUpdate: string; // آخرین زمان بروزرسانی نرخ
-  hologram: 'شرکتی اصل' | 'سفارش دبی' | 'اورجینال اروپایی' | 'تولید داخل' | 'اورجینال' | string;
+  hologram?: 'شرکتی اصل' | 'سفارش دبی' | 'اورجینال اروپایی' | 'تولید داخل' | 'اورجینال' | 'بدون هولوگرام' | string;
+  unitType?: 'single' | 'pack' | 'box' | 'carton' | 'kg'; // نوع واحد اصلی فروش
+  pricePerUnit?: number; // قیمت واحد
+  unitName?: string; // نام واحد (مثلا: فنجان، عدد، کیلو، بسته)
   tierDiscounts: WholesaleTierDiscount[];
   description: string;
   isAvailable: boolean;
+  hasCarton?: boolean; // آیا فروش کارتنی فعال است؟
+  hasBox?: boolean; // آیا فروش باکسی/جعبه‌ای فعال است؟
+  hasPack?: boolean; // آیا فروش تک/پاکتی/عددی فعال است؟
   isBoxOnly?: boolean; // اگر true باشد، فقط فروش باکسی فعال است و کارتن ندارد
   isPosOnly?: boolean; // اگر true باشد، کالا مختص به فروش حضوری صندوق بوده و در کاتالوگ آنلاین نمایش داده نمی‌شود
 }
 
 export interface CartItem {
   product: CigaretteProduct;
-  unit: 'carton' | 'box';
-  quantity: number; // تعداد کارتن یا باکس
+  unit: 'carton' | 'box' | 'pack' | 'single' | 'kg';
+  quantity: number; // تعداد کارتن، باکس، پاکت، عدد یا کیلو
 }
 
 export interface ShippingOption {
@@ -525,15 +539,22 @@ export interface BlogPost {
 }
 
 export interface NotificationItem {
-  id: string;
+  id: string | number;
   title: string;
   message: string;
-  type: 'info' | 'success' | 'warning' | 'urgent';
-  targetAudience: 'all' | 'visitors' | 'customers' | 'direct';
+  type?: 'info' | 'success' | 'warning' | 'urgent';
+  notification_type?: 'order' | 'price' | 'system' | 'finance';
+  targetAudience?: 'all' | 'visitors' | 'customers' | 'direct';
+  user?: number | string | null;
+  user_id?: number | string | null;
+  user_name?: string;
+  user_phone?: string;
   targetUserId?: string;
   targetUserName?: string;
   createdAt: string;
+  created_at?: string;
   isRead?: boolean;
+  is_read?: boolean;
 }
 
 export interface SupportTicketItem {

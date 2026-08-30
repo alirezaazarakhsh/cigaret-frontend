@@ -30,11 +30,11 @@ import { submitOrderToDjango } from '../services/djangoApi';
 
 interface ProformaInvoicePageProps {
   cartItems: CartItem[];
-  onUpdateQuantity: (productId: string, unit: 'carton' | 'box', newQuantity: number) => void;
-  onRemoveItem: (productId: string, unit: 'carton' | 'box') => void;
+  onUpdateQuantity: (productId: string, unit: CartItem['unit'], newQuantity: number) => void;
+  onRemoveItem: (productId: string, unit: CartItem['unit']) => void;
   onGoToCatalog?: () => void;
   onClearCart: () => void;
-  onAddToCart?: (product: CigaretteProduct, unit: 'carton' | 'box', quantity: number) => void;
+  onAddToCart?: (product: CigaretteProduct, unit: CartItem['unit'], quantity: number) => void;
   availableProducts?: CigaretteProduct[];
   onOpenTracking?: (trackingCode: string) => void;
   currentUser?: UserProfile | null;

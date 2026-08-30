@@ -3,10 +3,159 @@ import { Truck } from 'lucide-react';
 import { AppDocTemplate, TableErdMeta, ApiEndpointMeta } from './AppDocTemplate';
 
 export const ShippingDocs: React.FC = () => {
+  const erdTables: TableErdMeta[] = [
+    {
+      name: 'shipping_shippingtextssetting',
+      verboseName: 'جدول متون و راهنمای باربری و بیمه',
+      description: 'مدیریت متون بسته‌بندی ۵ لایه، بیمه ۱۰۰٪، ارسال ۲ ساعته تهران و اطلاعیه حداقل سفارش',
+      fields: [
+        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه ردیف یکتا (Singleton)' },
+        { name: 'shipping_header_badge', type: 'CharField(max_length=80)', verbose: 'بچ هدر باربری' },
+        { name: 'shipping_header_title', type: 'CharField(max_length=200)', verbose: 'عنوان صفحه باربری' },
+        { name: 'shipping_header_desc', type: 'TextField', verbose: 'توضیحات هدر' },
+        { name: 'packaging_guide_text', type: 'TextField', verbose: 'متن راهنمای بسته‌بندی ضدضربه' },
+        { name: 'insurance_terms_text', type: 'TextField', verbose: 'متن شرایط و پوشش بیمه ۱۰۰٪' },
+        { name: 'express_tehran_note', type: 'TextField', verbose: 'متن ارسال ۲ ساعته تهران' },
+        { name: 'provincial_transit_note', type: 'TextField', verbose: 'متن زمان‌بندی شهرستان‌ها' },
+        { name: 'minimum_freight_order_notice', type: 'CharField(max_length=255)', verbose: 'اطلاعیه حداقل سفارش' },
+      ]
+    },
+    {
+      name: 'shipping_shippingcarrier',
+      verboseName: 'جدول شرکت‌های باربری طرف قرارداد',
+      description: 'باربری‌های شوش (وطن، پیشتاز، ایران پیام و تیپاکس)',
+      fields: [
+        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه' },
+        { name: 'name', type: 'CharField(max_length=120)', verbose: 'نام شرکت باربری' },
+        { name: 'hub_name', type: 'CharField(max_length=150)', verbose: 'نام بارانداز مبدا (پایانه شوش)' },
+        { name: 'phone', type: 'CharField(max_length=20)', verbose: 'شماره تماس باربری' },
+        { name: 'coverage_area', type: 'CharField(max_length=200)', verbose: 'پوشش جغرافیایی' },
+        { name: 'estimated_delivery_time', type: 'CharField(max_length=60)', verbose: 'مدت زمان تقریبی تحویل' },
+        { name: 'base_fare_toman', type: 'DecimalField', verbose: 'تعرفه پایه هر کارتن' },
+        { name: 'is_active', type: 'BooleanField', verbose: 'فعال' },
+      ]
+    },
+    {
+      name: 'shipping_provincetariff',
+      verboseName: 'جدول تعرفه‌های استانی باربری',
+      description: 'کرایه هر کارتن به تفکیک ۳۱ استان کشور و مدت زمان سیر بار',
+      fields: [
+        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه' },
+        { name: 'carrier_id', type: 'ForeignKey', isFk: true, fkTarget: 'shipping_shippingcarrier', verbose: 'شرکت باربری' },
+        { name: 'province_name', type: 'CharField(max_length=80)', verbose: 'نام استان' },
+        { name: 'city_center', type: 'CharField(max_length=80)', verbose: 'مرکز استان' },
+        { name: 'per_carton_rate_toman', type: 'DecimalField', verbose: 'کرایه هر کارتن (تومان)' },
+        { name: 'per_box_rate_toman', type: 'DecimalField', verbose: 'کرایه هر باکس (تومان)' },
+        { name: 'transit_days', type: 'PositiveIntegerField', verbose: 'مدت زمان سیر (روز)' },
+      ]
+    }
+  ];
+
+  const endpoints: ApiEndpointMeta[] = [
+    {
+      method: 'GET',
+      path: '/api/v1/shipping/texts/',
+      auth: 'AllowAny',
+      description: 'دریافت کلیه متون راهنمای باربری، شرایط بیمه ۱۰۰٪ و بسته‌بندی ۵ لایه',
+      curlExample: `curl -X GET http://localhost:8000/api/v1/shipping/texts/`,
+      responseBody: `{
+  "status": "success",
+  "data": {
+    "shipping_header_badge": "ناوگان حمل اکسپرس و بیمه‌شده",
+    "shipping_header_title": "شبکه ارسال مستقیم به سراسر ۳۱ استان کشور",
+    "shipping_header_desc": "همکاری مستقیم با باربری‌های معتبر شوش تهران...",
+    "packaging_guide_text": "کلیه سفارشات کارتن در کارتن‌های ۵ لایه ضدضربه...",
+    "insurance_terms_text": "تمامی بارهای ارسالی به ارزش ۱۰۰٪ مبلغ فاکتور...",
+    "express_tehran_note": "سفارشات شهر تهران ظرف کمتر از ۲ ساعت...",
+    "provincial_transit_note": "سفارشات ثبت‌شده تا ساعت ۱۳:۰۰ همان روز تحویل پایانه...",
+    "minimum_freight_order_notice": "حداقل سفارش برای ارسال به شهرستان ۱ کارتن کامل می‌باشد."
+  }
+}`
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/shipping/carriers/list/',
+      auth: 'AllowAny',
+      description: 'فهرست شرکت‌های باربری پایانه شوش به همراه تعرفه‌های استانی هر کارتن',
+      curlExample: `curl -X GET http://localhost:8000/api/v1/shipping/carriers/list/`,
+      responseBody: `{
+  "status": "success",
+  "count": 4,
+  "results": [
+    {
+      "id": 1,
+      "name": "باربری وطن شوش",
+      "hub_name": "پایانه مرکزی شوش تهران",
+      "phone": "021-55000000",
+      "coverage_area": "سراسر کشور و کلیه شهرستان‌ها",
+      "estimated_delivery_time": "۲۴ الی ۴۸ ساعت کاری",
+      "base_fare_toman": 250000,
+      "province_tariffs": [
+        {
+          "id": 101,
+          "carrier": 1,
+          "carrier_name": "باربری وطن شوش",
+          "province_name": "خراسان رضوی",
+          "city_center": "مشهد",
+          "per_carton_rate_toman": 280000,
+          "per_box_rate_toman": 28000,
+          "transit_days": 2
+        }
+      ]
+    }
+  ]
+}`
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/shipping/carriers/create/',
+      auth: 'IsAdminUser',
+      description: 'تعریف شرکت باربری جدید در سیستم توسط مدیریت',
+      curlExample: `curl -X POST http://localhost:8000/api/v1/shipping/carriers/create/ \\
+  -H "Authorization: Bearer <JWT_TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{"name": "باربری پیشتاز شوش", "phone": "021-55112233", "base_fare_toman": 260000}'`,
+      responseBody: `{
+  "status": "success",
+  "message": "شرکت باربری جدید با موفقیت ایجاد گردید.",
+  "data": {
+    "id": 5,
+    "name": "باربری پیشتاز شوش",
+    "base_fare_toman": 260000
+  }
+}`
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/shipping/carriers/<id>/',
+      auth: 'AllowAny',
+      description: 'مشاهده جزئیات یک شرکت باربری به همراه تعرفه استانی آن'
+    },
+    {
+      method: 'PUT',
+      path: '/api/v1/shipping/carriers/<id>/update/',
+      auth: 'IsAdminUser',
+      description: 'ویرایش مشخصات و تعرفه پایه باربری توسط ادمین'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v1/shipping/carriers/<id>/delete/',
+      auth: 'IsAdminUser',
+      description: 'حذف شرکت باربری از سیستم توسط مدیریت'
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/shipping/tariffs/',
+      auth: 'AllowAny',
+      description: 'دریافت کلیه تعرفه‌های استانی باربری‌ها با قابلیت فیلتر بر اساس نام استان'
+    }
+  ];
+
   const modelsCode = `"""
 shipping/models.py
 مدل‌های باربری‌ها، تعرفه ارسال به استان‌ها، و متون و تنظیمات راهنمای باربری، بیمه و بسته‌بندی
 """
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -84,12 +233,14 @@ class ProvinceTariff(models.Model):
         unique_together = ('carrier', 'province_name')
 
     def __str__(self):
-        return f"{self.province_name} - {self.carrier.name}: {self.per_carton_rate_toman} تومان"`;
+        return f"{self.province_name} - {self.carrier.name}: {self.per_carton_rate_toman} تومان"
+`;
 
   const adminCode = `"""
 shipping/admin.py
 پنل ادمین متون باربری و تعرفه‌های استانی
 """
+
 from django.contrib import admin
 from .models import ShippingTextsSetting, ShippingCarrier, ProvinceTariff
 
@@ -119,12 +270,14 @@ class ShippingCarrierAdmin(admin.ModelAdmin):
     list_display = ('name', 'hub_name', 'phone', 'estimated_delivery_time', 'base_fare_toman', 'is_active')
     list_filter = ('is_active',)
     search_fields = ('name', 'hub_name', 'phone')
-    inlines = [ProvinceTariffInline]`;
+    inlines = [ProvinceTariffInline]
+`;
 
   const serializersCode = `"""
 shipping/serializers.py
 سریالایزر متون باربری و کرایه‌ها
 """
+
 from rest_framework import serializers
 from .models import ShippingTextsSetting, ShippingCarrier, ProvinceTariff
 
@@ -148,126 +301,266 @@ class ShippingCarrierSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ShippingCarrier
-        fields = ('id', 'name', 'hub_name', 'phone', 'coverage_area', 'estimated_delivery_time', 'base_fare_toman', 'province_tariffs')`;
+        fields = ('id', 'name', 'hub_name', 'phone', 'coverage_area', 'estimated_delivery_time', 'base_fare_toman', 'province_tariffs', 'is_active')
+
+
+class ShippingCarrierCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ShippingCarrier
+        fields = ('name', 'hub_name', 'phone', 'coverage_area', 'estimated_delivery_time', 'base_fare_toman', 'is_active')
+`;
 
   const viewsCode = `"""
 shipping/views.py
-ویوهای باربری، محاسبه آنلاین کرایه و متون راهنما
+ویوهای اختصاصی صریح با استفاده از APIView (بدون ViewSet) جهت مدیریت باربری و تعرفه‌ها
 """
-from rest_framework import viewsets, permissions
+
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from django.shortcuts import get_object_or_404
+from drf_yasg.utils import swagger_auto_schema
+
 from .models import ShippingTextsSetting, ShippingCarrier, ProvinceTariff
-from .serializers import ShippingTextsSettingSerializer, ShippingCarrierSerializer, ProvinceTariffSerializer
+from .serializers import (
+    ShippingTextsSettingSerializer, 
+    ShippingCarrierSerializer, 
+    ShippingCarrierCreateUpdateSerializer,
+    ProvinceTariffSerializer
+)
 
 
-class ShippingTextsView(APIView):
-    permission_classes = [permissions.AllowAny]
+class ShippingTextsAPIView(APIView):
+    """
+    اندپوینت دریافت متون راهنمای باربری، بیمه ۱۰۰٪ و شرایط ارسال
+    """
+    permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="دریافت متون و راهنمای کامل باربری و بیمه",
+        responses={200: ShippingTextsSettingSerializer}
+    )
     def get(self, request):
         obj, _ = ShippingTextsSetting.objects.get_or_create(id=1)
         serializer = ShippingTextsSettingSerializer(obj)
-        return Response(serializer.data)
+        return Response({
+            'status': 'success',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
 
 
-class ShippingCarrierViewSet(viewsets.ReadOnlyModelViewSet):
-    permission_classes = [permissions.AllowAny]
-    queryset = ShippingCarrier.objects.filter(is_active=True)
-    serializer_class = ShippingCarrierSerializer`;
+class ShippingCarrierListAPIView(APIView):
+    """
+    اندپوینت دریافت لیست باربری‌های فعال پایانه شوش به همراه تعرفه‌های استانی
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست باربری‌ها و تعرفه‌های استانی",
+        responses={200: ShippingCarrierSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = ShippingCarrier.objects.filter(is_active=True).prefetch_related('province_tariffs')
+        serializer = ShippingCarrierSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class ShippingCarrierCreateAPIView(APIView):
+    """
+    اندپوینت افزودن باربری جدید (مخصوص مدیریت)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="افزودن شرکت باربری جدید (مدیریت)",
+        request_body=ShippingCarrierCreateUpdateSerializer,
+        responses={201: ShippingCarrierSerializer}
+    )
+    def post(self, request):
+        serializer = ShippingCarrierCreateUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            carrier = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'شرکت باربری جدید با موفقیت ایجاد گردید.',
+                'data': ShippingCarrierSerializer(carrier).data
+            }, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ShippingCarrierDetailAPIView(APIView):
+    """
+    اندپوینت مشاهده جزئیات یک باربری و نرخ‌های استانی آن
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت مشخصات یک باربری",
+        responses={200: ShippingCarrierSerializer}
+    )
+    def get(self, request, pk):
+        carrier = get_object_or_404(ShippingCarrier, pk=pk)
+        serializer = ShippingCarrierSerializer(carrier)
+        return Response({
+            'status': 'success',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class ShippingCarrierUpdateAPIView(APIView):
+    """
+    اندپوینت ویرایش مشخصات باربری (مخصوص مدیریت)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش اطلاعات باربری (مدیریت)",
+        request_body=ShippingCarrierCreateUpdateSerializer,
+        responses={200: ShippingCarrierSerializer}
+    )
+    def put(self, request, pk):
+        carrier = get_object_or_404(ShippingCarrier, pk=pk)
+        serializer = ShippingCarrierCreateUpdateSerializer(carrier, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated_carrier = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اطلاعات باربری با موفقیت بروزرسانی گردید.',
+                'data': ShippingCarrierSerializer(updated_carrier).data
+            }, status=status.HTTP_200_OK)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ShippingCarrierDeleteAPIView(APIView):
+    """
+    اندپوینت حذف باربری (مخصوص مدیریت)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="حذف شرکت باربری (مدیریت)",
+        responses={200: dict}
+    )
+    def delete(self, request, pk):
+        carrier = get_object_or_404(ShippingCarrier, pk=pk)
+        carrier.delete()
+        return Response({
+            'status': 'success',
+            'message': 'شرکت باربری مورد نظر با موفقیت حذف گردید.'
+        }, status=status.HTTP_200_OK)
+
+
+class ProvinceTariffListAPIView(APIView):
+    """
+    اندپوینت دریافت تعرفه‌های استانی باربری با امکان فیلتر بر اساس نام استان
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت کرایه ارسال به استان‌ها",
+        responses={200: ProvinceTariffSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = ProvinceTariff.objects.all().select_related('carrier')
+        province_name = request.query_params.get('province')
+        if province_name:
+            queryset = queryset.filter(province_name__icontains=province_name)
+
+        serializer = ProvinceTariffSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+`;
 
   const urlsCode = `"""
 shipping/urls.py
-مسیرهای باربری
+مسیرهای صریح صادرشده برای APIView (بدون استفاده از Router یا ViewSet)
 """
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import ShippingCarrierViewSet, ShippingTextsView
 
-router = DefaultRouter()
-router.register(r'carriers', ShippingCarrierViewSet, basename='shipping-carriers')
+from django.urls import path
+from .views import (
+    ShippingTextsAPIView,
+    ShippingCarrierListAPIView,
+    ShippingCarrierCreateAPIView,
+    ShippingCarrierDetailAPIView,
+    ShippingCarrierUpdateAPIView,
+    ShippingCarrierDeleteAPIView,
+    ProvinceTariffListAPIView,
+)
+
+app_name = 'shipping'
 
 urlpatterns = [
-    path('texts/', ShippingTextsView.as_view(), name='shipping-texts'),
-    path('', include(router.urls)),
-]`;
+    # ۱. متون و راهنمای کامل باربری و بیمه
+    path('texts/', ShippingTextsAPIView.as_view(), name='shipping-texts'),
 
-  const erdTables: TableErdMeta[] = [
-    {
-      name: 'shipping_shippingtextssetting',
-      verboseName: 'جدول متون و راهنمای باربری و بیمه',
-      description: 'مدیریت متون بسته‌بندی ۵ لایه، بیمه ۱۰۰٪، ارسال ۲ ساعته تهران و اطلاعیه حداقل سفارش',
-      fields: [
-        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه ردیف یکتا (Singleton)' },
-        { name: 'shipping_header_badge', type: 'CharField(max_length=80)', verbose: 'بچ هدر باربری' },
-        { name: 'shipping_header_title', type: 'CharField(max_length=200)', verbose: 'عنوان صفحه باربری' },
-        { name: 'shipping_header_desc', type: 'TextField', verbose: 'توضیحات هدر' },
-        { name: 'packaging_guide_text', type: 'TextField', verbose: 'متن راهنمای بسته‌بندی ضدضربه' },
-        { name: 'insurance_terms_text', type: 'TextField', verbose: 'متن شرایط و پوشش بیمه ۱۰۰٪' },
-        { name: 'express_tehran_note', type: 'TextField', verbose: 'متن ارسال ۲ ساعته تهران' },
-        { name: 'provincial_transit_note', type: 'TextField', verbose: 'متن زمان‌بندی شهرستان‌ها' },
-      ]
-    },
-    {
-      name: 'shipping_shippingcarrier',
-      verboseName: 'جدول شرکت‌های باربری طرف قرارداد',
-      description: 'باربری‌های شوش (وطن، پیشتاز، ایران پیام و تیپاکس)',
-      fields: [
-        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه' },
-        { name: 'name', type: 'CharField(max_length=120)', verbose: 'نام شرکت باربری' },
-        { name: 'hub_name', type: 'CharField(max_length=150)', verbose: 'نام بارانداز مبدا (پایانه شوش)' },
-        { name: 'phone', type: 'CharField(max_length=20)', verbose: 'شماره تماس باربری' },
-        { name: 'base_fare_toman', type: 'DecimalField', verbose: 'تعرفه پایه هر کارتن' },
-        { name: 'is_active', type: 'BooleanField', verbose: 'فعال' },
-      ]
-    },
-    {
-      name: 'shipping_provincetariff',
-      verboseName: 'جدول تعرفه‌های استانی باربری',
-      description: 'کرایه هر کارتن به تفکیک ۳۱ استان کشور و مدت زمان سیر بار',
-      fields: [
-        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه' },
-        { name: 'carrier_id', type: 'ForeignKey', isFk: true, fkTarget: 'shipping_shippingcarrier', verbose: 'شرکت باربری' },
-        { name: 'province_name', type: 'CharField(max_length=80)', verbose: 'نام استان' },
-        { name: 'per_carton_rate_toman', type: 'DecimalField', verbose: 'کرایه هر کارتن (تومان)' },
-        { name: 'transit_days', type: 'PositiveIntegerField', verbose: 'مدت زمان سیر (روز)' },
-      ]
-    }
-  ];
+    # ۲. دریافت لیست کلیه باربری‌ها به همراه تعرفه‌ها
+    path('carriers/list/', ShippingCarrierListAPIView.as_view(), name='carrier-list'),
 
-  const endpoints: ApiEndpointMeta[] = [
-    {
-      method: 'GET',
-      path: '/api/v1/shipping/texts/',
-      auth: 'AllowAny',
-      description: 'دریافت کلیه متون راهنمای باربری، شرایط بیمه ۱۰۰٪ و بسته‌بندی ۵ لایه',
-      responseBody: JSON.stringify({
-        shipping_header_badge: "ناوگان حمل اکسپرس و بیمه‌شده",
-        shipping_header_title: "شبکه ارسال مستقیم به سراسر ۳۱ استان کشور",
-        packaging_guide_text: "کلیه سفارشات کارتن در کارتن‌های ۵ لایه ضدضربه، پلمپ‌شده با چسب امنیتی و سلفون ضدآب...",
-        insurance_terms_text: "تمامی بارهای ارسالی به ارزش ۱۰۰٪ مبلغ فاکتور تحت پوشش بیمه حوادث..."
-      }, null, 2)
-    },
-    {
-      method: 'GET',
-      path: '/api/v1/shipping/carriers/',
-      auth: 'AllowAny',
-      description: 'فهرست شرکت‌های باربری پایانه شوش به همراه تعرفه‌های استانی هر کارتن'
-    }
-  ];
+    # ۳. افزودن شرکت باربری جدید (مخصوص ادمین)
+    path('carriers/create/', ShippingCarrierCreateAPIView.as_view(), name='carrier-create'),
+
+    # ۴. مشاهده مشخصات یک باربری با شناسه
+    path('carriers/<int:pk>/', ShippingCarrierDetailAPIView.as_view(), name='carrier-detail'),
+
+    # ۵. ویرایش اطلاعات باربری (مخصوص ادمین)
+    path('carriers/<int:pk>/update/', ShippingCarrierUpdateAPIView.as_view(), name='carrier-update'),
+
+    # ۶. حذف باربری (مخصوص ادمین)
+    path('carriers/<int:pk>/delete/', ShippingCarrierDeleteAPIView.as_view(), name='carrier-delete'),
+
+    # ۷. لیست تعرفه‌های استانی با فیلتر نام استان
+    path('tariffs/', ProvinceTariffListAPIView.as_view(), name='province-tariffs'),
+]
+`;
+
+  const notesCode = `## 📌 راهنمای استفاده از سیستم باربری و ناوگان با APIView
+
+### ۱. دلیل پیاده‌سازی صریح با APIView (عدم استفاده از ViewSet):
+* این ماژول کاملاً با کلاس‌های **APIView** صریح پیاده‌سازی شده و وابستگی به ViewSet یا Routerهای استاندارد DRF ندارد.
+* **مزیت:** جداسازی کامل سرویس متون راهنما و بیمه از لیست باربری‌های شوش، روتینگ صریح و شفاف مطابق سواگر \`drf_yasg\` و امکان دریافت دقیق تعرفه‌ها بر اساس ۳۱ استان کشور.
+
+---
+
+### ۲. نحوه فراخوانی در فرانت‌اند React:
+\`\`\`typescript
+// دریافت متون و تعرفه‌های استانی باربری
+const fetchShippingInfo = async () => {
+  const textsRes = await fetch('http://localhost:8000/api/v1/shipping/texts/');
+  const texts = await textsRes.json();
+  
+  const carriersRes = await fetch('http://localhost:8000/api/v1/shipping/carriers/list/');
+  const carriers = await carriersRes.json();
+  
+  console.log("راهنمای باربری:", texts.data);
+  console.log("باربری‌های فعال شوش:", carriers.results);
+};
+\`\`\`
+`;
 
   return (
     <AppDocTemplate
       appFolder="shipping"
       title="۹. اپلیکیشن حمل‌ونقل، باربری شوش و بیمه"
       titleEn="shipping / Freight Logistics App"
-      badge="Freight Engine • 31 Provinces"
-      description="مدیریت جامع پایانه‌های باربری شوش تهران، محاسبه لحظه‌ای کرایه هر کارتن به تمامی ۳۱ استان کشور، تنظیم متون بیمه‌نامه ۱۰۰٪ و بسته‌بندی ۵ لایه ضدضربه."
-      icon={<Truck className="w-6 h-6" />}
+      badge="Freight Engine • 31 Provinces APIView"
+      description="مدیریت جامع پایانه‌های باربری شوش تهران، محاسبه لحظه‌ای کرایه هر کارتن به تمامی ۳۱ استان کشور، تنظیم متون بیمه‌نامه ۱۰۰٪ و بسته‌بندی ۵ لایه ضدضربه. این اپلیکیشن بر پایه APIView صریح (دقیقاً مشابه الگوی regular_customers بدون ViewSet) پیاده‌سازی شده است."
+      icon={<Truck className="w-6 h-6 text-blue-500" />}
       modelsCode={modelsCode}
       adminCode={adminCode}
       serializersCode={serializersCode}
       viewsCode={viewsCode}
       urlsCode={urlsCode}
+      notesCode={notesCode}
       erdTables={erdTables}
       endpoints={endpoints}
     />

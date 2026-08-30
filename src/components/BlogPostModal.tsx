@@ -29,11 +29,11 @@ export const BlogPostModal: React.FC<BlogPostModalProps> = ({
   onClose,
   onOpenOrder,
 }) => {
-  if (!post) return null;
-
   const [copied, setCopied] = useState(false);
   const [showSchema, setShowSchema] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
+
+  if (!post) return null;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);

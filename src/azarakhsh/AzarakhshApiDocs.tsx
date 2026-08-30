@@ -19,6 +19,8 @@ import { DjangoConfigDocs } from './DjangoConfigDocs';
 import { SiteSettingsDocs } from './SiteSettingsDocs';
 import { SliderDocs } from './SliderDocs';
 import { PosDocs } from './PosDocs';
+import { CashRegisterDocs } from './CashRegisterDocs';
+import { CurrencyDocs } from './CurrencyDocs';
 import { PosProductsDocs } from './PosProductsDocs';
 import { WarehouseStockDocs } from './WarehouseStockDocs';
 import { LedgerDocs } from './LedgerDocs';
@@ -33,6 +35,7 @@ import { OrdersDocs } from './OrdersDocs';
 import { ShippingDocs } from './ShippingDocs';
 import { BlogTinyMceDocs } from './BlogTinyMceDocs';
 import { TicketsSupportDocs } from './TicketsSupportDocs';
+import { VisitorTicketsDocs } from './VisitorTicketsDocs';
 import { VisitorsDocs } from './VisitorsDocs';
 import { WarehouseContactDocs } from './WarehouseContactDocs';
 import { RegularCustomersDocs } from './RegularCustomersDocs';
@@ -202,10 +205,16 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
         return <BlogTinyMceDocs />;
       case 'tickets-support':
         return <TicketsSupportDocs />;
+      case 'visitor-tickets':
+        return <VisitorTicketsDocs />;
       case 'visitors':
         return <VisitorsDocs />;
       case 'pos':
         return <PosDocs />;
+      case 'cash-register':
+        return <CashRegisterDocs />;
+      case 'currency-rates':
+        return <CurrencyDocs />;
       case 'pos-products':
         return <PosProductsDocs />;
       case 'warehouse-stock':
