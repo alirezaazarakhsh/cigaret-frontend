@@ -498,19 +498,36 @@ export const accountsApi = {
   },
 
   /**
-   * POS staff login via POST /api/v1/accounts/pos-login/
+   * POS staff login via POST /api/v1/posuser/login/
    */
   async posLogin(phone: string, password: string): Promise<any> {
-    let res = await httpClient.post<any>('/accounts/pos-login/', { phone, password });
+    let res = await httpClient.post<any>('/posuser/login/', { phone, password });
     if (!res.success && res.status === 404) {
-      res = await httpClient.post<any>('/api/v1/accounts/pos-login/', { phone, password });
+      res = await httpClient.post<any>('/api/v1/posuser/login/', { phone, password });
     }
     if (res.success && res.data?.tokens?.access) {
+      // Tokens are also expected to be set as HttpOnly cookies by the backend,
+      // but we store the access token here if the backend returns it.
       setApiToken(res.data.tokens.access);
       try {
         localStorage.setItem('sevin_api_token', res.data.tokens.access);
       } catch {}
     }
+    return res;
+  },
+
+  /**
+   * POS staff logout via POST /api/v1/posuser/logout/
+   */
+  async posLogout(): Promise<any> {
+    let res = await httpClient.post<any>('/posuser/logout/', {});
+    if (!res.success && res.status === 404) {
+      res = await httpClient.post<any>('/api/v1/posuser/logout/', {});
+    }
+    setApiToken('');
+    try {
+      localStorage.removeItem('sevin_api_token');
+    } catch {}
     return res;
   },
 
@@ -526,17 +543,19 @@ export const accountsApi = {
     pin_code?: string;
     [key: string]: any;
   }): Promise<{ success: boolean; data?: any; message?: string }> {
-    let res = await httpClient.post<any>('/accounts/create-user/', payload);
+    // Primary custom route requested by user
+    let res = await httpClient.post<any>('/posuser/create-staff/', payload);
     
-    // Fallback to other possible endpoints
+    // Fallback to /api/v1 prefix
+    if (!res.success && res.status === 404) {
+      res = await httpClient.post<any>('/api/v1/posuser/create-staff/', payload);
+    }
+    // Fallback to older possible endpoints
+    if (!res.success && res.status === 404) {
+      res = await httpClient.post<any>('/accounts/create-user/', payload);
+    }
     if (!res.success && res.status === 404) {
       res = await httpClient.post<any>('/api/v1/accounts/create-user/', payload);
-    }
-    if (!res.success && res.status === 404) {
-      res = await httpClient.post<any>('/accounts/register/', payload);
-    }
-    if (!res.success && res.status === 404) {
-      res = await httpClient.post<any>('/api/v1/accounts/register/', payload);
     }
 
     if (res.success && res.data) {

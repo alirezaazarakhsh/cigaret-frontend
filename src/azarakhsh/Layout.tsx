@@ -105,6 +105,17 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'احراز هویت و دسترسی'
   },
   {
+    id: 'posuser',
+    title: 'اپلیکیشن مدیریت صندوق‌داران',
+    titleEn: 'posuser / POS Staff App',
+    description: 'ثبت و مدیریت مدیران انبار و پرسنل صندوق با پروفایل‌های اختصاصی',
+    badge: 'صندوق‌دار',
+    iconName: 'UserCheck',
+    appFolder: 'posuser',
+    group: 'auth',
+    groupTitle: 'احراز هویت و دسترسی'
+  },
+  {
     id: 'categories',
     title: '۶. اپلیکیشن دسته‌بندی‌های درختی',
     titleEn: 'categories / Tree Category App',

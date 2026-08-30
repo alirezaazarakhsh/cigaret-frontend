@@ -1,0 +1,312 @@
+import React from 'react';
+import { UserCheck } from 'lucide-react';
+import { AppDocTemplate, TableErdMeta, ApiEndpointMeta } from './AppDocTemplate';
+
+export const PosUserDocs: React.FC = () => {
+  const modelsCode = `from django.db import models
+from django.conf import settings
+
+class PosStaff(models.Model):
+    ROLE_CHOICES = (
+        ('warehouse_manager', 'مدیر انبار و بنکداری'),
+        ('cashier', 'صندوق‌دار فروشگاه'),
+        ('accountant', 'حسابدار و بازرس مالی'),
+        ('super_admin', 'مدیر ارشد سامانه'),
+    )
+    
+    # اتصال به هسته اصلی کاربران
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pos_profile', verbose_name='کاربر')
+    
+    role = models.CharField(max_length=30, choices=ROLE_CHOICES, default='cashier', verbose_name='نقش سازمانی پیش‌فرض')
+    role_title = models.CharField(max_length=100, blank=True, null=True, verbose_name='عنوان فارسی سمت')
+    is_active = models.BooleanField(default=True, verbose_name='وضعیت فعالیت')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ثبت')
+
+    # دسترسی‌های اختصاصی پنل (Permissions)
+    perm_manage_pos = models.BooleanField(default=False, verbose_name='فروش و صندوق')
+    perm_manage_inventory = models.BooleanField(default=False, verbose_name='مدیریت و انبارداری')
+    perm_quick_add_product = models.BooleanField(default=False, verbose_name='تعریف سریع کالا')
+    perm_manage_ledger = models.BooleanField(default=False, verbose_name='حساب‌های دفتری و نسیه')
+    perm_view_reports = models.BooleanField(default=False, verbose_name='گزارشات و آمار فروش')
+    perm_monthly_comparison = models.BooleanField(default=False, verbose_name='تحلیل مقایسه‌ای ماه‌ها')
+    perm_customer_app_connect = models.BooleanField(default=False, verbose_name='باشگاه مشتریان و اپلیکیشن')
+    perm_manage_staff = models.BooleanField(default=False, verbose_name='مدیریت پرسنل و دسترسی‌ها')
+    perm_send_sms = models.BooleanField(default=False, verbose_name='سامانه پیامکی کاوه‌نگار')
+    perm_manage_tickets = models.BooleanField(default=False, verbose_name='پاسخگویی به تیکت‌ها')
+    perm_manage_notifications = models.BooleanField(default=False, verbose_name='اعلانات و نوتیفیکیشن‌ها')
+    perm_delete_receipts = models.BooleanField(default=False, verbose_name='ابطال و حذف فاکتورها')
+
+    class Meta:
+        verbose_name = 'پرسنل صندوق و انبار'
+        verbose_name_plural = 'لیست پرسنل صندوق و انبار'
+
+    def __str__(self):
+        return f"{self.user.first_name} ({self.get_role_display()})"`;
+
+  const adminCode = `from django.contrib import admin
+from .models import PosStaff
+
+@admin.register(PosStaff)
+class PosStaffAdmin(admin.ModelAdmin):
+    list_display = ('user_name', 'user_phone', 'role', 'role_title', 'is_active')
+    list_filter = ('role', 'is_active', 'perm_manage_pos', 'perm_manage_inventory')
+    search_fields = ('user__username', 'user__first_name', 'role_title')
+    
+    fieldsets = (
+        ('اطلاعات پایه', {
+            'fields': ('user', 'role', 'role_title', 'is_active')
+        }),
+        ('سطوح دسترسی اختصاصی', {
+            'fields': (
+                'perm_manage_pos', 'perm_manage_inventory', 'perm_quick_add_product', 
+                'perm_manage_ledger', 'perm_view_reports', 'perm_monthly_comparison',
+                'perm_customer_app_connect', 'perm_manage_staff', 'perm_send_sms',
+                'perm_manage_tickets', 'perm_manage_notifications', 'perm_delete_receipts'
+            )
+        }),
+    )
+
+    def user_name(self, obj):
+        return obj.user.first_name
+    user_name.short_description = 'نام و نام‌خانوادگی'
+
+    def user_phone(self, obj):
+        return obj.user.username
+    user_phone.short_description = 'شماره همراه'`;
+
+  const viewsCode = `import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.contrib.auth import get_user_model, authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+from .models import PosStaff
+
+User = get_user_model()
+
+# Helper for setting tokens in cookies
+def get_tokens_for_user(user):
+    refresh = RefreshToken.for_user(user)
+    return {
+        'refresh': str(refresh),
+        'access': str(refresh.access_token),
+    }
+
+@csrf_exempt
+def login_staff_api(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            phone = data.get('phone')
+            password = data.get('password')
+
+            if not phone or not password:
+                return JsonResponse({"success": False, "message": "شماره همراه و پین‌کد الزامی است."}, status=400)
+
+            user = authenticate(request, username=phone, password=password)
+            if user is not None:
+                tokens = get_tokens_for_user(user)
+                
+                # Check if user has a PosStaff profile
+                try:
+                    pos_staff = user.pos_profile
+                    role = pos_staff.role
+                    role_title = pos_staff.role_title
+                    permissions = []
+                    # Extract active permissions
+                    if pos_staff.perm_manage_pos: permissions.append('manage_pos')
+                    if pos_staff.perm_manage_inventory: permissions.append('manage_inventory')
+                    if pos_staff.perm_quick_add_product: permissions.append('quick_add_product')
+                    if pos_staff.perm_manage_ledger: permissions.append('manage_ledger')
+                    if pos_staff.perm_view_reports: permissions.append('view_reports')
+                    if pos_staff.perm_monthly_comparison: permissions.append('monthly_comparison')
+                    if pos_staff.perm_customer_app_connect: permissions.append('customer_app_connect')
+                    if pos_staff.perm_manage_staff: permissions.append('manage_staff')
+                    if pos_staff.perm_send_sms: permissions.append('send_sms')
+                    if pos_staff.perm_manage_tickets: permissions.append('manage_tickets')
+                    if pos_staff.perm_manage_notifications: permissions.append('manage_notifications')
+                    if pos_staff.perm_delete_receipts: permissions.append('delete_receipts')
+                except PosStaff.DoesNotExist:
+                    # User is a regular Django user but not explicitly a POS staff.
+                    # We can allow them if they are superuser.
+                    if user.is_superuser:
+                        role = 'super_admin'
+                        role_title = 'مدیر ارشد سیستم'
+                        permissions = [
+                            'manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger',
+                            'view_reports', 'monthly_comparison', 'customer_app_connect',
+                            'manage_staff', 'send_sms', 'manage_tickets', 'manage_notifications', 'delete_receipts'
+                        ]
+                    else:
+                        return JsonResponse({"success": False, "message": "شما دسترسی به صندوق فروشگاهی را ندارید."}, status=403)
+
+                response_data = {
+                    "success": True,
+                    "message": "ورود موفقیت‌آمیز بود.",
+                    "data": {
+                        "user": {
+                            "id": user.id,
+                            "phone": user.username,
+                            "fullName": user.first_name,
+                            "role": role,
+                            "roleTitleFa": role_title,
+                            "permissions": permissions,
+                            "status": "active" if user.is_active else "suspended"
+                        },
+                        "tokens": tokens # Tokens can be used in headers if cookie doesn't work well across domains
+                    }
+                }
+                response = JsonResponse(response_data)
+                response.set_cookie('access', tokens['access'], httponly=True, samesite='Lax')
+                response.set_cookie('refresh', tokens['refresh'], httponly=True, samesite='Lax')
+                return response
+            else:
+                return JsonResponse({"success": False, "message": "شماره همراه یا رمز عبور اشتباه است."}, status=401)
+        except Exception as e:
+            return JsonResponse({"success": False, "message": f"خطای سرور: {str(e)}"}, status=500)
+    return JsonResponse({"success": False, "message": "Method Not Allowed"}, status=405)
+
+@csrf_exempt
+def logout_staff_api(request):
+    if request.method == 'POST':
+        response = JsonResponse({"success": True, "message": "خروج موفقیت‌آمیز بود."})
+        response.delete_cookie('access')
+        response.delete_cookie('refresh')
+        return response
+    return JsonResponse({"success": False, "message": "Method Not Allowed"}, status=405)
+
+@csrf_exempt
+def create_staff_api(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            phone = data.get('phone')
+            full_name = data.get('full_name')
+            password = data.get('password') # پین‌کد
+            role = data.get('role', 'cashier')
+            role_title = data.get('roleTitleFa', 'صندوق‌دار')
+            permissions = data.get('permissions', []) # آرایه‌ای از رشته‌های دسترسی
+
+            if not phone or not password:
+                return JsonResponse({"success": False, "message": "شماره همراه و پین‌کد الزامی است."}, status=400)
+
+            # ۱. ساخت هسته کاربر در دیتابیس Accounts
+            if User.objects.filter(username=phone).exists():
+                return JsonResponse({"success": False, "message": "این شماره همراه قبلاً در سیستم ثبت شده است."}, status=400)
+
+            user = User.objects.create_user(username=phone, password=password)
+            user.first_name = full_name
+            
+            # مدیریت دسترسی سوپراڈمین
+            if role == 'super_admin':
+                user.is_staff = True
+                user.is_superuser = True
+            else:
+                user.is_staff = True 
+            user.save()
+
+            # ۲. مپ کردن آرایه دسترسی‌ها به فیلدهای بولی مدل
+            perms_map = {
+                'perm_manage_pos': 'manage_pos' in permissions,
+                'perm_manage_inventory': 'manage_inventory' in permissions,
+                'perm_quick_add_product': 'quick_add_product' in permissions,
+                'perm_manage_ledger': 'manage_ledger' in permissions,
+                'perm_view_reports': 'view_reports' in permissions,
+                'perm_monthly_comparison': 'monthly_comparison' in permissions,
+                'perm_customer_app_connect': 'customer_app_connect' in permissions,
+                'perm_manage_staff': 'manage_staff' in permissions,
+                'perm_send_sms': 'send_sms' in permissions,
+                'perm_manage_tickets': 'manage_tickets' in permissions,
+                'perm_manage_notifications': 'manage_notifications' in permissions,
+                'perm_delete_receipts': 'delete_receipts' in permissions,
+            }
+
+            # ۳. ساخت پروفایل اختصاصی
+            PosStaff.objects.create(
+                user=user,
+                role=role,
+                role_title=role_title,
+                **perms_map
+            )
+
+            return JsonResponse({"success": True, "message": "پرسنل صندوق با موفقیت در دیتابیس ثبت شد."})
+
+        except Exception as e:
+            return JsonResponse({"success": False, "message": f"خطای سرور: {str(e)}"}, status=500)
+            
+    return JsonResponse({"success": False, "message": "Method Not Allowed"}, status=405)`;
+
+  const urlsCode = `from django.urls import path
+from .views import create_staff_api, login_staff_api, logout_staff_api
+
+urlpatterns = [
+    # آدرس‌های فراخوانی فرانت‌اند: /api/v1/posuser/...
+    path('login/', login_staff_api, name='login-staff'),
+    path('logout/', logout_staff_api, name='logout-staff'),
+    path('create-staff/', create_staff_api, name='create-staff'),
+]`;
+
+  const erdTables: TableErdMeta[] = [
+    {
+      name: 'posuser_posstaff',
+      verboseName: 'جدول پرسنل صندوق و انبار (posuser)',
+      description: 'جدول اختصاصی ذخیره نقش‌ها و دسترسی‌های پرسنل سامانه (متصل به User)',
+      fields: [
+        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
+        { name: 'user_id', type: 'OneToOneField', verbose: 'اتصال به جدول اصلی کاربران', help: 'Foreign Key to accounts_user' },
+        { name: 'role', type: 'CharField', verbose: 'نقش (warehouse_manager, cashier, accountant, super_admin)' },
+        { name: 'role_title', type: 'CharField', verbose: 'عنوان سمت (فارسی)' },
+        { name: 'perm_manage_pos', type: 'BooleanField', verbose: 'فروش و صندوق' },
+        { name: 'perm_manage_inventory', type: 'BooleanField', verbose: 'مدیریت و انبارداری' },
+        { name: '...', type: 'BooleanField', verbose: 'سایر دسترسی‌های بولی...' },
+        { name: 'is_active', type: 'BooleanField', verbose: 'وضعیت فعالیت' },
+        { name: 'created_at', type: 'DateTimeField', verbose: 'تاریخ ثبت' },
+      ]
+    }
+  ];
+
+  const endpoints: ApiEndpointMeta[] = [
+    {
+      method: 'POST',
+      path: '/api/v1/posuser/create-staff/',
+      auth: 'AllowAny (csrf_exempt)',
+      description: 'ایجاد پرسنل جدید همراه با ثبت دقیق نقش و لیست دسترسی‌ها',
+      requestBody: JSON.stringify({
+        phone: "09120759419",
+        full_name: "مهندس احمد کاظمی",
+        password: "1234",
+        role: "warehouse_manager",
+        roleTitleFa: "مدیر انبار",
+        permissions: [
+          "manage_pos",
+          "manage_inventory",
+          "quick_add_product"
+        ]
+      }, null, 2),
+      responseBody: JSON.stringify({
+        success: true,
+        message: "پرسنل صندوق با موفقیت در دیتابیس ثبت شد."
+      }, null, 2),
+      curlExample: `curl -X POST http://localhost:8000/api/v1/posuser/create-staff/ \\
+  -H "Content-Type: application/json" \\
+  -d '{"phone":"09120759419","full_name":"مهندس احمد کاظمی","password":"1234","role":"warehouse_manager","roleTitleFa":"مدیر انبار","permissions":["manage_pos","manage_inventory","quick_add_product"]}'`
+    }
+  ];
+
+  return (
+    <AppDocTemplate
+      appFolder="posuser"
+      title="اپلیکیشن پرسنل صندوق و انبار"
+      titleEn="posuser / POS Staff App"
+      badge="پرسنل صندوق"
+      description="مدیریت مجزا و یکپارچه پرسنل انبار، صندوق‌داران و مدیران سیستم با قابلیت ثبت مستقیم از طریق پنل فرانت‌اند."
+      icon={<UserCheck className="w-6 h-6" />}
+      modelsCode={modelsCode}
+      adminCode={adminCode}
+      serializersCode=""
+      viewsCode={viewsCode}
+      urlsCode={urlsCode}
+      erdTables={erdTables}
+      endpoints={endpoints}
+    />
+  );
+};

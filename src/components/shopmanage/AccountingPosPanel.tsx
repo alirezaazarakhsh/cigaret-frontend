@@ -70,6 +70,7 @@ import {
   Headphones,
   Bell
 } from 'lucide-react';
+import { api } from '../../services/api';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
   LineChart, Line
@@ -96,7 +97,6 @@ import { TicketManagementPanel } from './TicketManagementPanel';
 import { NotificationManagementPanel } from './NotificationManagementPanel';
 import { BackendConnectionModal } from '../BackendConnectionModal';
 import { 
-  djangoPosLogin, 
   djangoSendPatternSMS, 
   djangoFetchSmsLogs, 
   djangoSaveSmsPattern, 
@@ -786,18 +786,18 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      const res = await djangoPosLogin(loginPhone, loginPass, crmConfig);
+      const res = await api.accounts.posLogin(loginPhone, loginPass);
       if (res.success) {
         setIsAuthenticated(true);
-        setCurrentStaff(res.user);
+        setCurrentStaff(res.data.user);
         setLoginError('');
         try {
           localStorage.setItem('sovin_pos_auth', 'true');
-          localStorage.setItem('sovin_pos_current_staff', JSON.stringify(res.user));
+          localStorage.setItem('sovin_pos_current_staff', JSON.stringify(res.data.user));
           
           // Also insert this new logged in staff to staffList if not already present
-          if (!staffList.some(s => s.phone === res.user.phone)) {
-            const updatedStaffList = [res.user, ...staffList];
+          if (!staffList.some(s => s.phone === res.data.user.phone)) {
+            const updatedStaffList = [res.data.user, ...staffList];
             setStaffList(updatedStaffList);
             localStorage.setItem('sovin_pos_staff', JSON.stringify(updatedStaffList));
           }
@@ -818,7 +818,12 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await api.accounts.posLogout();
+    } catch (err) {
+      console.error('Logout error:', err);
+    }
     setIsAuthenticated(false);
     try {
       localStorage.removeItem('sovin_pos_auth');

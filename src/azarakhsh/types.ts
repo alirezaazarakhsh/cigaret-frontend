@@ -15,6 +15,7 @@ export type AzarakhshSectionId =
   | 'visitors'
   | 'slider'
   | 'pos'
+  | 'posuser'
   | 'cash-register'
   | 'currency-rates'
   | 'warehouse-contact'

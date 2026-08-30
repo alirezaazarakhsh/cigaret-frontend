@@ -19,6 +19,7 @@ import { DjangoConfigDocs } from './DjangoConfigDocs';
 import { SiteSettingsDocs } from './SiteSettingsDocs';
 import { SliderDocs } from './SliderDocs';
 import { PosDocs } from './PosDocs';
+import { PosUserDocs } from './PosUserDocs';
 import { CashRegisterDocs } from './CashRegisterDocs';
 import { CurrencyDocs } from './CurrencyDocs';
 import { PosProductsDocs } from './PosProductsDocs';
@@ -211,6 +212,8 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
         return <VisitorsDocs />;
       case 'pos':
         return <PosDocs />;
+      case 'posuser':
+        return <PosUserDocs />;
       case 'cash-register':
         return <CashRegisterDocs />;
       case 'currency-rates':
