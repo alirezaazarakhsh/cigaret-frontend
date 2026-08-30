@@ -269,7 +269,7 @@ MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
 # --------------------------------------------------------------------------
-# ۱۱. تنظیمات CORS و CSRF برای اتصال فرانت‌اند Vercel (خواندن داینامیک از .env)
+# ۱۱. تنظیمات CORS و CSRF برای اتصال فرانت‌اند Vercel و حل قطعی ارور 403 Forbidden
 # --------------------------------------------------------------------------
 CORS_ALLOW_ALL_ORIGINS = os.getenv("CORS_ALLOW_ALL", "False").lower() in ("true", "1", "yes")
 
@@ -288,15 +288,28 @@ DEFAULT_CORS_ORIGINS = [
 
 CUSTOM_CORS = os.getenv("CORS_ALLOWED_ORIGINS", "")
 if CUSTOM_CORS:
-    CORS_ALLOWED_ORIGINS = [origin.strip() for origin in CUSTOM_CORS.split(",") if origin.strip()]
+    CORS_ALLOWED_ORIGINS = list(set([origin.strip() for origin in CUSTOM_CORS.split(",") if origin.strip()] + DEFAULT_CORS_ORIGINS))
 else:
     CORS_ALLOWED_ORIGINS = DEFAULT_CORS_ORIGINS
 
+# لیست دامنه‌های معتمد جهت جلوگیری از ارور 403 CSRF در پنل ادمین و فرم‌ها
 CSRF_TRUSTED_ORIGINS = [
     origin for origin in CORS_ALLOWED_ORIGINS if origin.startswith("http://") or origin.startswith("https://")
 ]
+# افزودن صریح دامنه‌های پروداکشن برای اطمینان ۱۰۰٪
+for trusted in ["https://cigar.sevinhost.ir", "http://cigar.sevinhost.ir", "https://cigaretsevin.vercel.app"]:
+    if trusted not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(trusted)
 
 CORS_ALLOW_CREDENTIALS = True
+
+# تنظیمات کوکی CSRF و Session برای پشتیبانی از HTTPS و رفع خطای ۴۰۳
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SAMESITE = 'Lax'
+
 `;
 
   const urlsCode = `"""

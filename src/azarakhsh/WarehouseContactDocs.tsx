@@ -202,6 +202,8 @@ urlpatterns = [
       icon={<MessageSquare className="w-6 h-6 text-emerald-500" />}
       modelsCode={`from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.utils.timezone import localtime
+import jdatetime
 
 class WarehouseMessage(models.Model):
     full_name = models.CharField(_("نام و نام خانوادگی"), max_length=150)
@@ -218,29 +220,56 @@ class WarehouseMessage(models.Model):
 
     def __str__(self):
         return f"{self.full_name} - {self.subject} ({self.phone})"
+
+    @property
+    def jalali_created_at(self):
+        if self.created_at:
+            local_dt = localtime(self.created_at)
+            return jdatetime.datetime.fromgregorian(datetime=local_dt).strftime("%Y/%m/%d - %H:%M:%S")
+        return ""
 `}
       adminCode={`from django.contrib import admin
+from django.utils.timezone import localtime
+import jdatetime
 from .models import WarehouseMessage
 
 @admin.register(WarehouseMessage)
 class WarehouseMessageAdmin(admin.ModelAdmin):
-    list_display = ('full_name', 'phone', 'subject', 'is_read', 'created_at')
+    list_display = ('full_name', 'phone', 'subject', 'is_read', 'jalali_created_at')
     list_filter = ('is_read', 'created_at')
     search_fields = ('full_name', 'phone', 'subject', 'message')
-    readonly_fields = ('created_at',)
-    fields = ('full_name', 'phone', 'subject', 'message', 'is_read', 'created_at')
+    readonly_fields = ('jalali_created_at_detail',)
+    fields = ('full_name', 'phone', 'subject', 'message', 'is_read', 'jalali_created_at_detail')
+
+    @admin.display(description="تاریخ ثبت پیام (شمسی)", ordering="created_at")
+    def jalali_created_at(self, obj):
+        if obj.created_at:
+            local_dt = localtime(obj.created_at)
+            j_date = jdatetime.datetime.fromgregorian(datetime=local_dt)
+            return j_date.strftime("%Y/%m/%d - %H:%M:%S")
+        return "-"
+
+    @admin.display(description="تاریخ و زمان ثبت پیام (شمسی)")
+    def jalali_created_at_detail(self, obj):
+        if obj.created_at:
+            local_dt = localtime(obj.created_at)
+            j_date = jdatetime.datetime.fromgregorian(datetime=local_dt)
+            return j_date.strftime("%Y/%m/%d ساعت %H:%M:%S")
+        return "-"
 `}
       serializersCode={`from rest_framework import serializers
 from .models import WarehouseMessage
 
 class WarehouseMessageSerializer(serializers.ModelSerializer):
     """
-    سریالایزر پیام فرم تماس با ما
+    سریالایزر پیام فرم تماس با ما همراه با تبدیل خودکار تاریخ به شمسی
     """
+    jalali_created_at = serializers.ReadOnlyField()
+
     class Meta:
         model = WarehouseMessage
-        fields = ['id', 'full_name', 'phone', 'subject', 'message', 'is_read', 'created_at']
-        read_only_fields = ['id', 'is_read', 'created_at']
+        fields = ['id', 'full_name', 'phone', 'subject', 'message', 'is_read', 'created_at', 'jalali_created_at']
+        read_only_fields = ['id', 'is_read', 'created_at', 'jalali_created_at']
 `}
       viewsCode={viewsCode}
       urlsCode={urlsCode}

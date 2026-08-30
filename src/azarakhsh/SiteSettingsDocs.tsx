@@ -37,7 +37,6 @@ site_settings/models.py
 
 from django.db import models
 from django.utils.translation import gettext_lazy as _
-from django.core.validators import RegexValidator
 
 
 class SiteBranding(models.Model):
@@ -202,47 +201,6 @@ class ContactInfoSetting(models.Model):
         return f"اطلاعات تماس ({self.primary_phone})"
 
 
-class ContactMessage(models.Model):
-    """
-    پیام‌های ارسال‌شده توسط کاربران از طریق فرم تماس با ما سایت
-    """
-    STATUS_CHOICES = (
-        ('unread', _('خوانده نشده / جدید')),
-        ('in_review', _('در حال بررسی توسط واحد فروش')),
-        ('answered', _('پاسخ داده شد / تماس گرفته شد')),
-        ('archived', _('بایگانی شده')),
-    )
-
-    full_name = models.CharField(_('نام و نام خانوادگی'), max_length=120)
-    phone_number = models.CharField(
-        _('شماره موبایل'), 
-        max_length=20,
-        validators=[RegexValidator(r'^09[0-9]{9}$', message=_('شماره موبایل نامعتبر است (مثال: 09123456789)'))]
-    )
-    email = models.EmailField(_('ایمیل (اختیاری)'), blank=True, null=True)
-    subject = models.CharField(_('موضوع پیام'), max_length=180)
-    message = models.TextField(_('متن پیام / درخواست همکاری'))
-    
-    # فیلدهای تکمیلی و امنیتی
-    ip_address = models.GenericIPAddressField(_('آدرس IP ارسال‌کننده'), null=True, blank=True)
-    user_agent = models.TextField(_('اطلاعات مرورگر / دستگاه'), null=True, blank=True)
-    
-    # وضعیت پاسخ ادمین
-    status = models.CharField(_('وضعیت رسیدگی'), max_length=20, choices=STATUS_CHOICES, default='unread')
-    admin_notes = models.TextField(_('یادداشت داخلی ادمین'), blank=True, null=True)
-    replied_at = models.DateTimeField(_('تاریخ رسیدگی / تماس'), blank=True, null=True)
-
-    created_at = models.DateTimeField(_('تاریخ ثبت پیام'), auto_now_add=True)
-
-    class Meta:
-        verbose_name = _('پیام فرم تماس')
-        verbose_name_plural = _('پیام‌های دریافتی فرم تماس')
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.full_name} - {self.subject} ({self.get_status_display()})"
-
-
 class FooterSetting(models.Model):
     """
     تنظیمات جامع متون فوتر، متن درباره ما، حق کپی‌رایت، نمادهای اعتماد و لینک‌ها
@@ -346,7 +304,7 @@ class SiteMaintenance(models.Model):
 
   const adminCode = `"""
 site_settings/admin.py
-پنل مدیریت پیشرفته تنظیمات سایت، برندینگ، متون هدر، فرم تماس و فوتر در ادمین جنگو
+پنل مدیریت پیشرفته تنظیمات سایت، برندینگ، متون هدر، اطلاعات تماس و فوتر در ادمین جنگو
 """
 
 from django.contrib import admin
@@ -356,7 +314,6 @@ from .models import (
     SiteBranding, 
     PageHeaderSetting, 
     ContactInfoSetting, 
-    ContactMessage, 
     FooterSetting, 
     ShippingTextsSetting
 )
@@ -433,54 +390,6 @@ class ContactInfoSettingAdmin(admin.ModelAdmin):
         return ContactInfoSetting.objects.count() == 0
 
 
-@admin.register(ContactMessage)
-class ContactMessageAdmin(admin.ModelAdmin):
-    list_display = ('full_name', 'phone_number', 'subject', 'status_badge', 'created_at')
-    list_filter = ('status', 'created_at')
-    search_fields = ('full_name', 'phone_number', 'email', 'subject', 'message')
-    readonly_fields = ('created_at', 'ip_address', 'user_agent')
-    actions = ['mark_as_reviewed', 'mark_as_answered', 'mark_as_archived']
-
-    fieldsets = (
-        (_('اطلاعات فرستنده'), {
-            'fields': ('full_name', 'phone_number', 'email', 'ip_address', 'user_agent', 'created_at')
-        }),
-        (_('محتوای پیام'), {
-            'fields': ('subject', 'message')
-        }),
-        (_('رسیدگی و وضعیت پشتیبانی'), {
-            'fields': ('status', 'admin_notes', 'replied_at')
-        }),
-    )
-
-    def status_badge(self, obj):
-        colors = {
-            'unread': 'background: #fee2e2; color: #991b1b;',
-            'in_review': 'background: #fef3c7; color: #92400e;',
-            'answered': 'background: #dcfce7; color: #166534;',
-            'archived': 'background: #f1f5f9; color: #475569;',
-        }
-        return format_html(
-            '<span style="padding: 3px 8px; border-radius: 6px; font-weight: bold; {}">{}</span>',
-            colors.get(obj.status, ''),
-            obj.get_status_display()
-        )
-    status_badge.short_description = _("وضعیت رسیدگی")
-
-    @admin.action(description=_('تغییر وضعیت پیام‌های انتخاب‌شده به "در حال بررسی"'))
-    def mark_as_reviewed(self, request, queryset):
-        queryset.update(status='in_review')
-
-    @admin.action(description=_('تغییر وضعیت پیام‌های انتخاب‌شده به "پاسخ داده شد"'))
-    def mark_as_answered(self, request, queryset):
-        from django.utils import timezone
-        queryset.update(status='answered', replied_at=timezone.now())
-
-    @admin.action(description=_('بایگانی کردن پیام‌های انتخاب‌شده'))
-    def mark_as_archived(self, request, queryset):
-        queryset.update(status='archived')
-
-
 @admin.register(FooterSetting)
 class FooterSettingAdmin(admin.ModelAdmin):
     fieldsets = (
@@ -523,7 +432,7 @@ class ShippingTextsSettingAdmin(admin.ModelAdmin):
 
   const serializersCode = `"""
 site_settings/serializers.py
-سریالایزرهای DRF جهت دریافت تنظیمات کامل سایت، هدر، فوتر، باربری و ارسال پیام فرم تماس
+سریالایزرهای DRF جهت دریافت تنظیمات کامل سایت، هدر، فوتر و باربری
 """
 
 from rest_framework import serializers
@@ -531,7 +440,6 @@ from .models import (
     SiteBranding, 
     PageHeaderSetting, 
     ContactInfoSetting, 
-    ContactMessage, 
     FooterSetting, 
     ShippingTextsSetting
 )
@@ -596,21 +504,6 @@ class ContactInfoSettingSerializer(serializers.ModelSerializer):
         ]
 
 
-class ContactMessageCreateSerializer(serializers.ModelSerializer):
-    """
-    سریالایزر دریافت و ولیدیشن پیام ارسال شده از فرم تماس سایت
-    """
-    class Meta:
-        model = ContactMessage
-        fields = ['full_name', 'phone_number', 'email', 'subject', 'message']
-
-    def validate_phone_number(self, value):
-        cleaned = value.strip()
-        if not (cleaned.startswith('09') and len(cleaned) == 11 and cleaned.isdigit()):
-            raise serializers.ValidationError("شماره موبایل وارد شده باید ۱۱ رقم و با ۰۹ شروع شود (مثال: 09123456789).")
-        return cleaned
-
-
 class FooterSettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = FooterSetting
@@ -658,23 +551,19 @@ class UnifiedPublicConfigSerializer(serializers.Serializer):
 
   const viewsCode = `"""
 site_settings/views.py
-اندپوینت‌های DRF جهت واکشی تنظیمات عمومی و ثبت پیام در فرم تماس با ما
+اندپوینت‌های DRF جهت واکشی تنظیمات عمومی سایت
 """
 
-from rest_framework import status, viewsets
+from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAdminUser
-from django.utils.decorators import method_decorator
-from django.views.decorators.cache import cache_page
+from rest_framework.permissions import AllowAny
 from drf_yasg.utils import swagger_auto_schema
-from drf_yasg import openapi
 
 from .models import (
     SiteBranding, 
     PageHeaderSetting, 
     ContactInfoSetting, 
-    ContactMessage, 
     FooterSetting, 
     ShippingTextsSetting
 )
@@ -682,7 +571,6 @@ from .serializers import (
     SiteBrandingSerializer,
     PageHeaderSettingSerializer,
     ContactInfoSettingSerializer,
-    ContactMessageCreateSerializer,
     FooterSettingSerializer,
     ShippingTextsSettingSerializer,
     UnifiedPublicConfigSerializer
@@ -692,13 +580,13 @@ from .serializers import (
 class UnifiedPublicConfigView(APIView):
     """
     اندپوینت تجمیعی عمومی: واکشی کلیه اطلاعات برند، لوگو، متون هدر، فوتر، راه‌های تماس و باربری
-    با کش ۶۰ ثانیه‌ای سرور جهت حداکثر کارایی در فرانت‌اند React
+    با کش سرور جهت حداکثر کارایی در فرانت‌اند React
     """
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         operation_summary="دریافت کلیه تنظیمات عمومی سایت (لوگو، هدر، فوتر، تماس، باربری)",
-        operation_description="این اندپوینت کلیه اطلاعات مورد نیاز فرانت‌اند شامل لوگو، متون هدر صفحات، فرم تماس، متون فوتر و باربری را یکجا برمی‌گرداند.",
+        operation_description="این اندپوینت کلیه اطلاعات مورد نیاز فرانت‌اند شامل لوگو، متون هدر صفحات، متون فوتر و باربری را یکجا برمی‌گرداند.",
         responses={200: UnifiedPublicConfigSerializer}
     )
     def get(self, request):
@@ -716,82 +604,31 @@ class UnifiedPublicConfigView(APIView):
             'page_headers': PageHeaderSettingSerializer(page_headers, many=True).data,
         }
         return Response(data, status=status.HTTP_200_OK)
-
-
-class ContactMessageSubmitView(APIView):
-    """
-    اندپوینت عمومی ثبت پیام کاربران و درخواست همکاری در فرم تماس با ما
-    """
-    permission_classes = [AllowAny]
-
-    @swagger_auto_schema(
-        operation_summary="ثبت پیام جدید در فرم تماس با ما",
-        operation_description="ارسال نام، شماره موبایل، موضوع و پیام جهت بررسی توسط کارشناسان پشتیبانی و فروش.",
-        request_body=ContactMessageCreateSerializer,
-        responses={
-            201: openapi.Response(description="پیام با موفقیت در سیستم ثبت گردید."),
-            400: "خطای اعتبارسنجی در فیلدها"
-        }
-    )
-    def post(self, request):
-        serializer = ContactMessageCreateSerializer(data=request.data)
-        if serializer.is_valid():
-            # دریافت IP و مشخصات کلاینت برای جلوگیری از اسپم
-            x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-            ip = x_forwarded_for.split(',')[0] if x_forwarded_for else request.META.get('REMOTE_ADDR')
-            user_agent = request.META.get('HTTP_USER_AGENT', '')
-
-            message_obj = serializer.save(ip_address=ip, user_agent=user_agent)
-
-            return Response({
-                'status': 'success',
-                'message': 'پیام شما با موفقیت دریافت گردید. کارشناسان ما ظرف حداکثر ۲ ساعت با شما تماس خواهند گرفت.',
-                'tracking_code': f"MSG-{message_obj.id:05d}"
-            }, status=status.HTTP_201_CREATED)
-        
-        return Response({
-            'status': 'error',
-            'errors': serializer.errors
-        }, status=status.HTTP_400_BAD_REQUEST)
 `;
 
   const urlsCode = `"""
 site_settings/urls.py
-مسیرهای URL برای تنظیمات عمومی سایت، لوگو، هدر، فوتر و فرم تماس
+مسیرهای URL برای تنظیمات عمومی سایت، لوگو، هدر، فوتر و اطلاعات تماس
 """
 
 from django.urls import path
-from .views import UnifiedPublicConfigView, ContactMessageSubmitView
+from .views import UnifiedPublicConfigView
 
 app_name = 'site_settings'
 
 urlpatterns = [
     # اندپوینت تجمیعی واکشی تمامی تنظیمات برند، هدرها، فوتر و باربری
     path('public-config/', UnifiedPublicConfigView.as_view(), name='public-config'),
-    
-    # اندپوینت ثبت پیام در فرم تماس با ما
-    path('contact/submit/', ContactMessageSubmitView.as_view(), name='contact-submit'),
 ]
 `;
 
-  const notesCode = `## 📌 راهنمای اتصال فرانت‌اند و معماری تنظیمات سایت
+  const notesCode = `## 📌 راهنمای معماری تنظیمات سایت (site_settings)
 
-### ۱. اندپوینت‌های کلیدی این اپلیکیشن:
+نکته مهم: پیام‌های فرم تماس با ما سایت به صورت مستقل و مجزا در اپلیکیشن **\`warehouse_contact\`** پردازش و نگهداری می‌شوند. اپلیکیشن **\`site_settings\`** صرفاً مسئول مدیریت تنظیمات برندینگ، متون هدر، اطلاعات تماس، متون فوتر و باربری است.
+
+### ۱. اندپوینت کلیدی این اپلیکیشن:
 * **دریافت تمام تنظیمات سایت (لوگو، هدر، فوتر، باربری):**
   \`GET /api/site-settings/public-config/\`
-* **ارسال پیام فرم تماس توسط مشتریان:**
-  \`POST /api/site-settings/contact/submit/\`
-  
-  **نمونه Body ارسالی برای فرم تماس:**
-  \`\`\`json
-  {
-    "full_name": "علیرضا آذرخش",
-    "phone_number": "09123456789",
-    "email": "alireza@example.com",
-    "subject": "درخواست خرید عمده ۵۰ کارتن مارلبرو سوئیس",
-    "message": "با سلام، جهت استعلام نرخ تخفیف پلکانی و نحوه ارسال باربری به اصفهان پیام می‌دهم."
-  }
-  \`\`\`
 
 ---
 
@@ -815,8 +652,7 @@ useEffect(() => {
 ### ۳. ویژگی‌های اختصاصی این ماژول:
 1. **الگوی Singleton:** مدل‌های Branding، ContactInfo، Footer و ShippingTexts به صورت یکتا طراحی شده‌اند تا ادمین به راحتی یک ردیف اصلی را ویرایش کند.
 2. **پیش‌نمایش زنده لوگو در پنل ادمین جنگو** با متد \`logo_preview\`.
-3. **اکشن‌های اختصاصی برای پیام‌های تماس:** امکان تغییر وضعیت دسته‌جمعی به «در حال بررسی»، «پاسخ داده شد» و «بایگانی» همراه با ثبت تاریخ.
-4. **ثبت خودکار IP فرستنده** و کد پیگیری هوشمند (\`MSG-00001\`).
+3. **تفکیک تمیز وظایف:** پیام‌های فرم تماس در \`warehouse_contact\` قرار دارند.
 `;
 
   const renderActiveCode = () => {
@@ -835,10 +671,10 @@ useEffect(() => {
     switch (tab) {
       case 'models': return 'models.py (مدل‌های برند، هدر، تماس، فوتر و باربری)';
       case 'admin': return 'admin.py (پنل ادمین، فیلدست‌ها و پیش‌نمایش لوگو)';
-      case 'serializers': return 'serializers.py (سریالایزر تجمیعی و فرم تماس)';
-      case 'views': return 'views.py (APIView تنظیمات و ثبت پیام)';
+      case 'serializers': return 'serializers.py (سریالایزر تجمیعی)';
+      case 'views': return 'views.py (APIView واکشی تنظیمات)';
       case 'urls': return 'urls.py (روت‌های API)';
-      case 'notes': return 'راهنما و نکات اتصال فرانت‌اند';
+      case 'notes': return 'راهنما و نکات معماری';
     }
   };
 
@@ -854,10 +690,10 @@ useEffect(() => {
               اپلیکیشن اختصاصی site_settings
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              تنظیمات سایت، لوگو، متون هدر، فرم تماس، متون فوتر و متون باربری
+              تنظیمات سایت، لوگو، متون هدر، اطلاعات تماس، متون فوتر و متون باربری
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-3xl">
-              معماری کامل مدل‌های تنظیم لوگوی لایت و دارک، عنوان برند، متون هیرو و هدر صفحات، فرم دریافت پیام‌های تماس، متن درباره ما در فوتر و کلیه متون اختصاصی باربری و بیمه با پنل ادمین پیشرفته و API تجمیعی.
+              معماری کامل مدل‌های تنظیم لوگوی لایت و دارک، عنوان برند، متون هیرو و هدر صفحات، اطلاعات تماس و آدرس انبارها، متن درباره ما در فوتر و کلیه متون اختصاصی باربری و بیمه با پنل ادمین پیشرفته و API تجمیعی.
             </p>
           </div>
 
@@ -883,8 +719,8 @@ useEffect(() => {
             متن هدر و هیروی تفکیکی صفحات
           </span>
           <span className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-3 py-1 rounded-xl text-xs font-bold text-slate-700">
-            <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-            فرم تماس با ما و ثبت پیام مشتریان
+            <Phone className="w-3.5 h-3.5 text-emerald-600" />
+            اطلاعات تماس، تلفن‌ها و آدرس انبارها
           </span>
           <span className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-3 py-1 rounded-xl text-xs font-bold text-slate-700">
             <LayoutTemplate className="w-3.5 h-3.5 text-purple-600" />

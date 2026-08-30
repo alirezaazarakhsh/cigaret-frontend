@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Phone, 
   Mail, 
@@ -30,15 +30,38 @@ interface ContactAndSupportProps {
 export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
   showToast,
   onOpenUserPanel,
-  footerData,
+  footerData: initialFooterData,
   djangoConfig,
 }) => {
+  const [footerData, setFooterData] = useState<FooterSettingsData | null>(initialFooterData || null);
+
+  // Sync with prop and auto-fetch from Django API on mount
+  useEffect(() => {
+    if (initialFooterData) {
+      setFooterData(initialFooterData);
+    }
+  }, [initialFooterData]);
+
+  useEffect(() => {
+    let isMounted = true;
+    api.footer.getSettings().then((liveData) => {
+      if (isMounted && liveData) {
+        setFooterData(liveData);
+      }
+    }).catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
   const companyTitle = footerData?.company_title || djangoConfig?.companyName || 'سوین';
   const phoneNumber = footerData?.phone_number || djangoConfig?.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹';
   const emergencyPhone = footerData?.emergency_phone || '۰۹۳۵۱۱۱۲۲۳۳';
   const addressText = footerData?.address_text || 'تهران، منطقه ۵، بزرگراه شهید آبشناسان، جنت‌آباد (انبار مرکزی پخش دخانیات سوین)';
   const workingHours = footerData?.working_hours || 'شنبه تا چهارشنبه: ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها: ۸:۰۰ الی ۱۴:۰۰';
-  const companyDesc = footerData?.description_text || 'مرکز دپو، پلمپ و بارگیری مستقیم انواع سیگار اورجینال، تنباکو و تجهیزات IQOS در سراسر کشور.';
+  const companyDesc = footerData?.description_text || footerData?.short_description || 'مرکز دپو، پلمپ و بارگیری مستقیم انواع سیگار اورجینال، تنباکو و تجهیزات IQOS در سراسر کشور.';
+  const shippingCompanies = footerData?.shipping_companies || footerData?.barbari_text;
+  const socials = footerData?.socials || footerData?.social_links || [];
 
   const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
 
@@ -138,7 +161,7 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
           <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
             <div>
               <h2 className="text-lg font-black text-slate-900">فرم ارسال پیام و درخواست بنکداری</h2>
-              <p className="text-xs text-slate-500 mt-0.5">پاسخگویی در کمتر از ۳۰ دقیقه کاری</p>
+              <p className="text-xs text-slate-500 mt-0.5">پاسخگویی در کمتر از ۳۰ دقیقه کاری توسط انبار مرکزی</p>
             </div>
             <MessageSquare className="w-5 h-5 text-blue-600" />
           </div>
@@ -162,88 +185,91 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    نام و نام خانوادگی <span className="text-rose-500">*</span>:
+                  <label className="block text-xs font-black text-slate-700 mb-1.5">
+                    نام و نام خانوادگی <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="text"
                     required
-                    placeholder="مثلاً: علی رضایی"
                     value={formData.fullName}
                     onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    placeholder="مثال: علیرضا کریمی"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    شماره همراه بنکدار <span className="text-rose-500">*</span>:
+                  <label className="block text-xs font-black text-slate-700 mb-1.5">
+                    شماره همراه (جهت تماس کارشناس) <span className="text-rose-500">*</span>
                   </label>
                   <input
                     type="tel"
-                    dir="ltr"
                     required
-                    placeholder={cleanPhone || '09120759419'}
+                    dir="ltr"
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs font-mono text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    placeholder="09123456789"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono font-bold text-right"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    نام فروشگاه / بنکداری / شهر:
+                  <label className="block text-xs font-black text-slate-700 mb-1.5">
+                    نام فروشگاه / بنکداری (اختیاری)
                   </label>
                   <input
                     type="text"
-                    placeholder="مثلاً: دخانیات میلاد - اصفهان"
                     value={formData.businessName}
                     onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    placeholder="مثال: دخانیات کریمی (تهران)"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">
-                    موضوع درخواست:
+                  <label className="block text-xs font-black text-slate-700 mb-1.5">
+                    موضوع درخواست
                   </label>
                   <select
                     value={formData.subject}
                     onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
                   >
-                    <option value="استعلام قیمت و خرید عمده">استعلام قیمت و خرید عمده (کارتن / تیراژ)</option>
-                    <option value="هماهنگی تحویل حضوری انبار">هماهنگی تحویل حضوری در انبار</option>
-                    <option value="پیگیری بیجک و بارنامه باربری">پیگیری بیجک و بارنامه باربری (وطن، جهانگیر)</option>
-                    <option value="تأیید فیش واریزی و صدور فاکتور">تأیید فیش واریزی و صدور فاکتور رسمی</option>
-                    <option value="پیشنهاد همکاری و تأمین کالا">پیشنهاد همکاری و تأمین کالا</option>
+                    <option value="استعلام قیمت و خرید عمده">استعلام قیمت و خرید عمده کارتن</option>
+                    <option value="تأیید فیش واریزی و صدور فاکتور">تأیید فیش واریزی و صدور فاکتور</option>
+                    <option value="پیگیری بارنامه و ارسال شهرستان">پیگیری بارنامه و ارسال شهرستان</option>
+                    <option value="درخواست همکاری ویزیتوری">درخواست همکاری ویزیتوری</option>
+                    <option value="انتقاد، پیشنهاد و پشتیبانی">انتقاد، پیشنهاد و پشتیبانی</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">
-                  متن پیام یا لیست اقلام مورد نظر <span className="text-rose-500">*</span>:
+                <label className="block text-xs font-black text-slate-700 mb-1.5">
+                  متن پیام یا لیست اقلام درخواستی <span className="text-rose-500">*</span>
                 </label>
                 <textarea
                   required
-                  rows={4}
-                  placeholder="لطفاً مارک، تعداد کارتن یا درخواست خود را شرح دهید..."
+                  rows={5}
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden leading-relaxed"
-                ></textarea>
+                  placeholder="لطفاً تعداد کارتن یا باکس مورد نیاز خود یا متن پیام را در این بخش یادداشت فرمایید..."
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-2xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium leading-relaxed resize-none"
+                />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-black text-xs rounded-2xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-black text-xs sm:text-sm rounded-2xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
-                  <span>در حال ثبت پیام...</span>
+                  <>
+                    <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    <span>در حال ثبت در پایگاه داده...</span>
+                  </>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
@@ -317,13 +343,13 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
                 </div>
               </div>
 
-              {Boolean(footerData?.shipping_companies || footerData?.barbari_text) && (
+              {Boolean(shippingCompanies) && (
                 <div className="flex items-center gap-2.5">
                   <Truck className="w-4 h-4 text-amber-600 shrink-0" />
                   <div>
                     <strong className="text-slate-900">باربری‌های طرف قرارداد:</strong>
                     <p className="text-slate-600 mt-0.5">
-                      {footerData?.shipping_companies || footerData?.barbari_text}
+                      {shippingCompanies}
                     </p>
                   </div>
                 </div>
@@ -331,11 +357,11 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
             </div>
 
             {/* Social links if configured in footerData */}
-            {footerData?.social_links && footerData.social_links.length > 0 && (
+            {socials && socials.length > 0 && (
               <div className="pt-3 border-t border-slate-100">
                 <span className="text-[11px] font-bold text-slate-700 block mb-2">کانال‌ها و شبکه‌های اجتماعی:</span>
                 <div className="flex flex-wrap gap-2">
-                  {footerData.social_links.map((s, idx) => (
+                  {socials.map((s, idx) => (
                     <a
                       key={idx}
                       href={s.url.startsWith('http') ? s.url : `https://${s.url}`}
@@ -379,3 +405,4 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
     </section>
   );
 };
+
