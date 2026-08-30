@@ -375,7 +375,7 @@ export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
                 </div>
 
                 <div className="pt-2 flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="submit"
                       className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
@@ -387,12 +387,24 @@ export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
                     <button
                       type="button"
                       onClick={() => {
+                        api.clearAllCaches();
+                        showToast('کلیه حافظه‌های کش پاکسازی شدند و آخرین اطلاعات از سرور دریافت شد.');
+                      }}
+                      className="px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-black flex items-center gap-1.5 transition-colors cursor-pointer"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>پاکسازی کامل کش و نوسازی زنده</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
                         setBaseUrlInput(api.config.DEFAULT_BASE_URL);
                         setWebAppUrlInput(api.config.DEFAULT_WEB_APP_URL);
                       }}
                       className="px-3 py-2 bg-white hover:bg-slate-100 text-slate-600 border border-slate-300 rounded-xl text-xs font-bold transition-colors"
                     >
-                      بازنشانی به پیش‌فرض ورسل
+                      بازنشانی به پیش‌فرض
                     </button>
                   </div>
 

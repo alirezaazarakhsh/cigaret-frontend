@@ -31,7 +31,9 @@ import {
   RetailShopCustomer, 
   PosReceiptInvoice, 
   DjangoCrmConfig,
-  FooterSettingsData
+  FooterSettingsData,
+  FooterColumnItem,
+  FooterSocialItem
 } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
@@ -468,13 +470,50 @@ export const posApi = {
 // ==========================================
 export const siteSettingsApi = {
   /**
-   * Fetches site configuration on GET /site-settings/public-config/
+   * Fetches site configuration from public-config or CRM endpoints
    */
   async getConfig(): Promise<Partial<DjangoCrmConfig> | null> {
-    const response = await httpClient.get('/site-settings/public-config/');
-    if (response.success && response.data) {
-      return response.data;
+    const candidateEndpoints = [
+      '/site-settings/public-config/',
+      '/api/site-settings/public-config/',
+      '/site_settings/public-config/',
+      '/api/site_settings/public-config/',
+      '/site-settings/config/',
+      '/crm/config/',
+    ];
+
+    for (const endpoint of candidateEndpoints) {
+      const response = await httpClient.get<any>(endpoint);
+      if (response.success && response.data) {
+        const raw = response.data.data || response.data;
+        const config: Partial<DjangoCrmConfig> = {};
+
+        if (raw.branding) {
+          config.companyName = raw.branding.site_title || raw.branding.site_title_fa || raw.branding.brand_short_name;
+        }
+        if (raw.contact_info) {
+          config.transportPhoneCompany = raw.contact_info.primary_phone || raw.contact_info.mobile_sales;
+        }
+        if (raw.page_headers && Array.isArray(raw.page_headers)) {
+          const homeHeader = raw.page_headers.find((p: any) => p.page_key === 'home' || p.page_key === 'catalog');
+          if (homeHeader) {
+            config.siteHeroTitle = homeHeader.hero_title;
+            config.siteHeroDesc = homeHeader.hero_description;
+          }
+        }
+        if (raw.companyName || raw.company_name) {
+          config.companyName = raw.companyName || raw.company_name;
+        }
+
+        try {
+          const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.CRM_CONFIG) || '{}');
+          localStorage.setItem(STORAGE_KEYS.CRM_CONFIG, JSON.stringify({ ...current, ...config }));
+        } catch {}
+
+        return config;
+      }
     }
+
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.CRM_CONFIG);
       if (saved) return JSON.parse(saved);
@@ -497,29 +536,133 @@ export const siteSettingsApi = {
 // ==========================================
 // 7. FOOTER SETTINGS API
 // ==========================================
+function parseUnifiedOrFooterData(raw: any): FooterSettingsData | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const data = raw.data || raw;
+
+  // Case 1: Unified response from site_settings (branding, contact_info, footer, shipping_texts)
+  if (data.branding || data.contact_info || data.footer || data.shipping_texts) {
+    const branding = data.branding || {};
+    const contact = data.contact_info || {};
+    const footer = data.footer || {};
+    const shipping = data.shipping_texts || {};
+
+    const socials: FooterSocialItem[] = [];
+    if (contact.telegram_channel) {
+      socials.push({ platform: 'telegram', title: 'کانال تلگرام', url: contact.telegram_channel });
+    }
+    if (contact.whatsapp_number) {
+      const cleanPhone = contact.whatsapp_number.replace(/[^0-9]/g, '');
+      socials.push({ platform: 'whatsapp', title: 'پشتیبانی واتساپ', url: `https://wa.me/${cleanPhone}` });
+    }
+    if (contact.instagram_id) {
+      const cleanInsta = contact.instagram_id.replace(/^@/, '');
+      socials.push({ platform: 'instagram', title: 'اینستاگرام', url: `https://instagram.com/${cleanInsta}` });
+    }
+    if (contact.bale_rubika_channel) {
+      socials.push({ platform: 'bale', title: 'کانال بله / روبیکا', url: contact.bale_rubika_channel });
+    }
+
+    const defaultColumns: FooterColumnItem[] = [
+      {
+        id: 'col_1',
+        title: 'دسترسی سریع',
+        links: [
+          { title: 'کاتالوگ و لیست قیمت', url: '/catalog' },
+          { title: 'پیش‌فاکتور و ثبت سفارش', url: '/invoice' },
+          { title: 'پیگیری وضعیت سفارش', url: '/tracking' },
+          { title: 'قوانین و باربری', url: '/shipping' },
+        ]
+      },
+      {
+        id: 'col_2',
+        title: 'خدمات مشتریان',
+        links: [
+          { title: 'تماس با ما و انبارها', url: '/contact-us' },
+          { title: 'صندوق فروشگاهی و بنکداری', url: '/shopmanage/sandogh' },
+          { title: 'پنل کاربری و ویزیتوری', url: '/login' },
+          { title: 'مقالات و آموزش', url: '/blog' },
+        ]
+      },
+      {
+        id: 'col_3',
+        title: 'باربری‌های طرف قرارداد',
+        links: [
+          { title: 'باربری وطن (شوش)', url: '/shipping' },
+          { title: 'باربری جهانگیر و پیشتاز', url: '/shipping' },
+          { title: 'تیپاکس و چاپار اکسپرس', url: '/shipping' },
+          { title: 'ناوگان اختصاصی سوین', url: '/shipping' },
+        ]
+      }
+    ];
+
+    return {
+      company_title: branding.site_title || branding.site_title_fa || branding.brand_short_name || 'سوین',
+      short_description: footer.about_text || branding.tagline || 'مرکز تخصصی پخش محصولات سیگار و تنباکو با ارسال فوری و تضمین اصالت کالا به سراسر کشور.',
+      address_text: contact.central_warehouse_address || contact.sales_office_address || 'تهران، انبار مرکزی توزیع دخانیات',
+      phone_number: contact.primary_phone || branding.header_phone || contact.sales_phone || '۰۹۱۲۰۷۵۹۴۱۹',
+      emergency_phone: contact.emergency_phone || contact.mobile_support || '۰۹۱۲۰۷۵۹۴۱۹',
+      working_hours: contact.working_hours_text || branding.header_support_hours || 'شنبه تا پنج‌شنبه: ۸:۰۰ الی ۲۱:۰۰ (پشتیبانی ۲۴ ساعته)',
+      copyright_text: footer.copyright_text || `© کلیه حقوق مادی و معنوی برای پخش عمده ${branding.site_title || 'سوین'} محفوظ است.`,
+      developer_credit: 'طراحی و توسعه توسط سوین تیم و میزبانی وب سایت بر خط سرور های قدرتمند سوین هاست',
+      is_active: true,
+      enamad_code: footer.enamad_code_html,
+      samandehi_code: footer.samandehi_code_html,
+      columns: defaultColumns,
+      socials: socials.length > 0 ? socials : undefined,
+    };
+  }
+
+  // Case 2: Direct footer settings object
+  if (data.company_title || data.phone_number || data.columns || data.address_text || data.about_text) {
+    return {
+      company_title: data.company_title || data.brand_name || 'سوین',
+      short_description: data.short_description || data.description_text || data.about_text || '',
+      address_text: data.address_text || data.address || '',
+      phone_number: data.phone_number || data.phone || '',
+      emergency_phone: data.emergency_phone || '',
+      working_hours: data.working_hours || data.working_hours_text || '',
+      enamad_code: data.enamad_code || data.enamad_code_html || '',
+      samandehi_code: data.samandehi_code || data.samandehi_code_html || '',
+      copyright_text: data.copyright_text || '',
+      developer_credit: data.developer_credit || '',
+      is_active: data.is_active !== undefined ? Boolean(data.is_active) : true,
+      shipping_companies: data.shipping_companies,
+      barbari_text: data.barbari_text,
+      columns: Array.isArray(data.columns) ? data.columns : undefined,
+      socials: Array.isArray(data.socials) ? data.socials : (Array.isArray(data.social_links) ? data.social_links : undefined),
+    };
+  }
+
+  return null;
+}
+
 export const footerApi = {
   /**
-   * Fetches footer configuration on GET /footer-settings/settings/ or /footer_settings/settings/ or /footer/settings/
+   * Fetches footer & site settings from Django backend with zero cache
    */
   async getSettings(): Promise<FooterSettingsData | null> {
-    const ts = Date.now();
     const candidateEndpoints = [
-      `/footer-settings/settings/?_t=${ts}`,
-      `/footer_settings/settings/?_t=${ts}`,
-      `/footer/settings/?_t=${ts}`,
-      `/footer-settings/?_t=${ts}`,
-      `/footer_settings/?_t=${ts}`,
+      '/site-settings/public-config/',
+      '/api/site-settings/public-config/',
+      '/site_settings/public-config/',
+      '/api/site_settings/public-config/',
+      '/footer-settings/settings/',
+      '/footer_settings/settings/',
+      '/footer/settings/',
+      '/footer-settings/',
+      '/footer_settings/',
     ];
 
     for (const endpoint of candidateEndpoints) {
       const response = await httpClient.get<any>(endpoint);
       if (response.success && response.data) {
-        const data = (response.data && response.data.data) ? response.data.data : response.data;
-        if (typeof data === 'object' && data !== null && (data.company_title || data.phone_number || data.columns)) {
+        const parsed = parseUnifiedOrFooterData(response.data);
+        if (parsed) {
           try {
-            localStorage.setItem(STORAGE_KEYS.FOOTER_SETTINGS, JSON.stringify(data));
+            localStorage.setItem(STORAGE_KEYS.FOOTER_SETTINGS, JSON.stringify(parsed));
           } catch {}
-          return data as FooterSettingsData;
+          return parsed;
         }
       }
     }
@@ -634,6 +777,45 @@ export const contactApi = {
 };
 
 // ==========================================
+// CACHE MANAGEMENT & INSTANT PURGE
+// ==========================================
+export function clearAllClientCaches(): void {
+  try {
+    // Purge known cached keys
+    const keysToRemove = [
+      STORAGE_KEYS.PRODUCTS,
+      STORAGE_KEYS.ORDERS,
+      STORAGE_KEYS.RETAIL_SHOPS,
+      STORAGE_KEYS.POS_RECEIPTS,
+      STORAGE_KEYS.CRM_CONFIG,
+      STORAGE_KEYS.TICKETS,
+      STORAGE_KEYS.FOOTER_SETTINGS,
+      'sevin_wholesale_catalog_cache',
+      'wholesale_products',
+      'wholesale_footer_settings',
+      'django_crm_config',
+    ];
+
+    keysToRemove.forEach(k => {
+      try {
+        localStorage.removeItem(k);
+      } catch {}
+    });
+
+    try {
+      sessionStorage.clear();
+    } catch {}
+
+    // Dispatch global event so all listening UI components update immediately
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sevin-cache-cleared', { detail: { timestamp: Date.now() } }));
+    }
+  } catch (e) {
+    console.error('Failed to clear client caches:', e);
+  }
+}
+
+// ==========================================
 // UNIFIED MASTER API EXPORT
 // ==========================================
 export const api = {
@@ -658,4 +840,5 @@ export const api = {
   footer: footerApi,
   contact: contactApi,
   client: httpClient,
+  clearAllCaches: clearAllClientCaches,
 };

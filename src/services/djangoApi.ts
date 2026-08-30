@@ -891,17 +891,24 @@ export async function syncWithDjangoApi(config: DjangoCrmConfig): Promise<Cigare
     try {
       const headers: Record<string, string> = {
         'Accept': 'application/json',
+        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
       };
       if (config.apiToken && config.apiToken.trim() !== '') {
         headers['Authorization'] = `Token ${config.apiToken.trim()}`;
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 4000);
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
-      const response = await fetch(config.apiUrl, {
+      const separator = config.apiUrl.includes('?') ? '&' : '?';
+      const noCacheUrl = `${config.apiUrl}${separator}_nocache=${Date.now()}`;
+
+      const response = await fetch(noCacheUrl, {
         method: 'GET',
         headers,
+        cache: 'no-store',
         signal: controller.signal,
       }).catch((e) => {
         return null;

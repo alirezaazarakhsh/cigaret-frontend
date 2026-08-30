@@ -347,32 +347,57 @@ export default function App() {
     return null;
   });
 
-  // Auto-fetch products and footer settings from unified API layer on mount
+  // Auto-fetch products, site settings and footer settings from unified API layer on mount or cache reset
   useEffect(() => {
     let isMounted = true;
-    
-    // 1. Fetch Products
-    api.products.getAll().then((loadedProducts) => {
-      if (isMounted && loadedProducts && loadedProducts.length > 0) {
-        setProducts(loadedProducts);
-      }
-    }).catch(() => {});
 
-    // 2. Fetch Footer Settings
-    api.footer.getSettings().then((loadedFooter) => {
-      if (isMounted && loadedFooter) {
-        setFooterSettings(loadedFooter);
-        if (loadedFooter.company_title) {
+    const refreshDataFromApi = () => {
+      // 1. Fetch Products with zero cache
+      api.products.getAll().then((loadedProducts) => {
+        if (isMounted && loadedProducts && loadedProducts.length > 0) {
+          setProducts(loadedProducts);
+        }
+      }).catch(() => {});
+
+      // 2. Fetch Footer & Site Settings
+      api.footer.getSettings().then((loadedFooter) => {
+        if (isMounted && loadedFooter) {
+          setFooterSettings(loadedFooter);
+          if (loadedFooter.company_title) {
+            setDjangoConfig(prev => ({
+              ...prev,
+              companyName: loadedFooter.company_title || prev.companyName
+            }));
+          }
+        }
+      }).catch(() => {});
+
+      // 3. Fetch Site CRM Config
+      api.siteSettings.getConfig().then((loadedCrm) => {
+        if (isMounted && loadedCrm) {
           setDjangoConfig(prev => ({
             ...prev,
-            companyName: loadedFooter.company_title || prev.companyName
+            ...loadedCrm
           }));
         }
-      }
-    }).catch(() => {});
+      }).catch(() => {});
+    };
+
+    // Initial fresh fetch on mount
+    refreshDataFromApi();
+
+    // Listen for cache-cleared or API URL changes to immediately reload fresh data
+    const handleCacheCleared = () => {
+      refreshDataFromApi();
+    };
+
+    window.addEventListener('sevin-cache-cleared', handleCacheCleared);
+    window.addEventListener('sevin-api-url-changed', handleCacheCleared);
 
     return () => {
       isMounted = false;
+      window.removeEventListener('sevin-cache-cleared', handleCacheCleared);
+      window.removeEventListener('sevin-api-url-changed', handleCacheCleared);
     };
   }, []);
 

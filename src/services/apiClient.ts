@@ -1,5 +1,6 @@
 /**
  * Unified HTTP API Client for Sevin Wholesale Backend Integration.
+ * Enforces strict zero-cache policy (no-store, timestamps) to prevent stale/cached responses.
  */
 
 import { getApiBaseUrl, getApiToken } from './apiConfig';
@@ -17,6 +18,7 @@ interface RequestOptions {
   token?: string;
   timeoutMs?: number;
   skipAuth?: boolean;
+  skipCacheBuster?: boolean;
 }
 
 async function fetchWithTimeout(
@@ -30,6 +32,7 @@ async function fetchWithTimeout(
   try {
     const response = await fetch(url, {
       ...options,
+      cache: 'no-store', // Crucial: forces browser & edge to bypass HTTP cache
       signal: controller.signal,
     });
     clearTimeout(timeoutId);
@@ -48,21 +51,25 @@ async function request<T = any>(
 ): Promise<ApiResponse<T>> {
   const baseUrl = getApiBaseUrl();
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
-  const fullUrl = `${baseUrl}${cleanEndpoint}`;
+  
+  // Add automatic cache-busting timestamp to GET requests to guarantee zero stale cache
+  let finalEndpoint = cleanEndpoint;
+  if (method === 'GET' && !options.skipCacheBuster) {
+    const separator = finalEndpoint.includes('?') ? '&' : '?';
+    finalEndpoint = `${finalEndpoint}${separator}_nocache=${Date.now()}`;
+  }
 
+  const fullUrl = `${baseUrl}${finalEndpoint}`;
   const token = options.token !== undefined ? options.token : getApiToken();
 
   const headers: Record<string, string> = {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+    'Pragma': 'no-cache',
+    'Expires': '0',
     ...(options.headers || {}),
   };
-
-  if (method === 'GET') {
-    headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
-    headers['Pragma'] = 'no-cache';
-    headers['Expires'] = '0';
-  }
 
   if (token && !options.skipAuth) {
     // Standard Bearer or Token header
@@ -72,6 +79,7 @@ async function request<T = any>(
   const reqInit: RequestInit = {
     method,
     headers,
+    cache: 'no-store', // Disallow caching across all browser fetch calls
   };
 
   if (body !== undefined && method !== 'GET') {

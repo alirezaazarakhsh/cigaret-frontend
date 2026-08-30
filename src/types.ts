@@ -484,6 +484,7 @@ export interface FooterSettingsData {
   emergency_phone?: string;
   working_hours?: string;
   enamad_code?: string;
+  samandehi_code?: string;
   copyright_text?: string;
   developer_credit?: string;
   is_active?: boolean;
