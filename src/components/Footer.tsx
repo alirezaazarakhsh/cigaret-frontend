@@ -121,20 +121,26 @@ export const Footer: React.FC<FooterProps> = ({ footerData, djangoConfig, onNavi
               </div>
             </div>
 
-            <p className="text-xs text-slate-500 leading-relaxed text-justify">
-              {shortDesc}
-            </p>
+            {shortDesc && (
+              <p className="text-xs text-slate-500 leading-relaxed text-justify">
+                {shortDesc}
+              </p>
+            )}
 
             <div className="flex flex-col gap-2 pt-2 text-xs">
-              <div className="flex items-start gap-2 text-slate-700">
-                <MapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-                <span className="font-medium">{addressText}</span>
-              </div>
-              <div className="flex items-center gap-2 text-slate-700">
-                <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span>تلفن سفارشات و هماهنگی بار:</span>
-                <strong className="text-slate-900 font-black tracking-wide" dir="ltr">{phoneNumber}</strong>
-              </div>
+              {addressText && (
+                <div className="flex items-start gap-2 text-slate-700">
+                  <MapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                  <span className="font-medium">{addressText}</span>
+                </div>
+              )}
+              {phoneNumber && (
+                <div className="flex items-center gap-2 text-slate-700">
+                  <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>تلفن سفارشات و هماهنگی بار:</span>
+                  <strong className="text-slate-900 font-black tracking-wide" dir="ltr">{phoneNumber}</strong>
+                </div>
+              )}
               {emergencyPhone && (
                 <div className="flex items-center gap-2 text-slate-700">
                   <PhoneCall className="w-4 h-4 text-amber-600 shrink-0" />
@@ -158,9 +164,9 @@ export const Footer: React.FC<FooterProps> = ({ footerData, djangoConfig, onNavi
           </div>
 
           {/* Dynamic Columns or Default Quick Navigation */}
-          {columns && columns.length > 0 ? (
-            <div className={`md:col-span-7 grid grid-cols-2 sm:grid-cols-${Math.min(columns.length, 3)} gap-6`}>
-              {columns.map((col, idx) => (
+          {columns && columns.filter(c => c && c.links && c.links.length > 0).length > 0 ? (
+            <div className={`md:col-span-7 grid ${columns.filter(c => c && c.links && c.links.length > 0).length === 1 ? 'grid-cols-1 sm:grid-cols-2' : columns.filter(c => c && c.links && c.links.length > 0).length === 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'} gap-6`}>
+              {columns.filter(c => c && c.links && c.links.length > 0).map((col, idx) => (
                 <div key={col.id || idx} className="flex flex-col gap-3">
                   <h4 className="font-black text-slate-900 text-xs border-r-2 border-blue-600 pr-2">
                     {col.title}

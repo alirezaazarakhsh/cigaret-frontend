@@ -3,156 +3,66 @@ import {
   ChevronRight, 
   ChevronLeft, 
   Sparkles, 
-  TrendingUp, 
-  FileText, 
-  ShieldCheck, 
-  Truck, 
-  Layers, 
-  Boxes, 
   Flame, 
   Download,
   ArrowUpRight,
-  Clock,
-  BadgePercent
+  ShieldCheck,
+  Truck,
+  FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { CigaretteProduct, UserProfile } from '../types';
+import { CigaretteProduct, UserProfile, BannerSlide } from '../types';
 import { generatePriceListPdf } from '../utils/pdfGenerator';
 
-interface HeroBannerSliderProps {
+export interface HeroBannerSliderProps {
+  slides?: BannerSlide[];
   products: CigaretteProduct[];
   currentUser: UserProfile | null;
   onNavigateTab: (tab: any) => void;
   onSelectCategory?: (category: any) => void;
 }
 
-interface BannerSlide {
-  id: string;
-  badge?: string;
-  badgeIcon?: React.ComponentType<{ className?: string }>;
-  badgeColor?: string;
-  title: string;
-  highlight?: string;
-  description?: string;
-  features?: string[];
-  primaryBtnText?: string;
-  primaryBtnAction?: 'live-prices' | 'invoice' | 'catalog' | 'pdf' | 'iqos' | 'shipping';
-  secondaryBtnText?: string;
-  secondaryBtnAction?: 'live-prices' | 'invoice' | 'catalog' | 'pdf' | 'iqos' | 'shipping';
-  imageUrl: string; 
-  tagline?: string;
-  statNumber?: string;
-  statLabel?: string;
-}
-
-const SLIDES: BannerSlide[] = [
-  {
-    id: 'slide-marlboro',
-    badge: 'تأمین دست‌اول و دست‌نخورده سوئیس',
-    badgeIcon: Flame,
-    badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
-    title: 'مرکز پخش عمده سیگارهای وارداتی',
-    highlight: 'با هولوگرام و تاریخ تولید جدید ۲۰۲۵/۲۰۲۶',
-    description: 'بارگیری مستقیم و روزانه از انبار مرکزی جنت‌آباد، استعلام آنلاین اصالت کالا، تضمین کارتن پلمپ کارخانه‌ای با تخفیف‌های پلکانی ویژه خریدهای بالای ۵ و ۱۰ کارتن.',
-    features: ['تضمین پلمپ کارخانه‌ای', 'قیمت‌گذاری بدون واسطه', 'ارسال همان روز'],
-    primaryBtnText: 'مشاهده نرخ لحظه‌ای کارتن',
-    primaryBtnAction: 'live-prices',
-    secondaryBtnText: 'دانلود لیست قیمت (PDF)',
-    secondaryBtnAction: 'pdf',
-    imageUrl: 'https://images.unsplash.com/photo-1622322306788-29532822a36b?q=80&w=2070&auto=format&fit=crop', // Luxury abstract dark smoke/gold
-    tagline: 'انبار مرکزی جنت‌آباد • تحویل فوری',
-    statNumber: '۱۰۰٪',
-    statLabel: 'اصالت بار و تضمین سلامت'
-  },
-  {
-    id: 'slide-iqos',
-    badge: 'مرکز تخصصی نسل جدید آیکاس',
-    badgeIcon: Sparkles,
-    badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
-    title: 'تجهیزات IQOS ILUMA و استیک TEREA',
-    highlight: 'واردات مستقیم بار تازه ارمنستان و ژاپن',
-    description: 'کامل‌ترین آرشیو کارتریج‌های تیریا شامل Silver، Sienna، Turquoise و Purple Wave با تاریخ جدید، همراه با مدل‌های متنوع دستگاه‌های ایلوما وان و پرایم پلمپ شرکتی.',
-    features: ['طعم‌های کامل و کمیاب', 'تخفیف ویژه سفارش عمده', 'ضمانت اصالت دستگاه'],
-    primaryBtnText: 'بررسی کاتالوگ آیکاس',
-    primaryBtnAction: 'iqos',
-    secondaryBtnText: 'صدور پیش‌فاکتور رسمی',
-    secondaryBtnAction: 'invoice',
-    imageUrl: 'https://images.unsplash.com/photo-1527068589345-b736a7ed9ce3?q=80&w=2070&auto=format&fit=crop', // Modern tech / abstract
-    tagline: 'SmartCore Induction System',
-    statNumber: '۴۸+',
-    statLabel: 'تنوع فلیور و مدل فعال'
-  },
-  {
-    id: 'slide-shipping',
-    badge: 'ناوگان حمل سریع و اکسپرس',
-    badgeIcon: Truck,
-    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    title: 'ارسال ایمن و بیمه‌شده باربری به سراسر کشور',
-    highlight: 'تحویل ۲ ساعته تهران و ۲۴ تا ۴۸ ساعته شهرستان',
-    description: 'همکاری مستقیم با معتبرترین باربری‌ها به همراه بسته‌بندی ضدضربه فوم و سلفون ضدآب، با رهگیری آنلاین بیجک بارنامه در پنل اختصاصی مشتریان.',
-    features: ['صدور فوری بیجک', 'بسته‌بندی ۵ لایه محرمانه', 'پوشش کامل بیمه حوادث'],
-    primaryBtnText: 'محاسبه کرایه و رهگیری',
-    primaryBtnAction: 'shipping',
-    secondaryBtnText: 'استعلام تعرفه‌ها',
-    secondaryBtnAction: 'shipping',
-    imageUrl: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?q=80&w=2070&auto=format&fit=crop', // Logistics/warehouse
-    tagline: 'پوشش ۳۱ استان • رهگیری آنلاین',
-    statNumber: '۲۴h',
-    statLabel: 'میانگین تحویل به باربری'
-  },
-  {
-    id: 'slide-invoice',
-    badge: 'پنل بنکداری و همکاران تجاری',
-    badgeIcon: ShieldCheck,
-    badgeColor: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
-    title: 'صدور فوری پیش‌فاکتور همراه با تخفیف پلکانی',
-    highlight: 'مهر رسمی، شناسه ملی و ثبت واریز فیش بانکی',
-    description: 'امکان انتخاب تحویل حضوری از انبار یا باربری، محاسبه آنی سود حاشیه فروش و پورسانت ویزیتور، با قابلیت تسویه‌حساب اعتباری ویژه بنکداران تاییدشده.',
-    features: ['تخفیف ویژه خریدهای عمده', 'تسویه حساب شفاف', 'پشتیبانی ۲۴ ساعته'],
-    primaryBtnText: 'صدور پیش‌فاکتور',
-    primaryBtnAction: 'invoice',
-    secondaryBtnText: 'مشاهده نرخ لحظه‌ای',
-    secondaryBtnAction: 'live-prices',
-    imageUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?q=80&w=2070&auto=format&fit=crop', // Finance/accounting
-    tagline: 'حسابداری اتوماتیک • فاکتور رسمی',
-    statNumber: '۴.۵٪',
-    statLabel: 'سقف تخفیف پلکانی'
-  }
-];
-
 export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
+  slides = [],
   products,
   currentUser,
   onNavigateTab,
   onSelectCategory,
 }) => {
+  // CRITICAL USER DIRECTIVE:
+  // If the backend database has no slider records (empty array), the slider component MUST be completely hidden!
+  if (!slides || slides.length === 0) {
+    return null;
+  }
+
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0);
   const [isAutoPlay, setIsAutoPlay] = useState(true);
 
   useEffect(() => {
-    if (!isAutoPlay) return;
+    if (!isAutoPlay || slides.length <= 1) return;
     const timer = setInterval(() => {
-      setCurrentSlideIndex(prev => (prev + 1) % SLIDES.length);
+      setCurrentSlideIndex(prev => (prev + 1) % slides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [isAutoPlay]);
+  }, [isAutoPlay, slides.length]);
 
   const handleNext = () => {
-    setCurrentSlideIndex((prev) => (prev + 1) % SLIDES.length);
+    setCurrentSlideIndex((prev) => (prev + 1) % slides.length);
   };
 
   const handlePrev = () => {
-    setCurrentSlideIndex((prev) => (prev - 1 + SLIDES.length) % SLIDES.length);
+    setCurrentSlideIndex((prev) => (prev - 1 + slides.length) % slides.length);
   };
 
   const handleAction = (action: string) => {
+    if (!action) return;
     if (action === 'live-prices') {
       onNavigateTab('live-prices');
     } else if (action === 'invoice') {
       onNavigateTab('invoice');
     } else if (action === 'catalog') {
       onNavigateTab('catalog');
-    } else if (action === 'iqos') {
+    } else if (action === 'iqos' || action === 'iqos_heets') {
       if (onSelectCategory) {
         onSelectCategory('iqos_heets');
       }
@@ -161,10 +71,15 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
       onNavigateTab('shipping');
     } else if (action === 'pdf') {
       generatePriceListPdf(products, 'all');
+    } else if (action.startsWith('http://') || action.startsWith('https://')) {
+      window.location.href = action;
+    } else {
+      onNavigateTab(action);
     }
   };
 
-  const activeSlide = SLIDES[currentSlideIndex];
+  const activeSlide = slides[currentSlideIndex % slides.length];
+  if (!activeSlide) return null;
 
   return (
     <div 
@@ -174,21 +89,23 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
       id="main-hero-slider"
     >
       {/* Background Image Layer */}
-      <AnimatePresence mode="wait">
-        <motion.img 
-          key={activeSlide.imageUrl}
-          initial={{ opacity: 0, scale: 1.05 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.8, ease: 'easeInOut' }}
-          src={activeSlide.imageUrl} 
-          alt={activeSlide.title} 
-          className="absolute inset-0 w-full h-full object-cover z-0"
-        />
-      </AnimatePresence>
+      {activeSlide.imageUrl && (
+        <AnimatePresence mode="wait">
+          <motion.img 
+            key={activeSlide.imageUrl}
+            initial={{ opacity: 0, scale: 1.05 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8, ease: 'easeInOut' }}
+            src={activeSlide.imageUrl} 
+            alt={activeSlide.title} 
+            className="absolute inset-0 w-full h-full object-cover z-0"
+          />
+        </AnimatePresence>
+      )}
 
-      {/* Chic Gradient Overlay for Text Readability (RTL: Dark on right, transparent on left) */}
-      <div className="absolute inset-0 bg-gradient-to-l from-slate-950 via-slate-950/80 to-slate-950/10 z-10" />
+      {/* Gradient Overlay for Text Readability (RTL: Dark on right, transparent on left) */}
+      <div className="absolute inset-0 bg-gradient-to-l from-slate-950 via-slate-950/80 to-slate-950/20 z-10" />
       <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent z-10" />
 
       {/* Main Content Container */}
@@ -205,9 +122,9 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -20 }}
                   transition={{ duration: 0.4 }}
-                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black border backdrop-blur-md shadow-sm ${activeSlide.badgeColor || 'bg-white/10 text-white'}`}
+                  className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-black border backdrop-blur-md shadow-xs ${activeSlide.badgeColor || 'bg-white/10 text-white border-white/20'}`}
                 >
-                  {activeSlide.badgeIcon && <activeSlide.badgeIcon className="w-4 h-4" />}
+                  <Sparkles className="w-3.5 h-3.5" />
                   {activeSlide.badge}
                 </motion.span>
               </AnimatePresence>
@@ -221,9 +138,11 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
 
           {/* Stat Pill */}
           {activeSlide.statNumber && (
-            <div className="flex items-center gap-2.5 bg-slate-900/60 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 shadow-sm">
+            <div className="flex items-center gap-2.5 bg-slate-900/60 backdrop-blur-xl px-4 py-2 rounded-2xl border border-white/10 shadow-xs">
               <span className="text-lg font-black text-white tracking-tight">{activeSlide.statNumber}</span>
-              <span className="text-xs text-slate-300 font-bold">{activeSlide.statLabel}</span>
+              {activeSlide.statLabel && (
+                <span className="text-xs text-slate-300 font-bold">{activeSlide.statLabel}</span>
+              )}
             </div>
           )}
         </div>
@@ -248,105 +167,105 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
                 {activeSlide.title}
               </h2>
               {activeSlide.description && (
-                <p className="text-sm sm:text-base lg:text-lg text-slate-300 font-medium leading-relaxed max-w-2xl">
+                <p className="text-slate-300 text-sm sm:text-base leading-relaxed line-clamp-3 font-medium max-w-2xl">
                   {activeSlide.description}
                 </p>
               )}
             </div>
 
-            {/* Feature Bullets */}
+            {/* Feature Pills */}
             {activeSlide.features && activeSlide.features.length > 0 && (
-              <div className="flex flex-wrap items-center gap-4 pt-2">
-                {activeSlide.features.map((feat, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    <span className="text-xs sm:text-sm font-bold text-slate-200">{feat}</span>
-                  </div>
+              <div className="flex flex-wrap gap-2.5 pt-1">
+                {activeSlide.features.map((feat, idx) => (
+                  <span 
+                    key={idx}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-slate-200 bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl backdrop-blur-sm"
+                  >
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                    {feat}
+                  </span>
                 ))}
               </div>
             )}
 
             {/* Action Buttons */}
-            {(activeSlide.primaryBtnText || activeSlide.secondaryBtnText) && (
-              <div className="flex flex-wrap items-center gap-4 pt-4">
-                {activeSlide.primaryBtnText && (
-                  <button
-                    onClick={() => activeSlide.primaryBtnAction && handleAction(activeSlide.primaryBtnAction)}
-                    className="px-6 py-4 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-black flex items-center gap-2 transition-all shadow-lg shadow-blue-600/30 active:scale-95 cursor-pointer"
-                    id={`hero-action-primary-${activeSlide.id}`}
-                  >
-                    <span>{activeSlide.primaryBtnText}</span>
-                    <ArrowUpRight className="w-5 h-5" />
-                  </button>
-                )}
+            <div className="flex flex-wrap items-center gap-3.5 pt-2">
+              {activeSlide.primaryBtnText && (
+                <button
+                  onClick={() => handleAction(activeSlide.primaryBtnAction || 'catalog')}
+                  className="px-6 py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white font-black text-xs sm:text-sm transition-all shadow-lg shadow-blue-600/30 flex items-center gap-2 group/btn cursor-pointer active:scale-95"
+                >
+                  <span>{activeSlide.primaryBtnText}</span>
+                  <ArrowUpRight className="w-4 h-4 group-hover/btn:translate-x-0.5 group-hover/btn:-translate-y-0.5 transition-transform" />
+                </button>
+              )}
 
-                {activeSlide.secondaryBtnText && (
-                  <button
-                    onClick={() => activeSlide.secondaryBtnAction && handleAction(activeSlide.secondaryBtnAction)}
-                    className="px-6 py-4 rounded-2xl bg-slate-800/60 hover:bg-slate-700/80 text-white text-sm font-black flex items-center gap-2 transition-all backdrop-blur-xl active:scale-95 border border-slate-700 cursor-pointer"
-                    id={`hero-action-secondary-${activeSlide.id}`}
-                  >
-                    <span>{activeSlide.secondaryBtnText}</span>
-                  </button>
-                )}
-              </div>
-            )}
+              {activeSlide.secondaryBtnText && (
+                <button
+                  onClick={() => handleAction(activeSlide.secondaryBtnAction || 'invoice')}
+                  className="px-6 py-3.5 rounded-2xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs sm:text-sm transition-all border border-white/20 backdrop-blur-md flex items-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <span>{activeSlide.secondaryBtnText}</span>
+                </button>
+              )}
+            </div>
           </motion.div>
         </AnimatePresence>
 
-        {/* Bottom Bar: Indicators & Prev/Next Controls */}
-        <div className="flex items-center justify-between gap-4 pt-6 border-t border-white/10 mt-auto">
-          
-          {/* Thumbnails / Indicators */}
-          <div className="flex items-center gap-3">
-            {SLIDES.map((slide, idx) => (
-              <button
-                key={slide.id}
-                onClick={() => setCurrentSlideIndex(idx)}
-                className={`transition-all duration-500 rounded-full h-1.5 cursor-pointer relative overflow-hidden ${
-                  currentSlideIndex === idx 
-                    ? 'w-12 bg-white/20' 
-                    : 'w-4 bg-white/20 hover:bg-white/40'
-                }`}
-                title={slide.title}
-                aria-label={`اسلاید ${idx + 1}`}
-              >
-                {currentSlideIndex === idx && (
-                  <motion.div 
-                    initial={{ width: 0 }}
-                    animate={{ width: '100%' }}
-                    transition={{ duration: 6, ease: 'linear' }}
-                    className="absolute inset-y-0 left-0 bg-blue-500"
-                  />
-                )}
-              </button>
-            ))}
-          </div>
-
-          {/* Prev / Next Arrows */}
-          <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-            <button
-              onClick={handlePrev}
-              className="w-10 h-10 rounded-2xl bg-slate-900/60 hover:bg-slate-800 text-white flex items-center justify-center border border-white/10 backdrop-blur-xl transition-all active:scale-90 cursor-pointer"
-              title="اسلاید قبلی"
-              aria-label="اسلاید قبلی"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+        {/* Bottom Bar: Indicators & Prev/Next Controls (only if multiple slides) */}
+        {slides.length > 1 && (
+          <div className="flex items-center justify-between gap-4 pt-6 border-t border-white/10 mt-auto">
             
-            <button
-              onClick={handleNext}
-              className="w-10 h-10 rounded-2xl bg-slate-900/60 hover:bg-slate-800 text-white flex items-center justify-center border border-white/10 backdrop-blur-xl transition-all active:scale-90 cursor-pointer"
-              title="اسلاید بعدی"
-              aria-label="اسلاید بعدی"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
+            {/* Thumbnails / Indicators */}
+            <div className="flex items-center gap-3">
+              {slides.map((slide, idx) => (
+                <button
+                  key={slide.id || idx}
+                  onClick={() => setCurrentSlideIndex(idx)}
+                  className={`transition-all duration-500 rounded-full h-1.5 cursor-pointer relative overflow-hidden ${
+                    currentSlideIndex === idx 
+                      ? 'w-12 bg-white/20' 
+                      : 'w-4 bg-white/20 hover:bg-white/40'
+                  }`}
+                  title={slide.title}
+                  aria-label={`اسلاید ${idx + 1}`}
+                >
+                  {currentSlideIndex === idx && (
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: '100%' }}
+                      transition={{ duration: 6, ease: 'linear' }}
+                      className="absolute inset-y-0 left-0 bg-blue-500"
+                    />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {/* Prev / Next Arrows */}
+            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <button
+                onClick={handlePrev}
+                className="w-10 h-10 rounded-2xl bg-slate-900/60 hover:bg-slate-800 text-white flex items-center justify-center border border-white/10 backdrop-blur-xl transition-all active:scale-90 cursor-pointer"
+                title="اسلاید قبلی"
+                aria-label="اسلاید قبلی"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+              
+              <button
+                onClick={handleNext}
+                className="w-10 h-10 rounded-2xl bg-slate-900/60 hover:bg-slate-800 text-white flex items-center justify-center border border-white/10 backdrop-blur-xl transition-all active:scale-90 cursor-pointer"
+                title="اسلاید بعدی"
+                aria-label="اسلاید بعدی"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
       </div>
     </div>
   );
 };
-

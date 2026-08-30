@@ -134,23 +134,27 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
             <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
               تماس با سامانه پخش عمده {companyTitle}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
-              {companyDesc}
-            </p>
+            {companyDesc && (
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+                {companyDesc}
+              </p>
+            )}
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
-            <a
-              href={`tel:${cleanPhone || '09120759419'}`}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs sm:text-sm px-5 py-3.5 rounded-2xl shadow-lg shadow-emerald-600/20 transition-all"
-            >
-              <PhoneCall className="w-4 h-4 shrink-0" />
-              <span className="inline-flex items-center gap-1.5" dir="rtl">
-                <span>تماس مستقیم:</span>
-                <span dir="ltr" className="font-mono font-black tracking-tight">{phoneNumber}</span>
-              </span>
-            </a>
-          </div>
+          {phoneNumber && (
+            <div className="flex items-center gap-3 shrink-0">
+              <a
+                href={`tel:${cleanPhone}`}
+                className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs sm:text-sm px-5 py-3.5 rounded-2xl shadow-lg shadow-emerald-600/20 transition-all"
+              >
+                <PhoneCall className="w-4 h-4 shrink-0" />
+                <span className="inline-flex items-center gap-1.5" dir="rtl">
+                  <span>تماس مستقیم:</span>
+                  <span dir="ltr" className="font-mono font-black tracking-tight">{phoneNumber}</span>
+                </span>
+              </a>
+            </div>
+          )}
         </div>
       </div>
 
@@ -297,27 +301,31 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
             </div>
 
             <div className="space-y-3.5 text-xs text-slate-600 pt-3 border-t border-slate-100">
-              <div className="flex items-start gap-2.5">
-                <MapPin className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="text-slate-900">آدرس انبار و دفتر مرکزی:</strong>
-                  <p className="text-slate-600 mt-0.5 leading-relaxed font-medium">
-                    {addressText}
-                  </p>
+              {addressText && (
+                <div className="flex items-start gap-2.5">
+                  <MapPin className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div>
+                    <strong className="text-slate-900">آدرس انبار و دفتر مرکزی:</strong>
+                    <p className="text-slate-600 mt-0.5 leading-relaxed font-medium">
+                      {addressText}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
-              <div className="flex items-center gap-2.5">
-                <Phone className="w-4 h-4 text-blue-600 shrink-0" />
-                <div>
-                  <strong className="text-slate-900">تلفن واحد فروش و ثبت سفارشات:</strong>
-                  <p className="font-mono font-bold text-slate-900 mt-0.5 text-sm" dir="ltr">
-                    <a href={`tel:${cleanPhone || '09120759419'}`} className="hover:text-blue-600 transition-colors">
-                      {phoneNumber}
-                    </a>
-                  </p>
+              {phoneNumber && (
+                <div className="flex items-center gap-2.5">
+                  <Phone className="w-4 h-4 text-blue-600 shrink-0" />
+                  <div>
+                    <strong className="text-slate-900">تلفن واحد فروش و ثبت سفارشات:</strong>
+                    <p className="font-mono font-bold text-slate-900 mt-0.5 text-sm" dir="ltr">
+                      <a href={`tel:${cleanPhone}`} className="hover:text-blue-600 transition-colors">
+                        {phoneNumber}
+                      </a>
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {emergencyPhone && (
                 <div className="flex items-center gap-2.5">
@@ -333,15 +341,17 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
                 </div>
               )}
 
-              <div className="flex items-center gap-2.5">
-                <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
-                <div>
-                  <strong className="text-slate-900">ساعات کاری و بارگیری:</strong>
-                  <p className="text-slate-600 mt-0.5">
-                    {workingHours}
-                  </p>
+              {workingHours && (
+                <div className="flex items-center gap-2.5">
+                  <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <strong className="text-slate-900">ساعات کاری و بارگیری:</strong>
+                    <p className="text-slate-600 mt-0.5">
+                      {workingHours}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
 
               {Boolean(shippingCompanies) && (
                 <div className="flex items-center gap-2.5">

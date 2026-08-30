@@ -1,7 +1,7 @@
 // Service Worker - Sevin Wholesale PWA
 // Cache-First strategy for static assets with instant update lifecycle
 
-const CURRENT_VERSION = 'v3.5.2';
+const CURRENT_VERSION = 'v3.5.3';
 const CACHE_NAME = `sevin-static-${CURRENT_VERSION}`;
 
 // Core shell assets to precache on install for instant offline availability

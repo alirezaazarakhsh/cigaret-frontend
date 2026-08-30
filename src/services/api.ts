@@ -11,7 +11,17 @@
  * - Site Settings & Configuration
  */
 
-import { httpClient } from './apiClient';
+import { httpClient, DEFAULT_NO_CACHE_HEADERS } from './apiClient';
+
+/**
+ * Standard anti-cache HTTP headers enforced across all API client requests
+ * to guarantee that responses bypass browser, CDN, and proxy caches.
+ */
+export const API_CACHE_CONTROL_HEADERS: Record<string, string> = {
+  'Cache-Control': 'no-cache, no-store, must-revalidate',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+};
 import { 
   getApiBaseUrl, 
   setApiBaseUrl, 
@@ -33,7 +43,8 @@ import {
   DjangoCrmConfig,
   FooterSettingsData,
   FooterColumnItem,
-  FooterSocialItem
+  FooterSocialItem,
+  BannerSlide
 } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
@@ -63,8 +74,13 @@ export const productsApi = {
     if (params?.brand && params.brand !== 'all') query.append('brand', params.brand);
     if (params?.search) query.append('search', params.search);
 
-    const endpoint = `/products/${query.toString() ? `?${query.toString()}` : ''}`;
-    const response = await httpClient.get<any>(endpoint);
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    // 1. Try DRF explicit list view: /products/list/
+    let response = await httpClient.get<any>(`/products/list/${queryString}`);
+    // 2. Fallback to /products/ if list/ doesn't exist
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>(`/products/${queryString}`);
+    }
 
     if (response.success && response.data) {
       const items = Array.isArray(response.data) ? response.data : (response.data.results || []);
@@ -538,14 +554,38 @@ export const siteSettingsApi = {
 // ==========================================
 function parseUnifiedOrFooterData(raw: any): FooterSettingsData | null {
   if (!raw || typeof raw !== 'object') return null;
-  const data = raw.data || raw;
+  const data = Array.isArray(raw) 
+    ? raw[0] 
+    : (raw.data ? (Array.isArray(raw.data) ? raw.data[0] : raw.data) : raw);
 
-  // Case 1: Unified response from site_settings (branding, contact_info, footer, shipping_texts)
+  if (!data || typeof data !== 'object') return null;
+
+  // Case 1: Direct footer settings object (from footer_settings Django app)
+  if (data.company_title || data.phone_number || data.columns || data.address_text || data.short_description) {
+    return {
+      company_title: data.company_title || data.brand_name || 'سوین',
+      short_description: data.short_description || data.description_text || data.about_text || '',
+      address_text: data.address_text || data.address || '',
+      phone_number: data.phone_number || data.phone || '',
+      emergency_phone: data.emergency_phone || '',
+      working_hours: data.working_hours || data.working_hours_text || '',
+      enamad_code: data.enamad_code || data.enamad_code_html || '',
+      samandehi_code: data.samandehi_code || data.samandehi_code_html || '',
+      copyright_text: data.copyright_text || '',
+      developer_credit: data.developer_credit || '',
+      is_active: data.is_active !== undefined ? Boolean(data.is_active) : true,
+      shipping_companies: data.shipping_companies || '',
+      barbari_text: data.barbari_text || '',
+      columns: Array.isArray(data.columns) ? data.columns : undefined,
+      socials: Array.isArray(data.socials) ? data.socials : (Array.isArray(data.social_links) ? data.social_links : undefined),
+    };
+  }
+
+  // Case 2: Unified response from site_settings (branding, contact_info, footer, shipping_texts)
   if (data.branding || data.contact_info || data.footer || data.shipping_texts) {
     const branding = data.branding || {};
     const contact = data.contact_info || {};
     const footer = data.footer || {};
-    const shipping = data.shipping_texts || {};
 
     const socials: FooterSocialItem[] = [];
     if (contact.telegram_channel) {
@@ -563,74 +603,20 @@ function parseUnifiedOrFooterData(raw: any): FooterSettingsData | null {
       socials.push({ platform: 'bale', title: 'کانال بله / روبیکا', url: contact.bale_rubika_channel });
     }
 
-    const defaultColumns: FooterColumnItem[] = [
-      {
-        id: 'col_1',
-        title: 'دسترسی سریع',
-        links: [
-          { title: 'کاتالوگ و لیست قیمت', url: '/catalog' },
-          { title: 'پیش‌فاکتور و ثبت سفارش', url: '/invoice' },
-          { title: 'پیگیری وضعیت سفارش', url: '/tracking' },
-          { title: 'قوانین و باربری', url: '/shipping' },
-        ]
-      },
-      {
-        id: 'col_2',
-        title: 'خدمات مشتریان',
-        links: [
-          { title: 'تماس با ما و انبارها', url: '/contact-us' },
-          { title: 'صندوق فروشگاهی و بنکداری', url: '/shopmanage/sandogh' },
-          { title: 'پنل کاربری و ویزیتوری', url: '/login' },
-          { title: 'مقالات و آموزش', url: '/blog' },
-        ]
-      },
-      {
-        id: 'col_3',
-        title: 'باربری‌های طرف قرارداد',
-        links: [
-          { title: 'باربری وطن (شوش)', url: '/shipping' },
-          { title: 'باربری جهانگیر و پیشتاز', url: '/shipping' },
-          { title: 'تیپاکس و چاپار اکسپرس', url: '/shipping' },
-          { title: 'ناوگان اختصاصی سوین', url: '/shipping' },
-        ]
-      }
-    ];
-
     return {
       company_title: branding.site_title || branding.site_title_fa || branding.brand_short_name || 'سوین',
-      short_description: footer.about_text || branding.tagline || 'مرکز تخصصی پخش محصولات سیگار و تنباکو با ارسال فوری و تضمین اصالت کالا به سراسر کشور.',
-      address_text: contact.central_warehouse_address || contact.sales_office_address || 'تهران، انبار مرکزی توزیع دخانیات',
-      phone_number: contact.primary_phone || branding.header_phone || contact.sales_phone || '۰۹۱۲۰۷۵۹۴۱۹',
-      emergency_phone: contact.emergency_phone || contact.mobile_support || '۰۹۱۲۰۷۵۹۴۱۹',
-      working_hours: contact.working_hours_text || branding.header_support_hours || 'شنبه تا پنج‌شنبه: ۸:۰۰ الی ۲۱:۰۰ (پشتیبانی ۲۴ ساعته)',
-      copyright_text: footer.copyright_text || `© کلیه حقوق مادی و معنوی برای پخش عمده ${branding.site_title || 'سوین'} محفوظ است.`,
-      developer_credit: 'طراحی و توسعه توسط سوین تیم و میزبانی وب سایت بر خط سرور های قدرتمند سوین هاست',
+      short_description: footer.about_text || branding.tagline || '',
+      address_text: contact.central_warehouse_address || contact.sales_office_address || '',
+      phone_number: contact.primary_phone || branding.header_phone || contact.sales_phone || '',
+      emergency_phone: contact.emergency_phone || contact.mobile_support || '',
+      working_hours: contact.working_hours_text || branding.header_support_hours || '',
+      copyright_text: footer.copyright_text || '',
+      developer_credit: footer.developer_credit || 'طراحی و توسعه توسط سوین تیم و میزبانی وب سایت بر خط سرور های قدرتمند سوین هاست',
       is_active: true,
-      enamad_code: footer.enamad_code_html,
-      samandehi_code: footer.samandehi_code_html,
-      columns: defaultColumns,
+      enamad_code: footer.enamad_code_html || '',
+      samandehi_code: footer.samandehi_code_html || '',
+      columns: Array.isArray(footer.columns) ? footer.columns : undefined,
       socials: socials.length > 0 ? socials : undefined,
-    };
-  }
-
-  // Case 2: Direct footer settings object
-  if (data.company_title || data.phone_number || data.columns || data.address_text || data.about_text) {
-    return {
-      company_title: data.company_title || data.brand_name || 'سوین',
-      short_description: data.short_description || data.description_text || data.about_text || '',
-      address_text: data.address_text || data.address || '',
-      phone_number: data.phone_number || data.phone || '',
-      emergency_phone: data.emergency_phone || '',
-      working_hours: data.working_hours || data.working_hours_text || '',
-      enamad_code: data.enamad_code || data.enamad_code_html || '',
-      samandehi_code: data.samandehi_code || data.samandehi_code_html || '',
-      copyright_text: data.copyright_text || '',
-      developer_credit: data.developer_credit || '',
-      is_active: data.is_active !== undefined ? Boolean(data.is_active) : true,
-      shipping_companies: data.shipping_companies,
-      barbari_text: data.barbari_text,
-      columns: Array.isArray(data.columns) ? data.columns : undefined,
-      socials: Array.isArray(data.socials) ? data.socials : (Array.isArray(data.social_links) ? data.social_links : undefined),
     };
   }
 
@@ -643,15 +629,16 @@ export const footerApi = {
    */
   async getSettings(): Promise<FooterSettingsData | null> {
     const candidateEndpoints = [
-      '/site-settings/public-config/',
-      '/api/site-settings/public-config/',
-      '/site_settings/public-config/',
-      '/api/site_settings/public-config/',
       '/footer-settings/settings/',
       '/footer_settings/settings/',
-      '/footer/settings/',
       '/footer-settings/',
       '/footer_settings/',
+      '/footer/settings/',
+      '/site-settings/public-config/',
+      '/site_settings/public-config/',
+      '/api/footer-settings/settings/',
+      '/api/footer_settings/settings/',
+      '/api/site-settings/public-config/',
     ];
 
     for (const endpoint of candidateEndpoints) {
@@ -816,9 +803,159 @@ export function clearAllClientCaches(): void {
 }
 
 // ==========================================
+// 8. SLIDERS API (Hero Banner & Sliders)
+// ==========================================
+export const slidersApi = {
+  /**
+   * Fetches active sliders from backend.
+   * If there are no sliders in the backend database (e.g. empty results or count: 0),
+   * returns an empty array [] so the UI can hide the slider completely.
+   */
+  async getAll(): Promise<BannerSlide[]> {
+    try {
+      const endpoints = [
+        '/sliders/',
+        '/sliders/hero-combined/',
+        '/api/sliders/',
+      ];
+
+      for (const endpoint of endpoints) {
+        const response = await httpClient.get<any>(endpoint);
+        if (response.success && response.data) {
+          let rawList: any[] = [];
+          if (Array.isArray(response.data)) {
+            rawList = response.data;
+          } else if (Array.isArray(response.data.results)) {
+            rawList = response.data.results;
+          } else if (Array.isArray(response.data.sliders)) {
+            rawList = response.data.sliders;
+          }
+
+          if (rawList && rawList.length > 0) {
+            const base = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
+            return rawList
+              .filter((item: any) => item && item.is_active !== false)
+              .map((item: any, idx: number) => {
+                let imageUrl = item.image || item.image_url || '';
+                if (imageUrl && imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
+                  imageUrl = `${base}${imageUrl}`;
+                }
+
+                return {
+                  id: String(item.id || `slide-${idx}`),
+                  title: item.title || '',
+                  highlight: item.highlight_text || item.highlight || '',
+                  badge: item.badge_text || item.badge || '',
+                  description: item.description || '',
+                  features: Array.isArray(item.features) ? item.features : [],
+                  primaryBtnText: item.primary_btn_text || '',
+                  primaryBtnAction: item.primary_btn_link || 'catalog',
+                  secondaryBtnText: item.secondary_btn_text || '',
+                  secondaryBtnAction: item.secondary_btn_link || 'invoice',
+                  imageUrl: imageUrl || '',
+                  tagline: item.tagline || '',
+                  statNumber: item.stat_number || '',
+                  statLabel: item.stat_label || '',
+                };
+              });
+          } else if (
+            response.data &&
+            (response.data.count === 0 ||
+              (Array.isArray(response.data.results) && response.data.results.length === 0) ||
+              (Array.isArray(response.data.sliders) && response.data.sliders.length === 0))
+          ) {
+            return [];
+          }
+        }
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  },
+
+  async getHeroCombined(): Promise<{
+    sliders: BannerSlide[];
+    siteBranding?: any;
+    pageHeaderControl?: any;
+  }> {
+    try {
+      const res = await httpClient.get<any>('/sliders/hero-combined/');
+      if (res.success && res.data) {
+        const rawSliders = Array.isArray(res.data.sliders) ? res.data.sliders : [];
+        const base = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
+        const mappedSliders: BannerSlide[] = rawSliders
+          .filter((item: any) => item && item.is_active !== false)
+          .map((item: any, idx: number) => {
+            let imageUrl = item.image || item.image_url || '';
+            if (imageUrl && imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
+              imageUrl = `${base}${imageUrl}`;
+            }
+
+            return {
+              id: String(item.id || `slide-${idx}`),
+              title: item.title || '',
+              highlight: item.highlight_text || item.highlight || '',
+              badge: item.badge_text || item.badge || '',
+              description: item.description || '',
+              features: Array.isArray(item.features) ? item.features : [],
+              primaryBtnText: item.primary_btn_text || '',
+              primaryBtnAction: item.primary_btn_link || 'catalog',
+              secondaryBtnText: item.secondary_btn_text || '',
+              secondaryBtnAction: item.secondary_btn_link || 'invoice',
+              imageUrl: imageUrl || '',
+              tagline: item.tagline || '',
+              statNumber: item.stat_number || '',
+              statLabel: item.stat_label || '',
+            };
+          });
+
+        return {
+          sliders: mappedSliders,
+          siteBranding: res.data.site_branding,
+          pageHeaderControl: res.data.page_header_control,
+        };
+      }
+    } catch {}
+
+    return { sliders: [] };
+  }
+};
+
+// ==========================================
+// 9. BLOG API
+// ==========================================
+export const blogApi = {
+  async getAll(): Promise<any[]> {
+    try {
+      const endpoints = ['/blog/list/', '/blog/posts/', '/blog/'];
+      for (const endpoint of endpoints) {
+        const response = await httpClient.get<any>(endpoint);
+        if (response.success && response.data) {
+          let list: any[] = [];
+          if (Array.isArray(response.data)) {
+            list = response.data;
+          } else if (Array.isArray(response.data.results)) {
+            list = response.data.results;
+          } else if (Array.isArray(response.data.posts)) {
+            list = response.data.posts;
+          }
+
+          if (list) return list;
+        }
+      }
+      return [];
+    } catch {
+      return [];
+    }
+  }
+};
+
+// ==========================================
 // UNIFIED MASTER API EXPORT
 // ==========================================
 export const api = {
+  headers: API_CACHE_CONTROL_HEADERS,
   config: {
     getBaseUrl: getApiBaseUrl,
     setBaseUrl: setApiBaseUrl,
@@ -838,6 +975,8 @@ export const api = {
   pos: posApi,
   siteSettings: siteSettingsApi,
   footer: footerApi,
+  sliders: slidersApi,
+  blog: blogApi,
   contact: contactApi,
   client: httpClient,
   clearAllCaches: clearAllClientCaches,

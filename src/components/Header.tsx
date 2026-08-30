@@ -112,7 +112,8 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-ping"></span>
             <span className="text-blue-400 font-bold text-[11px] sm:text-xs truncate">
-              {companyTitle ? `سامانه پخش عمده ${companyTitle}` : 'پخش عمده دخانیات سوین'} | {warehouseAddress || 'انبار مرکزی'}
+              {companyTitle ? `سامانه پخش عمده ${companyTitle}` : 'سامانه پخش عمده دخانیات'}
+              {warehouseAddress ? ` | ${warehouseAddress}` : ''}
             </span>
           </div>
 
@@ -131,17 +132,19 @@ export const Header: React.FC<HeaderProps> = ({
               </button>
             )}
 
-            {/* Direct Phone Call */}
-            <a 
-              href={`tel:${(phoneNumber || '09120759419').replace(/[^0-9+]/g, '')}`} 
-              className="text-white hover:text-blue-400 transition-colors flex items-center gap-1 font-bold text-xs shrink-0"
-              id="direct-call-link"
-            >
-              <div className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0">
-                <PhoneCall className="w-2.5 h-2.5" />
-              </div>
-              <span dir="ltr" className="text-white font-mono font-black tracking-tight text-[11px] sm:text-xs">{phoneNumber || '۰۹۱۲۰۷۵۹۴۱۹'}</span>
-            </a>
+            {/* Direct Phone Call - only shown if backend provides phone number */}
+            {phoneNumber && (
+              <a 
+                href={`tel:${phoneNumber.replace(/[^0-9+]/g, '')}`} 
+                className="text-white hover:text-blue-400 transition-colors flex items-center gap-1 font-bold text-xs shrink-0"
+                id="direct-call-link"
+              >
+                <div className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0">
+                  <PhoneCall className="w-2.5 h-2.5" />
+                </div>
+                <span dir="ltr" className="text-white font-mono font-black tracking-tight text-[11px] sm:text-xs">{phoneNumber}</span>
+              </a>
+            )}
 
           </div>
         </div>

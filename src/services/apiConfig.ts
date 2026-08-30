@@ -146,12 +146,20 @@ export async function testApiConnection(customUrl?: string, customToken?: string
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 4500);
 
-    // Test ping or products endpoint
-    const response = await fetch(`${urlToTest}/products/`, {
+    // Test live endpoint (footer-settings or products/list/)
+    let response = await fetch(`${urlToTest}/footer-settings/settings/`, {
       method: 'GET',
       headers,
       signal: controller.signal
     }).catch(() => null);
+
+    if (!response || !response.ok) {
+      response = await fetch(`${urlToTest}/products/list/`, {
+        method: 'GET',
+        headers,
+        signal: controller.signal
+      }).catch(() => null);
+    }
 
     clearTimeout(timeoutId);
     const latencyMs = Date.now() - startTime;

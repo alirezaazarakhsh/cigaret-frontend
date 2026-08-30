@@ -303,6 +303,15 @@ for trusted in ["https://cigar.sevinhost.ir", "http://cigar.sevinhost.ir", "http
 
 CORS_ALLOW_CREDENTIALS = True
 
+# هدرهای مجاز CORS شامل Cache-Control برای جلوگیری از ذخیره کش و همگام‌سازی بلادرنگ فرانت‌اند
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "cache-control",
+    "pragma",
+    "expires",
+]
+
 # تنظیمات کوکی CSRF و Session برای پشتیبانی از HTTPS و رفع خطای ۴۰۳
 CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_SECURE = not DEBUG

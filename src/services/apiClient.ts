@@ -13,13 +13,20 @@ export interface ApiResponse<T = any> {
   status: number;
 }
 
-interface RequestOptions {
+export interface RequestOptions {
   headers?: Record<string, string>;
   token?: string;
   timeoutMs?: number;
   skipAuth?: boolean;
   skipCacheBuster?: boolean;
+  _isRetry?: boolean;
 }
+
+export const DEFAULT_NO_CACHE_HEADERS: Record<string, string> = {
+  'Cache-Control': 'no-cache, no-store, must-revalidate',
+  'Pragma': 'no-cache',
+  'Expires': '0',
+};
 
 async function fetchWithTimeout(
   url: string,
@@ -65,9 +72,7 @@ async function request<T = any>(
   const headers: Record<string, string> = {
     'Accept': 'application/json',
     'Content-Type': 'application/json',
-    'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
-    'Pragma': 'no-cache',
-    'Expires': '0',
+    ...DEFAULT_NO_CACHE_HEADERS,
     ...(options.headers || {}),
   };
 
@@ -86,9 +91,7 @@ async function request<T = any>(
     reqInit.body = typeof body === 'string' ? body : JSON.stringify(body);
   }
 
-  try {
-    const response = await fetchWithTimeout(fullUrl, reqInit, options.timeoutMs || 8000);
-    
+  const parseResponse = async (response: Response): Promise<ApiResponse<T>> => {
     let responseData: any = null;
     const contentType = response.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
@@ -111,7 +114,31 @@ async function request<T = any>(
         status: response.status,
       };
     }
+  };
+
+  try {
+    const response = await fetchWithTimeout(fullUrl, reqInit, options.timeoutMs || 8000);
+    return await parseResponse(response);
   } catch (error: any) {
+    // If the request fails (e.g. cross-origin CORS preflight rejection when custom headers like Cache-Control are sent),
+    // automatically retry once with minimal headers to ensure zero downtime for the user
+    if (headers['Cache-Control'] && !options._isRetry) {
+      try {
+        const fallbackHeaders = { ...headers };
+        delete fallbackHeaders['Cache-Control'];
+        delete fallbackHeaders['Pragma'];
+        delete fallbackHeaders['Expires'];
+        const fallbackInit: RequestInit = {
+          ...reqInit,
+          headers: fallbackHeaders,
+        };
+        const fallbackRes = await fetchWithTimeout(fullUrl, fallbackInit, options.timeoutMs || 8000);
+        return await parseResponse(fallbackRes);
+      } catch {
+        // Fall through to standard error handling
+      }
+    }
+
     return {
       success: false,
       data: null as any,

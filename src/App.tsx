@@ -40,7 +40,7 @@ const renderFeatureIcon = (iconName: string) => {
   }
   return <Award className="w-5 h-5 text-emerald-500" />;
 };
-import { CigaretteProduct, CigaretteCategory, CartItem, CustomerInfo, OrderInvoice, DjangoCrmConfig, NavigationTab, UserProfile, RetailShopCustomer, NotificationItem, FooterSettingsData } from './types';
+import { CigaretteProduct, CigaretteCategory, CartItem, CustomerInfo, OrderInvoice, DjangoCrmConfig, NavigationTab, UserProfile, RetailShopCustomer, NotificationItem, FooterSettingsData, BannerSlide } from './types';
 import { CIGARETTE_PRODUCTS, WHOLESALE_BENEFITS } from './data/products';
 import { INITIAL_RETAIL_SHOPS } from './data/retailShops';
 import { Header } from './components/Header';
@@ -347,6 +347,10 @@ export default function App() {
     return null;
   });
 
+  // Dynamic Hero Banner Sliders from Django backend
+  // Note: if backend database has no slider records, sliders stays [] and the slider is completely hidden!
+  const [sliders, setSliders] = useState<BannerSlide[]>([]);
+
   // Auto-fetch products, site settings and footer settings from unified API layer on mount or cache reset
   useEffect(() => {
     let isMounted = true;
@@ -363,12 +367,11 @@ export default function App() {
       api.footer.getSettings().then((loadedFooter) => {
         if (isMounted && loadedFooter) {
           setFooterSettings(loadedFooter);
-          if (loadedFooter.company_title) {
-            setDjangoConfig(prev => ({
-              ...prev,
-              companyName: loadedFooter.company_title || prev.companyName
-            }));
-          }
+          setDjangoConfig(prev => ({
+            ...prev,
+            companyName: loadedFooter.company_title || prev.companyName,
+            transportPhoneCompany: loadedFooter.phone_number || prev.transportPhoneCompany,
+          }));
         }
       }).catch(() => {});
 
@@ -381,6 +384,18 @@ export default function App() {
           }));
         }
       }).catch(() => {});
+
+      // 4. Fetch Hero Sliders (zero-cache)
+      // Strictly follows rule: if backend database has no sliders, sliders stays [] and slider is hidden
+      api.sliders.getAll().then((loadedSliders) => {
+        if (isMounted) {
+          setSliders(loadedSliders || []);
+        }
+      }).catch(() => {
+        if (isMounted) {
+          setSliders([]);
+        }
+      });
     };
 
     // Initial fresh fetch on mount
@@ -677,13 +692,16 @@ export default function App() {
         {activeTab === 'catalog' && (
           <div className="space-y-6 animate-in fade-in duration-200">
             
-            {/* Spacious Premium Hero Banner Slider */}
-            <HeroBannerSlider
-              products={products}
-              currentUser={currentUser}
-              onNavigateTab={(tab) => setActiveTab(tab)}
-              onSelectCategory={(cat) => setSelectedCategory(cat)}
-            />
+            {/* Spacious Premium Hero Banner Slider - Hidden completely if backend has no slider records */}
+            {sliders && sliders.length > 0 && (
+              <HeroBannerSlider
+                slides={sliders}
+                products={products}
+                currentUser={currentUser}
+                onNavigateTab={(tab) => setActiveTab(tab)}
+                onSelectCategory={(cat) => setSelectedCategory(cat)}
+              />
+            )}
 
             {/* Wholesale Features Highlights */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">

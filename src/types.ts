@@ -617,3 +617,22 @@ export interface SupportTicketItem {
   }[];
 }
 
+export interface BannerSlide {
+  id: string;
+  badge?: string;
+  badgeIcon?: React.ComponentType<{ className?: string }>;
+  badgeColor?: string;
+  title: string;
+  highlight?: string;
+  description?: string;
+  features?: string[];
+  primaryBtnText?: string;
+  primaryBtnAction?: 'live-prices' | 'invoice' | 'catalog' | 'pdf' | 'iqos' | 'shipping' | string;
+  secondaryBtnText?: string;
+  secondaryBtnAction?: 'live-prices' | 'invoice' | 'catalog' | 'pdf' | 'iqos' | 'shipping' | string;
+  imageUrl: string;
+  tagline?: string;
+  statNumber?: string;
+  statLabel?: string;
+}
+

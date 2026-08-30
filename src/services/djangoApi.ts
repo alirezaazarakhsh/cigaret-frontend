@@ -891,7 +891,7 @@ export async function syncWithDjangoApi(config: DjangoCrmConfig): Promise<Cigare
     try {
       const headers: Record<string, string> = {
         'Accept': 'application/json',
-        'Cache-Control': 'no-cache, no-store, must-revalidate, max-age=0',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
         'Expires': '0',
       };
