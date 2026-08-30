@@ -1,5 +1,6 @@
 import { CigaretteProduct, DjangoCrmConfig, CigaretteCategory } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
+import { notificationsApi } from './api';
 
 export interface DjangoProductItem {
   id?: number | string;
@@ -262,60 +263,7 @@ class DjangoDatabaseStore {
   // ==========================================
   // Notifications Store (Model: UserNotification)
   // ==========================================
-  private defaultNotifications: any[] = [
-    {
-      id: 101,
-      user: null,
-      user_id: null,
-      user_name: 'همه کاربران سایت (عمومی)',
-      user_phone: 'عمومی / سراسری',
-      title: 'تغییر نرخ لحظه‌ای کارتن‌های وینستون و بهمن',
-      message: 'با توجه به نوسانات نرخ ارز و بازگشایی حواله‌های دبی، قیمت انواع کارتن وینستون لایت و بهمن به روزرسانی گردید. جهت ثبت سفارش به بخش کاتالوگ مراجعه فرمایید.',
-      notification_type: 'price',
-      is_read: false,
-      created_at: '۱۴۰۳/۰۶/۱۰ - ۱۴:۳۰',
-      targetAudience: 'all'
-    },
-    {
-      id: 102,
-      user: 1,
-      user_id: 1,
-      user_name: 'حاج رضا احمدی (فروشگاه تهرانی)',
-      user_phone: '09121112233',
-      title: 'صدور حواله خروج انبار مرکزی و باربری',
-      message: 'فاکتور شماره SVN-84920 شما به تعداد ۱۰ کارتن تحویل باربری وطن (تهران-شوش) گردید. کد پیگیری بیجک: 98402',
-      notification_type: 'order',
-      is_read: false,
-      created_at: '۱۴۰۳/۰۶/۱۰ - ۱۱:۱۵',
-      targetAudience: 'direct'
-    },
-    {
-      id: 103,
-      user: null,
-      user_id: null,
-      user_name: 'همه کاربران سایت (عمومی)',
-      user_phone: 'عمومی / سراسری',
-      title: 'ورود محموله جدید استیک‌های تیریا (TEREA) و هیتس اندونزی',
-      message: 'بار جدید طعم‌های امبر، سیلور، برنز و گرین تیریا اصل با هولوگرام معتبر در انبار مرکزی شارژ شد.',
-      notification_type: 'system',
-      is_read: true,
-      created_at: '۱۴۰۳/۰۶/۰۹ - ۰۹:۴۵',
-      targetAudience: 'all'
-    },
-    {
-      id: 104,
-      user: 2,
-      user_id: 2,
-      user_name: 'مهدی رضایی (سوپر مارکت پاسارگاد)',
-      user_phone: '09355554433',
-      title: 'یادآوری سررسید چک نسیه دفتری',
-      message: 'همکار گرامی، سررسید چک حساب دفتری شما مربوط به خرید هفته گذشته مورخ فردا می‌باشد. لطفا جهت تایید با بخش حسابداری هماهنگ فرمایید.',
-      notification_type: 'finance',
-      is_read: false,
-      created_at: '۱۴۰۳/۰۶/۰۸ - ۱۶:۲۰',
-      targetAudience: 'direct'
-    }
-  ];
+  private defaultNotifications: any[] = [];
 
   getNotifications(filters?: { type?: string; is_read?: boolean; search?: string; userId?: string | number }): any[] {
     let list = [...this.defaultNotifications];
@@ -1048,38 +996,20 @@ export async function replyToDjangoTicket(ticketId: string, message: string, con
 // ===================================================
 
 /**
- * Fetch list of notifications (or filter by search, type, read status)
+ * Fetch list of notifications from Django database
  */
 export async function djangoFetchNotifications(config?: DjangoCrmConfig, filters?: any): Promise<any[]> {
-  if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
-    try {
-      const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      const params = new URLSearchParams();
-      if (filters?.type && filters.type !== 'all') params.append('type', filters.type);
-      if (typeof filters?.is_read === 'boolean') params.append('is_read', String(filters.is_read));
-      if (filters?.search) params.append('search', filters.search);
-
-      const qs = params.toString() ? `?${params.toString()}` : '';
-      const resp = await fetch(`${baseUrl}/api/v1/notifications/list/${qs}`, {
-        headers: {
-          'Accept': 'application/json',
-          ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
-        }
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        const list = Array.isArray(data) ? data : (data.results || data.data || []);
-        return list;
-      }
-    } catch (e) {
-      console.warn('Django Fetch Notifications API fallback to local DB store:', e);
-    }
+  try {
+    const list = await notificationsApi.getAll(filters);
+    return list;
+  } catch (e) {
+    console.warn('Django Fetch Notifications API notice:', e);
+    return [];
   }
-  return djangoDatabaseStore.getNotifications(filters);
 }
 
 /**
- * Create or Broadcast a new notification to site users
+ * Create or Broadcast a new notification to site users in Django database
  */
 export async function djangoCreateNotification(payload: {
   title: string;
@@ -1092,28 +1022,16 @@ export async function djangoCreateNotification(payload: {
   user_name?: string;
   user_phone?: string;
 }, config?: DjangoCrmConfig): Promise<any> {
-  const created = djangoDatabaseStore.addNotification(payload);
-
-  if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
-    try {
-      const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      const resp = await fetch(`${baseUrl}/api/v1/notifications/create/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
-        },
-        body: JSON.stringify(payload)
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        return data.data || data;
-      }
-    } catch (e) {
-      console.warn('Django Create Notification API notice:', e);
+  try {
+    const created = await notificationsApi.create(payload);
+    if (created) {
+      djangoDatabaseStore.addNotification(created);
+      return created;
     }
+  } catch (e) {
+    console.warn('Django Create Notification API notice:', e);
   }
-  return created;
+  return djangoDatabaseStore.addNotification(payload);
 }
 
 /**
@@ -1121,45 +1039,26 @@ export async function djangoCreateNotification(payload: {
  */
 export async function djangoUpdateNotification(id: string | number, payload: any, config?: DjangoCrmConfig): Promise<any> {
   const updated = djangoDatabaseStore.updateNotification(id, payload);
-
-  if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
-    try {
-      const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      await fetch(`${baseUrl}/api/v1/notifications/${id}/`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
-        },
-        body: JSON.stringify(payload)
-      });
-    } catch (e) {
-      console.warn('Django Update Notification API notice:', e);
+  try {
+    if (payload.is_read !== undefined || payload.isRead !== undefined) {
+      await notificationsApi.markRead(id, Boolean(payload.is_read ?? payload.isRead));
     }
+  } catch (e) {
+    console.warn('Django Update Notification API notice:', e);
   }
   return updated;
 }
 
 /**
- * Delete a notification
+ * Delete a notification from Django database
  */
 export async function djangoDeleteNotification(id: string | number, config?: DjangoCrmConfig): Promise<boolean> {
   djangoDatabaseStore.deleteNotification(id);
-
-  if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
-    try {
-      const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      await fetch(`${baseUrl}/api/v1/notifications/${id}/delete/`, {
-        method: 'DELETE',
-        headers: {
-          ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
-        }
-      });
-    } catch (e) {
-      console.warn('Django Delete Notification API notice:', e);
-    }
+  try {
+    return await notificationsApi.delete(id);
+  } catch {
+    return true;
   }
-  return true;
 }
 
 /**
@@ -1167,23 +1066,11 @@ export async function djangoDeleteNotification(id: string | number, config?: Dja
  */
 export async function djangoMarkNotificationRead(id: string | number, isRead: boolean = true, config?: DjangoCrmConfig): Promise<boolean> {
   djangoDatabaseStore.markNotificationRead(id, isRead);
-
-  if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
-    try {
-      const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      await fetch(`${baseUrl}/api/v1/notifications/${id}/mark-read/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
-        },
-        body: JSON.stringify({ is_read: isRead })
-      });
-    } catch (e) {
-      console.warn('Django Mark Notification Read API notice:', e);
-    }
+  try {
+    return await notificationsApi.markRead(id, isRead);
+  } catch {
+    return true;
   }
-  return true;
 }
 
 /**
@@ -1191,20 +1078,9 @@ export async function djangoMarkNotificationRead(id: string | number, isRead: bo
  */
 export async function djangoMarkAllNotificationsRead(config?: DjangoCrmConfig): Promise<number> {
   const count = djangoDatabaseStore.markAllNotificationsRead();
-
-  if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
-    try {
-      const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      await fetch(`${baseUrl}/api/v1/notifications/mark-all-read/`, {
-        method: 'POST',
-        headers: {
-          ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
-        }
-      });
-    } catch (e) {
-      console.warn('Django Mark All Read API notice:', e);
-    }
-  }
+  try {
+    await notificationsApi.markAllRead();
+  } catch {}
   return count;
 }
 
@@ -1212,24 +1088,11 @@ export async function djangoMarkAllNotificationsRead(config?: DjangoCrmConfig): 
  * Get unread notification count
  */
 export async function djangoFetchNotificationUnreadCount(config?: DjangoCrmConfig): Promise<number> {
-  if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
-    try {
-      const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      const resp = await fetch(`${baseUrl}/api/v1/notifications/unread-count/`, {
-        headers: {
-          'Accept': 'application/json',
-          ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
-        }
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        return data.unread_count || 0;
-      }
-    } catch (e) {
-      console.warn('Django Unread Count API notice:', e);
-    }
+  try {
+    return await notificationsApi.getUnreadCount();
+  } catch {
+    return 0;
   }
-  return djangoDatabaseStore.getUnreadNotificationCount();
 }
 
 

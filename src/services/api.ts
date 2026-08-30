@@ -44,7 +44,8 @@ import {
   FooterSettingsData,
   FooterColumnItem,
   FooterSocialItem,
-  BannerSlide
+  BannerSlide,
+  NotificationItem
 } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
@@ -952,6 +953,189 @@ export const blogApi = {
 };
 
 // ==========================================
+// 10. NOTIFICATIONS API (/api/v1/notifications/)
+// ==========================================
+export const notificationsApi = {
+  /**
+   * Fetch list of user notifications from Django backend
+   * Endpoint: GET /api/v1/notifications/list/
+   */
+  async getAll(params?: { type?: string; is_read?: boolean; search?: string }): Promise<NotificationItem[]> {
+    const query = new URLSearchParams();
+    if (params?.type && params.type !== 'all') query.append('type', params.type);
+    if (typeof params?.is_read === 'boolean') query.append('is_read', String(params.is_read));
+    if (params?.search) query.append('search', params.search);
+
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    
+    // 1. Try explicit list view: /notifications/list/
+    let response = await httpClient.get<any>(`/notifications/list/${queryString}`, {
+      headers: API_CACHE_CONTROL_HEADERS,
+      skipCacheBuster: false,
+    });
+    // 2. Fallback to /api/v1/notifications/list/ if not found
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>(`/api/v1/notifications/list/${queryString}`, {
+        headers: API_CACHE_CONTROL_HEADERS,
+        skipCacheBuster: false,
+      });
+    }
+
+    if (response.success && response.data) {
+      const items = Array.isArray(response.data) 
+        ? response.data 
+        : (response.data.results || response.data.data || []);
+
+      const mapped: NotificationItem[] = items.map((item: any) => {
+        const notifType = item.notification_type || item.type || 'system';
+        let uiType: 'info' | 'success' | 'warning' | 'urgent' = 'info';
+        if (notifType === 'price') uiType = 'warning';
+        else if (notifType === 'order') uiType = 'success';
+        else if (notifType === 'finance') uiType = 'urgent';
+
+        const isRead = Boolean(item.is_read ?? item.isRead ?? false);
+
+        return {
+          id: item.id,
+          title: item.title || 'اعلان انبار مرکزی',
+          message: item.message || '',
+          type: uiType,
+          notification_type: notifType,
+          targetAudience: item.user ? 'direct' : (item.targetAudience || 'all'),
+          user: item.user ?? null,
+          user_id: item.user_id ?? item.user ?? null,
+          user_name: item.user_name || (item.user ? 'کاربر اختصاصی' : 'همه کاربران سایت (عمومی)'),
+          user_phone: item.user_phone || 'عمومی',
+          targetUserId: item.user ? String(item.user) : undefined,
+          targetUserName: item.user_name,
+          createdAt: item.created_at || 'لحظاتی پیش',
+          created_at: item.created_at || '',
+          isRead,
+          is_read: isRead,
+        };
+      });
+
+      return mapped;
+    }
+
+    return [];
+  },
+
+  /**
+   * Fetch unread notification count
+   * Endpoint: GET /api/v1/notifications/unread-count/
+   */
+  async getUnreadCount(): Promise<number> {
+    let response = await httpClient.get<any>('/notifications/unread-count/', {
+      headers: API_CACHE_CONTROL_HEADERS,
+      skipCacheBuster: false,
+    });
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>('/api/v1/notifications/unread-count/', {
+        headers: API_CACHE_CONTROL_HEADERS,
+        skipCacheBuster: false,
+      });
+    }
+
+    if (response.success && response.data) {
+      return Number(response.data.unread_count || response.data.count || 0);
+    }
+    return 0;
+  },
+
+  /**
+   * Create and broadcast a new notification
+   * Endpoint: POST /api/v1/notifications/create/
+   */
+  async create(payload: {
+    title: string;
+    message: string;
+    notification_type?: string;
+    type?: string;
+    user?: number | string | null;
+    user_id?: number | string | null;
+    targetAudience?: string;
+  }): Promise<NotificationItem | null> {
+    const body: Record<string, any> = {
+      title: payload.title,
+      message: payload.message,
+      notification_type: payload.notification_type || payload.type || 'system',
+    };
+
+    if (payload.user !== null && payload.user !== undefined && !isNaN(Number(payload.user))) {
+      body.user = Number(payload.user);
+    } else if (payload.user_id !== null && payload.user_id !== undefined && !isNaN(Number(payload.user_id))) {
+      body.user = Number(payload.user_id);
+    } else {
+      body.user = null;
+    }
+
+    let response = await httpClient.post<any>('/notifications/create/', body);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post<any>('/api/v1/notifications/create/', body);
+    }
+
+    if (response.success && response.data) {
+      const data = response.data.data || response.data;
+      const notifType = data.notification_type || body.notification_type;
+      return {
+        id: data.id || Date.now(),
+        title: data.title || payload.title,
+        message: data.message || payload.message,
+        type: notifType === 'price' ? 'warning' : notifType === 'order' ? 'success' : notifType === 'finance' ? 'urgent' : 'info',
+        notification_type: notifType,
+        targetAudience: data.user ? 'direct' : 'all',
+        user: data.user,
+        user_id: data.user,
+        user_name: data.user_name || 'عمومی',
+        user_phone: data.user_phone || '',
+        createdAt: data.created_at || 'هم‌اکنون',
+        created_at: data.created_at || '',
+        isRead: false,
+        is_read: false,
+      };
+    }
+    return null;
+  },
+
+  /**
+   * Mark a notification as read or unread
+   * Endpoint: POST /api/v1/notifications/{id}/mark-read/
+   */
+  async markRead(id: string | number, isRead = true): Promise<boolean> {
+    let response = await httpClient.post<any>(`/notifications/${id}/mark-read/`, { is_read: isRead });
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post<any>(`/api/v1/notifications/${id}/mark-read/`, { is_read: isRead });
+    }
+    return response.success;
+  },
+
+  /**
+   * Mark all notifications as read
+   * Endpoint: POST /api/v1/notifications/mark-all-read/
+   */
+  async markAllRead(): Promise<boolean> {
+    let response = await httpClient.post<any>('/notifications/mark-all-read/', {});
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post<any>('/api/v1/notifications/mark-all-read/', {});
+    }
+    return response.success;
+  },
+
+  /**
+   * Delete a notification from backend database
+   * Endpoint: DELETE /api/v1/notifications/{id}/delete/
+   */
+  async delete(id: string | number): Promise<boolean> {
+    let response = await httpClient.delete<any>(`/notifications/${id}/delete/`);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.delete<any>(`/api/v1/notifications/${id}/delete/`);
+    }
+    return response.success;
+  },
+};
+
+// ==========================================
 // UNIFIED MASTER API EXPORT
 // ==========================================
 export const api = {
@@ -977,6 +1161,7 @@ export const api = {
   footer: footerApi,
   sliders: slidersApi,
   blog: blogApi,
+  notifications: notificationsApi,
   contact: contactApi,
   client: httpClient,
   clearAllCaches: clearAllClientCaches,

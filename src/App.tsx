@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { 
   Search, 
   Package, 
@@ -396,6 +396,17 @@ export default function App() {
           setSliders([]);
         }
       });
+
+      // 5. Fetch Notifications from Django backend database (/api/v1/notifications/list/)
+      api.notifications.getAll().then((loadedNotifs) => {
+        if (isMounted) {
+          setNotifications(loadedNotifs || []);
+        }
+      }).catch(() => {
+        if (isMounted) {
+          setNotifications([]);
+        }
+      });
     };
 
     // Initial fresh fetch on mount
@@ -416,43 +427,69 @@ export default function App() {
     };
   }, []);
 
-  // Notifications state
-  const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
-    return djangoDatabaseStore.getNotifications();
-  });
+  // Notifications state from Django backend database
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [isNotifLoading, setIsNotifLoading] = useState<boolean>(false);
 
-  // Re-sync notifications when modal opens or on window focus
-  useEffect(() => {
-    const syncNotifs = () => {
-      setNotifications(djangoDatabaseStore.getNotifications());
-    };
-    if (isNotifModalOpen) {
-      syncNotifs();
+  // Re-sync notifications from backend database
+  const reloadNotificationsFromDatabase = useCallback(async () => {
+    setIsNotifLoading(true);
+    try {
+      const loaded = await api.notifications.getAll();
+      setNotifications(loaded || []);
+    } catch {
+      setNotifications([]);
+    } finally {
+      setIsNotifLoading(false);
     }
-    window.addEventListener('storage', syncNotifs);
-    return () => window.removeEventListener('storage', syncNotifs);
-  }, [isNotifModalOpen]);
+  }, []);
+
+  // Re-sync notifications when modal opens or on storage event
+  useEffect(() => {
+    if (isNotifModalOpen) {
+      reloadNotificationsFromDatabase();
+    }
+    const handleStorage = () => {
+      reloadNotificationsFromDatabase();
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, [isNotifModalOpen, reloadNotificationsFromDatabase]);
 
   const unreadNotifCount = useMemo(() => {
     if (!currentUser) return 0;
     return notifications.filter(n => {
-      if (n.isRead || n.is_read) return false;
-      if (!n.targetAudience || n.targetAudience === 'all') return true;
+      const isRead = Boolean(n.isRead ?? n.is_read);
+      if (isRead) return false;
+      if (!n.targetAudience || n.targetAudience === 'all' || n.user === null) return true;
       if (currentUser.role === 'visitor' && n.targetAudience === 'visitors') return true;
       if (currentUser.role === 'customer' && n.targetAudience === 'customers') return true;
-      if (n.targetAudience === 'direct' && (n.targetUserId === currentUser.id || n.targetUserId === currentUser.phone || String(n.user_id) === String(currentUser.id) || String(n.user) === String(currentUser.id))) return true;
+      if (n.targetAudience === 'direct' && (
+        n.targetUserId === currentUser.id || 
+        n.targetUserId === currentUser.phone || 
+        String(n.user_id) === String(currentUser.id) || 
+        String(n.user) === String(currentUser.id)
+      )) return true;
       return false;
     }).length;
   }, [notifications, currentUser]);
 
-  const handleMarkNotifAsRead = (id: string | number) => {
-    djangoMarkNotificationRead(id, true);
-    setNotifications(djangoDatabaseStore.getNotifications());
+  const handleMarkNotifAsRead = async (id: string | number) => {
+    setNotifications(prev => prev.map(n => String(n.id) === String(id) ? { ...n, isRead: true, is_read: true } : n));
+    try {
+      await api.notifications.markRead(id, true);
+    } catch (e) {
+      console.warn('Failed to mark notification as read in database:', e);
+    }
   };
 
-  const handleMarkAllNotifsAsRead = () => {
-    djangoMarkAllNotificationsRead();
-    setNotifications(djangoDatabaseStore.getNotifications());
+  const handleMarkAllNotifsAsRead = async () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true, is_read: true })));
+    try {
+      await api.notifications.markAllRead();
+    } catch (e) {
+      console.warn('Failed to mark all notifications as read in database:', e);
+    }
   };
 
   const showToast = (msg: string) => {
@@ -998,6 +1035,8 @@ export default function App() {
         currentUser={currentUser}
         onMarkAsRead={handleMarkNotifAsRead}
         onMarkAllAsRead={handleMarkAllNotifsAsRead}
+        isLoading={isNotifLoading}
+        onRefresh={reloadNotificationsFromDatabase}
       />
 
       {/* Dynamic Modern Wholesale Footer from Django Backend */}

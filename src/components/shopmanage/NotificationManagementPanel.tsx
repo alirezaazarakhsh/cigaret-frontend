@@ -174,6 +174,7 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
         setCustomUserPhone('');
         setSelectedCustomerId('');
         loadNotifications();
+        window.dispatchEvent(new Event('storage'));
         setTimeout(() => setSuccessMessage(''), 4500);
       } else {
         setErrorMessage('خطا در ثبت و ارسال اعلان.');
@@ -192,6 +193,7 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
     try {
       await djangoMarkNotificationRead(item.id, newStatus, crmConfig);
       setNotifications(prev => prev.map(n => String(n.id) === String(item.id) ? { ...n, is_read: newStatus, isRead: newStatus } : n));
+      window.dispatchEvent(new Event('storage'));
     } catch {
       setErrorMessage('خطا در تغییر وضعیت اعلان.');
       setTimeout(() => setErrorMessage(''), 3000);
@@ -203,6 +205,7 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
     try {
       await djangoDeleteNotification(id, crmConfig);
       setNotifications(prev => prev.filter(n => String(n.id) !== String(id)));
+      window.dispatchEvent(new Event('storage'));
       setSuccessMessage('اعلان با موفقیت از پایگاه‌داده حذف گردید.');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch {
@@ -215,6 +218,7 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
     try {
       await djangoMarkAllNotificationsRead(crmConfig);
       setNotifications(prev => prev.map(n => ({ ...n, is_read: true, isRead: true })));
+      window.dispatchEvent(new Event('storage'));
       setSuccessMessage('تمامی اعلانات به عنوان خوانده‌شده ثبت شدند.');
       setTimeout(() => setSuccessMessage(''), 3000);
     } catch {
