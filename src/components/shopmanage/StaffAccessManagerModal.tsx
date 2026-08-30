@@ -140,9 +140,8 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
         });
         
         if (!createRes.success) {
-          alert(createRes.message || 'خطا در ثبت کاربر در دیتابیس (جنگو).');
-          // Decide whether to block or continue. We will continue for local UI but ideally we should block.
-          // return; 
+          alert(`خطا در ثبت کاربر در بک‌اند (جنگو): ${createRes.message}\nلطفاً آدرس API (مثلاً /api/v1/accounts/create/) را در سمت سرور بررسی کنید.`);
+          return; 
         }
       }
 
