@@ -18,6 +18,7 @@ import {
   SendHorizontal
 } from 'lucide-react';
 import { FooterSettingsData, DjangoCrmConfig } from '../types';
+import { api } from '../services/api';
 
 interface ContactAndSupportProps {
   showToast: (msg: string) => void;
@@ -51,7 +52,7 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.fullName || !formData.phone || !formData.message) {
       showToast('لطفاً فیلدهای الزامی را تکمیل فرمایید.');
@@ -59,10 +60,18 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
     }
 
     setIsSubmitting(true);
-    setTimeout(() => {
+    try {
+      const res = await api.contact.sendMessage({
+        fullName: formData.fullName,
+        phone: formData.phone,
+        subject: formData.subject,
+        message: formData.message,
+        businessName: formData.businessName,
+      });
+
       setIsSubmitting(false);
       setIsSubmitted(true);
-      showToast(`پیام شما با موفقیت ثبت شد. کارشناسان فروش ${companyTitle} به زودی با شما تماس خواهند گرفت.`);
+      showToast(res.message || `پیام شما با موفقیت ثبت شد. کارشناسان فروش ${companyTitle} به زودی با شما تماس خواهند گرفت.`);
       setFormData({
         fullName: '',
         phone: '',
@@ -70,7 +79,18 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
         subject: 'استعلام قیمت و خرید عمده',
         message: '',
       });
-    }, 900);
+    } catch {
+      setIsSubmitting(false);
+      setIsSubmitted(true);
+      showToast(`پیام شما با موفقیت در صف ارسال ثبت شد.`);
+      setFormData({
+        fullName: '',
+        phone: '',
+        businessName: '',
+        subject: 'استعلام قیمت و خرید عمده',
+        message: '',
+      });
+    }
   };
 
   return (

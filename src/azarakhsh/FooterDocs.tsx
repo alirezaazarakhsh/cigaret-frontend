@@ -297,15 +297,15 @@ class FooterSocialAdmin(admin.ModelAdmin):
 
 @admin.register(FooterSetting)
 class FooterSettingAdmin(admin.ModelAdmin):
-    list_display = ('company_title', 'phone_number', 'emergency_phone', 'is_active', 'updated_at')
+    list_display = ('company_title', 'phone_number', 'emergency_phone', 'is_active', 'get_shamsi_updated_at')
     list_editable = ('is_active',)
 
     fieldsets = (
         ('اطلاعات برندینگ فوتر', {
             'fields': ('company_title', 'short_description', 'is_active')
         }),
-        ('اطلاعات تماس انبار مرکزی', {
-            'fields': ('address_text', 'phone_number', 'emergency_phone', 'working_hours')
+        ('اطلاعات تماس انبار مرکزی و باربری‌ها', {
+            'fields': ('address_text', 'phone_number', 'emergency_phone', 'working_hours', 'shipping_companies')
         }),
         ('مجوزها و ای‌نماد', {
             'fields': ('enamad_code',)
@@ -315,10 +315,24 @@ class FooterSettingAdmin(admin.ModelAdmin):
         }),
     )
 
+    def has_add_permission(self, request):
+        # جلوگیری از ایجاد بیش از یک رکورد تنظیمات فوتر (طرح Singleton)
+        if FooterSetting.objects.exists():
+            return False
+        return super().has_add_permission(request)
+
+    @admin.display(description="آخرین به‌روزرسانی (شمسی)")
+    def get_shamsi_updated_at(self, obj):
+        try:
+            import jdatetime
+            return jdatetime.datetime.fromgregorian(datetime=obj.updated_at).strftime("%Y/%m/%d - %H:%M")
+        except Exception:
+            return obj.updated_at.strftime("%Y-%m-%d %H:%M")
+
     # افزایش عرض باکس‌های متنی طولانی فوتر برای بهبود زیبایی و خوانایی
     def formfield_for_dbfield(self, db_field, request, **kwargs):
         field = super().formfield_for_dbfield(db_field, request, **kwargs)
-        if db_field.name in ['working_hours', 'copyright_text', 'developer_credit', 'company_title']:
+        if db_field.name in ['working_hours', 'shipping_companies', 'copyright_text', 'developer_credit', 'company_title']:
             field.widget.attrs.update({
                 'style': 'width: 100%; max-width: 700px; min-width: 450px;',
                 'class': 'vLargeTextField'

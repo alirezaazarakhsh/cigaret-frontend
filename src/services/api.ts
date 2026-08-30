@@ -578,6 +578,43 @@ function updateLocalProductList(product: CigaretteProduct, action: 'add' | 'upda
 }
 
 // ==========================================
+// 8. WAREHOUSE CONTACT & SUPPORT API
+// ==========================================
+export const contactApi = {
+  /**
+   * Submits contact message to POST /warehouse-contact/send-message/
+   */
+  async sendMessage(payload: {
+    fullName: string;
+    phone: string;
+    subject?: string;
+    message: string;
+    businessName?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const response = await httpClient.post<any>('/warehouse-contact/send-message/', {
+      full_name: payload.fullName,
+      phone: payload.phone,
+      subject: payload.subject || 'استعلام قیمت و خرید عمده',
+      message: payload.businessName 
+        ? `[نام فروشگاه/بنکداری: ${payload.businessName}]\n${payload.message}`
+        : payload.message,
+    });
+
+    if (response.success) {
+      return {
+        success: true,
+        message: response.data?.message || 'پیام شما با موفقیت ثبت شد.',
+      };
+    }
+
+    return {
+      success: false,
+      message: response.error || 'خطا در ثبت پیام.',
+    };
+  }
+};
+
+// ==========================================
 // UNIFIED MASTER API EXPORT
 // ==========================================
 export const api = {
@@ -600,5 +637,6 @@ export const api = {
   pos: posApi,
   siteSettings: siteSettingsApi,
   footer: footerApi,
+  contact: contactApi,
   client: httpClient,
 };
