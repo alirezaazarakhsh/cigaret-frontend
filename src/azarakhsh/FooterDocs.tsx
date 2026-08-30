@@ -16,6 +16,7 @@ export const FooterDocs: React.FC = () => {
         { name: 'phone_number', type: 'CharField(max_length=20)', verbose: 'تلفن تماس سفارشات' },
         { name: 'emergency_phone', type: 'CharField(max_length=20)', verbose: 'تلفن فوری انبار' },
         { name: 'working_hours', type: 'CharField(max_length=150)', verbose: 'ساعات کاری انبار' },
+        { name: 'shipping_companies', type: 'TextField(blank=True, null=True)', verbose: 'باربری‌های طرف قرارداد' },
         { name: 'enamad_code', type: 'TextField', verbose: 'کد ای‌نماد / مجوز' },
         { name: 'copyright_text', type: 'CharField(max_length=300)', verbose: 'متن کپی‌رایت' },
         { name: 'developer_credit', type: 'CharField(max_length=200)', verbose: 'متن توسعه‌دهنده و میزبانی' },
@@ -77,6 +78,7 @@ export const FooterDocs: React.FC = () => {
     "phone_number": "021-44000000",
     "emergency_phone": "09120759419",
     "working_hours": "شنبه تا چهارشنبه: ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها: ۸:۰۰ الی ۱۴:۰۰",
+    "shipping_companies": "باربری وطن، جهانگیر، پیام‌شمس، پیشتاز و ناوگان اختصاصی تهران",
     "copyright_text": "کلیه حقوق مادی و معنوی متعلق به سامانه پخش عمده آذرخش می‌باشد.",
     "developer_credit": "توسعه‌یافته توسط تیم فنی سوین • میزبانی زیرساخت سوین‌هاست",
     "columns": [
@@ -169,6 +171,12 @@ class FooterSetting(models.Model):
         max_length=150, 
         default="شنبه تا چهارشنبه: ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها: ۸:۰۰ الی ۱۴:۰۰", 
         verbose_name=_("ساعات کاری انبار")
+    )
+    shipping_companies = models.TextField(
+        blank=True, 
+        null=True, 
+        default="باربری وطن، جهانگیر، پیام‌شمس، پیشتاز و ناوگان اختصاصی تهران",
+        verbose_name=_("باربری‌های طرف قرارداد")
     )
     enamad_code = models.TextField(
         blank=True, 
@@ -363,6 +371,7 @@ class FooterSettingSerializer(serializers.ModelSerializer):
             'phone_number',
             'emergency_phone',
             'working_hours',
+            'shipping_companies',
             'enamad_code',
             'copyright_text',
             'developer_credit',

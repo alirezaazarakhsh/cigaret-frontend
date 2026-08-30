@@ -487,6 +487,8 @@ export interface FooterSettingsData {
   copyright_text?: string;
   developer_credit?: string;
   is_active?: boolean;
+  shipping_companies?: string;
+  barbari_text?: string;
   columns?: FooterColumnItem[];
   socials?: FooterSocialItem[];
   social_links?: FooterSocialItem[];

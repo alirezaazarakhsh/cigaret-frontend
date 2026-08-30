@@ -9,7 +9,8 @@ import {
   Instagram, 
   ShieldCheck, 
   ExternalLink,
-  PhoneCall
+  PhoneCall,
+  Truck
 } from 'lucide-react';
 import { FooterSettingsData, DjangoCrmConfig, NavigationTab } from '../types';
 
@@ -145,6 +146,12 @@ export const Footer: React.FC<FooterProps> = ({ footerData, djangoConfig, onNavi
                 <div className="flex items-center gap-2 text-slate-500 text-[11px]">
                   <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                   <span>{workingHours}</span>
+                </div>
+              )}
+              {Boolean(footerData?.shipping_companies || footerData?.barbari_text) && (
+                <div className="flex items-center gap-2 text-slate-500 text-[11px]">
+                  <Truck className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <span>باربری‌ها: {footerData?.shipping_companies || footerData?.barbari_text}</span>
                 </div>
               )}
             </div>

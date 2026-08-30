@@ -101,8 +101,11 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
               href={`tel:${cleanPhone || '09120759419'}`}
               className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs sm:text-sm px-5 py-3.5 rounded-2xl shadow-lg shadow-emerald-600/20 transition-all"
             >
-              <PhoneCall className="w-4 h-4" />
-              <span>تماس مستقیم: {phoneNumber}</span>
+              <PhoneCall className="w-4 h-4 shrink-0" />
+              <span className="inline-flex items-center gap-1.5" dir="rtl">
+                <span>تماس مستقیم:</span>
+                <span dir="ltr" className="font-mono font-black tracking-tight">{phoneNumber}</span>
+              </span>
             </a>
           </div>
         </div>
@@ -294,15 +297,17 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2.5">
-                <Truck className="w-4 h-4 text-amber-600 shrink-0" />
-                <div>
-                  <strong className="text-slate-900">باربری‌های طرف قرارداد:</strong>
-                  <p className="text-slate-600 mt-0.5">
-                    باربری وطن، جهانگیر، پیام‌شمس، پیشتاز و ناوگان اختصاصی تهران
-                  </p>
+              {Boolean(footerData?.shipping_companies || footerData?.barbari_text) && (
+                <div className="flex items-center gap-2.5">
+                  <Truck className="w-4 h-4 text-amber-600 shrink-0" />
+                  <div>
+                    <strong className="text-slate-900">باربری‌های طرف قرارداد:</strong>
+                    <p className="text-slate-600 mt-0.5">
+                      {footerData?.shipping_companies || footerData?.barbari_text}
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Social links if configured in footerData */}
