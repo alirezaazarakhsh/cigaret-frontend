@@ -3,7 +3,7 @@
  * Enforces strict zero-cache policy (no-store, timestamps) to prevent stale/cached responses.
  */
 
-import { getApiBaseUrl, getApiToken } from './apiConfig';
+import { getApiBaseUrl, getApiToken, setApiToken } from './apiConfig';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -107,6 +107,27 @@ async function request<T = any>(
         status: response.status,
       };
     } else {
+      // If token expired or invalid, purge bad token from storage and retry once without token
+      if (response.status === 401 && responseData?.code === 'token_not_valid' && !options._isRetry) {
+        try {
+          setApiToken('');
+          localStorage.removeItem('sevin_api_token');
+          localStorage.removeItem('sevin_auth_token');
+        } catch {}
+        try {
+          const fallbackHeaders = { ...headers };
+          delete fallbackHeaders['Authorization'];
+          const fallbackInit: RequestInit = {
+            ...reqInit,
+            headers: fallbackHeaders,
+          };
+          const fallbackRes = await fetchWithTimeout(fullUrl, fallbackInit, options.timeoutMs || 8000);
+          return await parseResponse(fallbackRes);
+        } catch {
+          // Fall through
+        }
+      }
+
       return {
         success: false,
         data: responseData,

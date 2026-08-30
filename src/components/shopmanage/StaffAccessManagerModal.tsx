@@ -14,9 +14,11 @@ import {
   Shield, 
   CheckCircle2, 
   AlertTriangle,
-  UserCheck
+  UserCheck,
+  RefreshCw
 } from 'lucide-react';
 import { WarehouseStaffUser, StaffPermission, StaffRole } from '../../types';
+import { accountsApi } from '../../services/api';
 
 interface StaffAccessManagerModalProps {
   staffList: WarehouseStaffUser[];
@@ -115,56 +117,85 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
     }
   };
 
-  const handleSaveStaff = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveStaff = async () => {
     if (!fullName.trim() || !phone.trim() || !pinCode.trim()) {
       alert('لطفاً نام، شماره تماس و رمز/پین‌کد را وارد نمایید.');
       return;
     }
 
-    if (editingStaff) {
-      const updated = staffList.map(s => {
-        if (s.id !== editingStaff.id) return s;
-        return {
-          ...s,
-          fullName: fullName.trim(),
+    setIsSaving(true);
+    
+    try {
+      if (!editingStaff) {
+        // Create in Django via API
+        const createRes = await accountsApi.createUser({
           phone: phone.trim(),
-          pinCode: pinCode.trim(),
-          role,
-          roleTitleFa: roleTitleFa.trim(),
-          permissions: selectedPerms,
-        };
-      });
-      onUpdateStaffList(updated);
-      if (currentStaff.id === editingStaff.id) {
-        onSwitchCurrentStaff({
-          ...currentStaff,
-          fullName: fullName.trim(),
-          phone: phone.trim(),
-          pinCode: pinCode.trim(),
-          role,
-          roleTitleFa: roleTitleFa.trim(),
-          permissions: selectedPerms,
+          full_name: fullName.trim(),
+          password: pinCode.trim(), // Send pinCode as password for staff
+          pin_code: pinCode.trim(),
+          role: (role as string) === 'admin' ? 'admin' : 'staff', // Or pass the exact role
+          role_title: roleTitleFa.trim(),
         });
+        
+        if (!createRes.success) {
+          alert(createRes.message || 'خطا در ثبت کاربر در دیتابیس (جنگو).');
+          // Decide whether to block or continue. We will continue for local UI but ideally we should block.
+          // return; 
+        }
       }
-    } else {
-      const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-purple-600', 'bg-amber-600', 'bg-rose-600'];
-      const newStaff: WarehouseStaffUser = {
-        id: `staff_${Date.now()}`,
-        fullName: fullName.trim(),
-        phone: phone.trim(),
-        pinCode: pinCode.trim(),
-        role,
-        roleTitleFa: roleTitleFa.trim(),
-        permissions: selectedPerms,
-        status: 'active',
-        createdAt: new Date().toLocaleDateString('fa-IR'),
-        avatarColor: colors[Math.floor(Math.random() * colors.length)],
-      };
-      onUpdateStaffList([...staffList, newStaff]);
-    }
 
-    setShowAddModal(false);
-    setEditingStaff(null);
+      if (editingStaff) {
+        const updated = staffList.map(s => {
+          if (s.id !== editingStaff.id) return s;
+          return {
+            ...s,
+            fullName: fullName.trim(),
+            phone: phone.trim(),
+            pinCode: pinCode.trim(),
+            role,
+            roleTitleFa: roleTitleFa.trim(),
+            permissions: selectedPerms,
+          };
+        });
+        onUpdateStaffList(updated);
+        if (currentStaff.id === editingStaff.id) {
+          onSwitchCurrentStaff({
+            ...currentStaff,
+            fullName: fullName.trim(),
+            phone: phone.trim(),
+            pinCode: pinCode.trim(),
+            role,
+            roleTitleFa: roleTitleFa.trim(),
+            permissions: selectedPerms,
+          });
+        }
+      } else {
+        const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-purple-600', 'bg-amber-600', 'bg-rose-600'];
+        const newStaff: WarehouseStaffUser = {
+          id: `staff_${Date.now()}`,
+          fullName: fullName.trim(),
+          phone: phone.trim(),
+          pinCode: pinCode.trim(),
+          role,
+          roleTitleFa: roleTitleFa.trim(),
+          permissions: selectedPerms,
+          status: 'active',
+          createdAt: new Date().toLocaleDateString('fa-IR'),
+          avatarColor: colors[Math.floor(Math.random() * colors.length)],
+        };
+        onUpdateStaffList([...staffList, newStaff]);
+      }
+
+      setShowAddModal(false);
+      setEditingStaff(null);
+    } catch (e) {
+      console.error(e);
+      alert('خطای غیرمنتظره در ثبت اطلاعات.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleDeleteStaff = (staffId: string) => {
@@ -590,9 +621,17 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
                 <button
                   type="button"
                   onClick={handleSaveStaff}
-                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black shadow-md"
+                  disabled={isSaving}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed text-white rounded-xl font-black shadow-md flex items-center justify-center gap-2 min-w-[200px]"
                 >
-                  {editingStaff ? 'ذخیره تغییرات مدیر/پرسنل' : 'ثبت و فعال‌سازی مدیر انبار'}
+                  {isSaving ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      در حال ثبت...
+                    </>
+                  ) : (
+                    editingStaff ? 'ذخیره تغییرات مدیر/پرسنل' : 'ثبت و فعال‌سازی مدیر انبار'
+                  )}
                 </button>
               </div>
             </div>

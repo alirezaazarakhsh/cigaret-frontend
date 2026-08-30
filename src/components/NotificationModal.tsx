@@ -43,23 +43,48 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
   // Filter notifications relevant to current user
   const relevantNotifications = notifications.filter(n => {
-    if (!n.targetAudience || n.targetAudience === 'all' || n.user === null) return true;
-    if (currentUser.role === 'visitor' && n.targetAudience === 'visitors') return true;
-    if (currentUser.role === 'customer' && n.targetAudience === 'customers') return true;
-    if (n.targetAudience === 'direct' && (
-      n.targetUserId === currentUser.id || 
-      n.targetUserId === currentUser.phone || 
-      String(n.user_id) === String(currentUser.id) || 
-      String(n.user) === String(currentUser.id)
-    )) return true;
-    return false;
+    // Check if audience is explicitly visitors or customers
+    const isVisitorTarget = n.targetAudience === 'visitors' || (n.title && n.title.includes('[ویژه ویزیتوران]'));
+    const isCustomerTarget = n.targetAudience === 'customers' || (n.title && n.title.includes('[مشتریان عمومی]'));
+    const isDirect = n.targetAudience === 'direct' || Boolean(n.user) || Boolean(n.user_id);
+
+    // Admin sees everything
+    if ((currentUser.role as string) === 'admin') return true;
+
+    // Direct personal notifications
+    if (isDirect) {
+      const matchId = String(n.user_id) === String(currentUser.id) || String(n.user) === String(currentUser.id);
+      const matchPhone = Boolean(
+        (n.user_phone && currentUser.phone && n.user_phone === currentUser.phone) ||
+        (n.targetUserId && String(n.targetUserId) === String(currentUser.phone))
+      );
+      return matchId || matchPhone;
+    }
+
+    // Visitor role: sees visitor broadcasts and general public notices
+    if (currentUser.role === 'visitor') {
+      if (isVisitorTarget) return true;
+      if (isCustomerTarget) return false;
+      if (!n.targetAudience || n.targetAudience === 'all') return true;
+      return false;
+    }
+
+    // Customer role: sees customer broadcasts and general notices, NEVER visitor bonuses/targets
+    if (currentUser.role === 'customer') {
+      if (isVisitorTarget) return false;
+      if (isCustomerTarget) return true;
+      if (!n.targetAudience || n.targetAudience === 'all') return true;
+      return true;
+    }
+
+    return true;
   });
 
   const filtered = relevantNotifications.filter(n => {
     if (activeFilter === 'unread') return !isItemRead(n);
     if (activeFilter === 'my_role') {
-      if (currentUser.role === 'visitor') return n.targetAudience === 'visitors';
-      if (currentUser.role === 'customer') return n.targetAudience === 'customers';
+      if (currentUser.role === 'visitor') return n.targetAudience === 'visitors' || (n.title && n.title.includes('[ویژه ویزیتوران]'));
+      if (currentUser.role === 'customer') return n.targetAudience === 'customers' || (n.title && n.title.includes('[مشتریان عمومی]'));
       if (n.targetAudience === 'direct') return true;
     }
     return true;

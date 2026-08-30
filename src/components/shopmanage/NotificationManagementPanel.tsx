@@ -21,9 +21,14 @@ import {
   ChevronDown,
   Clock,
   Radio,
-  Check
+  Check,
+  Briefcase,
+  Store,
+  Building2,
+  BadgePercent
 } from 'lucide-react';
 import { DjangoCrmConfig, RetailShopCustomer, WarehouseStaffUser } from '../../types';
+import { visitorsApi } from '../../services/api';
 import { 
   djangoFetchNotifications, 
   djangoCreateNotification, 
@@ -56,21 +61,37 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [readFilter, setReadFilter] = useState<'all' | 'unread' | 'read'>('all');
+  const [audienceFilter, setAudienceFilter] = useState<'all' | 'customers' | 'visitors' | 'direct'>('all');
 
-  // Form State
-  const [targetType, setTargetType] = useState<'all' | 'direct'>('all');
+  // Form State: Two Primary Target Categories (1. مشتریان عمومی, 2. ویزیتوران)
+  const [targetCategory, setTargetCategory] = useState<'customers' | 'visitors'>('customers');
+  const [customerScope, setCustomerScope] = useState<'all' | 'direct'>('all');
+  const [visitorScope, setVisitorScope] = useState<'all' | 'direct'>('all');
   const [selectedCustomerId, setSelectedCustomerId] = useState<string>('');
+  const [selectedVisitorId, setSelectedVisitorId] = useState<string>('');
   const [customUserPhone, setCustomUserPhone] = useState<string>('');
   const [customUserName, setCustomUserName] = useState<string>('');
   const [notificationType, setNotificationType] = useState<'system' | 'price' | 'order' | 'finance'>('system');
   const [title, setTitle] = useState<string>('');
   const [message, setMessage] = useState<string>('');
 
+  // Visitors list fetched from Django API
+  const [visitorsList, setVisitorsList] = useState<any[]>([]);
+
   // Selected Notification Preview Modal
   const [previewNotification, setPreviewNotification] = useState<any | null>(null);
 
-  // Quick Preset Templates
-  const PRESET_TEMPLATES = [
+  // Default visitors fallback if backend has no records yet
+  const DEFAULT_VISITORS = [
+    { id: 1, user_id: 101, visitor_code: 'VISITOR-9419', full_name: 'علیرضا آذرخش (ویزیتور ارشد انبار جنت‌آباد)', phone: '09120759419' },
+    { id: 2, user_id: 102, visitor_code: 'VISITOR-2233', full_name: 'محمد رضایی (سفیر منطقه شمال و البرز)', phone: '09121112233' },
+    { id: 3, user_id: 103, visitor_code: 'VISITOR-4455', full_name: 'مهدی کریمی (ویزیتور بنکداران و بازار بزرگ)', phone: '09193334455' },
+    { id: 4, user_id: 104, visitor_code: 'VISITOR-6677', full_name: 'رضا ناصری (ویزیتور غرب و صادقیه)', phone: '09355556677' },
+    { id: 5, user_id: 105, visitor_code: 'VISITOR-6543', full_name: 'امیر حیدری (ویزیتور شرق تهران)', phone: '09109876543' },
+  ];
+
+  // Quick Preset Templates for 1. مشتریان عمومی
+  const CUSTOMER_PRESET_TEMPLATES = [
     {
       label: 'تغییر نرخ کارتن‌ها',
       type: 'price' as const,
@@ -97,6 +118,36 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
     }
   ];
 
+  // Quick Preset Templates for 2. ویزیتوران بازاریاب
+  const VISITOR_PRESET_TEMPLATES = [
+    {
+      label: 'تسویه پورسانت هفتگی',
+      type: 'finance' as const,
+      title: 'واریز پورسانت‌های هفتگی ویزیتوران به حساب شبا',
+      message: 'پورسانت فروش کلیه فاکتورهای تسویه‌شده هفته گذشته محاسبه و به شماره شبای ثبت‌شده ویزیتوران محترم واریز گردید. جهت مشاهده گزارش جزئیات به تب امور مالی مراجعه فرمایید.'
+    },
+    {
+      label: 'بونوس کارتن خاص',
+      type: 'price' as const,
+      title: 'بونوس ویژه ۳.۵٪ برای ویزیت کارتن‌های سناتور و مارلبرو گلد',
+      message: 'به اطلاع کلیه سفیران فروش می‌رساند تا پایان هفته جاری، پورسانت فروش کارتن‌های سناتور و مارلبرو گلد سوئیس از ۲.۵٪ به ۳.۵٪ افزایش یافته است.'
+    },
+    {
+      label: 'اعلام تارگت ماهانه',
+      type: 'system' as const,
+      title: 'آغاز طرح تشویقی و تارگت فروش ماهانه سفیران سوین',
+      message: 'سفیرانی که در ماه جاری به سقف فروش بیش از ۱۰۰ کارتن دست یابند، علاوه بر پورسانت مصوب، از پاداش نقدی ۱۰ میلیون تومانی انبار مرکزی بهره‌مند خواهند شد.'
+    },
+    {
+      label: 'جلسه هماهنگی انبار',
+      type: 'order' as const,
+      title: 'جلسه هماهنگی توزیع بار ویزیتورها در انبار مرکزی جنت‌آباد',
+      message: 'جهت برنامه‌ریزی ارسال بار روز شنبه و بررسی سفارشات مشتریان عمده شهرستان، جلسه هماهنگی با مدیریت فروش فردا ساعت ۹ صبح در محل انبار برگزار خواهد شد.'
+    }
+  ];
+
+  const currentPresets = targetCategory === 'customers' ? CUSTOMER_PRESET_TEMPLATES : VISITOR_PRESET_TEMPLATES;
+
   const loadNotifications = async () => {
     setIsLoading(true);
     try {
@@ -114,7 +165,22 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
     loadNotifications();
   }, [crmConfig]);
 
-  const handleApplyPreset = (preset: typeof PRESET_TEMPLATES[0]) => {
+  // Load registered visitors from backend
+  useEffect(() => {
+    const fetchVisitors = async () => {
+      try {
+        const list = await visitorsApi.getAdminList();
+        if (list && Array.isArray(list) && list.length > 0) {
+          setVisitorsList(list);
+          return;
+        }
+      } catch {}
+      setVisitorsList(DEFAULT_VISITORS);
+    };
+    fetchVisitors();
+  }, []);
+
+  const handleApplyPreset = (preset: typeof CUSTOMER_PRESET_TEMPLATES[0]) => {
     setNotificationType(preset.type);
     setTitle(preset.title);
     setMessage(preset.message);
@@ -128,26 +194,61 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
       return;
     }
 
-    let targetUserName = 'همه کاربران سایت (عمومی)';
-    let targetUserPhone = 'عمومی / سراسری';
+    let targetUserName = '';
+    let targetUserPhone = '';
     let targetUserId: string | number | null = null;
+    let computedAudience: 'customers' | 'visitors' | 'direct' = 'customers';
 
-    if (targetType === 'direct') {
-      if (selectedCustomerId) {
-        const found = customers.find(c => String(c.id) === selectedCustomerId);
-        if (found) {
-          targetUserName = found.name || found.ownerName || found.shopName || found.fullName || 'مشتری';
-          targetUserPhone = found.phone || '';
-          targetUserId = found.id;
-        }
-      } else if (customUserPhone.trim()) {
-        targetUserPhone = customUserPhone.trim();
-        targetUserName = customUserName.trim() || `کاربر (${customUserPhone.trim()})`;
-        targetUserId = customUserPhone.trim();
+    if (targetCategory === 'customers') {
+      if (customerScope === 'all') {
+        computedAudience = 'customers';
+        targetUserName = 'مشتریان عمومی و مغازه‌داران (سراسری)';
+        targetUserPhone = 'مشتریان عمومی';
+        targetUserId = null;
       } else {
-        setErrorMessage('لطفاً مشتری گیرنده یا شماره تماس را مشخص نمایید.');
-        setTimeout(() => setErrorMessage(''), 3500);
-        return;
+        computedAudience = 'direct';
+        if (selectedCustomerId) {
+          const found = customers.find(c => String(c.id) === selectedCustomerId);
+          if (found) {
+            targetUserName = found.name || found.ownerName || found.shopName || found.fullName || 'مشتری';
+            targetUserPhone = found.phone || '';
+            targetUserId = found.id;
+          }
+        } else if (customUserPhone.trim()) {
+          targetUserPhone = customUserPhone.trim();
+          targetUserName = customUserName.trim() || `مشتری (${customUserPhone.trim()})`;
+          targetUserId = customUserPhone.trim();
+        } else {
+          setErrorMessage('لطفاً مشتری گیرنده یا شماره تماس را مشخص فرمایید.');
+          setTimeout(() => setErrorMessage(''), 3500);
+          return;
+        }
+      }
+    } else {
+      // targetCategory === 'visitors'
+      if (visitorScope === 'all') {
+        computedAudience = 'visitors';
+        targetUserName = 'کلیه سفیران فروش (ویزیتوران)';
+        targetUserPhone = 'ویزیتوران';
+        targetUserId = null;
+      } else {
+        computedAudience = 'direct';
+        if (selectedVisitorId) {
+          const found = visitorsList.find(v => String(v.id) === selectedVisitorId || String(v.user_id) === selectedVisitorId);
+          if (found) {
+            targetUserName = found.full_name || found.fullName || `ویزیتور ${found.visitor_code || ''}`;
+            targetUserPhone = found.phone || '';
+            targetUserId = found.user_id || found.id;
+          }
+        } else if (customUserPhone.trim()) {
+          targetUserPhone = customUserPhone.trim();
+          targetUserName = customUserName.trim() || `ویزیتور (${customUserPhone.trim()})`;
+          targetUserId = customUserPhone.trim();
+        } else {
+          setErrorMessage('لطفاً ویزیتور گیرنده یا شماره تماس را مشخص فرمایید.');
+          setTimeout(() => setErrorMessage(''), 3500);
+          return;
+        }
       }
     }
 
@@ -158,7 +259,7 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
         message: message.trim(),
         notification_type: notificationType,
         type: notificationType,
-        targetAudience: targetType === 'all' ? 'all' : 'direct',
+        targetAudience: computedAudience,
         user: targetUserId,
         user_id: targetUserId,
         user_name: targetUserName,
@@ -167,13 +268,16 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
 
       const created = await djangoCreateNotification(payload, crmConfig);
       if (created) {
-        setSuccessMessage(`اعلان «${title}» با موفقیت در دیتابیس جنگو ثبت و به کاربران ارسال شد.`);
+        setSuccessMessage(
+          `اعلان «${title}» با موفقیت برای ${computedAudience === 'visitors' ? '💼 کلیه ویزیتوران' : computedAudience === 'customers' ? '🏪 کلیه مشتریان عمومی' : `👤 ${targetUserName}`} در پایگاه‌داده دیتابیس جنگو ثبت و ارسال گردید.`
+        );
         setTitle('');
         setMessage('');
         setCustomUserName('');
         setCustomUserPhone('');
         setSelectedCustomerId('');
-        loadNotifications();
+        setSelectedVisitorId('');
+        await loadNotifications();
         window.dispatchEvent(new Event('storage'));
         setTimeout(() => setSuccessMessage(''), 4500);
       } else {
@@ -181,7 +285,7 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
         setTimeout(() => setErrorMessage(''), 4000);
       }
     } catch {
-      setErrorMessage('خطای ارتباط با سرور جنگو.');
+      setErrorMessage('خطای ارتباط با سرور دیتابیس جنگو.');
       setTimeout(() => setErrorMessage(''), 4000);
     } finally {
       setIsSending(false);
@@ -229,6 +333,16 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
 
   // Filtered List
   const filteredNotifications = notifications.filter(n => {
+    if (audienceFilter !== 'all') {
+      const isVisitors = n.targetAudience === 'visitors' || (n.title && n.title.includes('[ویژه ویزیتوران]'));
+      const isCustomers = n.targetAudience === 'customers' || (n.title && n.title.includes('[مشتریان عمومی]'));
+      const isDirect = n.targetAudience === 'direct' || Boolean(n.user) || Boolean(n.user_id);
+
+      if (audienceFilter === 'visitors' && !isVisitors) return false;
+      if (audienceFilter === 'customers' && !isCustomers) return false;
+      if (audienceFilter === 'direct' && !isDirect) return false;
+    }
+
     if (typeFilter !== 'all') {
       const itemType = n.notification_type || n.type;
       if (itemType !== typeFilter) return false;
@@ -252,8 +366,9 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
   });
 
   const unreadCount = notifications.filter(n => !(n.is_read || n.isRead)).length;
-  const broadcastCount = notifications.filter(n => !n.user && !n.user_id && (!n.targetAudience || n.targetAudience === 'all')).length;
-  const priceAlertsCount = notifications.filter(n => (n.notification_type || n.type) === 'price').length;
+  const customersCount = notifications.filter(n => n.targetAudience === 'customers' || (n.title && n.title.includes('[مشتریان عمومی]'))).length;
+  const visitorsCount = notifications.filter(n => n.targetAudience === 'visitors' || (n.title && n.title.includes('[ویژه ویزیتوران]'))).length;
+  const directCount = notifications.filter(n => n.targetAudience === 'direct' || Boolean(n.user) || Boolean(n.user_id)).length;
 
   const getTypeBadge = (type: string) => {
     switch (type) {
@@ -357,32 +472,33 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5">
-            <div className="text-[11px] text-slate-400 font-bold mb-1 flex items-center gap-1.5">
-              <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
-              <span>خوانده‌نشده توسط کاربر</span>
+            <div className="text-[11px] text-blue-300 font-bold mb-1 flex items-center gap-1.5">
+              <Store className="w-3.5 h-3.5 text-blue-400" />
+              <span>۱. به مشتریان عمومی</span>
             </div>
-            <div className="text-xl font-black text-rose-400 font-mono">
-              {unreadCount} <span className="text-xs text-slate-400 font-sans">اعلان</span>
+            <div className="text-xl font-black text-blue-300 font-mono">
+              {customersCount} <span className="text-xs text-slate-400 font-sans">اعلان</span>
             </div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5">
-            <div className="text-[11px] text-slate-400 font-bold mb-1 flex items-center gap-1.5">
-              <Users className="w-3.5 h-3.5 text-purple-400" />
-              <span>اطلاعیه‌های عمومی</span>
+            <div className="text-[11px] text-purple-300 font-bold mb-1 flex items-center gap-1.5">
+              <Briefcase className="w-3.5 h-3.5 text-purple-400" />
+              <span>۲. به ویزیتوران</span>
             </div>
             <div className="text-xl font-black text-purple-300 font-mono">
-              {broadcastCount} <span className="text-xs text-slate-400 font-sans">سراسری</span>
+              {visitorsCount} <span className="text-xs text-slate-400 font-sans">اعلان</span>
             </div>
           </div>
 
           <div className="bg-white/5 border border-white/10 rounded-2xl p-3.5">
-            <div className="text-[11px] text-slate-400 font-bold mb-1 flex items-center gap-1.5">
-              <Tag className="w-3.5 h-3.5 text-amber-400" />
-              <span>هشدارهای نرخ و قیمت</span>
+            <div className="text-[11px] text-emerald-300 font-bold mb-1 flex items-center gap-1.5">
+              <User className="w-3.5 h-3.5 text-emerald-400" />
+              <span>پیام‌های مستقیم / جدید</span>
             </div>
-            <div className="text-xl font-black text-amber-300 font-mono">
-              {priceAlertsCount} <span className="text-xs text-slate-400 font-sans">مورد</span>
+            <div className="text-xl font-black text-emerald-300 font-mono">
+              {directCount} <span className="text-xs text-slate-400 font-sans">فردی</span>
+              {unreadCount > 0 && <span className="text-[11px] text-rose-400 mr-2">({unreadCount} جدید)</span>}
             </div>
           </div>
         </div>
@@ -419,7 +535,7 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
                     ارسال اعلان جدید به کاربران
                   </h3>
                   <p className="text-[11px] text-slate-500">
-                    ثبت در جدول <code className="font-mono text-indigo-600">UserNotification</code>
+                    ثبت در دیتابیس جنگو <code className="font-mono text-indigo-600">UserNotification</code>
                   </p>
                 </div>
               </div>
@@ -427,12 +543,19 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
 
             {/* Presets Quick Picker */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-black text-slate-700 flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                <span>قالب‌های آماده و پرتکرار:</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-black text-slate-700 flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                  <span>
+                    قالب‌های آماده {targetCategory === 'customers' ? 'مشتریان و مغازه‌داران' : 'ویزیتوران و بازاریابان'}:
+                  </span>
+                </label>
+                <span className="text-[10px] text-slate-400 font-bold">
+                  {targetCategory === 'customers' ? 'دسته‌بندی ۱' : 'دسته‌بندی ۲'}
+                </span>
+              </div>
               <div className="grid grid-cols-2 gap-1.5">
-                {PRESET_TEMPLATES.map((preset, idx) => (
+                {currentPresets.map((preset, idx) => (
                   <button
                     key={idx}
                     type="button"
@@ -446,92 +569,241 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
             </div>
 
             <form onSubmit={handleSendNotification} className="space-y-4 pt-1">
-              {/* Target Selection */}
+              {/* Target Category Selection: Two Groups Requested by User */}
               <div className="space-y-1.5">
-                <label className="text-xs font-black text-slate-800">
-                  مخاطب و گیرنده اعلان:
+                <label className="text-xs font-black text-slate-800 flex items-center justify-between">
+                  <span>تعیین گروه مخاطبان طبق ساختار دیتابیس:</span>
+                  <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                    دو دسته مجزا
+                  </span>
                 </label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    onClick={() => setTargetType('all')}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-black flex items-center justify-center gap-2 transition-all ${
-                      targetType === 'all'
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
+                    onClick={() => setTargetCategory('customers')}
+                    className={`p-3 rounded-2xl border text-right transition-all flex flex-col gap-1 ${
+                      targetCategory === 'customers'
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-600/20 ring-2 ring-blue-400/30'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
-                    <Users className="w-4 h-4" />
-                    <span>همه کاربران (عمومی)</span>
+                    <div className="flex items-center gap-1.5 font-black text-xs">
+                      <Store className="w-4 h-4 shrink-0" />
+                      <span>۱. مشتریان عمومی</span>
+                    </div>
+                    <p className={`text-[10px] leading-tight ${targetCategory === 'customers' ? 'text-blue-100' : 'text-slate-500'}`}>
+                      مغازه‌داران، بنکداران و خریداران سایت
+                    </p>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setTargetType('direct')}
-                    className={`py-2.5 px-3 rounded-xl border text-xs font-black flex items-center justify-center gap-2 transition-all ${
-                      targetType === 'direct'
-                        ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
+                    onClick={() => setTargetCategory('visitors')}
+                    className={`p-3 rounded-2xl border text-right transition-all flex flex-col gap-1 ${
+                      targetCategory === 'visitors'
+                        ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-600/20 ring-2 ring-purple-400/30'
                         : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
                     }`}
                   >
-                    <User className="w-4 h-4" />
-                    <span>مشتری مشخص</span>
+                    <div className="flex items-center gap-1.5 font-black text-xs">
+                      <Briefcase className="w-4 h-4 shrink-0" />
+                      <span>۲. ویزیتوران بازاریاب</span>
+                    </div>
+                    <p className={`text-[10px] leading-tight ${targetCategory === 'visitors' ? 'text-purple-100' : 'text-slate-500'}`}>
+                      سفیران میدانی و ثبت‌کنندگان فاکتور
+                    </p>
                   </button>
                 </div>
               </div>
 
-              {/* Customer Selector when Direct */}
-              {targetType === 'direct' && (
-                <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3 animate-in fade-in duration-150">
-                  <div className="space-y-1.5">
-                    <label className="text-[11px] font-bold text-slate-700">
-                      انتخاب از لیست مشتریان دفتری:
-                    </label>
-                    <select
-                      value={selectedCustomerId}
-                      onChange={(e) => setSelectedCustomerId(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                    >
-                      <option value="">-- انتخاب از مشتریان یا وارد کردن دستی --</option>
-                      {customers.map(c => {
-                        const displayName = c.name || c.ownerName || c.shopName || c.fullName || 'مشتری';
-                        const displayStore = c.storeName || c.shopName || '';
-                        return (
-                          <option key={c.id} value={c.id}>
-                            {displayName} ({c.phone || '-'}) {displayStore ? `- ${displayStore}` : ''}
-                          </option>
-                        );
-                      })}
-                    </select>
+              {/* Category 1: Customers Sub-Scope */}
+              {targetCategory === 'customers' && (
+                <div className="p-3.5 bg-blue-50/50 rounded-2xl border border-blue-200/80 space-y-3 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black text-blue-950 flex items-center gap-1.5">
+                      <Store className="w-3.5 h-3.5 text-blue-600" />
+                      <span>دامنه ارسال به مشتریان عمومی:</span>
+                    </span>
+                    <span className="text-[10px] text-blue-700 font-bold">
+                      {customerScope === 'all' ? 'سراسری' : 'مشتری انتخابی'}
+                    </span>
                   </div>
 
-                  {!selectedCustomerId && (
-                    <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60">
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                          شماره موبایل کاربر:
-                        </label>
-                        <input
-                          type="text"
-                          value={customUserPhone}
-                          onChange={(e) => setCustomUserPhone(e.target.value)}
-                          placeholder="0912..."
-                          dir="ltr"
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[10px] font-bold text-slate-600 block mb-1">
-                          نام یا عنوان کاربر:
-                        </label>
-                        <input
-                          type="text"
-                          value={customUserName}
-                          onChange={(e) => setCustomUserName(e.target.value)}
-                          placeholder="نام مشتری..."
-                          className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900"
-                        />
-                      </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setCustomerScope('all')}
+                      className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        customerScope === 'all'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>کلیه مشتریان (سراسری)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setCustomerScope('direct')}
+                      className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        customerScope === 'direct'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <User className="w-3.5 h-3.5" />
+                      <span>مشتری مشخص</span>
+                    </button>
+                  </div>
+
+                  {customerScope === 'direct' && (
+                    <div className="pt-2 border-t border-blue-200/60 space-y-2">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        انتخاب از دفتر مشتریان ثبت‌شده:
+                      </label>
+                      <select
+                        value={selectedCustomerId}
+                        onChange={(e) => setSelectedCustomerId(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                      >
+                        <option value="">-- انتخاب مشتری یا ورود دستی شماره --</option>
+                        {customers.map(c => {
+                          const displayName = c.name || c.ownerName || c.shopName || c.fullName || 'مشتری';
+                          const displayStore = c.storeName || c.shopName || '';
+                          return (
+                            <option key={c.id} value={c.id}>
+                              {displayName} ({c.phone || '-'}) {displayStore ? `- ${displayStore}` : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+
+                      {!selectedCustomerId && (
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                              شماره موبایل مشتری:
+                            </label>
+                            <input
+                              type="text"
+                              value={customUserPhone}
+                              onChange={(e) => setCustomUserPhone(e.target.value)}
+                              placeholder="0912..."
+                              dir="ltr"
+                              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                              نام یا فروشگاه:
+                            </label>
+                            <input
+                              type="text"
+                              value={customUserName}
+                              onChange={(e) => setCustomUserName(e.target.value)}
+                              placeholder="سوپرمارکت بهمن..."
+                              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Category 2: Visitors Sub-Scope */}
+              {targetCategory === 'visitors' && (
+                <div className="p-3.5 bg-purple-50/50 rounded-2xl border border-purple-200/80 space-y-3 animate-in fade-in duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black text-purple-950 flex items-center gap-1.5">
+                      <Briefcase className="w-3.5 h-3.5 text-purple-600" />
+                      <span>دامنه ارسال به ویزیتوران:</span>
+                    </span>
+                    <span className="text-[10px] text-purple-700 font-bold">
+                      {visitorScope === 'all' ? 'کلیه سفیران' : 'ویزیتور انتخابی'}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setVisitorScope('all')}
+                      className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        visitorScope === 'all'
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      <span>کلیه ویزیتوران (سراسری)</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => setVisitorScope('direct')}
+                      className={`py-2 px-2.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                        visitorScope === 'direct'
+                          ? 'bg-purple-600 text-white border-purple-600 shadow-xs'
+                          : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                      }`}
+                    >
+                      <Briefcase className="w-3.5 h-3.5" />
+                      <span>ویزیتور مشخص</span>
+                    </button>
+                  </div>
+
+                  {visitorScope === 'direct' && (
+                    <div className="pt-2 border-t border-purple-200/60 space-y-2">
+                      <label className="text-[11px] font-bold text-slate-700 block">
+                        انتخاب از لیست ویزیتوران ثبت‌شده:
+                      </label>
+                      <select
+                        value={selectedVisitorId}
+                        onChange={(e) => setSelectedVisitorId(e.target.value)}
+                        className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+                      >
+                        <option value="">-- انتخاب ویزیتور یا ورود دستی شماره --</option>
+                        {visitorsList.map(v => {
+                          const name = v.full_name || v.fullName || `ویزیتور ${v.visitor_code || ''}`;
+                          return (
+                            <option key={v.id || v.user_id} value={v.id || v.user_id}>
+                              {name} ({v.phone || '-'}) {v.visitor_code ? `[کد: ${v.visitor_code}]` : ''}
+                            </option>
+                          );
+                        })}
+                      </select>
+
+                      {!selectedVisitorId && (
+                        <div className="grid grid-cols-2 gap-2 pt-1">
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                              شماره موبایل ویزیتور:
+                            </label>
+                            <input
+                              type="text"
+                              value={customUserPhone}
+                              onChange={(e) => setCustomUserPhone(e.target.value)}
+                              placeholder="0912..."
+                              dir="ltr"
+                              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-slate-900"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-slate-600 block mb-1">
+                              نام سفیر / ویزیتور:
+                            </label>
+                            <input
+                              type="text"
+                              value={customUserName}
+                              onChange={(e) => setCustomUserName(e.target.value)}
+                              placeholder="نام و نام خانوادگی..."
+                              className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-bold text-slate-900"
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -669,6 +941,72 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
               </div>
             </div>
 
+            {/* Target Audience Filter Tabs */}
+            <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100 rounded-2xl border border-slate-200/80">
+              <button
+                type="button"
+                onClick={() => setAudienceFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  audienceFilter === 'all'
+                    ? 'bg-white text-slate-900 shadow-xs border border-slate-200/90'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <span>همه مخاطبان</span>
+                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-700">
+                  {notifications.length}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAudienceFilter('customers')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  audienceFilter === 'customers'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-blue-700'
+                }`}
+              >
+                <Store className="w-3.5 h-3.5" />
+                <span>۱. مشتریان عمومی</span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${audienceFilter === 'customers' ? 'bg-blue-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  {customersCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAudienceFilter('visitors')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  audienceFilter === 'visitors'
+                    ? 'bg-purple-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-purple-700'
+                }`}
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                <span>۲. ویزیتوران</span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${audienceFilter === 'visitors' ? 'bg-purple-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  {visitorsCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAudienceFilter('direct')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                  audienceFilter === 'direct'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-600 hover:text-emerald-700'
+                }`}
+              >
+                <User className="w-3.5 h-3.5" />
+                <span>پیام‌های فردی</span>
+                <span className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${audienceFilter === 'direct' ? 'bg-emerald-700 text-white' : 'bg-slate-200 text-slate-700'}`}>
+                  {directCount}
+                </span>
+              </button>
+            </div>
+
             {/* Search and Filters Bar */}
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
               <div className="sm:col-span-6 relative">
@@ -726,6 +1064,8 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
                 {filteredNotifications.map((item) => {
                   const badge = getTypeBadge(item.notification_type || item.type || 'system');
                   const isRead = Boolean(item.is_read ?? item.isRead);
+                  const isVisitors = item.targetAudience === 'visitors' || (item.title && item.title.includes('[ویژه ویزیتوران]'));
+                  const isCustomers = item.targetAudience === 'customers' || (item.title && item.title.includes('[مشتریان عمومی]'));
                   const isBroadcast = !item.user && !item.user_id && (!item.targetAudience || item.targetAudience === 'all');
 
                   return (
@@ -746,17 +1086,27 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
                               <span>{badge.label}</span>
                             </span>
 
-                            {isBroadcast ? (
-                              <span className="text-[10px] font-bold bg-purple-100/70 text-purple-800 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                <Users className="w-3 h-3" />
+                            {isVisitors ? (
+                              <span className="text-[10px] font-black bg-purple-100 text-purple-800 border border-purple-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                <Briefcase className="w-3 h-3 text-purple-600" />
+                                <span>۲. ویژه ویزیتوران بازاریاب</span>
+                              </span>
+                            ) : isCustomers ? (
+                              <span className="text-[10px] font-black bg-blue-100 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                <Store className="w-3 h-3 text-blue-600" />
+                                <span>۱. مشتریان عمومی و مغازه‌داران</span>
+                              </span>
+                            ) : isBroadcast ? (
+                              <span className="text-[10px] font-bold bg-slate-100 text-slate-700 border border-slate-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                <Users className="w-3 h-3 text-slate-500" />
                                 <span>سراسری (همه کاربران)</span>
                               </span>
                             ) : (
-                              <span className="text-[10px] font-bold bg-blue-100/70 text-blue-800 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                <User className="w-3 h-3" />
+                              <span className="text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                <User className="w-3 h-3 text-emerald-600" />
                                 <span>{item.user_name || 'کاربر اختصاصی'}</span>
                                 {item.user_phone && item.user_phone !== '-' && (
-                                  <span className="font-mono text-[9px] text-slate-600">({item.user_phone})</span>
+                                  <span className="font-mono text-[9px] text-emerald-700">({item.user_phone})</span>
                                 )}
                               </span>
                             )}

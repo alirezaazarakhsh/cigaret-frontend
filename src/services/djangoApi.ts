@@ -999,13 +999,40 @@ export async function replyToDjangoTicket(ticketId: string, message: string, con
  * Fetch list of notifications from Django database
  */
 export async function djangoFetchNotifications(config?: DjangoCrmConfig, filters?: any): Promise<any[]> {
+  const localList = djangoDatabaseStore.getNotifications(filters) || [];
   try {
-    const list = await notificationsApi.getAll(filters);
-    return list;
+    const serverList = await notificationsApi.getAll(filters);
+    if (serverList && serverList.length > 0) {
+      // Merge by ID or title+message, so newly added notifications are never lost!
+      const mergedMap = new Map<string, any>();
+      // First, add all server items
+      serverList.forEach((item: any) => {
+        mergedMap.set(String(item.id), item);
+      });
+      // Second, retain any locally dispatched items that may not have propagated yet
+      localList.forEach((item: any) => {
+        if (!mergedMap.has(String(item.id))) {
+          const duplicate = serverList.some((s: any) => 
+            s.title === item.title && s.message === item.message
+          );
+          if (!duplicate) {
+            mergedMap.set(String(item.id), item);
+          }
+        }
+      });
+
+      const merged = Array.from(mergedMap.values()).sort((a: any, b: any) => {
+        const timeA = new Date(a.created_at || a.createdAt || 0).getTime() || 0;
+        const timeB = new Date(b.created_at || b.createdAt || 0).getTime() || 0;
+        return timeB - timeA;
+      });
+
+      return merged;
+    }
   } catch (e) {
     console.warn('Django Fetch Notifications API notice:', e);
-    return [];
   }
+  return localList;
 }
 
 /**
@@ -1022,16 +1049,24 @@ export async function djangoCreateNotification(payload: {
   user_name?: string;
   user_phone?: string;
 }, config?: DjangoCrmConfig): Promise<any> {
+  let created: any = null;
   try {
-    const created = await notificationsApi.create(payload);
-    if (created) {
-      djangoDatabaseStore.addNotification(created);
-      return created;
-    }
+    created = await notificationsApi.create(payload);
   } catch (e) {
     console.warn('Django Create Notification API notice:', e);
   }
-  return djangoDatabaseStore.addNotification(payload);
+
+  const notificationToSave = created || {
+    id: `notif_${Date.now()}`,
+    ...payload,
+    created_at: new Date().toISOString(),
+    createdAt: new Date().toLocaleDateString('fa-IR'),
+    is_read: false,
+    isRead: false
+  };
+
+  djangoDatabaseStore.addNotification(notificationToSave);
+  return notificationToSave;
 }
 
 /**

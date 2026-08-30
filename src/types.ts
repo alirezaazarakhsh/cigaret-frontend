@@ -216,10 +216,12 @@ export interface UserProfile {
   
   isVerified: boolean; // احراز هویت تایید شده (توسط سیستم مرکزی)
   createdAt: string;
-  role: 'visitor' | 'customer'; 
+  role: 'visitor' | 'customer' | 'admin'; 
   referralCode?: string;
   visitorCode?: string;
   commissionRate?: number;
+  totalSalesAmount?: number;
+  totalCommissionEarned?: number;
 
   // اطلاعات بانکی ویزیتور برای واریز پورسانت و تسویه‌حساب
   bankCardNumber?: string; // شماره کارت ۱۶ رقمی

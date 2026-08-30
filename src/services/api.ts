@@ -422,6 +422,165 @@ export const customersApi = {
 };
 
 // ==========================================
+// 3.1 ACCOUNTS AUTHENTICATION API (Django /api/v1/accounts/)
+// ==========================================
+export const accountsApi = {
+  /**
+   * Request OTP SMS code via POST /api/v1/accounts/send-otp/
+   */
+  async sendOtp(phone: string): Promise<{ success: boolean; message?: string; dev_mock_otp?: string; expiresIn?: number }> {
+    const cleanPhone = phone.replace(/\s+/g, '');
+    let res = await httpClient.post<any>('/accounts/send-otp/', { phone: cleanPhone });
+    if (!res.success && res.status === 404) {
+      res = await httpClient.post<any>('/api/v1/accounts/send-otp/', { phone: cleanPhone });
+    }
+    if (res.success && res.data) {
+      return {
+        success: true,
+        message: res.data.message || 'کد تأیید ورود ارسال شد.',
+        dev_mock_otp: res.data.dev_mock_otp,
+        expiresIn: res.data.expires_in_seconds || 180,
+      };
+    }
+    return {
+      success: false,
+      message: res.data?.message || res.error || 'خطا در ارسال کد تأیید ورود.',
+    };
+  },
+
+  /**
+   * Verify OTP SMS code via POST /api/v1/accounts/verify-otp/
+   */
+  async verifyOtp(phone: string, otpCode: string): Promise<{
+    success: boolean;
+    user?: any;
+    tokens?: { access: string; refresh: string };
+    message?: string;
+  }> {
+    const cleanPhone = phone.replace(/\s+/g, '');
+    let res = await httpClient.post<any>('/accounts/verify-otp/', { phone: cleanPhone, otp_code: otpCode.trim() });
+    if (!res.success && res.status === 404) {
+      res = await httpClient.post<any>('/api/v1/accounts/verify-otp/', { phone: cleanPhone, otp_code: otpCode.trim() });
+    }
+    if (res.success && res.data && res.data.status === 'success') {
+      const accessToken = res.data.tokens?.access;
+      if (accessToken) {
+        setApiToken(accessToken);
+        try {
+          localStorage.setItem('sevin_api_token', accessToken);
+        } catch {}
+      }
+      return {
+        success: true,
+        user: res.data.user,
+        tokens: res.data.tokens,
+        message: res.data.message || 'ورود با موفقیت انجام شد.',
+      };
+    }
+    return {
+      success: false,
+      message: res.data?.message || res.error || 'کد تأیید نامعتبر است یا منقضی شده است.',
+    };
+  },
+
+  /**
+   * Get user profile from Django via GET /api/v1/accounts/profile/
+   */
+  async getProfile(): Promise<any> {
+    let res = await httpClient.get<any>('/accounts/profile/');
+    if (!res.success && res.status === 404) {
+      res = await httpClient.get<any>('/api/v1/accounts/profile/');
+    }
+    if (res.success && res.data) {
+      return res.data;
+    }
+    return null;
+  },
+
+  /**
+   * POS staff login via POST /api/v1/accounts/pos-login/
+   */
+  async posLogin(phone: string, password: string): Promise<any> {
+    let res = await httpClient.post<any>('/accounts/pos-login/', { phone, password });
+    if (!res.success && res.status === 404) {
+      res = await httpClient.post<any>('/api/v1/accounts/pos-login/', { phone, password });
+    }
+    if (res.success && res.data?.tokens?.access) {
+      setApiToken(res.data.tokens.access);
+      try {
+        localStorage.setItem('sevin_api_token', res.data.tokens.access);
+      } catch {}
+    }
+    return res;
+  },
+
+  /**
+   * Create a new user (staff, visitor, customer) via POST /api/v1/accounts/create/
+   * Endpoint might be /api/v1/accounts/create-user/ or /accounts/register/
+   */
+  async createUser(payload: {
+    phone: string;
+    full_name: string;
+    role: string;
+    password?: string;
+    pin_code?: string;
+    [key: string]: any;
+  }): Promise<{ success: boolean; data?: any; message?: string }> {
+    let res = await httpClient.post<any>('/accounts/create-user/', payload);
+    
+    // Fallback to other possible endpoints
+    if (!res.success && res.status === 404) {
+      res = await httpClient.post<any>('/api/v1/accounts/create-user/', payload);
+    }
+    if (!res.success && res.status === 404) {
+      res = await httpClient.post<any>('/accounts/register/', payload);
+    }
+    if (!res.success && res.status === 404) {
+      res = await httpClient.post<any>('/api/v1/accounts/register/', payload);
+    }
+
+    if (res.success && res.data) {
+      return { success: true, data: res.data, message: res.data.message || 'کاربر با موفقیت ایجاد شد.' };
+    }
+    
+    return { success: false, message: res.data?.message || res.error || 'خطا در ایجاد کاربر. لطفاً اتصال بک‌اند را بررسی کنید.' };
+  }
+};
+
+// ==========================================
+// 3.2 VISITORS API (Django /api/v1/visitors/)
+// ==========================================
+export const visitorsApi = {
+  /**
+   * Get current visitor's profile from GET /api/v1/visitors/profile/
+   */
+  async getProfile(): Promise<any> {
+    let res = await httpClient.get<any>('/visitors/profile/');
+    if (!res.success && res.status === 404) {
+      res = await httpClient.get<any>('/api/v1/visitors/profile/');
+    }
+    if (res.success && res.data && res.data.status === 'success') {
+      return res.data.data;
+    }
+    return null;
+  },
+
+  /**
+   * Get all registered visitors list from GET /api/v1/visitors/admin/list/
+   */
+  async getAdminList(): Promise<any[]> {
+    let res = await httpClient.get<any>('/visitors/admin/list/');
+    if (!res.success && res.status === 404) {
+      res = await httpClient.get<any>('/api/v1/visitors/admin/list/');
+    }
+    if (res.success && res.data) {
+      return Array.isArray(res.data) ? res.data : (res.data.results || []);
+    }
+    return [];
+  }
+};
+
+// ==========================================
 // 4. LIVE PRICES API
 // ==========================================
 export const pricesApi = {
@@ -994,18 +1153,39 @@ export const notificationsApi = {
         else if (notifType === 'finance') uiType = 'urgent';
 
         const isRead = Boolean(item.is_read ?? item.isRead ?? false);
+        const titleStr = String(item.title || '');
+        const messageStr = String(item.message || '');
+
+        let detectedAudience: 'all' | 'visitors' | 'customers' | 'direct' = 'all';
+        if (item.user) {
+          detectedAudience = 'direct';
+        } else if (
+          titleStr.includes('[ویژه ویزیتوران]') ||
+          messageStr.includes('[ویژه ویزیتوران]') ||
+          titleStr.includes('[مخصوص ویزیتوران]')
+        ) {
+          detectedAudience = 'visitors';
+        } else if (
+          titleStr.includes('[مشتریان عمومی]') ||
+          messageStr.includes('[مشتریان عمومی]') ||
+          titleStr.includes('[مخصوص مشتریان]')
+        ) {
+          detectedAudience = 'customers';
+        } else if (item.targetAudience === 'visitors' || item.targetAudience === 'customers') {
+          detectedAudience = item.targetAudience;
+        }
 
         return {
           id: item.id,
-          title: item.title || 'اعلان انبار مرکزی',
-          message: item.message || '',
+          title: titleStr || 'اعلان انبار مرکزی',
+          message: messageStr,
           type: uiType,
           notification_type: notifType,
-          targetAudience: item.user ? 'direct' : (item.targetAudience || 'all'),
+          targetAudience: detectedAudience,
           user: item.user ?? null,
           user_id: item.user_id ?? item.user ?? null,
-          user_name: item.user_name || (item.user ? 'کاربر اختصاصی' : 'همه کاربران سایت (عمومی)'),
-          user_phone: item.user_phone || 'عمومی',
+          user_name: item.user_name || (item.user ? 'کاربر اختصاصی' : detectedAudience === 'visitors' ? 'کلیه سفیران فروش (ویزیتوران)' : detectedAudience === 'customers' ? 'مشتریان عمومی و مغازه‌داران' : 'همه کاربران سامانه (عمومی)'),
+          user_phone: item.user_phone || (detectedAudience === 'visitors' ? 'ویزیتوران' : 'عمومی'),
           targetUserId: item.user ? String(item.user) : undefined,
           targetUserName: item.user_name,
           createdAt: item.created_at || 'لحظاتی پیش',
@@ -1054,17 +1234,25 @@ export const notificationsApi = {
     type?: string;
     user?: number | string | null;
     user_id?: number | string | null;
-    targetAudience?: string;
+    targetAudience?: 'all' | 'visitors' | 'customers' | 'direct' | string;
   }): Promise<NotificationItem | null> {
+    let finalTitle = payload.title.trim();
+    if (payload.targetAudience === 'visitors' && !finalTitle.includes('[ویژه ویزیتوران]')) {
+      finalTitle = `[ویژه ویزیتوران] ${finalTitle.replace(/^\[[^\]]+\]\s*/, '')}`;
+    } else if (payload.targetAudience === 'customers' && !finalTitle.includes('[مشتریان عمومی]')) {
+      finalTitle = `[مشتریان عمومی] ${finalTitle.replace(/^\[[^\]]+\]\s*/, '')}`;
+    }
+
     const body: Record<string, any> = {
-      title: payload.title,
-      message: payload.message,
+      title: finalTitle,
+      message: payload.message.trim(),
       notification_type: payload.notification_type || payload.type || 'system',
+      target_audience: payload.targetAudience || 'all',
     };
 
-    if (payload.user !== null && payload.user !== undefined && !isNaN(Number(payload.user))) {
+    if (payload.user !== null && payload.user !== undefined && !isNaN(Number(payload.user)) && Number(payload.user) > 0) {
       body.user = Number(payload.user);
-    } else if (payload.user_id !== null && payload.user_id !== undefined && !isNaN(Number(payload.user_id))) {
+    } else if (payload.user_id !== null && payload.user_id !== undefined && !isNaN(Number(payload.user_id)) && Number(payload.user_id) > 0) {
       body.user = Number(payload.user_id);
     } else {
       body.user = null;
@@ -1078,16 +1266,24 @@ export const notificationsApi = {
     if (response.success && response.data) {
       const data = response.data.data || response.data;
       const notifType = data.notification_type || body.notification_type;
+      const parsedAudience = data.user 
+        ? 'direct' 
+        : finalTitle.includes('[ویژه ویزیتوران]') 
+        ? 'visitors' 
+        : finalTitle.includes('[مشتریان عمومی]') 
+        ? 'customers' 
+        : 'all';
+
       return {
         id: data.id || Date.now(),
-        title: data.title || payload.title,
+        title: data.title || finalTitle,
         message: data.message || payload.message,
         type: notifType === 'price' ? 'warning' : notifType === 'order' ? 'success' : notifType === 'finance' ? 'urgent' : 'info',
         notification_type: notifType,
-        targetAudience: data.user ? 'direct' : 'all',
+        targetAudience: parsedAudience,
         user: data.user,
         user_id: data.user,
-        user_name: data.user_name || 'عمومی',
+        user_name: data.user_name || (data.user ? 'کاربر اختصاصی' : parsedAudience === 'visitors' ? 'کلیه سفیران فروش (ویزیتوران)' : parsedAudience === 'customers' ? 'مشتریان عمومی و مغازه‌داران' : 'همه کاربران سامانه (عمومی)'),
         user_phone: data.user_phone || '',
         createdAt: data.created_at || 'هم‌اکنون',
         created_at: data.created_at || '',
@@ -1155,6 +1351,8 @@ export const api = {
   products: productsApi,
   orders: ordersApi,
   customers: customersApi,
+  accounts: accountsApi,
+  visitors: visitorsApi,
   prices: pricesApi,
   pos: posApi,
   siteSettings: siteSettingsApi,

@@ -1,0 +1,151 @@
+1085:export const notificationsApi = {
+1086-  /**
+1087-   * Fetch list of user notifications from Django backend
+1088-   * Endpoint: GET /api/v1/notifications/list/
+1089-   */
+1090-  async getAll(params?: { type?: string; is_read?: boolean; search?: string }): Promise<NotificationItem[]> {
+1091-    const query = new URLSearchParams();
+1092-    if (params?.type && params.type !== 'all') query.append('type', params.type);
+1093-    if (typeof params?.is_read === 'boolean') query.append('is_read', String(params.is_read));
+1094-    if (params?.search) query.append('search', params.search);
+1095-
+1096-    const queryString = query.toString() ? `?${query.toString()}` : '';
+1097-    
+1098-    // 1. Try explicit list view: /notifications/list/
+1099-    let response = await httpClient.get<any>(`/notifications/list/${queryString}`, {
+1100-      headers: API_CACHE_CONTROL_HEADERS,
+1101-      skipCacheBuster: false,
+1102-    });
+1103-    // 2. Fallback to /api/v1/notifications/list/ if not found
+1104-    if (!response.success && response.status === 404) {
+1105-      response = await httpClient.get<any>(`/api/v1/notifications/list/${queryString}`, {
+1106-        headers: API_CACHE_CONTROL_HEADERS,
+1107-        skipCacheBuster: false,
+1108-      });
+1109-    }
+1110-
+1111-    if (response.success && response.data) {
+1112-      const items = Array.isArray(response.data) 
+1113-        ? response.data 
+1114-        : (response.data.results || response.data.data || []);
+1115-
+1116-      const mapped: NotificationItem[] = items.map((item: any) => {
+1117-        const notifType = item.notification_type || item.type || 'system';
+1118-        let uiType: 'info' | 'success' | 'warning' | 'urgent' = 'info';
+1119-        if (notifType === 'price') uiType = 'warning';
+1120-        else if (notifType === 'order') uiType = 'success';
+1121-        else if (notifType === 'finance') uiType = 'urgent';
+1122-
+1123-        const isRead = Boolean(item.is_read ?? item.isRead ?? false);
+1124-        const titleStr = String(item.title || '');
+1125-        const messageStr = String(item.message || '');
+1126-
+1127-        let detectedAudience: 'all' | 'visitors' | 'customers' | 'direct' = 'all';
+1128-        if (item.user) {
+1129-          detectedAudience = 'direct';
+1130-        } else if (
+1131-          titleStr.includes('[ویژه ویزیتوران]') ||
+1132-          messageStr.includes('[ویژه ویزیتوران]') ||
+1133-          titleStr.includes('[مخصوص ویزیتوران]')
+1134-        ) {
+1135-          detectedAudience = 'visitors';
+1136-        } else if (
+1137-          titleStr.includes('[مشتریان عمومی]') ||
+1138-          messageStr.includes('[مشتریان عمومی]') ||
+1139-          titleStr.includes('[مخصوص مشتریان]')
+1140-        ) {
+1141-          detectedAudience = 'customers';
+1142-        } else if (item.targetAudience === 'visitors' || item.targetAudience === 'customers') {
+1143-          detectedAudience = item.targetAudience;
+1144-        }
+1145-
+1146-        return {
+1147-          id: item.id,
+1148-          title: titleStr || 'اعلان انبار مرکزی',
+1149-          message: messageStr,
+1150-          type: uiType,
+1151-          notification_type: notifType,
+1152-          targetAudience: detectedAudience,
+1153-          user: item.user ?? null,
+1154-          user_id: item.user_id ?? item.user ?? null,
+1155-          user_name: item.user_name || (item.user ? 'کاربر اختصاصی' : detectedAudience === 'visitors' ? 'کلیه سفیران فروش (ویزیتوران)' : detectedAudience === 'customers' ? 'مشتریان عمومی و مغازه‌داران' : 'همه کاربران سامانه (عمومی)'),
+1156-          user_phone: item.user_phone || (detectedAudience === 'visitors' ? 'ویزیتوران' : 'عمومی'),
+1157-          targetUserId: item.user ? String(item.user) : undefined,
+1158-          targetUserName: item.user_name,
+1159-          createdAt: item.created_at || 'لحظاتی پیش',
+1160-          created_at: item.created_at || '',
+1161-          isRead,
+1162-          is_read: isRead,
+1163-        };
+1164-      });
+1165-
+1166-      return mapped;
+1167-    }
+1168-
+1169-    return [];
+1170-  },
+1171-
+1172-  /**
+1173-   * Fetch unread notification count
+1174-   * Endpoint: GET /api/v1/notifications/unread-count/
+1175-   */
+1176-  async getUnreadCount(): Promise<number> {
+1177-    let response = await httpClient.get<any>('/notifications/unread-count/', {
+1178-      headers: API_CACHE_CONTROL_HEADERS,
+1179-      skipCacheBuster: false,
+1180-    });
+1181-    if (!response.success && response.status === 404) {
+1182-      response = await httpClient.get<any>('/api/v1/notifications/unread-count/', {
+1183-        headers: API_CACHE_CONTROL_HEADERS,
+1184-        skipCacheBuster: false,
+1185-      });
+1186-    }
+1187-
+1188-    if (response.success && response.data) {
+1189-      return Number(response.data.unread_count || response.data.count || 0);
+1190-    }
+1191-    return 0;
+1192-  },
+1193-
+1194-  /**
+1195-   * Create and broadcast a new notification
+1196-   * Endpoint: POST /api/v1/notifications/create/
+1197-   */
+1198-  async create(payload: {
+1199-    title: string;
+1200-    message: string;
+1201-    notification_type?: string;
+1202-    type?: string;
+1203-    user?: number | string | null;
+1204-    user_id?: number | string | null;
+1205-    targetAudience?: 'all' | 'visitors' | 'customers' | 'direct' | string;
+1206-  }): Promise<NotificationItem | null> {
+1207-    let finalTitle = payload.title.trim();
+1208-    if (payload.targetAudience === 'visitors' && !finalTitle.includes('[ویژه ویزیتوران]')) {
+1209-      finalTitle = `[ویژه ویزیتوران] ${finalTitle.replace(/^\[[^\]]+\]\s*/, '')}`;
+1210-    } else if (payload.targetAudience === 'customers' && !finalTitle.includes('[مشتریان عمومی]')) {
+1211-      finalTitle = `[مشتریان عمومی] ${finalTitle.replace(/^\[[^\]]+\]\s*/, '')}`;
+1212-    }
+1213-
+1214-    const body: Record<string, any> = {
+1215-      title: finalTitle,
+1216-      message: payload.message.trim(),
+1217-      notification_type: payload.notification_type || payload.type || 'system',
+1218-    };
+1219-
+1220-    if (payload.user !== null && payload.user !== undefined && !isNaN(Number(payload.user)) && Number(payload.user) > 0) {
+1221-      body.user = Number(payload.user);
+1222-    } else if (payload.user_id !== null && payload.user_id !== undefined && !isNaN(Number(payload.user_id)) && Number(payload.user_id) > 0) {
+1223-      body.user = Number(payload.user_id);
+1224-    } else {
+1225-      body.user = null;
+1226-    }
+1227-
+1228-    let response = await httpClient.post<any>('/notifications/create/', body);
+1229-    if (!response.success && response.status === 404) {
+1230-      response = await httpClient.post<any>('/api/v1/notifications/create/', body);
+1231-    }
+1232-
+1233-    if (response.success && response.data) {
+1234-      const data = response.data.data || response.data;
+1235-      const notifType = data.notification_type || body.notification_type;
