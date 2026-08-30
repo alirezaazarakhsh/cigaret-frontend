@@ -30,7 +30,8 @@ import {
   UserProfile, 
   RetailShopCustomer, 
   PosReceiptInvoice, 
-  DjangoCrmConfig 
+  DjangoCrmConfig,
+  FooterSettingsData
 } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
@@ -44,6 +45,7 @@ const STORAGE_KEYS = {
   CURRENT_USER: 'sevin_current_user',
   CRM_CONFIG: 'django_crm_config',
   TICKETS: 'sevin_support_tickets',
+  FOOTER_SETTINGS: 'wholesale_footer_settings',
 };
 
 // ==========================================
@@ -493,6 +495,58 @@ export const siteSettingsApi = {
 };
 
 // ==========================================
+// 7. FOOTER SETTINGS API
+// ==========================================
+export const footerApi = {
+  /**
+   * Fetches footer configuration on GET /footer-settings/settings/ or /footer/settings/
+   */
+  async getSettings(): Promise<FooterSettingsData | null> {
+    // 1. Try /footer-settings/settings/
+    let response = await httpClient.get<any>('/footer-settings/settings/');
+    
+    // 2. Fallback to /footer/settings/ or /footer-settings/
+    if (!response.success || !response.data) {
+      response = await httpClient.get<any>('/footer/settings/');
+    }
+    if (!response.success || !response.data) {
+      response = await httpClient.get<any>('/footer-settings/');
+    }
+
+    if (response.success && response.data) {
+      const data = (response.data && response.data.data) ? response.data.data : response.data;
+      if (typeof data === 'object' && data !== null) {
+        try {
+          localStorage.setItem(STORAGE_KEYS.FOOTER_SETTINGS, JSON.stringify(data));
+        } catch {}
+        return data as FooterSettingsData;
+      }
+    }
+
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.FOOTER_SETTINGS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  },
+
+  /**
+   * Updates footer configuration on PUT /footer-settings/settings/update/
+   */
+  async updateSettings(settingsData: Partial<FooterSettingsData>): Promise<boolean> {
+    const response = await httpClient.put('/footer-settings/settings/update/', settingsData);
+    if (response.success) {
+      try {
+        const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.FOOTER_SETTINGS) || '{}');
+        localStorage.setItem(STORAGE_KEYS.FOOTER_SETTINGS, JSON.stringify({ ...current, ...settingsData }));
+      } catch {}
+      return true;
+    }
+    return false;
+  }
+};
+
+// ==========================================
 // HELPER FUNCTIONS FOR LOCAL DATA
 // ==========================================
 function getLocalProducts(): CigaretteProduct[] {
@@ -544,5 +598,6 @@ export const api = {
   prices: pricesApi,
   pos: posApi,
   siteSettings: siteSettingsApi,
+  footer: footerApi,
   client: httpClient,
 };

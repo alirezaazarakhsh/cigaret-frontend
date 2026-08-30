@@ -1,0 +1,250 @@
+import React from 'react';
+import { 
+  Package, 
+  MapPin, 
+  Phone, 
+  Clock, 
+  Send, 
+  MessageSquare, 
+  Instagram, 
+  ShieldCheck, 
+  ExternalLink,
+  PhoneCall
+} from 'lucide-react';
+import { FooterSettingsData, DjangoCrmConfig, NavigationTab } from '../types';
+
+interface FooterProps {
+  footerData?: FooterSettingsData | null;
+  djangoConfig: DjangoCrmConfig;
+  onNavigateTab: (tab: NavigationTab) => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ footerData, djangoConfig, onNavigateTab }) => {
+  // If explicitly hidden by admin
+  if (footerData && footerData.is_active === false) {
+    return null;
+  }
+
+  const companyTitle = footerData?.company_title || djangoConfig.companyName || 'سوین';
+  const shortDesc = footerData?.short_description || 'مرکز تخصصی پخش محصولات سیگار و تنباکو با ارسال فوری و تضمین اصالت کالا به سراسر کشور.';
+  const addressText = footerData?.address_text || 'تهران، انبار مرکزی توزیع دخانیات';
+  const phoneNumber = footerData?.phone_number || djangoConfig.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹';
+  const emergencyPhone = footerData?.emergency_phone;
+  const workingHours = footerData?.working_hours;
+  const copyrightText = footerData?.copyright_text || `© کلیه حقوق مادی و معنوی برای پخش عمده ${companyTitle} محفوظ است.`;
+  const developerCredit = footerData?.developer_credit || 'طراحی و توسعه توسط سوین تیم و میزبانی وب سایت بر خط سرور های قدرتمند سوین هاست';
+
+  const columns = footerData?.columns && footerData.columns.length > 0 ? footerData.columns : null;
+  const socials = footerData?.socials && footerData.socials.length > 0 ? footerData.socials : null;
+
+  const renderSocialIcon = (platform: string, iconName?: string) => {
+    const p = (platform || iconName || '').toLowerCase();
+    if (p.includes('tele') || p.includes('send')) return <Send className="w-4 h-4" />;
+    if (p.includes('whats') || p.includes('msg') || p.includes('chat')) return <MessageSquare className="w-4 h-4" />;
+    if (p.includes('insta')) return <Instagram className="w-4 h-4" />;
+    if (p.includes('phone') || p.includes('call')) return <PhoneCall className="w-4 h-4" />;
+    return <ExternalLink className="w-4 h-4" />;
+  };
+
+  const handleLinkClick = (url: string) => {
+    if (!url) return;
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    // Internal Tab navigation
+    const cleaned = url.replace(/^\//, '').trim();
+    if (cleaned === 'catalog' || cleaned === '') onNavigateTab('catalog');
+    else if (cleaned === 'invoice') onNavigateTab('invoice');
+    else if (cleaned === 'tracking') onNavigateTab('tracking');
+    else if (cleaned === 'contact') onNavigateTab('contact');
+    else if (cleaned === 'shipping') onNavigateTab('shipping');
+    else if (cleaned === 'blog') onNavigateTab('blog');
+    else if (cleaned === 'shopmanage' || cleaned === 'pos') onNavigateTab('accounting-pos');
+    else if (cleaned === 'azarakhsh') onNavigateTab('django-docs');
+    else if (cleaned === 'user-panel' || cleaned === 'profile') onNavigateTab('user-panel');
+    else {
+      window.location.href = url;
+    }
+  };
+
+  return (
+    <footer className="bg-white border-t border-slate-200 mt-16 pt-10 pb-8 text-xs text-slate-500 transition-colors shadow-sm" dir="rtl">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6">
+        
+        {/* Main Top Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 pb-8 border-b border-slate-100">
+          
+          {/* Brand & Warehouse Info */}
+          <div className="md:col-span-5 flex flex-col gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-11 h-11 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-md shadow-blue-600/20 shrink-0">
+                <Package className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-base">
+                  {companyTitle}
+                </h3>
+                <span className="text-[11px] text-blue-600 font-bold">سامانه رسمی توزیع و پخش عمده دخانیات</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-500 leading-relaxed text-justify">
+              {shortDesc}
+            </p>
+
+            <div className="flex flex-col gap-2 pt-2 text-xs">
+              <div className="flex items-start gap-2 text-slate-700">
+                <MapPin className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                <span className="font-medium">{addressText}</span>
+              </div>
+              <div className="flex items-center gap-2 text-slate-700">
+                <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span>تلفن سفارشات و هماهنگی بار:</span>
+                <strong className="text-slate-900 font-black tracking-wide" dir="ltr">{phoneNumber}</strong>
+              </div>
+              {emergencyPhone && (
+                <div className="flex items-center gap-2 text-slate-700">
+                  <PhoneCall className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>تلفن فوری انبار:</span>
+                  <strong className="text-slate-900 font-black tracking-wide" dir="ltr">{emergencyPhone}</strong>
+                </div>
+              )}
+              {workingHours && (
+                <div className="flex items-center gap-2 text-slate-500 text-[11px]">
+                  <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span>{workingHours}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Dynamic Columns or Default Quick Navigation */}
+          {columns && columns.length > 0 ? (
+            <div className={`md:col-span-7 grid grid-cols-2 sm:grid-cols-${Math.min(columns.length, 3)} gap-6`}>
+              {columns.map((col, idx) => (
+                <div key={col.id || idx} className="flex flex-col gap-3">
+                  <h4 className="font-black text-slate-900 text-xs border-r-2 border-blue-600 pr-2">
+                    {col.title}
+                  </h4>
+                  <ul className="flex flex-col gap-2 text-xs">
+                    {col.links && col.links.map((link, lIdx) => (
+                      <li key={link.id || lIdx}>
+                        <button
+                          onClick={() => handleLinkClick(link.url)}
+                          className="hover:text-blue-600 transition-colors text-right cursor-pointer text-slate-600 font-medium hover:translate-x-1 duration-150 flex items-center gap-1.5"
+                        >
+                          <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                          {link.title}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="md:col-span-7 grid grid-cols-2 sm:grid-cols-3 gap-6">
+              {/* Quick Navigation Col 1 */}
+              <div className="flex flex-col gap-3">
+                <h4 className="font-black text-slate-900 text-xs border-r-2 border-blue-600 pr-2">
+                  دسترسی سریع
+                </h4>
+                <ul className="flex flex-col gap-2 text-xs text-slate-600">
+                  <li>
+                    <button onClick={() => onNavigateTab('catalog')} className="hover:text-blue-600 transition-colors cursor-pointer">
+                      کاتالوگ کامل کالاها
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => onNavigateTab('invoice')} className="hover:text-blue-600 transition-colors cursor-pointer">
+                      صدور پیش‌فاکتور رسمی
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => onNavigateTab('accounting-pos')} className="hover:text-blue-600 transition-colors cursor-pointer">
+                      صندوق و حسابداری POS
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Quick Navigation Col 2 */}
+              <div className="flex flex-col gap-3">
+                <h4 className="font-black text-slate-900 text-xs border-r-2 border-blue-600 pr-2">
+                  خدمات و پشتیبانی
+                </h4>
+                <ul className="flex flex-col gap-2 text-xs text-slate-600">
+                  <li>
+                    <button onClick={() => onNavigateTab('tracking')} className="hover:text-blue-600 transition-colors cursor-pointer">
+                      پیگیری بارنامه و ارسال
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => onNavigateTab('shipping')} className="hover:text-blue-600 transition-colors cursor-pointer">
+                      استعلام کرایه باربری
+                    </button>
+                  </li>
+                  <li>
+                    <button onClick={() => onNavigateTab('contact')} className="hover:text-blue-600 transition-colors cursor-pointer">
+                      فرم تماس با مدیریت
+                    </button>
+                  </li>
+                </ul>
+              </div>
+
+              {/* Col 3: Enamad / Security / Socials */}
+              <div className="flex flex-col gap-3 col-span-2 sm:col-span-1">
+                <h4 className="font-black text-slate-900 text-xs border-r-2 border-blue-600 pr-2">
+                  ضمانت و اصالت کالا
+                </h4>
+                <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3 flex flex-col gap-2">
+                  <div className="flex items-center gap-2 text-emerald-700 font-bold text-[11px]">
+                    <ShieldCheck className="w-4 h-4 shrink-0" />
+                    <span>تضمین سلامت و اصالت بار</span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 leading-tight">
+                    کلیه کارتن‌ها و باکس‌ها با بسته‌بندی پلمپ و هولوگرام رسمی تحویل باربری داده می‌شوند.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+
+        {/* Socials & Channels (if configured) */}
+        {socials && socials.length > 0 && (
+          <div className="py-4 border-b border-slate-100 flex flex-wrap items-center justify-between gap-4">
+            <span className="text-xs font-bold text-slate-700">شبکه‌های اجتماعی و کانال‌های اطلاع‌رسانی:</span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {socials.map((soc, sIdx) => (
+                <a
+                  key={soc.id || sIdx}
+                  href={soc.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-600 text-xs font-bold transition-all border border-slate-200"
+                >
+                  {renderSocialIcon(soc.platform, soc.icon)}
+                  <span>{soc.title}</span>
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Bottom Copyright and Credit Bar */}
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400 font-semibold text-center sm:text-right">
+          <div>
+            {developerCredit}
+          </div>
+          <div className="text-[10px] text-slate-400/90 font-medium">
+            {copyrightText}
+          </div>
+        </div>
+
+      </div>
+    </footer>
+  );
+};

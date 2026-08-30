@@ -44,6 +44,9 @@ interface HeaderProps {
   onOpenInstallGuide?: () => void;
   onOpenProductsMenu?: () => void;
   onOpenInPersonPickup?: () => void;
+  companyTitle?: string;
+  phoneNumber?: string;
+  warehouseAddress?: string;
 }
 
 const ALL_NAV_TABS: { id: NavigationTab; label: string; icon: React.ComponentType<{ className?: string }>; color?: string; requiresAuth?: boolean }[] = [
@@ -70,6 +73,9 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenInstallGuide,
   onOpenProductsMenu,
   onOpenInPersonPickup,
+  companyTitle,
+  phoneNumber,
+  warehouseAddress,
 }) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -106,7 +112,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
             <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-ping"></span>
             <span className="text-blue-400 font-bold text-[11px] sm:text-xs truncate">
-              پخش عمده دخانیات سوین | انبار مرکزی جنت‌آباد
+              {companyTitle ? `سامانه پخش عمده ${companyTitle}` : 'پخش عمده دخانیات سوین'} | {warehouseAddress || 'انبار مرکزی'}
             </span>
           </div>
 
@@ -127,14 +133,14 @@ export const Header: React.FC<HeaderProps> = ({
 
             {/* Direct Phone Call */}
             <a 
-              href="tel:09120759419" 
+              href={`tel:${(phoneNumber || '09120759419').replace(/[^0-9+]/g, '')}`} 
               className="text-white hover:text-blue-400 transition-colors flex items-center gap-1 font-bold text-xs shrink-0"
               id="direct-call-link"
             >
               <div className="w-4 h-4 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0">
                 <PhoneCall className="w-2.5 h-2.5" />
               </div>
-              <span dir="ltr" className="text-white font-mono font-black tracking-tight text-[11px] sm:text-xs">۰۹۱۲۰۷۵۹۴۱۹</span>
+              <span dir="ltr" className="text-white font-mono font-black tracking-tight text-[11px] sm:text-xs">{phoneNumber || '۰۹۱۲۰۷۵۹۴۱۹'}</span>
             </a>
 
           </div>
@@ -157,14 +163,14 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="text-sm sm:text-lg font-black tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors truncate">
-                  دخانیات عمده سوین
+                  {companyTitle ? `پخش عمده ${companyTitle}` : 'دخانیات عمده سوین'}
                 </span>
                 <span className="hidden sm:inline-block text-[10px] font-black bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-lg shrink-0">
                   کارتن و باکس
                 </span>
               </div>
               <p className="text-[11px] text-slate-500 font-medium hidden sm:block truncate">
-                توزیع دست‌اول انبار جنت‌آباد تهران
+                {warehouseAddress ? `توزیع مستقیم ${warehouseAddress}` : 'توزیع دست‌اول انبار پخش عمده'}
               </p>
             </div>
           </div>

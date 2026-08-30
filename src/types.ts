@@ -452,6 +452,44 @@ export interface ChatMessage {
   };
 }
 
+export interface FooterSocialItem {
+  id?: number | string;
+  platform: string;
+  title: string;
+  url: string;
+  icon?: string;
+  order?: number;
+}
+
+export interface FooterLinkItem {
+  id?: number | string;
+  title: string;
+  url: string;
+  order?: number;
+}
+
+export interface FooterColumnItem {
+  id?: number | string;
+  title: string;
+  order?: number;
+  links: FooterLinkItem[];
+}
+
+export interface FooterSettingsData {
+  company_title?: string;
+  short_description?: string;
+  address_text?: string;
+  phone_number?: string;
+  emergency_phone?: string;
+  working_hours?: string;
+  enamad_code?: string;
+  copyright_text?: string;
+  developer_credit?: string;
+  is_active?: boolean;
+  columns?: FooterColumnItem[];
+  socials?: FooterSocialItem[];
+}
+
 export interface DjangoCrmConfig {
   apiUrl: string;
   apiToken: string;

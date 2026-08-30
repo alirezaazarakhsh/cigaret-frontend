@@ -3,7 +3,7 @@ import { Settings, Shield, Database, Clock, Image, Globe, Sparkles, FileCode } f
 import { CodeViewer } from './CodeViewer';
 
 export const DjangoConfigDocs: React.FC = () => {
-  const [activeSubTab, setActiveSubTab] = useState<'settings' | 'urls' | 'env' | 'dockerfile' | 'docker_compose' | 'entrypoint' | 'gitignore' | 'routes' | 'admin_theme'>('settings');
+  const [activeSubTab, setActiveSubTab] = useState<'settings' | 'urls' | 'env' | 'dockerfile' | 'docker_compose' | 'entrypoint' | 'requirements' | 'nginx' | 'gitignore' | 'routes' | 'admin_theme'>('settings');
 
   const settingsCode = `"""
 azarakhsh_project/settings.py
@@ -95,11 +95,12 @@ INSTALLED_APPS = [
 ]
 
 # --------------------------------------------------------------------------
-# ۲. میانافزارها (MIDDLEWARE)
+# ۲. میان‌افزارها (MIDDLEWARE)
 # --------------------------------------------------------------------------
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',      # باید در بالاترین ردیف قرار گیرد
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', # سرو مستقیم، فشرده و پرسرعت فایل‌های CSS/JS استاتیک و ادمین
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -249,10 +250,20 @@ JALALI_DATE_DEFAULTS = {
 }
 
 # --------------------------------------------------------------------------
-# ۱۰. فایلهای استاتیک و رسانهها (Static & Media)
+# ۱۰. فایلهای استاتیک و رسانهها (Static & Media با پشتیبانی WhiteNoise)
 # --------------------------------------------------------------------------
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+
+# استوریج بهینه‌شده WhiteNoise برای فشرده‌سازی خودکار و کش پایدار CSS/JS در پروداکشن
+STORAGES = {
+    "default": {
+        "BACKEND": "django.core.files.storage.FileSystemStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -739,6 +750,162 @@ yarn-error.log*
 {% endblock %}
 `;
 
+  const requirementsCode = `# ==============================================================================
+# requirements.txt - لیست پکیج‌های استاندارد سامانه آذرخش + WhiteNoise
+# دستور بروزرسانی در سرور: pip install -r requirements.txt
+# ==============================================================================
+Django>=5.0,<5.2
+djangorestframework>=3.14.0
+djangorestframework-simplejwt>=5.3.1
+django-cors-headers>=4.3.1
+django-filter>=23.5
+drf-spectacular>=0.27.1
+drf-yasg>=1.21.7
+psycopg2-binary>=2.9.9
+gunicorn>=21.2.0
+whitenoise>=6.6.0
+django-jalali-date>=1.0.4
+django-tinymce>=3.6.1
+redis>=5.0.1
+celery>=5.3.6
+kavenegar>=1.1.2
+requests>=2.31.0
+Pillow>=10.2.0
+`;
+
+  const nginxCode = `# ==============================================================================
+# Nginx Configuration - sevinhost.ir + crms.sevinhost.ir + cigar.sevinhost.ir
+# فایل کانفیگ Nginx تمیز، بدون تداخل و آماده سرور
+# ==============================================================================
+
+# =============================================
+# 1. HTTP (Port 80) → HTTPS Redirect برای تمام دامنه‌ها
+# =============================================
+server {
+    listen 80;
+    server_name sevinhost.ir www.sevinhost.ir crms.sevinhost.ir www.crms.sevinhost.ir cigar.sevinhost.ir www.cigar.sevinhost.ir;
+
+    return 301 https://$host$request_uri;
+}
+
+# =============================================
+# 2. Frontend - sevinhost.ir (Next.js - Port 3000)
+# =============================================
+server {
+    listen 443 ssl;
+    server_name sevinhost.ir www.sevinhost.ir;
+
+    ssl_certificate /etc/letsencrypt/live/sevinhost.ir-0001/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/sevinhost.ir-0001/privkey.pem;
+
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_read_timeout 120s;
+    }
+}
+
+# =============================================
+# 3. Backend - crms.sevinhost.ir (Django - Port 8000)
+# =============================================
+server {
+    listen 443 ssl;
+    server_name crms.sevinhost.ir www.crms.sevinhost.ir;
+
+    ssl_certificate /etc/letsencrypt/live/www.crms.sevinhost.ir/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/www.crms.sevinhost.ir/privkey.pem;
+
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    add_header X-Frame-Options "DENY" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+
+    location /media/ {
+        alias /var/woc/3/b/sevinhost-backend/media/;
+        expires 30d;
+        access_log off;
+    }
+
+    location /static/ {
+        alias /var/woc/3/b/sevinhost-backend/static/;
+        expires 30d;
+        access_log off;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_read_timeout 180s;
+        proxy_send_timeout 180s;
+    }
+}
+
+# =============================================
+# 4. Backend Azarakhsh - cigar.sevinhost.ir (Django Docker - Port 8001)
+# =============================================
+server {
+    listen 443 ssl;
+    server_name cigar.sevinhost.ir www.cigar.sevinhost.ir;
+
+    ssl_certificate /etc/letsencrypt/live/cigar.sevinhost.ir/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/cigar.sevinhost.ir/privkey.pem;
+
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    client_max_body_size 100M;
+
+    access_log /var/log/nginx/cigar_access.log;
+    error_log /var/log/nginx/cigar_error.log;
+
+    # با وجود WhiteNoise، جنگو خودش استاتیک‌ها را سریع و فشرده سرو می‌کند
+    # پروکسی تمامی درخواست‌ها (شامل API، Swagger، Admin و Static) به پورت 8001 داکر
+    location / {
+        proxy_pass http://127.0.0.1:8001;
+        proxy_http_version 1.1;
+
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Server $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+
+        proxy_connect_timeout 180s;
+        proxy_read_timeout 180s;
+        proxy_send_timeout 180s;
+    }
+}
+`;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       
@@ -854,6 +1021,26 @@ yarn-error.log*
             entrypoint.sh (مایگریشن خودکار)
           </button>
           <button
+            onClick={() => setActiveSubTab('requirements')}
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
+              activeSubTab === 'requirements'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            requirements.txt (پکیج‌ها و WhiteNoise)
+          </button>
+          <button
+            onClick={() => setActiveSubTab('nginx')}
+            className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
+              activeSubTab === 'nginx'
+                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25'
+                : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            nginx.conf (کانفیگ سرور و SSL)
+          </button>
+          <button
             onClick={() => setActiveSubTab('urls')}
             className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
               activeSubTab === 'urls'
@@ -910,6 +1097,10 @@ yarn-error.log*
               ? dockerfileCode
               : activeSubTab === 'entrypoint'
               ? entrypointCode
+              : activeSubTab === 'requirements'
+              ? requirementsCode
+              : activeSubTab === 'nginx'
+              ? nginxCode
               : activeSubTab === 'gitignore'
               ? gitignoreCode
               : activeSubTab === 'admin_theme'
@@ -929,6 +1120,10 @@ yarn-error.log*
               ? 'Dockerfile'
               : activeSubTab === 'entrypoint'
               ? 'entrypoint.sh'
+              : activeSubTab === 'requirements'
+              ? 'requirements.txt'
+              : activeSubTab === 'nginx'
+              ? 'nginx.conf'
               : activeSubTab === 'gitignore'
               ? '.gitignore'
               : activeSubTab === 'admin_theme'
@@ -937,7 +1132,7 @@ yarn-error.log*
           }
           badge={
             activeSubTab === 'settings'
-              ? 'Core Settings'
+              ? 'Core Settings + WhiteNoise'
               : activeSubTab === 'urls'
               ? 'Main URLs'
               : activeSubTab === 'env'
@@ -948,6 +1143,10 @@ yarn-error.log*
               ? 'Production Multi-stage Dockerfile'
               : activeSubTab === 'entrypoint'
               ? 'Container Entrypoint Script'
+              : activeSubTab === 'requirements'
+              ? 'Python Packages Spec'
+              : activeSubTab === 'nginx'
+              ? 'Nginx Reverse Proxy & SSL'
               : activeSubTab === 'gitignore'
               ? 'Git Ignore Spec'
               : activeSubTab === 'admin_theme'

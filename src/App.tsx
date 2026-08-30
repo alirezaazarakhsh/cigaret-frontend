@@ -40,10 +40,11 @@ const renderFeatureIcon = (iconName: string) => {
   }
   return <Award className="w-5 h-5 text-emerald-500" />;
 };
-import { CigaretteProduct, CigaretteCategory, CartItem, CustomerInfo, OrderInvoice, DjangoCrmConfig, NavigationTab, UserProfile, RetailShopCustomer, NotificationItem } from './types';
+import { CigaretteProduct, CigaretteCategory, CartItem, CustomerInfo, OrderInvoice, DjangoCrmConfig, NavigationTab, UserProfile, RetailShopCustomer, NotificationItem, FooterSettingsData } from './types';
 import { CIGARETTE_PRODUCTS, WHOLESALE_BENEFITS } from './data/products';
 import { INITIAL_RETAIL_SHOPS } from './data/retailShops';
 import { Header } from './components/Header';
+import { Footer } from './components/Footer';
 import { ProductCard } from './components/ProductCard';
 import { ProductModal } from './components/ProductModal';
 import { ProformaInvoicePage } from './components/ProformaInvoicePage';
@@ -286,14 +287,39 @@ export default function App() {
   const [isPwaModalOpen, setIsPwaModalOpen] = useState<boolean>(false);
   const [isBackendModalOpen, setIsBackendModalOpen] = useState<boolean>(false);
 
-  // Auto-fetch products from unified API layer on mount
+  // Dynamic Footer Settings from Django backend
+  const [footerSettings, setFooterSettings] = useState<FooterSettingsData | null>(() => {
+    try {
+      const saved = localStorage.getItem('wholesale_footer_settings');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return null;
+  });
+
+  // Auto-fetch products and footer settings from unified API layer on mount
   useEffect(() => {
     let isMounted = true;
+    
+    // 1. Fetch Products
     api.products.getAll().then((loadedProducts) => {
       if (isMounted && loadedProducts && loadedProducts.length > 0) {
         setProducts(loadedProducts);
       }
     }).catch(() => {});
+
+    // 2. Fetch Footer Settings
+    api.footer.getSettings().then((loadedFooter) => {
+      if (isMounted && loadedFooter) {
+        setFooterSettings(loadedFooter);
+        if (loadedFooter.company_title) {
+          setDjangoConfig(prev => ({
+            ...prev,
+            companyName: loadedFooter.company_title || prev.companyName
+          }));
+        }
+      }
+    }).catch(() => {});
+
     return () => {
       isMounted = false;
     };
@@ -563,6 +589,9 @@ export default function App() {
         onOpenInstallGuide={() => setIsPwaModalOpen(true)}
         onOpenProductsMenu={() => setIsProductsMenuOpen(true)}
         onOpenInPersonPickup={() => setIsInPersonPickupOpen(true)}
+        companyTitle={footerSettings?.company_title || djangoConfig.companyName}
+        phoneNumber={footerSettings?.phone_number || djangoConfig.transportPhoneCompany}
+        warehouseAddress={footerSettings?.address_text}
       />
 
       {/* Main App Body */}
@@ -874,40 +903,12 @@ export default function App() {
         onMarkAllAsRead={handleMarkAllNotifsAsRead}
       />
 
-      {/* Modern Wholesale Footer */}
-      <footer className="bg-white border-t border-slate-200 mt-12 py-8 text-xs text-slate-500 transition-colors">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 flex flex-col gap-6">
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-blue-600 text-white flex items-center justify-center font-black shadow-md shadow-blue-600/20">
-                <Package className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="font-black text-slate-900 text-sm">سامانه پخش عمده دخانیات {djangoConfig.companyName}</div>
-                <div className="text-[11px] text-slate-400">انبار مرکزی تهران (منطقه ۵، جنت‌آباد) | تلفن سفارشات: <strong className="text-blue-700 " dir="ltr">۰۹۱۲۰۷۵۹۴۱۹</strong></div>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-4 text-xs font-bold flex-wrap justify-center sm:justify-end">
-              <button onClick={() => setActiveTab('catalog')} className="hover:text-blue-600 transition-colors">کاتالوگ کالاها</button>
-              <button onClick={() => setActiveTab('invoice')} className="hover:text-blue-600 transition-colors">پیش‌فاکتور رسمی</button>
-              <button onClick={() => setActiveTab('tracking')} className="hover:text-blue-600 transition-colors">رهگیری بارنامه</button>
-              <button onClick={() => setActiveTab('contact')} className="hover:text-blue-600 transition-colors">فرم تماس</button>
-              <button onClick={() => setActiveTab('shipping')} className="hover:text-blue-600 transition-colors">باربری و کرایه</button>
-              <button onClick={() => setActiveTab('blog')} className="hover:text-blue-600 transition-colors">مقالات خواندنی</button>
-            </div>
-          </div>
-
-          <div className="border-t border-slate-100 pt-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400 font-semibold text-center sm:text-right">
-            <div>
-              طراحی و توسعه توسط سوین تیم و میزبانی وب سایت بر خط سرور های قدرتمند سوین هاست
-            </div>
-            <div className="text-[10px] text-slate-400/80">
-              © کلیه حقوق مادی و معنوی برای پخش عمده {djangoConfig.companyName} محفوظ است.
-            </div>
-          </div>
-        </div>
-      </footer>
+      {/* Dynamic Modern Wholesale Footer from Django Backend */}
+      <Footer 
+        footerData={footerSettings} 
+        djangoConfig={djangoConfig} 
+        onNavigateTab={(tab) => setActiveTab(tab)} 
+      />
 
       {/* Progressive Web App (PWA) installation guide helper */}
       <PwaInstallGuide 
