@@ -478,6 +478,7 @@ export interface FooterColumnItem {
 export interface FooterSettingsData {
   company_title?: string;
   short_description?: string;
+  description_text?: string;
   address_text?: string;
   phone_number?: string;
   emergency_phone?: string;
@@ -488,6 +489,7 @@ export interface FooterSettingsData {
   is_active?: boolean;
   columns?: FooterColumnItem[];
   socials?: FooterSocialItem[];
+  social_links?: FooterSocialItem[];
 }
 
 export interface DjangoCrmConfig {

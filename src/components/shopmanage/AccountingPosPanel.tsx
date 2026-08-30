@@ -328,8 +328,71 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
 
+  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications';
+
+  const getSubTabFromPath = (pathname: string): PosSubTab => {
+    const p = pathname.toLowerCase();
+    if (p.includes('/shopmanage/anbar') || p.includes('/shopmanage/inventory')) return 'inventory';
+    if (p.includes('/shopmanage/hesabdari') || p.includes('/shopmanage/ledger')) return 'ledger';
+    if (p.includes('/shopmanage/customers') || p.includes('/shopmanage/moshtarian')) return 'customers';
+    if (p.includes('/shopmanage/reports') || p.includes('/shopmanage/gozareshat')) return 'reports';
+    if (p.includes('/shopmanage/monthly') || p.includes('/shopmanage/compare')) return 'monthly_compare';
+    if (p.includes('/shopmanage/staff')) return 'staff_management';
+    if (p.includes('/shopmanage/customer-app') || p.includes('/shopmanage/app')) return 'customer_app';
+    if (p.includes('/shopmanage/analytics') || p.includes('/shopmanage/amar')) return 'analytics';
+    if (p.includes('/shopmanage/tickets') || p.includes('/shopmanage/ticket')) return 'tickets';
+    if (p.includes('/shopmanage/sms') || p.includes('/shopmanage/payamak')) return 'sms_management';
+    if (p.includes('/shopmanage/notifications') || p.includes('/shopmanage/notif')) return 'notifications';
+    if (p.includes('/shopmanage/sandogh') || p.includes('/shopmanage/pos')) return 'pos';
+    return 'pos';
+  };
+
+  const getPathForSubTab = (tab: PosSubTab): string => {
+    const map: Record<PosSubTab, string> = {
+      pos: '/shopmanage/sandogh',
+      inventory: '/shopmanage/anbar',
+      customers: '/shopmanage/customers',
+      reports: '/shopmanage/reports',
+      monthly_compare: '/shopmanage/monthly',
+      ledger: '/shopmanage/hesabdari',
+      tickets: '/shopmanage/tickets',
+      sms_management: '/shopmanage/sms',
+      notifications: '/shopmanage/notifications',
+      staff_management: '/shopmanage/staff',
+      customer_app: '/shopmanage/customer-app',
+      analytics: '/shopmanage/analytics',
+    };
+    return map[tab] || '/shopmanage/sandogh';
+  };
+
   // Active Sub Tab
-  const [activeSubTab, setActiveSubTab] = useState<'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications'>('pos');
+  const [activeSubTab, setActiveSubTabState] = useState<PosSubTab>(() => {
+    if (typeof window !== 'undefined') {
+      return getSubTabFromPath(window.location.pathname);
+    }
+    return 'pos';
+  });
+
+  const setActiveSubTab = (tab: PosSubTab, pushState: boolean = true) => {
+    setActiveSubTabState(tab);
+    if (pushState && typeof window !== 'undefined') {
+      const target = getPathForSubTab(tab);
+      if (window.location.pathname !== target) {
+        window.history.pushState({ subTab: tab }, '', target);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handleSubPopState = () => {
+      if (typeof window !== 'undefined' && window.location.pathname.includes('/shopmanage')) {
+        const tab = getSubTabFromPath(window.location.pathname);
+        setActiveSubTabState(tab);
+      }
+    };
+    window.addEventListener('popstate', handleSubPopState);
+    return () => window.removeEventListener('popstate', handleSubPopState);
+  }, []);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showToolsDropdown, setShowToolsDropdown] = useState(false);
 

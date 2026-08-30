@@ -80,8 +80,71 @@ const CATEGORIES: { id: CigaretteCategory; label: string }[] = [
   { id: 'accessories', label: 'ملزومات، فندک کلیپر و اکسسوری عمده' },
 ];
 
+function getTabFromPath(pathname: string): NavigationTab {
+  const p = pathname.toLowerCase();
+  if (p.includes('/shopmanage') || p.includes('/sandogh') || p.includes('/pos')) return 'accounting-pos';
+  if (p.includes('/azarakhsh') || p.includes('/api-docs') || p.includes('/django-docs')) return 'django-docs';
+  if (p.includes('/contact-us') || p.includes('/contact') || p.includes('/tamas')) return 'contact';
+  if (p.includes('/login') || p.includes('/user-panel') || p.includes('/profile') || p.includes('/hesab')) return 'user-panel';
+  if (p.includes('/invoice') || p.includes('/pishfactor')) return 'invoice';
+  if (p.includes('/tracking') || p.includes('/rahgiri')) return 'tracking';
+  if (p.includes('/shipping') || p.includes('/barbari')) return 'shipping';
+  if (p.includes('/blog') || p.includes('/maghalat')) return 'blog';
+  if (p.includes('/live-prices') || p.includes('/gheymat')) return 'live-prices';
+  if (p.includes('/django-crm') || p.includes('/crm')) return 'django-crm';
+  return 'catalog';
+}
+
+function getPathForTab(tab: NavigationTab): string {
+  switch (tab) {
+    case 'catalog': return '/';
+    case 'invoice': return '/invoice';
+    case 'tracking': return '/tracking';
+    case 'contact': return '/contact-us';
+    case 'shipping': return '/shipping';
+    case 'blog': return '/blog';
+    case 'user-panel': return '/login';
+    case 'live-prices': return '/live-prices';
+    case 'django-crm': return '/django-crm';
+    case 'django-docs': return '/azarakhsh';
+    case 'accounting-pos': return '/shopmanage/sandogh';
+    default: return '/';
+  }
+}
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<NavigationTab>('catalog');
+  const [activeTab, setActiveTabState] = useState<NavigationTab>(() => {
+    if (typeof window !== 'undefined') {
+      return getTabFromPath(window.location.pathname);
+    }
+    return 'catalog';
+  });
+
+  const setActiveTab = (tab: NavigationTab, pushHistory: boolean = true) => {
+    setActiveTabState(tab);
+    if (pushHistory && typeof window !== 'undefined') {
+      const target = getPathForTab(tab);
+      // If switching to accounting-pos but already on a shopmanage sub-route, preserve it
+      if (tab === 'accounting-pos' && window.location.pathname.startsWith('/shopmanage')) {
+        return;
+      }
+      if (window.location.pathname !== target) {
+        window.history.pushState({ tab }, '', target);
+      }
+    }
+  };
+
+  // Sync with browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      if (typeof window !== 'undefined') {
+        const nextTab = getTabFromPath(window.location.pathname);
+        setActiveTabState(nextTab);
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
   
   // Ensure strict light mode on mount and clear any dark mode persistence
   useEffect(() => {
@@ -91,18 +154,6 @@ export default function App() {
     } catch {}
     document.documentElement.classList.remove('dark');
     document.body.classList.remove('dark');
-  }, []);
-
-  // Handle URL navigation
-  const isShopManage = window.location.pathname.includes('/shopmanage');
-  const isAzarakhsh = window.location.pathname.includes('/azarakhsh');
-  useEffect(() => {
-    if (isShopManage) {
-      setActiveTab('accounting-pos');
-    }
-    if (isAzarakhsh) {
-      setActiveTab('django-docs');
-    }
   }, []);
 
   // User Profile Authentication State (Phone based)
@@ -547,19 +598,19 @@ export default function App() {
   const cartTotalCartons = cartItems.reduce((acc, curr) => curr.unit === 'carton' ? acc + curr.quantity : acc, 0);
   const cartTotalBoxes = cartItems.reduce((acc, curr) => curr.unit === 'box' ? acc + curr.quantity : acc, 0);
 
-  if (isShopManage) {
+  if (activeTab === 'accounting-pos') {
     return (
       <AccountingPosPanel
         products={products}
         onUpdateProductsStock={setProducts}
-        onReturnToStore={() => window.location.href = '/'}
+        onReturnToStore={() => setActiveTab('catalog')}
       />
     );
   }
 
-  if (isAzarakhsh) {
+  if (activeTab === 'django-docs') {
     return (
-      <AzarakhshApiDocs onReturnToApp={() => window.location.href = '/'} />
+      <AzarakhshApiDocs onReturnToApp={() => setActiveTab('catalog')} />
     );
   }
 
@@ -835,6 +886,9 @@ export default function App() {
         {activeTab === 'contact' && (
           <ContactAndSupport
             showToast={showToast}
+            footerData={footerSettings}
+            djangoConfig={djangoConfig}
+            onOpenUserPanel={() => setActiveTab('user-panel')}
           />
         )}
 

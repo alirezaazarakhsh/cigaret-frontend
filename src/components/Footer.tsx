@@ -48,23 +48,54 @@ export const Footer: React.FC<FooterProps> = ({ footerData, djangoConfig, onNavi
 
   const handleLinkClick = (url: string) => {
     if (!url) return;
-    if (url.startsWith('http://') || url.startsWith('https://')) {
-      window.open(url, '_blank', 'noopener,noreferrer');
+    const trimmed = url.trim();
+
+    // 1. Check for explicit protocol or protocol-relative URLs
+    if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('//')) {
+      const full = trimmed.startsWith('//') ? `https:${trimmed}` : trimmed;
+      window.open(full, '_blank', 'noopener,noreferrer');
       return;
     }
-    // Internal Tab navigation
-    const cleaned = url.replace(/^\//, '').trim();
+
+    // 2. Check for tel: or mailto:
+    if (trimmed.startsWith('tel:') || trimmed.startsWith('mailto:')) {
+      window.location.href = trimmed;
+      return;
+    }
+
+    // 3. Check for external domain patterns (e.g., sevinhost.ir, www.google.com, t.me/..., instagram.com/...)
+    const isLikelyExternal = 
+      trimmed.startsWith('www.') || 
+      /^[a-zA-Z0-9-]+\.(ir|com|org|net|io|app|co|me|xyz|biz|info)(\/.*)?$/i.test(trimmed) ||
+      trimmed.includes('t.me/') ||
+      trimmed.includes('instagram.com/') ||
+      trimmed.includes('telegram.me/');
+
+    if (isLikelyExternal) {
+      window.open(`https://${trimmed}`, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // 4. Internal Tab navigation
+    const cleaned = trimmed.replace(/^\//, '').trim().toLowerCase();
     if (cleaned === 'catalog' || cleaned === '') onNavigateTab('catalog');
-    else if (cleaned === 'invoice') onNavigateTab('invoice');
-    else if (cleaned === 'tracking') onNavigateTab('tracking');
-    else if (cleaned === 'contact') onNavigateTab('contact');
-    else if (cleaned === 'shipping') onNavigateTab('shipping');
-    else if (cleaned === 'blog') onNavigateTab('blog');
-    else if (cleaned === 'shopmanage' || cleaned === 'pos') onNavigateTab('accounting-pos');
-    else if (cleaned === 'azarakhsh') onNavigateTab('django-docs');
-    else if (cleaned === 'user-panel' || cleaned === 'profile') onNavigateTab('user-panel');
+    else if (cleaned === 'invoice' || cleaned === 'pishfactor') onNavigateTab('invoice');
+    else if (cleaned === 'tracking' || cleaned === 'rahgiri') onNavigateTab('tracking');
+    else if (cleaned === 'contact' || cleaned === 'contact-us' || cleaned === 'tamas') onNavigateTab('contact');
+    else if (cleaned === 'shipping' || cleaned === 'barbari') onNavigateTab('shipping');
+    else if (cleaned === 'blog' || cleaned === 'maghalat') onNavigateTab('blog');
+    else if (cleaned === 'live-prices' || cleaned === 'gheymat') onNavigateTab('live-prices');
+    else if (cleaned === 'shopmanage' || cleaned === 'pos' || cleaned === 'sandogh' || cleaned.startsWith('shopmanage/')) onNavigateTab('accounting-pos');
+    else if (cleaned === 'azarakhsh' || cleaned === 'django-docs' || cleaned === 'api-docs') onNavigateTab('django-docs');
+    else if (cleaned === 'user-panel' || cleaned === 'profile' || cleaned === 'login' || cleaned === 'hesab') onNavigateTab('user-panel');
+    else if (cleaned === 'django-crm') onNavigateTab('django-crm');
     else {
-      window.location.href = url;
+      // Fallback: If it starts with / treat as router path, else open as https external
+      if (trimmed.startsWith('/')) {
+        onNavigateTab('catalog');
+      } else {
+        window.open(`https://${trimmed}`, '_blank', 'noopener,noreferrer');
+      }
     }
   };
 

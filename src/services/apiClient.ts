@@ -58,6 +58,12 @@ async function request<T = any>(
     ...(options.headers || {}),
   };
 
+  if (method === 'GET') {
+    headers['Cache-Control'] = 'no-cache, no-store, must-revalidate';
+    headers['Pragma'] = 'no-cache';
+    headers['Expires'] = '0';
+  }
+
   if (token && !options.skipAuth) {
     // Standard Bearer or Token header
     headers['Authorization'] = token.startsWith('Token ') || token.startsWith('Bearer ') ? token : `Bearer ${token}`;

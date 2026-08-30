@@ -12,18 +12,35 @@ import {
   PhoneCall, 
   MessageSquare,
   FileText,
-  AlertCircle
+  AlertCircle,
+  ExternalLink,
+  Instagram,
+  SendHorizontal
 } from 'lucide-react';
+import { FooterSettingsData, DjangoCrmConfig } from '../types';
 
 interface ContactAndSupportProps {
   showToast: (msg: string) => void;
   onOpenUserPanel?: () => void;
+  footerData?: FooterSettingsData | null;
+  djangoConfig?: DjangoCrmConfig;
 }
 
 export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
   showToast,
   onOpenUserPanel,
+  footerData,
+  djangoConfig,
 }) => {
+  const companyTitle = footerData?.company_title || djangoConfig?.companyName || 'سوین';
+  const phoneNumber = footerData?.phone_number || djangoConfig?.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹';
+  const emergencyPhone = footerData?.emergency_phone || '۰۹۳۵۱۱۱۲۲۳۳';
+  const addressText = footerData?.address_text || 'تهران، منطقه ۵، بزرگراه شهید آبشناسان، جنت‌آباد (انبار مرکزی پخش دخانیات سوین)';
+  const workingHours = footerData?.working_hours || 'شنبه تا چهارشنبه: ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها: ۸:۰۰ الی ۱۴:۰۰';
+  const companyDesc = footerData?.description_text || 'مرکز دپو، پلمپ و بارگیری مستقیم انواع سیگار اورجینال، تنباکو و تجهیزات IQOS در سراسر کشور.';
+
+  const cleanPhone = phoneNumber.replace(/[^0-9]/g, '');
+
   const [formData, setFormData] = useState({
     fullName: '',
     phone: '',
@@ -45,7 +62,7 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
     setTimeout(() => {
       setIsSubmitting(false);
       setIsSubmitted(true);
-      showToast('پیام شما با موفقیت ثبت شد. کارشناسان فروش جنت‌آباد به زودی با شما تماس خواهند گرفت.');
+      showToast(`پیام شما با موفقیت ثبت شد. کارشناسان فروش ${companyTitle} به زودی با شما تماس خواهند گرفت.`);
       setFormData({
         fullName: '',
         phone: '',
@@ -63,29 +80,29 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
       <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs mb-8">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 ">
-                مرکز تماس و ارتباط با واحد فروش سوین
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+                مرکز تماس و ارتباط با واحد فروش {companyTitle}
               </span>
-              <span className="text-xs text-slate-500">
-                انبار مرکزی جنت‌آباد، تهران
+              <span className="text-xs text-slate-500 font-medium">
+                انبار مرکزی و دفتر فروش
               </span>
             </div>
             <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
-              تماس با سامانه پخش عمده دخانیات سوین
+              تماس با سامانه پخش عمده {companyTitle}
             </h1>
             <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
-              جهت استعلام موجودی تیراژ بالا، هماهنگی بارگیری مستقیم از انبار جنت‌آباد، استعلام بارنامه و قراردادهای تأمین بنکداری با ما در ارتباط باشید.
+              {companyDesc}
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 shrink-0">
             <a
-              href="tel:09120759419"
+              href={`tel:${cleanPhone || '09120759419'}`}
               className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs sm:text-sm px-5 py-3.5 rounded-2xl shadow-lg shadow-emerald-600/20 transition-all"
             >
               <PhoneCall className="w-4 h-4" />
-              <span>تماس مستقیم: ۰۹۱۲۰۷۵۹۴۱۹</span>
+              <span>تماس مستقیم: {phoneNumber}</span>
             </a>
           </div>
         </div>
@@ -95,9 +112,9 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
         
         {/* Left Column: Direct Contact Form (7 cols) */}
         <div className="lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xs">
-          <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100 ">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
             <div>
-              <h2 className="text-lg font-black text-slate-900 ">فرم ارسال پیام و درخواست بنکداری</h2>
+              <h2 className="text-lg font-black text-slate-900">فرم ارسال پیام و درخواست بنکداری</h2>
               <p className="text-xs text-slate-500 mt-0.5">پاسخگویی در کمتر از ۳۰ دقیقه کاری</p>
             </div>
             <MessageSquare className="w-5 h-5 text-blue-600" />
@@ -108,12 +125,12 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
               <CheckCircle2 className="w-12 h-12 text-emerald-600 mx-auto" />
               <h3 className="text-base font-black">پیام شما با موفقیت ثبت شد</h3>
               <p className="text-xs leading-relaxed max-w-md mx-auto">
-                همکاران ما در واحد فروش و ترابری انبار مرکزی جنت‌آباد درخواست شما را بررسی نموده و با شماره ثبت شده تماس حاصل خواهند نمود.
+                همکاران ما در واحد فروش و ترابری درخواست شما را بررسی نموده و با شماره ثبت شده تماس حاصل خواهند نمود.
               </p>
               <button
                 type="button"
                 onClick={() => setIsSubmitted(false)}
-                className="mt-2 text-xs font-bold text-emerald-700 bg-white border border-emerald-300 px-4 py-2 rounded-xl hover:bg-emerald-100 transition-colors"
+                className="mt-2 text-xs font-bold text-emerald-700 bg-white border border-emerald-300 px-4 py-2 rounded-xl hover:bg-emerald-100 transition-colors cursor-pointer"
               >
                 ارسال پیام دیگر
               </button>
@@ -143,7 +160,7 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
                     type="tel"
                     dir="ltr"
                     required
-                    placeholder="09120759419"
+                    placeholder={cleanPhone || '09120759419'}
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs font-mono text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
@@ -175,7 +192,7 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
                     className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3.5 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                   >
                     <option value="استعلام قیمت و خرید عمده">استعلام قیمت و خرید عمده (کارتن / تیراژ)</option>
-                    <option value="هماهنگی تحویل حضوری انبار جنت‌آباد">هماهنگی تحویل حضوری در انبار جنت‌آباد</option>
+                    <option value="هماهنگی تحویل حضوری انبار">هماهنگی تحویل حضوری در انبار</option>
                     <option value="پیگیری بیجک و بارنامه باربری">پیگیری بیجک و بارنامه باربری (وطن، جهانگیر)</option>
                     <option value="تأیید فیش واریزی و صدور فاکتور">تأیید فیش واریزی و صدور فاکتور رسمی</option>
                     <option value="پیشنهاد همکاری و تأمین کالا">پیشنهاد همکاری و تأمین کالا</option>
@@ -200,14 +217,14 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-black text-xs rounded-2xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2"
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.99] text-white font-black text-xs rounded-2xl shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isSubmitting ? (
                   <span>در حال ثبت پیام...</span>
                 ) : (
                   <>
                     <Send className="w-4 h-4" />
-                    <span>ارسال پیام به واحد فروش</span>
+                    <span>ارسال پیام به واحد فروش {companyTitle}</span>
                   </>
                 )}
               </button>
@@ -221,22 +238,22 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
           {/* Warehouse Card */}
           <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xs space-y-4">
             <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 ">
+              <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
                 <Building2 className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-base font-black text-slate-900 ">انبار مرکزی سوین (تهران)</h3>
+                <h3 className="text-base font-black text-slate-900">انبار مرکزی {companyTitle}</h3>
                 <p className="text-xs text-slate-500">مرکز دپو، پلمپ و بارگیری سراسری</p>
               </div>
             </div>
 
-            <div className="space-y-3 text-xs text-slate-600 pt-2 border-t border-slate-100 ">
+            <div className="space-y-3.5 text-xs text-slate-600 pt-3 border-t border-slate-100">
               <div className="flex items-start gap-2.5">
                 <MapPin className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                 <div>
-                  <strong>آدرس انبار:</strong>
-                  <p className="text-slate-500 mt-0.5 leading-relaxed">
-                    تهران، منطقه ۵، بزرگراه شهید آبشناسان، جنت‌آباد (انبار مرکزی پخش دخانیات سوین)
+                  <strong className="text-slate-900">آدرس انبار و دفتر مرکزی:</strong>
+                  <p className="text-slate-600 mt-0.5 leading-relaxed font-medium">
+                    {addressText}
                   </p>
                 </div>
               </div>
@@ -244,19 +261,35 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
               <div className="flex items-center gap-2.5">
                 <Phone className="w-4 h-4 text-blue-600 shrink-0" />
                 <div>
-                  <strong>تلفن واحد فروش و ثبت سفارشات:</strong>
-                  <p className="font-mono font-bold text-slate-900 mt-0.5" dir="ltr">
-                    0912 075 9419
+                  <strong className="text-slate-900">تلفن واحد فروش و ثبت سفارشات:</strong>
+                  <p className="font-mono font-bold text-slate-900 mt-0.5 text-sm" dir="ltr">
+                    <a href={`tel:${cleanPhone || '09120759419'}`} className="hover:text-blue-600 transition-colors">
+                      {phoneNumber}
+                    </a>
                   </p>
                 </div>
               </div>
 
+              {emergencyPhone && (
+                <div className="flex items-center gap-2.5">
+                  <PhoneCall className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <strong className="text-slate-900">پشتیبانی ضروری و پیگیری بارنامه:</strong>
+                    <p className="font-mono font-bold text-emerald-700 mt-0.5" dir="ltr">
+                      <a href={`tel:${emergencyPhone.replace(/[^0-9]/g, '')}`} className="hover:underline">
+                        {emergencyPhone}
+                      </a>
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center gap-2.5">
                 <Clock className="w-4 h-4 text-emerald-600 shrink-0" />
                 <div>
-                  <strong>ساعات کاری و بارگیری:</strong>
-                  <p className="text-slate-500 mt-0.5">
-                    شنبه تا چهارشنبه: ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها: ۸:۰۰ الی ۱۴:۰۰
+                  <strong className="text-slate-900">ساعات کاری و بارگیری:</strong>
+                  <p className="text-slate-600 mt-0.5">
+                    {workingHours}
                   </p>
                 </div>
               </div>
@@ -264,20 +297,41 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
               <div className="flex items-center gap-2.5">
                 <Truck className="w-4 h-4 text-amber-600 shrink-0" />
                 <div>
-                  <strong>باربری‌های طرف قرارداد:</strong>
-                  <p className="text-slate-500 mt-0.5">
-                    باربری وطن، جهانگیر، پیام‌شمس و ناوگان اختصاصی تهران
+                  <strong className="text-slate-900">باربری‌های طرف قرارداد:</strong>
+                  <p className="text-slate-600 mt-0.5">
+                    باربری وطن، جهانگیر، پیام‌شمس، پیشتاز و ناوگان اختصاصی تهران
                   </p>
                 </div>
               </div>
             </div>
+
+            {/* Social links if configured in footerData */}
+            {footerData?.social_links && footerData.social_links.length > 0 && (
+              <div className="pt-3 border-t border-slate-100">
+                <span className="text-[11px] font-bold text-slate-700 block mb-2">کانال‌ها و شبکه‌های اجتماعی:</span>
+                <div className="flex flex-wrap gap-2">
+                  {footerData.social_links.map((s, idx) => (
+                    <a
+                      key={idx}
+                      href={s.url.startsWith('http') ? s.url : `https://${s.url}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 hover:text-blue-700 text-xs font-bold transition-colors"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      <span>{s.title || s.platform}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* User Panel Promo Box */}
           <div className="bg-gradient-to-br from-blue-900 to-slate-900 text-white rounded-3xl p-6 shadow-md border border-blue-800/50 space-y-3">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-5 h-5 text-emerald-400" />
-              <h4 className="text-sm font-black">پنل اختصاصی بنکداران سوین</h4>
+              <h4 className="text-sm font-black">پنل اختصاصی بنکداران {companyTitle}</h4>
             </div>
             <p className="text-xs text-slate-300 leading-relaxed">
               با شماره موبایل خود وارد شوید تا پیش‌فاکتورهای رسمی با تخفیف تیراژ برای شما صادر شده و بارنامه‌ها را به صورت آنلاین پیگیری نمایید.
@@ -286,7 +340,7 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
               <button
                 type="button"
                 onClick={onOpenUserPanel}
-                className="w-full py-2.5 bg-blue-500 hover:bg-blue-400 text-white font-black text-xs rounded-xl transition-colors shadow-xs"
+                className="w-full py-2.5 bg-blue-500 hover:bg-blue-400 text-white font-black text-xs rounded-xl transition-colors shadow-xs cursor-pointer"
               >
                 ورود به پنل بنکداری
               </button>

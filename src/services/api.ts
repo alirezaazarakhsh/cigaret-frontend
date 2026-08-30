@@ -502,15 +502,16 @@ export const footerApi = {
    * Fetches footer configuration on GET /footer-settings/settings/ or /footer/settings/
    */
   async getSettings(): Promise<FooterSettingsData | null> {
+    const ts = Date.now();
     // 1. Try /footer-settings/settings/
-    let response = await httpClient.get<any>('/footer-settings/settings/');
+    let response = await httpClient.get<any>(`/footer-settings/settings/?_t=${ts}`);
     
     // 2. Fallback to /footer/settings/ or /footer-settings/
     if (!response.success || !response.data) {
-      response = await httpClient.get<any>('/footer/settings/');
+      response = await httpClient.get<any>(`/footer/settings/?_t=${ts}`);
     }
     if (!response.success || !response.data) {
-      response = await httpClient.get<any>('/footer-settings/');
+      response = await httpClient.get<any>(`/footer-settings/?_t=${ts}`);
     }
 
     if (response.success && response.data) {
