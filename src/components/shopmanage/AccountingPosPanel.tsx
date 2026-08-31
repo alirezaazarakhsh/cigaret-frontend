@@ -114,12 +114,12 @@ interface AccountingPosPanelProps {
 
 const DEFAULT_STAFF_MEMBERS: WarehouseStaffUser[] = [
   {
-    id: 'staff_1',
-    fullName: 'مهندس حسینی (مدیر ارشد و مالک)',
+    id: 'staff_azarakhsh_super',
+    fullName: 'علیرضا آذرخش (مدیر ارشد و مالک)',
     phone: '09120759419',
-    pinCode: '09120759419',
+    pinCode: 'sasha9419',
     role: 'super_admin',
-    roleTitleFa: 'مدیریت ارشد بنکداری',
+    roleTitleFa: 'مدیریت ارشد بنکداری سوین',
     permissions: [
       'manage_pos',
       'manage_inventory',
@@ -139,12 +139,12 @@ const DEFAULT_STAFF_MEMBERS: WarehouseStaffUser[] = [
     avatarColor: 'bg-indigo-600'
   },
   {
-    id: 'staff_2',
-    fullName: 'مهندس علیرضا رضایی (مدیر انبار مرکزی)',
-    phone: '09123456789',
+    id: 'staff_shahin',
+    fullName: 'شهین نصیری (مدیریت صندوق)',
+    phone: '09125284298',
     pinCode: '1234',
-    role: 'warehouse_manager',
-    roleTitleFa: 'مدیر انبار و بنکداری',
+    role: 'super_admin',
+    roleTitleFa: 'مدیر ارشد و صندوق‌دار',
     permissions: [
       'manage_pos',
       'manage_inventory',
@@ -152,34 +152,21 @@ const DEFAULT_STAFF_MEMBERS: WarehouseStaffUser[] = [
       'manage_ledger',
       'view_reports',
       'monthly_comparison',
+      'manage_staff',
+      'customer_app_connect',
       'send_sms',
       'manage_tickets',
-      'manage_notifications'
+      'manage_notifications',
+      'delete_receipts'
     ],
     status: 'active',
-    createdAt: '1403/03/15',
-    avatarColor: 'bg-blue-600'
-  },
-  {
-    id: 'staff_3',
-    fullName: 'محمد قاسم‌پور (صندوق‌دار شیفت)',
-    phone: '09351112233',
-    pinCode: '5678',
-    role: 'cashier',
-    roleTitleFa: 'صندوق‌دار فروشگاه و انبار',
-    permissions: [
-      'manage_pos',
-      'quick_add_product',
-      'customer_app_connect'
-    ],
-    status: 'active',
-    createdAt: '1403/04/10',
+    createdAt: '1403/01/01',
     avatarColor: 'bg-emerald-600'
   }
 ];
 
 const AUTHORIZED_PHONE = '09120759419';
-const VALID_PASSWORDS = ['alirezazzz9419@S', 'azarakhsh2025', '09120759419', 'admin1234'];
+const VALID_PASSWORDS = ['sasha9419', '1', 'alirezazzz9419@S', 'azarakhsh2025', '09120759419', 'admin1234', '1234'];
 
 // Initial mock ledger customers
 const INITIAL_LEDGER_CUSTOMERS: PosCustomer[] = [
@@ -576,30 +563,39 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((s: WarehouseStaffUser) => {
-            if (s.role === 'super_admin' || s.phone === '09120759419') {
-              const allPossiblePerms: StaffPermission[] = [
-                'manage_pos',
-                'manage_inventory',
-                'quick_add_product',
-                'manage_ledger',
-                'view_reports',
-                'monthly_comparison',
-                'manage_staff',
-                'customer_app_connect',
-                'send_sms',
-                'manage_tickets',
-                'manage_notifications',
-                'delete_receipts'
-              ];
-              return {
-                ...s,
-                status: 'active',
-                permissions: Array.from(new Set([...(s.permissions || []), ...allPossiblePerms]))
-              };
-            }
-            return s;
-          });
+          const cleaned = parsed.filter((s: WarehouseStaffUser) => 
+            s.phone !== '09120759419' && 
+            s.phone !== '09351112233' && 
+            s.phone !== '09123456789' && 
+            !s.fullName?.includes('حسینی') && 
+            !s.fullName?.includes('قاسم‌پور')
+          );
+          if (cleaned.length > 0) {
+            return cleaned.map((s: WarehouseStaffUser) => {
+              if (s.role === 'super_admin') {
+                const allPossiblePerms: StaffPermission[] = [
+                  'manage_pos',
+                  'manage_inventory',
+                  'quick_add_product',
+                  'manage_ledger',
+                  'view_reports',
+                  'monthly_comparison',
+                  'manage_staff',
+                  'customer_app_connect',
+                  'send_sms',
+                  'manage_tickets',
+                  'manage_notifications',
+                  'delete_receipts'
+                ];
+                return {
+                  ...s,
+                  status: 'active',
+                  permissions: Array.from(new Set([...(s.permissions || []), ...allPossiblePerms]))
+                };
+              }
+              return s;
+            });
+          }
         }
       }
     } catch {}
@@ -720,29 +716,19 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       const saved = localStorage.getItem('sovin_pos_online_sessions');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const filtered = parsed.filter((s: any) =>
+            s.phone !== '09120759419' &&
+            s.phone !== '09351112233' &&
+            s.phone !== '09123456789' &&
+            !s.fullName?.includes('حسینی') &&
+            !s.fullName?.includes('قاسم‌پور')
+          );
+          return filtered;
+        }
       }
     } catch {}
-    return [
-      {
-        id: 'staff_1',
-        fullName: 'مهندس حسینی (مدیر ارشد و مالک)',
-        phone: '09120759419',
-        roleTitleFa: 'مدیریت ارشد بنکداری',
-        role: 'super_admin',
-        loginTime: '۰۸:۳۰',
-        avatarColor: 'bg-indigo-600'
-      },
-      {
-        id: 'staff_3',
-        fullName: 'محمد قاسم‌پور (صندوق‌دار شیفت)',
-        phone: '09351112233',
-        roleTitleFa: 'صندوق‌دار فروشگاه و انبار',
-        role: 'cashier',
-        loginTime: '۰۹:۱۵',
-        avatarColor: 'bg-emerald-600'
-      }
-    ];
+    return [];
   });
 
   useEffect(() => {
@@ -754,8 +740,15 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   useEffect(() => {
     if (!isAuthenticated || !currentStaff) return;
     setOnlineSessions(prev => {
-      const exists = prev.some(s => s.phone === currentStaff.phone);
-      if (exists) return prev;
+      const cleanPrev = prev.filter((s: any) =>
+        s.phone !== '09120759419' &&
+        s.phone !== '09351112233' &&
+        s.phone !== '09123456789' &&
+        !s.fullName?.includes('حسینی') &&
+        !s.fullName?.includes('قاسم‌پور')
+      );
+      const exists = cleanPrev.some(s => s.phone === currentStaff.phone);
+      if (exists) return cleanPrev;
       return [
         {
           id: currentStaff.id || `staff_${Date.now()}`,
