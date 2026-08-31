@@ -5,6 +5,7 @@ import { AppDocTemplate, TableErdMeta, ApiEndpointMeta } from './AppDocTemplate'
 export const PosUserDocs: React.FC = () => {
   const modelsCode = `from django.db import models
 from django.conf import settings
+from django.contrib.auth.hashers import make_password
 
 class PosStaff(models.Model):
     ROLE_CHOICES = (
@@ -16,6 +17,9 @@ class PosStaff(models.Model):
     
     # اتصال به هسته اصلی کاربران
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='pos_profile', verbose_name='کاربر')
+    
+    # فیلد رمز عبور / پین‌کد اختصاصی (هش‌شده)
+    password = models.CharField(max_length=128, blank=True, null=True, verbose_name='رمز عبور / پین‌کد (هش‌شده)')
     
     role = models.CharField(max_length=30, choices=ROLE_CHOICES, default='cashier', verbose_name='نقش سازمانی پیش‌فرض')
     role_title = models.CharField(max_length=100, blank=True, null=True, verbose_name='عنوان فارسی سمت')
@@ -40,21 +44,47 @@ class PosStaff(models.Model):
         verbose_name = 'پرسنل صندوق و انبار'
         verbose_name_plural = 'لیست پرسنل صندوق و انبار'
 
-    def __str__(self):
-        return f"{self.user.first_name} ({self.get_role_display()})"`;
+    def save(self, *args, **kwargs):
+        # اگر رمز عبور وارد شده و هنوز هش نشده باشد
+        if self.password and not (self.password.startswith('pbkdf2_') or self.password.startswith('argon2')):
+            raw_password = self.password
+            self.password = make_password(raw_password)
+            # همگام‌سازی رمز عبور با کاربر اصلی (User)
+            if self.user_id:
+                self.user.set_password(raw_password)
+                self.user.save()
+        super().save(*args, **kwargs)
 
-  const adminCode = `from django.contrib import admin
+    def __str__(self):
+        name = getattr(self.user, 'first_name', None) or getattr(self.user, 'full_name', None) or getattr(self.user, 'username', str(self.user))
+        return f"{name} ({self.get_role_display()})"`;
+
+  const adminCode = `from django import forms
+from django.contrib import admin
 from .models import PosStaff
+
+class PosStaffAdminForm(forms.ModelForm):
+    password = forms.CharField(
+        label='رمز عبور / پین‌کد',
+        widget=forms.PasswordInput(render_value=True),
+        required=False,
+        help_text='پین‌کد پرسنل را وارد کنید. موقع ذخیره به‌صورت خودکار هش می‌شود.'
+    )
+
+    class Meta:
+        model = PosStaff
+        fields = '__all__'
 
 @admin.register(PosStaff)
 class PosStaffAdmin(admin.ModelAdmin):
+    form = PosStaffAdminForm
     list_display = ('user_name', 'user_phone', 'role', 'role_title', 'is_active')
     list_filter = ('role', 'is_active', 'perm_manage_pos', 'perm_manage_inventory')
-    search_fields = ('user__username', 'user__first_name', 'role_title')
+    search_fields = ('role_title',)
     
     fieldsets = (
-        ('اطلاعات پایه', {
-            'fields': ('user', 'role', 'role_title', 'is_active')
+        ('اطلاعات پایه و احراز هویت', {
+            'fields': ('user', 'password', 'role', 'role_title', 'is_active')
         }),
         ('سطوح دسترسی اختصاصی', {
             'fields': (
@@ -67,19 +97,54 @@ class PosStaffAdmin(admin.ModelAdmin):
     )
 
     def user_name(self, obj):
-        return obj.user.first_name
+        if not obj.user:
+            return '-'
+        return (
+            getattr(obj.user, 'first_name', None) or 
+            getattr(obj.user, 'full_name', None) or 
+            getattr(obj.user, 'phone', None) or 
+            getattr(obj.user, 'mobile', None) or 
+            getattr(obj.user, 'username', None) or 
+            str(obj.user)
+        )
     user_name.short_description = 'نام و نام‌خانوادگی'
 
     def user_phone(self, obj):
-        return obj.user.username
+        if not obj.user:
+            return '-'
+        return (
+            getattr(obj.user, 'phone', None) or 
+            getattr(obj.user, 'mobile', None) or 
+            getattr(obj.user, 'phone_number', None) or 
+            getattr(obj.user, 'username', None) or 
+            str(obj.user)
+        )
     user_phone.short_description = 'شماره همراه'`;
 
-  const viewsCode = `import json
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+  const serializersCode = `from rest_framework import serializers
+from .models import PosStaff
+
+class PosStaffCreateSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=15)
+    full_name = serializers.CharField(max_length=100)
+    password = serializers.CharField(max_length=50)
+    role = serializers.CharField(max_length=30, default='cashier')
+    roleTitleFa = serializers.CharField(max_length=100, default='صندوق‌دار')
+    permissions = serializers.ListField(child=serializers.CharField(max_length=50), required=False)
+
+class LoginSerializer(serializers.Serializer):
+    phone = serializers.CharField(max_length=15)
+    password = serializers.CharField(max_length=50)`;
+
+  const viewsCode = `from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny
 from django.contrib.auth import get_user_model, authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+from drf_yasg.utils import swagger_auto_schema
 from .models import PosStaff
+from .serializers import PosStaffCreateSerializer, LoginSerializer
 
 User = get_user_model()
 
@@ -91,158 +156,361 @@ def get_tokens_for_user(user):
         'access': str(refresh.access_token),
     }
 
-@csrf_exempt
-def login_staff_api(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            phone = data.get('phone')
-            password = data.get('password')
+class LoginStaffAPIView(APIView):
+    """
+    اندپوینت ورود پرسنل صندوق و انبار
+    توضیحات: دریافت اطلاعات کاربر، بررسی نقش و مجوزها، و صدور توکن‌های JWT
+    """
+    permission_classes = [AllowAny]
 
-            if not phone or not password:
-                return JsonResponse({"success": False, "message": "شماره همراه و پین‌کد الزامی است."}, status=400)
+    @swagger_auto_schema(
+        operation_summary="ورود پرسنل صندوق",
+        request_body=LoginSerializer
+    )
+    def post(self, request):
+        phone = request.data.get('phone')
+        password = request.data.get('password')
 
-            user = authenticate(request, username=phone, password=password)
-            if user is not None:
-                tokens = get_tokens_for_user(user)
-                
-                # Check if user has a PosStaff profile
-                try:
-                    pos_staff = user.pos_profile
-                    role = pos_staff.role
-                    role_title = pos_staff.role_title
-                    permissions = []
-                    # Extract active permissions
-                    if pos_staff.perm_manage_pos: permissions.append('manage_pos')
-                    if pos_staff.perm_manage_inventory: permissions.append('manage_inventory')
-                    if pos_staff.perm_quick_add_product: permissions.append('quick_add_product')
-                    if pos_staff.perm_manage_ledger: permissions.append('manage_ledger')
-                    if pos_staff.perm_view_reports: permissions.append('view_reports')
-                    if pos_staff.perm_monthly_comparison: permissions.append('monthly_comparison')
-                    if pos_staff.perm_customer_app_connect: permissions.append('customer_app_connect')
-                    if pos_staff.perm_manage_staff: permissions.append('manage_staff')
-                    if pos_staff.perm_send_sms: permissions.append('send_sms')
-                    if pos_staff.perm_manage_tickets: permissions.append('manage_tickets')
-                    if pos_staff.perm_manage_notifications: permissions.append('manage_notifications')
-                    if pos_staff.perm_delete_receipts: permissions.append('delete_receipts')
-                except PosStaff.DoesNotExist:
-                    # User is a regular Django user but not explicitly a POS staff.
-                    # We can allow them if they are superuser.
-                    if user.is_superuser:
-                        role = 'super_admin'
-                        role_title = 'مدیر ارشد سیستم'
-                        permissions = [
-                            'manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger',
-                            'view_reports', 'monthly_comparison', 'customer_app_connect',
-                            'manage_staff', 'send_sms', 'manage_tickets', 'manage_notifications', 'delete_receipts'
-                        ]
-                    else:
-                        return JsonResponse({"success": False, "message": "شما دسترسی به صندوق فروشگاهی را ندارید."}, status=403)
+        if not phone or not password:
+            return Response({"success": False, "message": "شماره همراه و پین‌کد الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
 
-                response_data = {
-                    "success": True,
-                    "message": "ورود موفقیت‌آمیز بود.",
-                    "data": {
-                        "user": {
-                            "id": user.id,
-                            "phone": user.username,
-                            "fullName": user.first_name,
-                            "role": role,
-                            "roleTitleFa": role_title,
-                            "permissions": permissions,
-                            "status": "active" if user.is_active else "suspended"
-                        },
-                        "tokens": tokens # Tokens can be used in headers if cookie doesn't work well across domains
-                    }
+        user = authenticate(request, username=phone, password=password)
+        if user is not None:
+            tokens = get_tokens_for_user(user)
+            
+            # Check if user has a PosStaff profile
+            try:
+                pos_staff = user.pos_profile
+                role = pos_staff.role
+                role_title = pos_staff.role_title
+                permissions = []
+                # Extract active permissions
+                if pos_staff.perm_manage_pos: permissions.append('manage_pos')
+                if pos_staff.perm_manage_inventory: permissions.append('manage_inventory')
+                if pos_staff.perm_quick_add_product: permissions.append('quick_add_product')
+                if pos_staff.perm_manage_ledger: permissions.append('manage_ledger')
+                if pos_staff.perm_view_reports: permissions.append('view_reports')
+                if pos_staff.perm_monthly_comparison: permissions.append('monthly_comparison')
+                if pos_staff.perm_customer_app_connect: permissions.append('customer_app_connect')
+                if pos_staff.perm_manage_staff: permissions.append('manage_staff')
+                if pos_staff.perm_send_sms: permissions.append('send_sms')
+                if pos_staff.perm_manage_tickets: permissions.append('manage_tickets')
+                if pos_staff.perm_manage_notifications: permissions.append('manage_notifications')
+                if pos_staff.perm_delete_receipts: permissions.append('delete_receipts')
+            except PosStaff.DoesNotExist:
+                # User is a regular Django user but not explicitly a POS staff.
+                if user.is_superuser:
+                    role = 'super_admin'
+                    role_title = 'مدیر ارشد سیستم'
+                    permissions = [
+                        'manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger',
+                        'view_reports', 'monthly_comparison', 'customer_app_connect',
+                        'manage_staff', 'send_sms', 'manage_tickets', 'manage_notifications', 'delete_receipts'
+                    ]
+                else:
+                    return Response({"success": False, "message": "شما دسترسی به صندوق فروشگاهی را ندارید."}, status=status.HTTP_403_FORBIDDEN)
+
+            user_phone = (
+                getattr(user, 'phone', None) or 
+                getattr(user, 'mobile', None) or 
+                getattr(user, 'phone_number', None) or 
+                getattr(user, 'username', None) or 
+                str(user)
+            )
+
+            response_data = {
+                "success": True,
+                "message": "ورود موفقیت‌آمیز بود.",
+                "data": {
+                    "user": {
+                        "id": user.id,
+                        "phone": user_phone,
+                        "fullName": getattr(user, 'first_name', None) or getattr(user, 'full_name', None) or user_phone,
+                        "role": role,
+                        "roleTitleFa": role_title,
+                        "permissions": permissions,
+                        "status": "active" if user.is_active else "suspended"
+                    },
+                    "tokens": tokens 
                 }
-                response = JsonResponse(response_data)
-                response.set_cookie('access', tokens['access'], httponly=True, samesite='Lax')
-                response.set_cookie('refresh', tokens['refresh'], httponly=True, samesite='Lax')
-                return response
-            else:
-                return JsonResponse({"success": False, "message": "شماره همراه یا رمز عبور اشتباه است."}, status=401)
-        except Exception as e:
-            return JsonResponse({"success": False, "message": f"خطای سرور: {str(e)}"}, status=500)
-    return JsonResponse({"success": False, "message": "Method Not Allowed"}, status=405)
+            }
+            response = Response(response_data, status=status.HTTP_200_OK)
+            response.set_cookie('access', tokens['access'], httponly=True, samesite='Lax')
+            response.set_cookie('refresh', tokens['refresh'], httponly=True, samesite='Lax')
+            return response
+        else:
+            return Response({"success": False, "message": "شماره همراه یا رمز عبور اشتباه است."}, status=status.HTTP_401_UNAUTHORIZED)
 
-@csrf_exempt
-def logout_staff_api(request):
-    if request.method == 'POST':
-        response = JsonResponse({"success": True, "message": "خروج موفقیت‌آمیز بود."})
+
+class LogoutStaffAPIView(APIView):
+    """
+    اندپوینت خروج پرسنل صندوق
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="خروج پرسنل صندوق و حذف نشست"
+    )
+    def post(self, request):
+        response = Response({"success": True, "message": "خروج موفقیت‌آمیز بود."}, status=status.HTTP_200_OK)
         response.delete_cookie('access')
         response.delete_cookie('refresh')
         return response
-    return JsonResponse({"success": False, "message": "Method Not Allowed"}, status=405)
 
-@csrf_exempt
-def create_staff_api(request):
-    if request.method == 'POST':
+
+class CreateStaffAPIView(APIView):
+    """
+    اندپوینت ایجاد پرسنل جدید توسط مدیریت (پشتیبانی هوشمند از مدل کاربر سفارشی)
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="ایجاد پرسنل صندوق جدید",
+        request_body=PosStaffCreateSerializer
+    )
+    def post(self, request):
+        phone = request.data.get('phone')
+        full_name = request.data.get('full_name')
+        password = request.data.get('password') # پین‌کد
+        role = request.data.get('role', 'cashier')
+        role_title = request.data.get('roleTitleFa', 'صندوق‌دار')
+        permissions = request.data.get('permissions', [])
+
+        if not phone or not password:
+            return Response({"success": False, "message": "شماره همراه و پین‌کد الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ۱. پیدا کردن فیلد اصلی نام کاربری در مدل کاربر جنگو
+        username_field = getattr(User, 'USERNAME_FIELD', 'username')
+
+        # بررسی وجود کاربر قبلی بر اساس شماره همراه یا نام کاربری
+        existing_user = None
+        for f_name in [username_field, 'phone', 'mobile', 'phone_number', 'username']:
+            if hasattr(User, f_name):
+                existing_user = User.objects.filter(**{f_name: phone}).first()
+                if existing_user:
+                    break
+
+        if existing_user:
+            return Response({"success": False, "message": "این شماره همراه قبلاً در سیستم ثبت شده است."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ۲. ساخت کاربر جدید به صورت پویا و امن
         try:
-            data = json.loads(request.body)
-            phone = data.get('phone')
-            full_name = data.get('full_name')
-            password = data.get('password') # پین‌کد
-            role = data.get('role', 'cashier')
-            role_title = data.get('roleTitleFa', 'صندوق‌دار')
-            permissions = data.get('permissions', []) # آرایه‌ای از رشته‌های دسترسی
+            user = User.objects.create_user(**{username_field: phone}, password=password)
+        except Exception:
+            try:
+                user = User.objects.create_user(username=phone, password=password)
+            except Exception:
+                user_kwargs = {}
+                for f_name in [username_field, 'phone', 'mobile', 'phone_number', 'username']:
+                    if hasattr(User, f_name):
+                        user_kwargs[f_name] = phone
+                user = User(**user_kwargs)
+                user.set_password(password)
+                user.save()
 
-            if not phone or not password:
-                return JsonResponse({"success": False, "message": "شماره همراه و پین‌کد الزامی است."}, status=400)
-
-            # ۱. ساخت هسته کاربر در دیتابیس Accounts
-            if User.objects.filter(username=phone).exists():
-                return JsonResponse({"success": False, "message": "این شماره همراه قبلاً در سیستم ثبت شده است."}, status=400)
-
-            user = User.objects.create_user(username=phone, password=password)
+        # تنظیم نام و دسترسی‌ها
+        if hasattr(user, 'first_name'):
             user.first_name = full_name
+        if hasattr(user, 'full_name'):
+            user.full_name = full_name
+        if hasattr(user, 'phone') and not getattr(user, 'phone', None):
+            user.phone = phone
             
-            # مدیریت دسترسی سوپراڈمین
-            if role == 'super_admin':
-                user.is_staff = True
-                user.is_superuser = True
-            else:
-                user.is_staff = True 
-            user.save()
+        if role == 'super_admin':
+            user.is_staff = True
+            user.is_superuser = True
+        else:
+            user.is_staff = True 
+        user.save()
 
-            # ۲. مپ کردن آرایه دسترسی‌ها به فیلدهای بولی مدل
-            perms_map = {
-                'perm_manage_pos': 'manage_pos' in permissions,
-                'perm_manage_inventory': 'manage_inventory' in permissions,
-                'perm_quick_add_product': 'quick_add_product' in permissions,
-                'perm_manage_ledger': 'manage_ledger' in permissions,
-                'perm_view_reports': 'view_reports' in permissions,
-                'perm_monthly_comparison': 'monthly_comparison' in permissions,
-                'perm_customer_app_connect': 'customer_app_connect' in permissions,
-                'perm_manage_staff': 'manage_staff' in permissions,
-                'perm_send_sms': 'send_sms' in permissions,
-                'perm_manage_tickets': 'manage_tickets' in permissions,
-                'perm_manage_notifications': 'manage_notifications' in permissions,
-                'perm_delete_receipts': 'delete_receipts' in permissions,
-            }
+        # ۳. مپ کردن آرایه دسترسی‌ها به فیلدهای بولی مدل
+        perms_map = {
+            'perm_manage_pos': 'manage_pos' in permissions,
+            'perm_manage_inventory': 'manage_inventory' in permissions,
+            'perm_quick_add_product': 'quick_add_product' in permissions,
+            'perm_manage_ledger': 'manage_ledger' in permissions,
+            'perm_view_reports': 'view_reports' in permissions,
+            'perm_monthly_comparison': 'monthly_comparison' in permissions,
+            'perm_customer_app_connect': 'customer_app_connect' in permissions,
+            'perm_manage_staff': 'manage_staff' in permissions,
+            'perm_send_sms': 'send_sms' in permissions,
+            'perm_manage_tickets': 'manage_tickets' in permissions,
+            'perm_manage_notifications': 'manage_notifications' in permissions,
+            'perm_delete_receipts': 'delete_receipts' in permissions,
+        }
 
-            # ۳. ساخت پروفایل اختصاصی
-            PosStaff.objects.create(
-                user=user,
-                role=role,
-                role_title=role_title,
-                **perms_map
-            )
+        # ۴. ساخت پروفایل اختصاصی
+        PosStaff.objects.create(
+            user=user,
+            role=role,
+            role_title=role_title,
+            **perms_map
+        )
 
-            return JsonResponse({"success": True, "message": "پرسنل صندوق با موفقیت در دیتابیس ثبت شد."})
+        return Response({"success": True, "message": "پرسنل صندوق با موفقیت در دیتابیس ثبت شد."}, status=status.HTTP_201_CREATED)
 
-        except Exception as e:
-            return JsonResponse({"success": False, "message": f"خطای سرور: {str(e)}"}, status=500)
+
+class ListStaffAPIView(APIView):
+    """
+    اندپوینت دریافت لیست پرسنل صندوق و انبار همراه با وضعیت قفل/فعالیت
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        staff_qs = PosStaff.objects.select_related('user').all()
+        data = []
+        for staff in staff_qs:
+            user = staff.user
+            user_phone = getattr(user, 'phone', None) or getattr(user, 'mobile', None) or getattr(user, 'username', '')
+            full_name = getattr(user, 'first_name', None) or getattr(user, 'full_name', None) or user_phone
             
-    return JsonResponse({"success": False, "message": "Method Not Allowed"}, status=405)`;
+            perms = []
+            if staff.perm_manage_pos: perms.append('manage_pos')
+            if staff.perm_manage_inventory: perms.append('manage_inventory')
+            if staff.perm_quick_add_product: perms.append('quick_add_product')
+            if staff.perm_manage_ledger: perms.append('manage_ledger')
+            if staff.perm_view_reports: perms.append('view_reports')
+            if staff.perm_monthly_comparison: perms.append('monthly_comparison')
+            if staff.perm_customer_app_connect: perms.append('customer_app_connect')
+            if staff.perm_manage_staff: perms.append('manage_staff')
+            if staff.perm_send_sms: perms.append('send_sms')
+            if staff.perm_manage_tickets: perms.append('manage_tickets')
+            if staff.perm_manage_notifications: perms.append('manage_notifications')
+            if staff.perm_delete_receipts: perms.append('delete_receipts')
+
+            data.append({
+                "id": staff.id,
+                "user_id": user.id,
+                "phone": user_phone,
+                "fullName": full_name,
+                "role": staff.role,
+                "roleTitleFa": staff.role_title,
+                "is_active": staff.is_active,
+                "status": "active" if staff.is_active else "suspended",
+                "permissions": perms,
+                "created_at": staff.created_at.strftime('%Y/%m/%d')
+            })
+
+        return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
+
+class StaffDetailAPIView(APIView):
+    """
+    اندپوینت‌های ویرایش و حذف پرسنل (PUT/DELETE /posuser/staff/<id>/)
+    """
+    permission_classes = [AllowAny]
+
+    def put(self, request, pk):
+        try:
+            staff = PosStaff.objects.get(pk=pk)
+        except PosStaff.DoesNotExist:
+            return Response({"success": False, "message": "پرسنل یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
+
+        full_name = request.data.get('full_name')
+        phone = request.data.get('phone')
+        password = request.data.get('password')
+        role = request.data.get('role')
+        role_title = request.data.get('roleTitleFa')
+        permissions = request.data.get('permissions', [])
+
+        user = staff.user
+        if full_name:
+            if hasattr(user, 'first_name'): user.first_name = full_name
+            if hasattr(user, 'full_name'): user.full_name = full_name
+        if phone:
+            if hasattr(user, 'phone'): user.phone = phone
+            if hasattr(user, 'mobile'): user.mobile = phone
+        if password:
+            user.set_password(password)
+            staff.password = password
+        user.save()
+
+        if role: staff.role = role
+        if role_title: staff.role_title = role_title
+
+        # ویرایش دسترسی‌ها
+        staff.perm_manage_pos = 'manage_pos' in permissions
+        staff.perm_manage_inventory = 'manage_inventory' in permissions
+        staff.perm_quick_add_product = 'quick_add_product' in permissions
+        staff.perm_manage_ledger = 'manage_ledger' in permissions
+        staff.perm_view_reports = 'view_reports' in permissions
+        staff.perm_monthly_comparison = 'monthly_comparison' in permissions
+        staff.perm_customer_app_connect = 'customer_app_connect' in permissions
+        staff.perm_manage_staff = 'manage_staff' in permissions
+        staff.perm_send_sms = 'send_sms' in permissions
+        staff.perm_manage_tickets = 'manage_tickets' in permissions
+        staff.perm_manage_notifications = 'manage_notifications' in permissions
+        staff.perm_delete_receipts = 'delete_receipts' in permissions
+        staff.save()
+
+        return Response({"success": True, "message": "اطلاعات پرسنل با موفقیت به روز شد."}, status=status.HTTP_200_OK)
+
+    def delete(self, request, pk):
+        try:
+            staff = PosStaff.objects.get(pk=pk)
+            user = staff.user
+            staff.delete()
+            if user:
+                user.delete()
+            return Response({"success": True, "message": "پرسنل با موفقیت حذف شد."}, status=status.HTTP_200_OK)
+        except PosStaff.DoesNotExist:
+            return Response({"success": False, "message": "پرسنل یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
+
+
+class ToggleLockStaffAPIView(APIView):
+    """
+    اندپوینت قفل / فعال‌سازی پرسنل در دیتابیس (POST/PATCH /posuser/staff/<id>/toggle-lock/)
+    """
+    permission_classes = [AllowAny]
+
+    def post(self, request, pk):
+        try:
+            staff = PosStaff.objects.get(pk=pk)
+            staff.is_active = not staff.is_active
+            staff.save()
+            
+            # همگام‌سازی با کاربر اصلی در صورت وجود فیلد is_active
+            if staff.user and hasattr(staff.user, 'is_active'):
+                staff.user.is_active = staff.is_active
+                staff.user.save()
+
+            status_str = "active" if staff.is_active else "suspended"
+            msg = "کاربر با موفقیت فعال شد." if staff.is_active else "کاربر با موفقیت قفل / تعلیق شد."
+            return Response({
+                "success": True,
+                "is_active": staff.is_active,
+                "status": status_str,
+                "message": msg
+            }, status=status.HTTP_200_OK)
+        except PosStaff.DoesNotExist:
+            return Response({"success": False, "message": "پرسنل یافت نشد."}, status=status.HTTP_404_NOT_FOUND)`;
 
   const urlsCode = `from django.urls import path
-from .views import create_staff_api, login_staff_api, logout_staff_api
+from .views import (
+    LoginStaffAPIView, 
+    LogoutStaffAPIView, 
+    CreateStaffAPIView,
+    ListStaffAPIView,
+    StaffDetailAPIView,
+    ToggleLockStaffAPIView
+)
+
+app_name = 'posuser'
 
 urlpatterns = [
-    # آدرس‌های فراخوانی فرانت‌اند: /api/v1/posuser/...
-    path('login/', login_staff_api, name='login-staff'),
-    path('logout/', logout_staff_api, name='logout-staff'),
-    path('create-staff/', create_staff_api, name='create-staff'),
+    # ۱. ورود و خروج پرسنل
+    path('login/', LoginStaffAPIView.as_view(), name='login-staff'),
+    path('logout/', LogoutStaffAPIView.as_view(), name='logout-staff'),
+    
+    # ۲. ایجاد و دریافت لیست پرسنل
+    path('create-staff/', CreateStaffAPIView.as_view(), name='create-staff'),
+    path('staff-list/', ListStaffAPIView.as_view(), name='staff-list'),
+
+    # ۳. ویرایش و حذف پرسنل با شناسه (PK)
+    path('staff/<int:pk>/', StaffDetailAPIView.as_view(), name='staff-detail'),
+
+    # ۴. قفل و فعال‌سازی پرسنل در دیتابیس
+    path('staff/<int:pk>/toggle-lock/', ToggleLockStaffAPIView.as_view(), name='staff-toggle-lock'),
 ]`;
 
   const erdTables: TableErdMeta[] = [
@@ -302,7 +570,7 @@ urlpatterns = [
       icon={<UserCheck className="w-6 h-6" />}
       modelsCode={modelsCode}
       adminCode={adminCode}
-      serializersCode=""
+      serializersCode={serializersCode}
       viewsCode={viewsCode}
       urlsCode={urlsCode}
       erdTables={erdTables}

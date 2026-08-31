@@ -327,6 +327,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [loginPhone, setLoginPhone] = useState(AUTHORIZED_PHONE);
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications';
 
@@ -764,27 +765,42 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     }
   }, [isAuthenticated, activeSubTab]);
 
-  // Audio bip feedback
-  const playBeep = () => {
+  // Audio bip feedback (Add product sound vs Remove product sound)
+  const playBeep = (type: 'add' | 'remove' = 'add') => {
     if (!soundEnabled) return;
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(880, ctx.currentTime);
-      gain.gain.setValueAtTime(0.15, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.12);
+      if (type === 'add') {
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1046, ctx.currentTime + 0.12);
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+      } else {
+        // Remove item tone - descending triangle pitch
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(520, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(260, ctx.currentTime + 0.15);
+        gain.gain.setValueAtTime(0.2, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.15);
+      }
     } catch {}
   };
 
-  // Login handler connected to Django API
+  // Login handler connected to Django API with loading spinner
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoggingIn(true);
     try {
       const res = await api.accounts.posLogin(loginPhone, loginPass);
       if (res.success) {
@@ -815,6 +831,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       }
     } catch (err: any) {
       setLoginError('خطا در ارتباط با سرور حسابداری جنگو.');
+    } finally {
+      setIsLoggingIn(false);
     }
   };
 
@@ -927,6 +945,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   // Update quantity in POS
   const handleUpdatePosQty = (idx: number, delta: number) => {
+    if (delta < 0) {
+      playBeep('remove');
+    } else {
+      playBeep('add');
+    }
     setPosCart(prev => {
       const updated = [...prev];
       const newQty = updated[idx].quantity + delta;
@@ -965,6 +988,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   // Remove from POS
   const handleRemovePosItem = (idx: number) => {
+    playBeep('remove');
     setPosCart(prev => prev.filter((_, i) => i !== idx));
   };
 
@@ -1818,10 +1842,20 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
             <button
               type="submit"
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white rounded-xl font-black text-sm shadow-lg shadow-indigo-600/30 transition-all active:scale-98 flex items-center justify-center gap-2"
+              disabled={isLoggingIn}
+              className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 disabled:opacity-75 disabled:cursor-not-allowed text-white rounded-xl font-black text-sm shadow-lg shadow-indigo-600/30 transition-all active:scale-98 flex items-center justify-center gap-2"
             >
-              <Lock className="w-4 h-4" />
-              <span>ورود به میز کار حسابداری و صندوق</span>
+              {isLoggingIn ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                  <span>در حال احراز هویت و ورود...</span>
+                </>
+              ) : (
+                <>
+                  <Lock className="w-4 h-4" />
+                  <span>ورود به میز کار حسابداری و صندوق</span>
+                </>
+              )}
             </button>
           </form>
 
@@ -1970,50 +2004,6 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               <span>دفتر فاکتورها</span>
             </button>
 
-            <button
-              onClick={() => { setActiveSubTab('tickets'); setIsMenuOpen(false); }}
-              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'tickets'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <Headphones className="w-4 h-4 text-indigo-600" />
-              <span>پاسخ به تیکت‌ها</span>
-              <span className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                جنگو
-              </span>
-            </button>
-
-            <button
-              onClick={() => { setActiveSubTab('sms_management'); setIsMenuOpen(false); }}
-              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'sms_management'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <Smartphone className="w-4 h-4 text-indigo-600" />
-              <span>سامانه پیامکی کاوه‌نگار</span>
-              <span className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                جنگو
-              </span>
-            </button>
-
-            <button
-              onClick={() => { setActiveSubTab('notifications'); setIsMenuOpen(false); }}
-              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'notifications'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <Bell className="w-4 h-4 text-indigo-600" />
-              <span>اعلانات و نوتیفیکیشن‌ها</span>
-              <span className="bg-purple-100 text-purple-700 text-[10px] px-1.5 py-0.2 rounded-full font-bold">
-                جنگو
-              </span>
-            </button>
           </div>
 
             {/* Quick Tools & Actions */}
@@ -2032,7 +2022,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 </button>
 
                 {showToolsDropdown && (
-                  <div className="absolute left-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="absolute left-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
                     <button
                       onClick={() => { setShowBackendModal(true); setShowToolsDropdown(false); }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/90 rounded-xl transition-colors text-right"
@@ -2054,12 +2044,51 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                       <Smartphone className="w-4 h-4 text-indigo-600" />
                       <span>اتصال اپلیکیشن مشتریان</span>
                     </button>
+
+                    <div className="my-1 border-t border-slate-100"></div>
+
                     <button
-                      onClick={() => { setShowStaffModal(true); setShowToolsDropdown(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      onClick={() => { setActiveSubTab('staff_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl transition-colors text-right"
                     >
-                      <span className="w-4 h-4 text-emerald-600 flex items-center justify-center">🛡️</span>
-                      <span>تغییر دسترسی کاربر</span>
+                      <div className="flex items-center gap-2">
+                        <UserPlus className="w-4 h-4 text-emerald-600" />
+                        <span>افزودن پرسنل جدید (صفحه مجزا)</span>
+                      </div>
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md font-bold">جدید</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveSubTab('tickets'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Headphones className="w-4 h-4 text-indigo-600" />
+                        <span>پشتیبانی تیکت‌ها</span>
+                      </div>
+                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveSubTab('sms_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-indigo-600" />
+                        <span>سامانه پیامکی کاوه‌نگار</span>
+                      </div>
+                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveSubTab('notifications'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-purple-600" />
+                        <span>اعلانات و نوتیفیکیشن‌ها</span>
+                      </div>
+                      <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
                     </button>
                   </div>
                 )}
@@ -4502,6 +4531,27 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   onOpenBackendModal={() => setShowBackendModal(true)}
                 />
               )}
+            </motion.div>
+          )}
+
+          {/* TAB: Staff & User Management (Dedicated Page Mode View) */}
+          {activeSubTab === 'staff_management' && (
+            <motion.div
+              key="staff-management-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              dir="rtl"
+              className="space-y-6"
+            >
+              <StaffAccessManagerModal
+                isPageMode={true}
+                staffList={staffList}
+                currentStaff={currentStaff}
+                onUpdateStaffList={setStaffList}
+                onSwitchCurrentStaff={setCurrentStaff}
+                onClose={() => setActiveSubTab('pos')}
+              />
             </motion.div>
           )}
 

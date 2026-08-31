@@ -563,6 +563,68 @@ export const accountsApi = {
     }
     
     return { success: false, message: res.data?.message || res.error || 'خطا در ایجاد کاربر. لطفاً اتصال بک‌اند را بررسی کنید.' };
+  },
+
+  /**
+   * Get POS staff list from GET /api/v1/posuser/staff-list/
+   */
+  async getStaffList(): Promise<{ success: boolean; data?: any[]; message?: string }> {
+    let res = await httpClient.get<any>('/posuser/staff-list/');
+    if (!res.success && res.status === 404) {
+      res = await httpClient.get<any>('/api/v1/posuser/staff-list/');
+    }
+    if (res.success && res.data) {
+      const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      return { success: true, data: list };
+    }
+    return { success: false, message: res.error || 'خطا در دریافت لیست پرسنل.' };
+  },
+
+  /**
+   * Update POS staff member via PUT /api/v1/posuser/staff/<id>/
+   */
+  async updateStaff(staffId: string | number, payload: any): Promise<{ success: boolean; data?: any; message?: string }> {
+    let res = await httpClient.put<any>(`/posuser/staff/${staffId}/`, payload);
+    if (!res.success && res.status === 404) {
+      res = await httpClient.put<any>(`/api/v1/posuser/staff/${staffId}/`, payload);
+    }
+    if (res.success) {
+      return { success: true, data: res.data, message: res.data?.message || 'ویرایش پرسنل با موفقیت انجام شد.' };
+    }
+    return { success: false, message: res.data?.message || res.error || 'خطا در ویرایش پرسنل.' };
+  },
+
+  /**
+   * Delete POS staff member via DELETE /api/v1/posuser/staff/<id>/
+   */
+  async deleteStaff(staffId: string | number): Promise<{ success: boolean; message?: string }> {
+    let res = await httpClient.delete<any>(`/posuser/staff/${staffId}/`);
+    if (!res.success && res.status === 404) {
+      res = await httpClient.delete<any>(`/api/v1/posuser/staff/${staffId}/`);
+    }
+    if (res.success) {
+      return { success: true, message: res.data?.message || 'پرسنل با موفقیت حذف شد.' };
+    }
+    return { success: false, message: res.data?.message || res.error || 'خطا در حذف پرسنل.' };
+  },
+
+  /**
+   * Toggle staff lock / active status in Django DB via POST /api/v1/posuser/staff/<id>/toggle-lock/
+   */
+  async toggleStaffLock(staffId: string | number): Promise<{ success: boolean; is_active?: boolean; status?: string; message?: string }> {
+    let res = await httpClient.post<any>(`/posuser/staff/${staffId}/toggle-lock/`, {});
+    if (!res.success && res.status === 404) {
+      res = await httpClient.post<any>(`/api/v1/posuser/staff/${staffId}/toggle-lock/`, {});
+    }
+    if (res.success) {
+      return {
+        success: true,
+        is_active: res.data?.is_active,
+        status: res.data?.status || (res.data?.is_active ? 'active' : 'suspended'),
+        message: res.data?.message || 'وضعیت قفل/فعالیت کاربر به‌روزرسانی شد.',
+      };
+    }
+    return { success: false, message: res.data?.message || res.error || 'خطا در تغییر وضعیت قفل کاربر.' };
   }
 };
 

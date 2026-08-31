@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   UserPlus, 
@@ -15,7 +15,8 @@ import {
   CheckCircle2, 
   AlertTriangle,
   UserCheck,
-  RefreshCw
+  RefreshCw,
+  ArrowRight
 } from 'lucide-react';
 import { WarehouseStaffUser, StaffPermission, StaffRole } from '../../types';
 import { accountsApi } from '../../services/api';
@@ -26,6 +27,7 @@ interface StaffAccessManagerModalProps {
   onUpdateStaffList: (updatedList: WarehouseStaffUser[]) => void;
   onSwitchCurrentStaff: (staff: WarehouseStaffUser) => void;
   onClose: () => void;
+  isPageMode?: boolean;
 }
 
 const ALL_PERMISSIONS: { key: StaffPermission; label: string; desc: string }[] = [
@@ -49,6 +51,7 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
   onUpdateStaffList,
   onSwitchCurrentStaff,
   onClose,
+  isPageMode = false,
 }) => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStaff, setEditingStaff] = useState<WarehouseStaffUser | null>(null);
@@ -119,6 +122,27 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
 
   const [isSaving, setIsSaving] = useState(false);
 
+  // Sync staff list from backend when modal mounts
+  useEffect(() => {
+    accountsApi.getStaffList().then((res) => {
+      if (res.success && res.data && res.data.length > 0) {
+        const mappedList: WarehouseStaffUser[] = res.data.map((item: any) => ({
+          id: String(item.id || item.user_id || `staff_${Date.now()}`),
+          fullName: item.fullName || item.full_name || item.name || 'پرسنل',
+          phone: item.phone || item.mobile || item.username || '',
+          pinCode: item.pinCode || item.pin_code || item.password || '1234',
+          role: item.role || 'cashier',
+          roleTitleFa: item.roleTitleFa || item.role_title || 'صندوق‌دار',
+          permissions: item.permissions || [],
+          status: (item.is_active === false || item.status === 'suspended') ? 'suspended' : 'active',
+          createdAt: item.createdAt || item.created_at || new Date().toLocaleDateString('fa-IR'),
+          avatarColor: 'bg-emerald-600',
+        }));
+        onUpdateStaffList(mappedList);
+      }
+    }).catch(() => {});
+  }, []);
+
   const handleSaveStaff = async () => {
     if (!fullName.trim() || !phone.trim() || !pinCode.trim()) {
       alert('لطفاً نام، شماره تماس و رمز/پین‌کد را وارد نمایید.');
@@ -128,24 +152,23 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
     setIsSaving(true);
     
     try {
-      if (!editingStaff) {
-        // Create in Django via API
-        const createRes = await accountsApi.createUser({
-          phone: phone.trim(),
-          full_name: fullName.trim(),
-          password: pinCode.trim(), // Send pinCode as password for staff
-          pin_code: pinCode.trim(),
-          role: (role as string) === 'admin' ? 'admin' : 'staff', // Or pass the exact role
-          role_title: roleTitleFa.trim(),
-        });
-        
-        if (!createRes.success) {
-          alert(`خطا در ثبت کاربر در بک‌اند (جنگو): ${createRes.message}\nلطفاً آدرس API (مثلاً /api/v1/accounts/create/) را در سمت سرور بررسی کنید.`);
-          return; 
-        }
-      }
+      const payload = {
+        phone: phone.trim(),
+        full_name: fullName.trim(),
+        password: pinCode.trim(),
+        pin_code: pinCode.trim(),
+        role: role,
+        roleTitleFa: roleTitleFa.trim(),
+        permissions: selectedPerms,
+      };
 
       if (editingStaff) {
+        // Update in Django backend
+        const updateRes = await accountsApi.updateStaff(editingStaff.id, payload);
+        if (!updateRes.success) {
+          console.warn('Backend update warning:', updateRes.message);
+        }
+
         const updated = staffList.map(s => {
           if (s.id !== editingStaff.id) return s;
           return {
@@ -171,9 +194,16 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
           });
         }
       } else {
+        // Create in Django backend
+        const createRes = await accountsApi.createUser(payload);
+        if (!createRes.success) {
+          alert(`خطا در ثبت کاربر در دیتابیس جنگو: ${createRes.message}`);
+          return; 
+        }
+
         const colors = ['bg-blue-600', 'bg-emerald-600', 'bg-purple-600', 'bg-amber-600', 'bg-rose-600'];
         const newStaff: WarehouseStaffUser = {
-          id: `staff_${Date.now()}`,
+          id: createRes.data?.id ? String(createRes.data.id) : `staff_${Date.now()}`,
           fullName: fullName.trim(),
           phone: phone.trim(),
           pinCode: pinCode.trim(),
@@ -197,7 +227,7 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
     }
   };
 
-  const handleDeleteStaff = (staffId: string) => {
+  const handleDeleteStaff = async (staffId: string) => {
     if (staffList.length <= 1) {
       alert('حداقل یک کاربر مدیر باید در سیستم تعریف شده باشد.');
       return;
@@ -206,21 +236,35 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
       alert('شما نمی‌توانید حساب کاربری فعال خود را حذف کنید. ابتدا با کاربر دیگری وارد شوید.');
       return;
     }
-    if (window.confirm('آیا از حذف این مدیر انبار / کاربر مطمئن هستید؟')) {
+    if (window.confirm('آیا از حذف این پرسنل / کاربر از دیتابیس مطمئن هستید؟')) {
+      const delRes = await accountsApi.deleteStaff(staffId);
+      if (!delRes.success) {
+        console.warn('Backend delete staff warning:', delRes.message);
+      }
       onUpdateStaffList(staffList.filter(s => s.id !== staffId));
     }
   };
 
-  const handleToggleStatus = (staffId: string) => {
+  const handleToggleStatus = async (staffId: string) => {
     if (staffId === currentStaff.id) {
       alert('نمی‌توانید وضعیت کاربر جاری را تعلیق کنید.');
       return;
     }
+    
+    // Call real toggle lock API in Django DB
+    const lockRes = await accountsApi.toggleStaffLock(staffId);
+    if (!lockRes.success) {
+      console.warn('Backend lock toggle warning:', lockRes.message);
+    }
+
     const updated = staffList.map(s => {
       if (s.id === staffId) {
+        const newStatus = lockRes.status
+          ? (lockRes.status as 'active' | 'suspended')
+          : ((s.status === 'active' ? 'suspended' : 'active') as 'active' | 'suspended');
         return {
           ...s,
-          status: (s.status === 'active' ? 'suspended' : 'active') as 'active' | 'suspended',
+          status: newStatus,
         };
       }
       return s;
@@ -241,51 +285,59 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
     }
   };
 
-  return (
+  const content = (
     <div 
-      className="fixed inset-0 z-[250] bg-slate-900/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden no-scrollbar"
-      dir="rtl"
-      onClick={onClose}
+      className={`bg-white border border-slate-200 ${
+        isPageMode ? 'rounded-3xl shadow-xs w-full p-6 space-y-6' : 'rounded-[28px] max-w-3xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden'
+      }`}
+      onClick={(e) => e.stopPropagation()}
     >
-      <div 
-        className="bg-white border border-slate-200 rounded-[28px] max-w-3xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header (Pinned at Top) */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 p-5 sm:p-6 shrink-0 bg-white">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-md shrink-0">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-base font-black text-slate-900">
-                مدیریت مدیران انبار و سطوح دسترسی (پرسنل)
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                تعریف مدیران انبار، صندوق‌داران، بازرسان مالی و کنترل دقیق دسترسی‌های سیستمی
-              </p>
-            </div>
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5 shrink-0 bg-white">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-md shrink-0">
+            <ShieldCheck className="w-6 h-6" />
           </div>
+          <div>
+            <h3 className="text-lg font-black text-slate-900">
+              مدیریت پرسنل، کاربران و سطوح دسترسی
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              لیست کامل کاربران صندوق و انبار، ثبت پرسنل جدید، ویرایش دسترسی‌ها و قفل/فعال‌سازی در دیتابیس جنگو
+            </p>
+          </div>
+        </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleOpenAdd}
+            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-95"
+          >
+            <UserPlus className="w-4 h-4" />
+            <span>+ افزودن پرسنل جدید</span>
+          </button>
+          {isPageMode && (
             <button
-              onClick={handleOpenAdd}
-              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition-all"
+              onClick={onClose}
+              className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl flex items-center gap-1.5 transition-colors"
             >
-              <UserPlus className="w-4 h-4" />
-              <span>+ تعریف مدیر / پرسنل جدید</span>
+              <ArrowRight className="w-4 h-4" />
+              <span>بازگشت به صندوق POS</span>
             </button>
+          )}
+          {!isPageMode && (
             <button
               onClick={onClose}
               className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-900 hover:bg-slate-200 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
-          </div>
+          )}
         </div>
+      </div>
 
-        {/* Modal Scrollable Body */}
-        <div className="p-5 sm:p-6 overflow-y-auto modal-overscroll-contain space-y-6 flex-1">
+      {/* Main Content Body */}
+      <div className={isPageMode ? "space-y-6" : "p-5 sm:p-6 overflow-y-auto modal-overscroll-contain space-y-6 flex-1"}>
           {/* Current Active Staff Banner */}
           <div className="bg-indigo-50/80 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -433,16 +485,21 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
         </div>
 
         {/* Footer (Pinned at Bottom) */}
-        <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end shrink-0">
-          <button
-            onClick={onClose}
-            className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition-colors"
-          >
-            بستن پنجره
-          </button>
-        </div>
+        {!isPageMode && (
+          <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/80 flex items-center justify-end shrink-0">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 bg-slate-200 hover:bg-slate-300 text-slate-800 rounded-xl text-xs font-bold transition-colors"
+            >
+              بستن پنجره
+            </button>
+          </div>
+        )}
       </div>
+  );
 
+  const subModals = (
+    <>
       {/* Switch PIN Verification Sub-Modal */}
       {switchTargetStaff && (
         <div 
@@ -637,6 +694,229 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
           </div>
         </div>
       )}
-    </div>
+
+      {/* Render sub modals */}
+      {switchTargetStaff && (
+        <div 
+          className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-xs flex items-center justify-center p-4 no-scrollbar"
+          onClick={() => setSwitchTargetStaff(null)}
+        >
+          <div 
+            className="bg-white border border-slate-200 rounded-3xl max-w-sm w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-2">
+                <KeyRound className="w-6 h-6" />
+              </div>
+              <h4 className="font-black text-sm text-slate-900">سوییچ به {switchTargetStaff.fullName}</h4>
+              <p className="text-xs text-slate-500 mt-1">لطفاً پین‌کد یا رمز عبور این کاربر را وارد نمایید</p>
+            </div>
+
+            <div className="space-y-3">
+              <input
+                type="password"
+                value={pinVerifyInput}
+                onChange={(e) => {
+                  setPinVerifyInput(e.target.value);
+                  setPinError('');
+                }}
+                placeholder="پین‌کد یا رمز عبور..."
+                className="w-full text-center tracking-widest bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-slate-900 font-bold focus:outline-none focus:border-indigo-500 text-xs"
+                autoFocus
+              />
+
+              {pinError && (
+                <p className="text-xs text-rose-600 font-bold text-center">
+                  {pinError}
+                </p>
+              )}
+
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSwitchTargetStaff(null);
+                    setPinVerifyInput('');
+                    setPinError('');
+                  }}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSwitchVerify}
+                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-xs shadow-md"
+                >
+                  تأیید و ورود
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddModal && (
+        <div 
+          className="fixed inset-0 z-[300] bg-black/80 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto no-scrollbar"
+          onClick={() => setShowAddModal(false)}
+        >
+          <div 
+            className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-4 my-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h4 className="font-black text-slate-900 text-base flex items-center gap-2">
+                <UserPlus className="w-5 h-5 text-indigo-600" />
+                <span>{editingStaff ? 'ویرایش اطلاعات و دسترسی پرسنل' : 'افزودن پرسنل / کاربر جدید'}</span>
+              </h4>
+              <button
+                onClick={() => setShowAddModal(false)}
+                className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">نام و نام‌خانوادگی کاربر:</label>
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="مثال: علی رضایی"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">شماره همراه (شناسه ورود به جنگو):</label>
+                <input
+                  type="tel"
+                  dir="ltr"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="09123456789"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-mono font-bold focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">رمز عبور / پین‌کد ورودی:</label>
+                <input
+                  type="password"
+                  value={pinCode}
+                  onChange={(e) => setPinCode(e.target.value)}
+                  placeholder="••••"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-mono font-bold focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">نقش سازمانی پیش‌فرض:</label>
+                <select
+                  value={role}
+                  onChange={(e) => handleRoleChange(e.target.value as StaffRole)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="cashier">صندوق‌دار فروشگاه</option>
+                  <option value="warehouse_manager">مدیر انبار و بنکداری</option>
+                  <option value="accountant">حسابدار و بازرس مالی</option>
+                  <option value="super_admin">مدیر ارشد سامانه</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-slate-600 font-bold mb-1">عنوان فارسی سمت:</label>
+                <input
+                  type="text"
+                  value={roleTitleFa}
+                  onChange={(e) => setRoleTitleFa(e.target.value)}
+                  placeholder="مثال: مدیر انبار مرکزی"
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:border-indigo-500"
+                />
+              </div>
+
+              {/* Granular Permissions Checkboxes */}
+              <div className="pt-2">
+                <label className="block text-slate-700 font-black mb-2">
+                  تعیین دقیق مجوزها و سطوح دسترسی:
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-3 rounded-2xl border border-slate-200 max-h-48 overflow-y-auto">
+                  {ALL_PERMISSIONS.map(p => {
+                    const isChecked = selectedPerms.includes(p.key);
+                    return (
+                      <label 
+                        key={p.key}
+                        className={`flex items-start gap-2 p-2 rounded-xl border cursor-pointer transition-all ${
+                          isChecked ? 'bg-indigo-50/80 border-indigo-200 text-indigo-950' : 'bg-white border-slate-200 text-slate-600'
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => handleTogglePerm(p.key)}
+                          className="mt-0.5 text-indigo-600 rounded"
+                        />
+                        <div>
+                          <span className="font-black text-xs block">{p.label}</span>
+                          <span className="text-[10px] text-slate-400 leading-tight block mt-0.5">{p.desc}</span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddModal(false)}
+                  className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveStaff}
+                  disabled={isSaving}
+                  className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-70 disabled:cursor-not-allowed text-white rounded-xl font-black shadow-md flex items-center justify-center gap-2 min-w-[200px]"
+                >
+                  {isSaving ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      در حال ثبت...
+                    </>
+                  ) : (
+                    editingStaff ? 'ذخیره تغییرات مدیر/پرسنل' : 'ثبت و فعال‌سازی پرسنل'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      {isPageMode ? (
+        <div dir="rtl" className="w-full">
+          {content}
+        </div>
+      ) : (
+        <div 
+          className="fixed inset-0 z-[250] bg-slate-900/75 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 overflow-hidden no-scrollbar"
+          dir="rtl"
+          onClick={onClose}
+        >
+          {content}
+        </div>
+      )}
+      {subModals}
+    </>
   );
 };
