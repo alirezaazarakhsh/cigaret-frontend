@@ -182,8 +182,14 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
           console.warn('Backend update warning:', updateRes.message);
         }
 
+        if (role === 'super_admin' || editingStaff.role === 'super_admin' || phone.trim() === '09120759419') {
+          try {
+            localStorage.setItem('sovin_pos_superadmin_pin', pinCode.trim());
+          } catch {}
+        }
+
         const updated = staffList.map(s => {
-          if (s.id !== editingStaff.id) return s;
+          if (s.id !== editingStaff.id && s.phone !== editingStaff.phone) return s;
           return {
             ...s,
             fullName: fullName.trim(),
@@ -194,9 +200,14 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
             permissions: selectedPerms,
           };
         });
+        
+        try {
+          localStorage.setItem('sovin_pos_staff', JSON.stringify(updated));
+        } catch {}
+
         onUpdateStaffList(updated);
-        if (currentStaff.id === editingStaff.id) {
-          onSwitchCurrentStaff({
+        if (currentStaff.id === editingStaff.id || currentStaff.phone === editingStaff.phone) {
+          const updatedCurrent = {
             ...currentStaff,
             fullName: fullName.trim(),
             phone: phone.trim(),
@@ -204,7 +215,11 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
             role,
             roleTitleFa: roleTitleFa.trim(),
             permissions: selectedPerms,
-          });
+          };
+          try {
+            localStorage.setItem('sovin_pos_current_staff', JSON.stringify(updatedCurrent));
+          } catch {}
+          onSwitchCurrentStaff(updatedCurrent);
         }
       } else {
         // Create in Django backend
