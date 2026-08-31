@@ -594,6 +594,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               ];
               return {
                 ...s,
+                status: 'active',
                 permissions: Array.from(new Set([...(s.permissions || []), ...allPossiblePerms]))
               };
             }
@@ -627,6 +628,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           ];
           return {
             ...parsed,
+            status: 'active',
             permissions: Array.from(new Set([...(parsed.permissions || []), ...allPossiblePerms]))
           };
         }

@@ -274,6 +274,12 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
   };
 
   const handleToggleStatus = async (staffId: string) => {
+    const target = staffList.find(s => s.id === staffId);
+    if (target?.role === 'super_admin' || target?.phone === '09120759419') {
+      alert('امکان تعلیق یا قفل کردن حساب مدیر ارشد (Super Admin) وجود ندارد.');
+      return;
+    }
+
     if (staffId === currentStaff.id) {
       alert('نمی‌توانید وضعیت کاربر جاری را تعلیق کنید.');
       return;
@@ -297,6 +303,9 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
       }
       return s;
     });
+    try {
+      localStorage.setItem('sovin_pos_staff', JSON.stringify(updated));
+    } catch {}
     onUpdateStaffList(updated);
   };
 
