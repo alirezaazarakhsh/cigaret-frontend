@@ -258,6 +258,38 @@ class LogoutStaffAPIView(APIView):
         return response
 
 
+class ActiveStaffSessionsAPIView(APIView):
+    """
+    اندپوینت دریافت لیست پرسنل و صندوق‌دارهای آنلاین و فعال به صورت همزمان
+    توضیحات: پشتیبانی کامل از ورود غیرمحدود و همزمان چندین صندوق‌دار بدون مسدودی نشست
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="لیست صندوق‌دارهای آنلاین همزمان"
+    )
+    def get(self, request):
+        active_staff = PosStaff.objects.filter(is_active=True).select_related('user')
+        online_sessions = []
+        for staff in active_staff:
+            user = staff.user
+            user_phone = getattr(user, 'phone', None) or getattr(user, 'username', None) or str(user)
+            online_sessions.append({
+                "id": user.id,
+                "fullName": getattr(user, 'first_name', None) or getattr(user, 'full_name', None) or user_phone,
+                "phone": user_phone,
+                "role": staff.role,
+                "roleTitleFa": staff.role_title,
+                "status": "online"
+            })
+        return Response({
+            "success": True,
+            "count": len(online_sessions),
+            "allow_concurrent_logins": True,
+            "data": online_sessions
+        }, status=status.HTTP_200_OK)
+
+
 class CreateStaffAPIView(APIView):
     """
     اندپوینت ایجاد پرسنل جدید توسط مدیریت (پشتیبانی هوشمند از مدل کاربر سفارشی)

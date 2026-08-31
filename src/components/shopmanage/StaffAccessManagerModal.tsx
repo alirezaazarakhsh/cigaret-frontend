@@ -29,6 +29,7 @@ interface StaffAccessManagerModalProps {
   onSwitchCurrentStaff: (staff: WarehouseStaffUser) => void;
   onClose: () => void;
   isPageMode?: boolean;
+  onlineSessions?: any[];
 }
 
 const ALL_PERMISSIONS: { key: StaffPermission; label: string; desc: string }[] = [
@@ -53,6 +54,7 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
   onSwitchCurrentStaff,
   onClose,
   isPageMode = false,
+  onlineSessions = [],
 }) => {
   const isSuperAdmin = currentStaff.role === 'super_admin';
 
@@ -419,8 +421,14 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
                         <div className="flex flex-wrap items-center gap-2">
                           <h5 className="font-black text-sm text-slate-900">{staff.fullName}</h5>
                           {isCurrent && (
-                            <span className="px-2 py-0.5 bg-emerald-500 text-white rounded-md text-[10px] font-black">
-                              فعال فعلی
+                            <span className="px-2 py-0.5 bg-indigo-600 text-white rounded-md text-[10px] font-black">
+                              کاربر در حال کار
+                            </span>
+                          )}
+                          {(isCurrent || onlineSessions.some(s => s.phone === staff.phone)) && (
+                            <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-md text-[10px] font-black flex items-center gap-1">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                              نشست آنلاین فعال
                             </span>
                           )}
                           <span className={`px-2.5 py-0.5 rounded-lg text-[10px] font-black ${

@@ -704,6 +704,71 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   }, [crmConfig, activeSubTab]);
 
   const [showStaffModal, setShowStaffModal] = useState<boolean>(false);
+  const [showOnlineStaffModal, setShowOnlineStaffModal] = useState<boolean>(false);
+  const [onlineSessions, setOnlineSessions] = useState<{
+    id: string;
+    fullName: string;
+    phone: string;
+    roleTitleFa: string;
+    role: string;
+    loginTime: string;
+    avatarColor?: string;
+  }[]>(() => {
+    try {
+      const saved = localStorage.getItem('sovin_pos_online_sessions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [
+      {
+        id: 'staff_1',
+        fullName: 'مهندس حسینی (مدیر ارشد و مالک)',
+        phone: '09120759419',
+        roleTitleFa: 'مدیریت ارشد بنکداری',
+        role: 'super_admin',
+        loginTime: '۰۸:۳۰',
+        avatarColor: 'bg-indigo-600'
+      },
+      {
+        id: 'staff_3',
+        fullName: 'محمد قاسم‌پور (صندوق‌دار شیفت)',
+        phone: '09351112233',
+        roleTitleFa: 'صندوق‌دار فروشگاه و انبار',
+        role: 'cashier',
+        loginTime: '۰۹:۱۵',
+        avatarColor: 'bg-emerald-600'
+      }
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sovin_pos_online_sessions', JSON.stringify(onlineSessions));
+    } catch {}
+  }, [onlineSessions]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !currentStaff) return;
+    setOnlineSessions(prev => {
+      const exists = prev.some(s => s.phone === currentStaff.phone);
+      if (exists) return prev;
+      return [
+        {
+          id: currentStaff.id || `staff_${Date.now()}`,
+          fullName: currentStaff.fullName,
+          phone: currentStaff.phone,
+          roleTitleFa: currentStaff.roleTitleFa,
+          role: currentStaff.role,
+          loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+          avatarColor: currentStaff.avatarColor || 'bg-indigo-600'
+        },
+        ...prev
+      ];
+    });
+  }, [isAuthenticated, currentStaff]);
+
   const [showQuickAddProductModal, setShowQuickAddProductModal] = useState<boolean>(false);
   const [pendingBarcode, setPendingBarcode] = useState<string>('');
 
@@ -852,6 +917,23 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             setStaffList(updatedStaffList);
             localStorage.setItem('sovin_pos_staff', JSON.stringify(updatedStaffList));
           }
+
+          // Register in concurrent online sessions
+          setOnlineSessions(prev => {
+            if (prev.some(s => s.phone === res.data.user.phone)) return prev;
+            return [
+              {
+                id: res.data.user.id || `staff_${Date.now()}`,
+                fullName: res.data.user.fullName,
+                phone: res.data.user.phone,
+                roleTitleFa: res.data.user.roleTitleFa,
+                role: res.data.user.role,
+                loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+                avatarColor: res.data.user.avatarColor || 'bg-indigo-600'
+              },
+              ...prev
+            ];
+          });
         } catch {}
         
         // Refresh live SMS logs list since a "welcome" SMS was just logged on login
@@ -877,6 +959,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     } catch (err) {
       console.error('Logout error:', err);
     }
+    setOnlineSessions(prev => prev.filter(s => s.phone !== currentStaff.phone));
     setIsAuthenticated(false);
     try {
       localStorage.removeItem('sovin_pos_auth');
@@ -1930,10 +2013,26 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     آنلاین
                   </span>
                 </div>
-                <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex flex-wrap items-center gap-2 mt-0.5">
                   <p className="text-[9px] sm:text-[11px] text-slate-500">
                     کاربر: <strong className="text-indigo-600 font-bold">{currentStaff.fullName}</strong> ({currentStaff.roleTitleFa})
                   </p>
+                  <span className="text-[9px] text-slate-300 hidden sm:inline">•</span>
+                  <button
+                    onClick={() => setShowOnlineStaffModal(true)}
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-2xs active:scale-95"
+                    title="مشاهده صندوق‌دارهای آنلاین و پرسنل فعال همزمان"
+                  >
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <Users className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>صندوق‌دارهای آنلاین:</span>
+                    <span className="bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-md">
+                      {onlineSessions.length} نفر
+                    </span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -5804,7 +5903,118 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           onUpdateStaffList={setStaffList}
           onSwitchCurrentStaff={setCurrentStaff}
           onClose={() => setShowStaffModal(false)}
+          onlineSessions={onlineSessions}
         />
+      )}
+
+      {/* Online Cashiers & Concurrent Sessions Modal */}
+      {showOnlineStaffModal && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm"
+          onClick={() => setShowOnlineStaffModal(false)}
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="bg-white border border-slate-200 rounded-[28px] max-w-lg w-full p-6 shadow-2xl space-y-5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/30">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-slate-900">
+                      صندوق‌دارهای آنلاین و پرسنل فعال
+                    </h3>
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full">
+                      ورود همزمان نامحدود
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    لیست حساب‌های فعال همزمان در سیستم حسابداری سوین ({onlineSessions.length} کاربر آنلاین)
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowOnlineStaffModal(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3 flex items-center gap-2.5 text-xs text-emerald-900 font-bold">
+              <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span>
+                در این سامانه محدودیت ورود تک‌کاربره وجود ندارد و چندین صندوق‌دار می‌توانند به صورت همزمان فاکتور صادر کنند.
+              </span>
+            </div>
+
+            <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
+              {onlineSessions.map((session) => {
+                const isMe = currentStaff.phone === session.phone;
+                return (
+                  <div 
+                    key={session.id || session.phone}
+                    className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                      isMe ? 'bg-indigo-50/60 border-indigo-200 shadow-sm' : 'bg-slate-50 border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl ${session.avatarColor || 'bg-indigo-600'} text-white font-bold text-sm flex items-center justify-center shadow-sm shrink-0`}>
+                        {session.fullName.slice(0, 1)}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-black text-slate-900">{session.fullName}</span>
+                          {isMe && (
+                            <span className="bg-indigo-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-md">
+                              نشست فعلی شما
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                          <span>{session.roleTitleFa}</span>
+                          <span>•</span>
+                          <span className="font-mono">{session.phone}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-black">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                        آنلاین (ساعت {session.loginTime})
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setShowOnlineStaffModal(false);
+                  setActiveSubTab('staff_management');
+                }}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+              >
+                <span>مدیریت و دسترسی پرسنل</span>
+                <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+              </button>
+              <button
+                onClick={() => setShowOnlineStaffModal(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+              >
+                بستن
+              </button>
+            </div>
+          </motion.div>
+        </div>
       )}
 
       {/* Currency Rate Settings Modal */}
