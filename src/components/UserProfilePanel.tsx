@@ -344,8 +344,8 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
   // Handle Verify OTP & Login via Django Backend
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otpCode || otpCode.trim().length < 4) {
-      showToast('لطفاً کد تأیید ۴ رقمی را وارد فرمایید.');
+    if (!otpCode || otpCode.trim().length < 1) {
+      showToast('لطفاً کد تأیید را وارد فرمایید.');
       return;
     }
 
