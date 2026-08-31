@@ -260,6 +260,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from .models import QuickCategory, PosProductItem
@@ -382,7 +383,7 @@ class PosProductItemDeleteAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="حذف تنظیمات صندوق کالا (ادمین)",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def delete(self, request, pk):
         item = get_object_or_404(PosProductItem, pk=pk)
@@ -401,7 +402,7 @@ class ScanBarcodeAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="اسکن بارکد و تشخیص خودکار واحد فروش و قیمت",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def post(self, request):
         barcode = request.data.get('barcode', '').strip()
@@ -443,7 +444,7 @@ class TouchTilesAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="دریافت ساختار دکمه‌های سریع صفحه لمسی صندوق",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def get(self, request):
         categories = QuickCategory.objects.filter(is_active=True).prefetch_related('pos_items__product')

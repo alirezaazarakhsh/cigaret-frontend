@@ -331,6 +331,8 @@ from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import TemplateView
+from django.http import JsonResponse
+from django.template.exceptions import TemplateDoesNotExist
 from rest_framework import permissions
 
 # 1. وارد کردن drf_yasg (Swagger & ReDoc کلاسیک)
@@ -358,6 +360,19 @@ from drf_spectacular.views import (
 admin.site.site_header = "سامانه مدیریت انبار سیگار آذرخش"
 admin.site.site_title = "مدیریت انبار سیگار"
 admin.site.index_title = "کنترل مرکزی موجودی، حسابداری، بنکداران و فروش عمده"
+
+# تابع هوشمند جهت جلوگیری از خطای TemplateDoesNotExist در صفحه اصلی /
+def safe_home_view(request):
+    try:
+        return TemplateView.as_view(template_name='index.html')(request)
+    except TemplateDoesNotExist:
+        return JsonResponse({
+            "status": "online",
+            "message": "وب‌سرویس سامانه پخش عمده سیگار آذرخش فعال است.",
+            "swagger_docs": "/swagger/",
+            "redoc_docs": "/redoc/",
+            "admin_panel": "/admin/"
+        }, json_dumps_params={'ensure_ascii': False})
 
 urlpatterns = [
     # ۱. پنل مدیریت پیشفرض جنگو
@@ -395,14 +410,14 @@ urlpatterns = [
     path('api/v1/sms/', include('kavenegar_sms.urls')),
     path('api/v1/notifications/', include('notifications.urls')),
     path('api/v1/pos_products/', include('pos_products.urls')),
-    path('api/v1/finance/',include('finance.urls')),
-    path('api/v1/reports/',include('reports.urls')),
-    path('api/v1/warehouse_contact/',include('warehouse_contact.urls')),
+    path('api/v1/finance/', include('finance.urls')),
+    path('api/v1/reports/', include('reports.urls')),
+    path('api/v1/warehouse_contact/', include('warehouse_contact.urls')),
 
-    # ۶. سرویسدهی صفحات مستقل فرانتاند (React HTML Pages / SPA Routes)
+    # ۶. سرویسدهی صفحات فرانتاند (با روت امن جهت جلوگیری از خطا)
     path('shopmanage/', TemplateView.as_view(template_name='shopmanage.html'), name='shopmanage'),
     path('azarakhsh/', TemplateView.as_view(template_name='azarakhsh.html'), name='azarakhsh_docs'),
-    path('', TemplateView.as_view(template_name='index.html'), name='home'),
+    path('', safe_home_view, name='home'),
 ]
 
 if settings.DEBUG:

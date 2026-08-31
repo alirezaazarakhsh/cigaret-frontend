@@ -380,6 +380,7 @@ class FooterSettingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FooterSetting
+        ref_name = 'FooterSettings_FooterSettingSerializer'
         fields = [
             'company_title',
             'short_description',

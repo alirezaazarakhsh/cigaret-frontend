@@ -66,6 +66,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAdminUser
 from django.shortcuts import get_object_or_404
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from .models import WarehouseMessage
@@ -81,7 +82,7 @@ class WarehouseMessageCreateAPIView(APIView):
     @swagger_auto_schema(
         operation_summary="ثبت پیام فرم تماس با ما (عمومی)",
         request_body=WarehouseMessageSerializer,
-        responses={201: dict}
+        responses={201: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def post(self, request):
         serializer = WarehouseMessageSerializer(data=request.data)
@@ -143,7 +144,7 @@ class WarehouseMessageDetailAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="حذف پیام فرم تماس (مدیریت)",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def delete(self, request, pk):
         msg = get_object_or_404(WarehouseMessage, pk=pk)

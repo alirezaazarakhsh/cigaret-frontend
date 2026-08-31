@@ -252,6 +252,7 @@ from rest_framework.permissions import IsAdminUser
 from django.shortcuts import get_object_or_404
 from django.db.models import Sum, Count, Avg
 from django.utils import timezone
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from .models import DailySalesSnapshot, ProductSalesMetric
@@ -268,7 +269,7 @@ class SalesDashboardSummaryAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="دریافت خلاصه عملکرد مالی و فروش امروز (مدیریت)",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def get(self, request):
         today = timezone.now().date()
@@ -330,7 +331,7 @@ class HourlyPosHeatmapAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="دریافت هیت‌مپ ساعتی تراکنش‌های صندوق (مدیریت)",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def get(self, request):
         today = timezone.now().date()
@@ -399,7 +400,7 @@ class ExportExcelReportAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="دریافت فایل خروجی مالی حسابداری (مدیریت)",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def get(self, request):
         start_date = request.query_params.get('start_date')

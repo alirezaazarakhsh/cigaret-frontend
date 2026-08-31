@@ -434,6 +434,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from .models import PosRegister, PosShift, PosSale, PosSaleItem
@@ -561,7 +562,7 @@ class PosCheckoutAPIView(APIView):
     @swagger_auto_schema(
         operation_summary="ثبت آنی فاکتور فروش حضوری و کسر از انبار",
         request_body=PosCheckoutSerializer,
-        responses={201: dict}
+        responses={201: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def post(self, request):
         serializer = PosCheckoutSerializer(data=request.data, context={'request': request})
@@ -593,7 +594,7 @@ class PosSaleDetailAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="دریافت ساختار فاکتور فروش و فیش پرینتر حرارتی",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def get(self, request, pk):
         sale = get_object_or_404(PosSale, pk=pk)

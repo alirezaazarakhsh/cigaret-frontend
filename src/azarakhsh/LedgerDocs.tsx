@@ -316,6 +316,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from .models import CustomerLedger, LedgerTransaction, ChequeRecord
@@ -418,7 +419,7 @@ class CustomerLedgerDeleteAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="حذف حساب دفتری (حسابداری)",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def delete(self, request, pk):
         ledger = get_object_or_404(CustomerLedger, pk=pk)
@@ -437,7 +438,7 @@ class CustomerLedgerStatementAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="دریافت صورت‌حساب ریز تراکنش‌های دفتری",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def get(self, request, pk):
         ledger = get_object_or_404(CustomerLedger.objects.select_related('customer'), pk=pk)
@@ -460,7 +461,7 @@ class SettlePaymentAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="ثبت سند تسویه بدهی و کسر از دفتر حساب",
-        responses={201: dict}
+        responses={201: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     @transaction.atomic
     def post(self, request):
@@ -632,7 +633,7 @@ class ChequeDeleteAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="حذف چک صیادی (حسابداری)",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def delete(self, request, pk):
         cheque = get_object_or_404(ChequeRecord, pk=pk)

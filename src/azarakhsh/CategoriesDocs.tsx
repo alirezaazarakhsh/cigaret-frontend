@@ -308,6 +308,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.shortcuts import get_object_or_404
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from .models import Category
@@ -435,7 +436,7 @@ class CategoryDeleteAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="حذف دسته‌بندی (مدیریت)",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def delete(self, request, pk):
         category = get_object_or_404(Category, pk=pk)

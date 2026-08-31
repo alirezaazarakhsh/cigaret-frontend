@@ -507,6 +507,7 @@ class ContactInfoSettingSerializer(serializers.ModelSerializer):
 class FooterSettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = FooterSetting
+        ref_name = 'SiteSettings_FooterSettingSerializer'
         fields = [
             'about_text',
             'copyright_text',

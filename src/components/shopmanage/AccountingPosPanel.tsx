@@ -717,14 +717,17 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          const filtered = parsed.filter((s: any) =>
-            s.phone !== '09120759419' &&
-            s.phone !== '09351112233' &&
-            s.phone !== '09123456789' &&
-            !s.fullName?.includes('حسینی') &&
-            !s.fullName?.includes('قاسم‌پور')
-          );
-          return filtered;
+          // Unique map by clean phone
+          const sessionMap = new Map();
+          parsed.forEach((s: any) => {
+            if (s && s.phone) {
+              const cleanPhone = String(s.phone).replace(/\D/g, '');
+              if (!sessionMap.has(cleanPhone)) {
+                sessionMap.set(cleanPhone, s);
+              }
+            }
+          });
+          return Array.from(sessionMap.values());
         }
       }
     } catch {}
@@ -738,31 +741,24 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   }, [onlineSessions]);
 
   useEffect(() => {
-    if (!isAuthenticated || !currentStaff) return;
+    if (!isAuthenticated || !currentStaff || !currentStaff.phone) return;
     setOnlineSessions(prev => {
-      const cleanPrev = prev.filter((s: any) =>
-        s.phone !== '09120759419' &&
-        s.phone !== '09351112233' &&
-        s.phone !== '09123456789' &&
-        !s.fullName?.includes('حسینی') &&
-        !s.fullName?.includes('قاسم‌پور')
-      );
-      const exists = cleanPrev.some(s => s.phone === currentStaff.phone);
-      if (exists) return cleanPrev;
-      return [
-        {
-          id: currentStaff.id || `staff_${Date.now()}`,
-          fullName: currentStaff.fullName,
-          phone: currentStaff.phone,
-          roleTitleFa: currentStaff.roleTitleFa,
-          role: currentStaff.role,
-          loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-          avatarColor: currentStaff.avatarColor || 'bg-indigo-600'
-        },
-        ...prev
-      ];
+      const cleanCurrentPhone = String(currentStaff.phone).replace(/\D/g, '');
+      const filteredPrev = prev.filter(s => String(s.phone).replace(/\D/g, '') !== cleanCurrentPhone);
+      
+      const mySession = {
+        id: currentStaff.id || `staff_${cleanCurrentPhone}`,
+        fullName: currentStaff.fullName,
+        phone: currentStaff.phone,
+        roleTitleFa: currentStaff.roleTitleFa || 'مدیریت / صندوق',
+        role: currentStaff.role || 'staff',
+        loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+        avatarColor: currentStaff.avatarColor || 'bg-indigo-600'
+      };
+
+      return [mySession, ...filteredPrev];
     });
-  }, [isAuthenticated, currentStaff]);
+  }, [isAuthenticated, currentStaff?.phone, currentStaff?.fullName]);
 
   const [showQuickAddProductModal, setShowQuickAddProductModal] = useState<boolean>(false);
   const [pendingBarcode, setPendingBarcode] = useState<string>('');
@@ -2050,18 +2046,20 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           </div>
 
           {/* Navigation Tabs - Responsive Drawer on Mobile */}
-          <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center gap-1.5 bg-slate-50 md:bg-slate-100 p-2 md:p-1 rounded-2xl border border-slate-200 w-full md:w-auto overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-none [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full`}>
+          <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center gap-1.5 bg-slate-50 md:bg-slate-100 p-2 md:p-1 rounded-2xl border border-slate-200 w-full md:w-auto overflow-x-auto overflow-y-auto max-h-[75vh] md:max-h-none [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full shadow-lg md:shadow-none`}>
             {hasStaffPerm('manage_pos') && (
               <button
                 onClick={() => { setActiveSubTab('pos'); setIsMenuOpen(false); }}
-                className={`flex items-center gap-2 px-3 py-3 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                className={`flex items-center justify-between md:justify-start gap-2 px-3 py-3 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                   activeSubTab === 'pos'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                 }`}
               >
-                <ShoppingCart className="w-4 h-4" />
-                <span>صندوق و بارکدخوان</span>
+                <div className="flex items-center gap-2">
+                  <ShoppingCart className="w-4 h-4" />
+                  <span>صندوق و بارکدخوان</span>
+                </div>
                 {posCart.length > 0 && (
                   <span className="w-5 h-5 bg-rose-500 text-white text-[10px] rounded-full flex items-center justify-center font-mono">
                     {posCart.length}
@@ -2073,14 +2071,16 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             {hasStaffPerm('manage_inventory') && (
               <button
                 onClick={() => { setActiveSubTab('inventory'); setIsMenuOpen(false); }}
-                className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                className={`flex items-center justify-between md:justify-start gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
                   activeSubTab === 'inventory'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                 }`}
               >
-                <Package className="w-4 h-4" />
-                <span>موجودی انبار و کاردکس</span>
+                <div className="flex items-center gap-1.5">
+                  <Package className="w-4 h-4" />
+                  <span>موجودی انبار و کاردکس</span>
+                </div>
                 {lowStockCount > 0 && (
                   <span className="w-5 h-5 bg-amber-500 text-slate-950 text-[10px] rounded-full flex items-center justify-center font-bold">
                     {lowStockCount}
@@ -2144,6 +2144,24 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 <span>دفتر فاکتورها</span>
               </button>
             )}
+
+            {/* Mobile-Only Actions Row inside Menu Drawer */}
+            <div className="md:hidden flex items-center justify-between gap-2 pt-2 border-t border-slate-200/80 mt-1">
+              <button
+                onClick={onReturnToStore}
+                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-200 text-slate-800 text-xs font-bold rounded-xl active:scale-95 transition-all"
+              >
+                <ArrowRight className="w-4 h-4" />
+                <span>بازگشت به کاتالوگ</span>
+              </button>
+              <button
+                onClick={handleLogout}
+                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-rose-100 text-rose-700 text-xs font-bold rounded-xl active:scale-95 transition-all"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>خروج</span>
+              </button>
+            </div>
 
           </div>
 
@@ -5905,84 +5923,91 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       {/* Online Cashiers & Concurrent Sessions Modal */}
       {showOnlineStaffModal && (
         <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm"
+          className="fixed inset-0 z-[200] flex items-center justify-center p-3 sm:p-6 bg-slate-900/70 backdrop-blur-sm overflow-y-auto"
           onClick={() => setShowOnlineStaffModal(false)}
         >
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white border border-slate-200 rounded-[28px] max-w-lg w-full p-6 shadow-2xl space-y-5"
+            className="bg-white border border-slate-200 rounded-[28px] max-w-xl md:max-w-3xl lg:max-w-4xl w-full p-5 sm:p-8 shadow-2xl space-y-5 sm:space-y-6 my-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/30">
-                  <Users className="w-5 h-5" />
+                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white shadow-md shadow-emerald-600/30 shrink-0">
+                  <Users className="w-5 h-5 sm:w-6 sm:h-6" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-black text-slate-900">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-base sm:text-lg font-black text-slate-900">
                       صندوق‌دارهای آنلاین و پرسنل فعال
                     </h3>
-                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-black px-2 py-0.5 rounded-full">
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] sm:text-xs font-black px-2.5 py-0.5 rounded-full">
                       ورود همزمان نامحدود
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    لیست حساب‌های فعال همزمان در سیستم حسابداری سوین ({onlineSessions.length} کاربر آنلاین)
+                    لیست حساب‌های فعال همزمان در سیستم حسابداری سوین ({
+                      Array.from(new Map(onlineSessions.map(s => [String(s.phone || s.id).replace(/\D/g, ''), s])).values()).length
+                    } کاربر آنلاین)
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setShowOnlineStaffModal(false)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0"
               >
-                <X className="w-5 h-5" />
+                <X className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
 
-            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3 flex items-center gap-2.5 text-xs text-emerald-900 font-bold">
+            <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-3.5 flex items-center gap-3 text-xs sm:text-sm text-emerald-900 font-bold">
               <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span>
+              <span className="leading-relaxed">
                 در این سامانه محدودیت ورود تک‌کاربره وجود ندارد و چندین صندوق‌دار می‌توانند به صورت همزمان فاکتور صادر کنند.
               </span>
             </div>
 
-            <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
-              {onlineSessions.map((session) => {
-                const isMe = currentStaff.phone === session.phone;
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-[420px] overflow-y-auto pr-1">
+              {Array.from(new Map(onlineSessions.map(s => [String(s.phone || s.id).replace(/\D/g, ''), s])).values()).map((session) => {
+                const sessionCleanPhone = String(session.phone || '').replace(/\D/g, '');
+                const currentStaffCleanPhone = String(currentStaff.phone || '').replace(/\D/g, '');
+                const isMe = sessionCleanPhone === currentStaffCleanPhone || session.phone === currentStaff.phone;
+
                 return (
                   <div 
                     key={session.id || session.phone}
-                    className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
-                      isMe ? 'bg-indigo-50/60 border-indigo-200 shadow-sm' : 'bg-slate-50 border-slate-200'
+                    className={`p-4 rounded-2xl border transition-all flex items-center justify-between gap-3 overflow-hidden ${
+                      isMe ? 'bg-indigo-50/80 border-indigo-200 shadow-sm ring-1 ring-indigo-500/20' : 'bg-slate-50 border-slate-200 hover:bg-slate-100/70'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 rounded-xl ${session.avatarColor || 'bg-indigo-600'} text-white font-bold text-sm flex items-center justify-center shadow-sm shrink-0`}>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={`w-11 h-11 rounded-2xl ${session.avatarColor || 'bg-indigo-600'} text-white font-black text-base flex items-center justify-center shadow-sm shrink-0`}>
                         {session.fullName.slice(0, 1)}
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-black text-slate-900">{session.fullName}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs sm:text-sm font-black text-slate-900 truncate max-w-[160px] sm:max-w-[200px]">
+                            {session.fullName}
+                          </span>
                           {isMe && (
-                            <span className="bg-indigo-600 text-white text-[9px] font-black px-1.5 py-0.2 rounded-md">
+                            <span className="bg-indigo-600 text-white text-[9px] font-black px-2 py-0.5 rounded-md shrink-0">
                               نشست فعلی شما
                             </span>
                           )}
                         </div>
                         <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
-                          <span>{session.roleTitleFa}</span>
+                          <span className="truncate max-w-[120px] font-bold">{session.roleTitleFa}</span>
                           <span>•</span>
-                          <span className="font-mono">{session.phone}</span>
+                          <span className="font-mono text-slate-600">{session.phone}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end gap-1">
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-black">
+                    <div className="flex flex-col items-end gap-1 shrink-0">
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-100 text-emerald-800 rounded-full text-[10px] font-black">
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                        آنلاین (ساعت {session.loginTime})
+                        آنلاین ({session.loginTime})
                       </span>
                     </div>
                   </div>
@@ -5990,20 +6015,20 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               })}
             </div>
 
-            <div className="pt-2 border-t border-slate-100 flex items-center justify-between">
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
               <button
                 onClick={() => {
                   setShowOnlineStaffModal(false);
                   setActiveSubTab('staff_management');
                 }}
-                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1"
+                className="text-xs sm:text-sm font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 py-1"
               >
                 <span>مدیریت و دسترسی پرسنل</span>
-                <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                <ArrowRight className="w-4 h-4 rotate-180" />
               </button>
               <button
                 onClick={() => setShowOnlineStaffModal(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+                className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
               >
                 بستن
               </button>

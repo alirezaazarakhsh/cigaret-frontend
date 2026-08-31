@@ -322,6 +322,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
 from django.db import transaction
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
 from .models import Warehouse, KardexEntry, StockAdjustment
@@ -425,7 +426,7 @@ class WarehouseDeleteAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="حذف انبار (مدیریت)",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def delete(self, request, pk):
         wh = get_object_or_404(Warehouse, pk=pk)
@@ -511,7 +512,7 @@ class StockAdjustmentApplyAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="اعمال فوری سند انبارگردانی و به‌روزرسانی موجودی (مدیریت)",
-        responses={201: dict}
+        responses={201: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     @transaction.atomic
     def post(self, request):
@@ -593,7 +594,7 @@ class LowStockAlertsAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="دریافت لیست کالاهای رو به اتمام (نقطه سفارش)",
-        responses={200: dict}
+        responses={200: openapi.Response(description="پاسخ موفقیت‌آمیز")}
     )
     def get(self, request):
         low_stock_products = Product.objects.filter(stock_cartons__lte=5)
