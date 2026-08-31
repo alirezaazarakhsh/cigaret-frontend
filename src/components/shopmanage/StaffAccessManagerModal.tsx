@@ -16,7 +16,8 @@ import {
   AlertTriangle,
   UserCheck,
   RefreshCw,
-  ArrowRight
+  ArrowRight,
+  ShieldAlert
 } from 'lucide-react';
 import { WarehouseStaffUser, StaffPermission, StaffRole } from '../../types';
 import { accountsApi } from '../../services/api';
@@ -53,6 +54,8 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
   onClose,
   isPageMode = false,
 }) => {
+  const isSuperAdmin = currentStaff.role === 'super_admin';
+
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStaff, setEditingStaff] = useState<WarehouseStaffUser | null>(null);
 
@@ -74,6 +77,10 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
   const [pinError, setPinError] = useState('');
 
   const handleOpenAdd = () => {
+    if (!isSuperAdmin) {
+      alert('منحصراً مدیر ارشد سامانه (Super Admin) دارای دسترسی لازم جهت تعریف پرسنل جدید می‌باشد.');
+      return;
+    }
     setEditingStaff(null);
     setFullName('');
     setPhone('');
@@ -85,6 +92,10 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
   };
 
   const handleOpenEdit = (staff: WarehouseStaffUser) => {
+    if (!isSuperAdmin) {
+      alert('منحصراً مدیر ارشد سامانه (Super Admin) دارای دسترسی لازم جهت ویرایش کاربران، تغییر پین‌کد و سطوح دسترسی است.');
+      return;
+    }
     setEditingStaff(staff);
     setFullName(staff.fullName);
     setPhone(staff.phone);
@@ -309,13 +320,20 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={handleOpenAdd}
-            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-95"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>+ افزودن پرسنل جدید</span>
-          </button>
+          {isSuperAdmin ? (
+            <button
+              onClick={handleOpenAdd}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-95"
+            >
+              <UserPlus className="w-4 h-4" />
+              <span>+ افزودن پرسنل جدید</span>
+            </button>
+          ) : (
+            <div className="px-3.5 py-2 bg-slate-100 text-slate-500 text-xs font-bold rounded-xl flex items-center gap-1.5 border border-slate-200" title="ویرایش پرسنل اختصاصاً برای مدیر ارشد است">
+              <Lock className="w-3.5 h-3.5 text-slate-400" />
+              <span>فقط مدیر ارشد</span>
+            </div>
+          )}
           {isPageMode && (
             <button
               onClick={onClose}
@@ -338,6 +356,16 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
 
       {/* Main Content Body */}
       <div className={isPageMode ? "space-y-6" : "p-5 sm:p-6 overflow-y-auto modal-overscroll-contain space-y-6 flex-1"}>
+          {/* Non-SuperAdmin Warning Banner */}
+          {!isSuperAdmin && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 flex items-center gap-3 text-amber-900 text-xs font-bold shadow-sm">
+              <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+              <span>
+                توجه: شما با سطح دسترسی «{currentStaff.roleTitleFa}» وارد شده‌اید. افزودن پرسنل، ویرایش کاربران، تغییر رمز پین و قفل/تعلیق حساب‌ها منحصراً توسط مدیر ارشد سامانه (Super Admin) امکان‌پذیر است.
+              </span>
+            </div>
+          )}
+
           {/* Current Active Staff Banner */}
           <div className="bg-indigo-50/80 border border-indigo-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-3">
@@ -434,32 +462,38 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
                       </div>
 
                       <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleOpenEdit(staff)}
-                          title="ویرایش مشخصات و دسترسی‌ها"
-                          className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl border border-slate-200 transition-colors"
-                        >
-                          <Edit2 className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() => handleToggleStatus(staff.id)}
-                          title={staff.status === 'active' ? 'تعلیق کاربر' : 'فعال‌سازی کاربر'}
-                          className={`p-2 rounded-xl border transition-colors ${
-                            staff.status === 'active' 
-                              ? 'bg-slate-50 hover:bg-amber-50 text-amber-600 border-slate-200' 
-                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                          }`}
-                        >
-                          {staff.status === 'active' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
-                        </button>
-                        {staff.role !== 'super_admin' && (
-                          <button
-                            onClick={() => handleDeleteStaff(staff.id)}
-                            title="حذف کاربر"
-                            className="p-2 bg-slate-50 hover:bg-rose-50 text-rose-600 rounded-xl border border-slate-200 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                        {isSuperAdmin && (
+                          <>
+                            <button
+                              onClick={() => handleOpenEdit(staff)}
+                              title="ویرایش مشخصات و دسترسی‌ها"
+                              className="p-2 bg-slate-50 hover:bg-slate-100 text-slate-600 rounded-xl border border-slate-200 transition-colors"
+                            >
+                              <Edit2 className="w-4 h-4" />
+                            </button>
+                            {staff.role !== 'super_admin' && (
+                              <button
+                                onClick={() => handleToggleStatus(staff.id)}
+                                title={staff.status === 'active' ? 'تعلیق کاربر' : 'فعال‌سازی کاربر'}
+                                className={`p-2 rounded-xl border transition-colors ${
+                                  staff.status === 'active' 
+                                    ? 'bg-slate-50 hover:bg-amber-50 text-amber-600 border-slate-200' 
+                                    : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                }`}
+                              >
+                                {staff.status === 'active' ? <Lock className="w-4 h-4" /> : <Unlock className="w-4 h-4" />}
+                              </button>
+                            )}
+                            {staff.role !== 'super_admin' && (
+                              <button
+                                onClick={() => handleDeleteStaff(staff.id)}
+                                title="حذف کاربر"
+                                className="p-2 bg-slate-50 hover:bg-rose-50 text-rose-600 rounded-xl border border-slate-200 transition-colors"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
+                          </>
                         )}
 
                         {!isCurrent && staff.status === 'active' && (

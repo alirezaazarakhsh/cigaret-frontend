@@ -329,6 +329,12 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
+  // Helper to check staff permissions safely
+  const hasStaffPerm = (perm: StaffPermission): boolean => {
+    if (currentStaff.role === 'super_admin') return true;
+    return currentStaff.permissions?.includes(perm) ?? false;
+  };
+
   type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications';
 
   const getSubTabFromPath = (pathname: string): PosSubTab => {
@@ -764,6 +770,35 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       }, 200);
     }
   }, [isAuthenticated, activeSubTab]);
+
+  // Ensure activeSubTab is permitted for currentStaff
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const isTabAllowed = (tab: PosSubTab): boolean => {
+      if (currentStaff.role === 'super_admin') return true;
+      switch (tab) {
+        case 'pos': return hasStaffPerm('manage_pos');
+        case 'inventory': return hasStaffPerm('manage_inventory');
+        case 'customers': return hasStaffPerm('manage_ledger');
+        case 'reports': return hasStaffPerm('view_reports');
+        case 'monthly_compare': return hasStaffPerm('monthly_comparison') || hasStaffPerm('view_reports');
+        case 'ledger': return hasStaffPerm('manage_ledger') || hasStaffPerm('view_reports');
+        case 'staff_management': return hasStaffPerm('manage_staff');
+        case 'tickets': return hasStaffPerm('manage_tickets');
+        case 'sms_management': return hasStaffPerm('send_sms');
+        case 'notifications': return hasStaffPerm('manage_notifications');
+        case 'customer_app': return hasStaffPerm('customer_app_connect');
+        case 'analytics': return hasStaffPerm('view_reports');
+        default: return true;
+      }
+    };
+
+    if (!isTabAllowed(activeSubTab)) {
+      const candidateTabs: PosSubTab[] = ['pos', 'inventory', 'customers', 'reports', 'monthly_compare', 'ledger', 'staff_management', 'tickets', 'sms_management', 'notifications'];
+      const firstAllowed = candidateTabs.find(t => isTabAllowed(t)) || 'pos';
+      setActiveSubTab(firstAllowed);
+    }
+  }, [currentStaff, isAuthenticated, activeSubTab]);
 
   // Audio bip feedback (Add product sound vs Remove product sound)
   const playBeep = (type: 'add' | 'remove' = 'add') => {
@@ -1922,87 +1957,99 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
           {/* Navigation Tabs - Responsive Drawer on Mobile */}
           <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center gap-1.5 bg-slate-50 md:bg-slate-100 p-2 md:p-1 rounded-2xl border border-slate-200 w-full md:w-auto overflow-x-auto overflow-y-auto max-h-[70vh] md:max-h-none [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full`}>
-            <button
-              onClick={() => { setActiveSubTab('pos'); setIsMenuOpen(false); }}
-              className={`flex items-center gap-2 px-3 py-3 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'pos'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <ShoppingCart className="w-4 h-4" />
-              <span>صندوق و بارکدخوان</span>
-              {posCart.length > 0 && (
-                <span className="w-5 h-5 bg-rose-500 text-white text-[10px] rounded-full flex items-center justify-center font-mono">
-                  {posCart.length}
-                </span>
-              )}
-            </button>
+            {hasStaffPerm('manage_pos') && (
+              <button
+                onClick={() => { setActiveSubTab('pos'); setIsMenuOpen(false); }}
+                className={`flex items-center gap-2 px-3 py-3 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                  activeSubTab === 'pos'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                <span>صندوق و بارکدخوان</span>
+                {posCart.length > 0 && (
+                  <span className="w-5 h-5 bg-rose-500 text-white text-[10px] rounded-full flex items-center justify-center font-mono">
+                    {posCart.length}
+                  </span>
+                )}
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveSubTab('inventory'); setIsMenuOpen(false); }}
-              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'inventory'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <Package className="w-4 h-4" />
-              <span>موجودی انبار و کاردکس</span>
-              {lowStockCount > 0 && (
-                <span className="w-5 h-5 bg-amber-500 text-slate-950 text-[10px] rounded-full flex items-center justify-center font-bold">
-                  {lowStockCount}
-                </span>
-              )}
-            </button>
+            {hasStaffPerm('manage_inventory') && (
+              <button
+                onClick={() => { setActiveSubTab('inventory'); setIsMenuOpen(false); }}
+                className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                  activeSubTab === 'inventory'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <Package className="w-4 h-4" />
+                <span>موجودی انبار و کاردکس</span>
+                {lowStockCount > 0 && (
+                  <span className="w-5 h-5 bg-amber-500 text-slate-950 text-[10px] rounded-full flex items-center justify-center font-bold">
+                    {lowStockCount}
+                  </span>
+                )}
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveSubTab('customers'); setIsMenuOpen(false); }}
-              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'customers'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <Users className="w-4 h-4" />
-              <span>حساب‌های دفتری (نسیه)</span>
-            </button>
+            {hasStaffPerm('manage_ledger') && (
+              <button
+                onClick={() => { setActiveSubTab('customers'); setIsMenuOpen(false); }}
+                className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                  activeSubTab === 'customers'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                <span>حساب‌های دفتری (نسیه)</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveSubTab('reports'); setIsMenuOpen(false); }}
-              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'reports'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <PieChart className="w-4 h-4" />
-              <span>گزارشات فروش روزانه</span>
-            </button>
+            {hasStaffPerm('view_reports') && (
+              <button
+                onClick={() => { setActiveSubTab('reports'); setIsMenuOpen(false); }}
+                className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                  activeSubTab === 'reports'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <PieChart className="w-4 h-4" />
+                <span>گزارشات فروش روزانه</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveSubTab('monthly_compare'); setIsMenuOpen(false); }}
-              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'monthly_compare'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <BarChart3 className="w-4 h-4" />
-              <span>تحلیل مقایسه‌ای ماه‌ها</span>
-            </button>
+            {(hasStaffPerm('monthly_comparison') || hasStaffPerm('view_reports')) && (
+              <button
+                onClick={() => { setActiveSubTab('monthly_compare'); setIsMenuOpen(false); }}
+                className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                  activeSubTab === 'monthly_compare'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <BarChart3 className="w-4 h-4" />
+                <span>تحلیل مقایسه‌ای ماه‌ها</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => { setActiveSubTab('ledger'); setIsMenuOpen(false); }}
-              className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
-                activeSubTab === 'ledger'
-                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}
-            >
-              <Receipt className="w-4 h-4" />
-              <span>دفتر فاکتورها</span>
-            </button>
+            {(hasStaffPerm('manage_ledger') || hasStaffPerm('view_reports')) && (
+              <button
+                onClick={() => { setActiveSubTab('ledger'); setIsMenuOpen(false); }}
+                className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                  activeSubTab === 'ledger'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <Receipt className="w-4 h-4" />
+                <span>دفتر فاکتورها</span>
+              </button>
+            )}
 
           </div>
 
@@ -2023,73 +2070,89 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
                 {showToolsDropdown && (
                   <div className="absolute left-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
-                    <button
-                      onClick={() => { setShowBackendModal(true); setShowToolsDropdown(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/90 rounded-xl transition-colors text-right"
-                    >
-                      <Server className="w-4 h-4 text-blue-600" />
-                      <span>اتصال API و وب‌سرویس جنگو</span>
-                    </button>
-                    <button
-                      onClick={() => { setShowCurrencyRateModal(true); setShowToolsDropdown(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                    >
-                      <Coins className="w-4 h-4 text-blue-600" />
-                      <span>تنظیم نرخ ارز (دلار/یورو)</span>
-                    </button>
-                    <button
-                      onClick={() => { setShowCustomerAppModal(true); setShowToolsDropdown(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                    >
-                      <Smartphone className="w-4 h-4 text-indigo-600" />
-                      <span>اتصال اپلیکیشن مشتریان</span>
-                    </button>
+                    {currentStaff.role === 'super_admin' && (
+                      <button
+                        onClick={() => { setShowBackendModal(true); setShowToolsDropdown(false); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/90 rounded-xl transition-colors text-right"
+                      >
+                        <Server className="w-4 h-4 text-blue-600" />
+                        <span>اتصال API و وب‌سرویس جنگو</span>
+                      </button>
+                    )}
+                    
+                    {(currentStaff.role === 'super_admin' || hasStaffPerm('view_reports')) && (
+                      <button
+                        onClick={() => { setShowCurrencyRateModal(true); setShowToolsDropdown(false); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      >
+                        <Coins className="w-4 h-4 text-blue-600" />
+                        <span>تنظیم نرخ ارز (دلار/یورو)</span>
+                      </button>
+                    )}
+
+                    {hasStaffPerm('customer_app_connect') && (
+                      <button
+                        onClick={() => { setShowCustomerAppModal(true); setShowToolsDropdown(false); }}
+                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      >
+                        <Smartphone className="w-4 h-4 text-indigo-600" />
+                        <span>اتصال اپلیکیشن مشتریان</span>
+                      </button>
+                    )}
 
                     <div className="my-1 border-t border-slate-100"></div>
 
-                    <button
-                      onClick={() => { setActiveSubTab('staff_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl transition-colors text-right"
-                    >
-                      <div className="flex items-center gap-2">
-                        <UserPlus className="w-4 h-4 text-emerald-600" />
-                        <span>افزودن پرسنل جدید (صفحه مجزا)</span>
-                      </div>
-                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md font-bold">جدید</span>
-                    </button>
+                    {hasStaffPerm('manage_staff') && (
+                      <button
+                        onClick={() => { setActiveSubTab('staff_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl transition-colors text-right"
+                      >
+                        <div className="flex items-center gap-2">
+                          <UserPlus className="w-4 h-4 text-emerald-600" />
+                          <span>افزودن پرسنل جدید (صفحه مجزا)</span>
+                        </div>
+                        <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md font-bold">جدید</span>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveSubTab('tickets'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Headphones className="w-4 h-4 text-indigo-600" />
-                        <span>پشتیبانی تیکت‌ها</span>
-                      </div>
-                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
-                    </button>
+                    {hasStaffPerm('manage_tickets') && (
+                      <button
+                        onClick={() => { setActiveSubTab('tickets'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Headphones className="w-4 h-4 text-indigo-600" />
+                          <span>پشتیبانی تیکت‌ها</span>
+                        </div>
+                        <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveSubTab('sms_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Smartphone className="w-4 h-4 text-indigo-600" />
-                        <span>سامانه پیامکی کاوه‌نگار</span>
-                      </div>
-                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
-                    </button>
+                    {hasStaffPerm('send_sms') && (
+                      <button
+                        onClick={() => { setActiveSubTab('sms_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Smartphone className="w-4 h-4 text-indigo-600" />
+                          <span>سامانه پیامکی کاوه‌نگار</span>
+                        </div>
+                        <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveSubTab('notifications'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-purple-600" />
-                        <span>اعلانات و نوتیفیکیشن‌ها</span>
-                      </div>
-                      <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
-                    </button>
+                    {hasStaffPerm('manage_notifications') && (
+                      <button
+                        onClick={() => { setActiveSubTab('notifications'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      >
+                        <div className="flex items-center gap-2">
+                          <Bell className="w-4 h-4 text-purple-600" />
+                          <span>اعلانات و نوتیفیکیشن‌ها</span>
+                        </div>
+                        <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
