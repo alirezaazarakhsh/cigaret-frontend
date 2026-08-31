@@ -185,6 +185,7 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
         if (role === 'super_admin' || editingStaff.role === 'super_admin' || phone.trim() === '09120759419') {
           try {
             localStorage.setItem('sovin_pos_superadmin_pin', pinCode.trim());
+            localStorage.setItem('django_superadmin_password', pinCode.trim());
           } catch {}
         }
 
