@@ -2359,7 +2359,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       )}
 
       {/* Main Content Area */}
-      <main className="flex-1 print:hidden max-w-[1600px] w-full mx-auto p-4 sm:p-6">
+      <main className="flex-1 print:hidden w-full mx-auto p-3 sm:p-5 lg:p-6">
         <AnimatePresence mode="wait">
           
           {/* TAB 1: POS & Barcode Scanner */}

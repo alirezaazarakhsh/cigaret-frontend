@@ -21,10 +21,11 @@ import {
   Check,
   Info,
   FileText,
+  Newspaper,
   PlusCircle
 } from 'lucide-react';
 import { BlogPost, BlogCategoryItem } from '../types';
-import { djangoFetchBlogPosts, djangoFetchBlogCategories } from '../services/djangoApi';
+import { api, blogApi } from '../services/api';
 import { formatNumberFa } from '../utils/formatters';
 
 interface BlogSectionProps {
@@ -56,8 +57,8 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
     const loadAll = async () => {
       try {
         const [fullList, fetchedCats] = await Promise.all([
-          djangoFetchBlogPosts('all', ''),
-          djangoFetchBlogCategories()
+          blogApi.getPosts({ category: 'all' }),
+          blogApi.getCategories()
         ]);
         setAllPosts(fullList);
         setCategories(fetchedCats);
@@ -73,7 +74,10 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
     const loadPosts = async () => {
       setIsLoading(true);
       try {
-        const res = await djangoFetchBlogPosts(selectedCategory, searchQuery);
+        const res = await blogApi.getPosts({
+          category: selectedCategory,
+          search: searchQuery
+        });
         setPosts(res);
       } catch (e) {
         console.error('Error fetching filtered blog posts:', e);
@@ -112,27 +116,24 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
 
     const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
       'all': BookOpen,
-      'market-analysis': TrendingUp,
-      'تحلیل بازار و ارز': TrendingUp,
-      'original-auth': ShieldCheck,
-      'اصالت کالا و برند': ShieldCheck,
-      'iqos-technology': Zap,
-      'فناوری IQOS': Zap,
-      'wholesale-shipping': Package,
-      'راهنمای بنکداری': Package,
-      'freight-rules': Truck,
-      'قوانین باربری و ارسال': Truck
+      'news': Newspaper,
+      'market': TrendingUp,
+      'security': ShieldCheck,
+      'tech': Zap,
+      'shipping': Truck,
+      'product': Package,
+      'general': FileText
     };
 
     const hasAll = categories.some(cat => cat.slug === 'all' || cat.name === 'همه مقالات و مطالب' || cat.id === 'all');
     const mapped = categories.map((cat, idx) => ({
-      id: cat.slug === 'all' || cat.name === 'همه مقالات و مطالب' ? 'all' : cat.name,
+      id: cat.name,
       label: cat.name,
-      icon: iconMap[cat.slug] || iconMap[cat.name] || (idx % 2 === 0 ? FileText : BookOpen),
+      icon: iconMap[cat.slug] || (idx % 3 === 0 ? Layers : (idx % 2 === 0 ? FileText : BookOpen)),
       color: cat.color || 'text-blue-600',
       bgColor: cat.bgColor || 'bg-blue-50',
       borderColor: cat.borderColor || 'border-blue-200',
-      description: cat.description || 'مشاهده مقالات مربوط به این دسته‌بندی تخصصی'
+      description: cat.description || 'مشاهده مقالات مربوط به این دسته‌بندی'
     }));
 
     if (!hasAll) {
@@ -173,7 +174,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
 
 
   return (
-    <div className="py-6 space-y-8 animate-in fade-in duration-200" id="blog-dedicated-page">
+    <div className="w-full space-y-6 sm:space-y-8 animate-in fade-in duration-200" id="blog-dedicated-page">
       
       {/* Schema.org Blog Microdata for SEO */}
       <script
@@ -197,7 +198,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
       />
 
       {/* DEDICATED PAGE HERO HEADER */}
-      <div className="bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-3xl p-6 sm:p-10 shadow-xl border border-slate-800 relative overflow-hidden">
+      <div className="w-full bg-gradient-to-r from-slate-900 via-blue-950 to-slate-900 text-white rounded-3xl p-5 sm:p-8 lg:p-10 shadow-xl border border-slate-800 relative overflow-hidden">
         
         {/* Decorative Background Accents */}
         <div className="absolute -left-12 -top-12 w-64 h-64 bg-blue-600/20 rounded-full blur-3xl pointer-events-none"></div>
@@ -213,7 +214,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
               <span className="text-white font-black">صفحه مجزای مقالات خواندنی و اخبار بازار</span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
               <span className="bg-blue-500/20 text-blue-300 text-xs font-bold px-3 py-1 rounded-xl border border-blue-400/30 flex items-center gap-1.5">
                 <BookOpen className="w-3.5 h-3.5 text-blue-400" />
                 تعداد کل مقالات: {formatNumberFa(allPosts.length)}
@@ -227,12 +228,12 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
 
           {/* Title & Description & Search */}
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-            <div className="space-y-3 max-w-3xl">
+            <div className="space-y-3 max-w-4xl">
               <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600/40 to-indigo-600/40 text-blue-200 text-xs font-black px-3 py-1 rounded-xl border border-blue-400/30">
                 <Sparkles className="w-4 h-4 text-blue-400" />
                 مرجع تخصصی اخبار، آموزش بنکداری و تحلیل نرخ ارز
               </div>
-              <h1 className="text-xl sm:text-3xl font-black text-white leading-tight">
+              <h1 className="text-lg sm:text-2xl lg:text-3xl font-black text-white leading-tight">
                 مجله مقالات خواندنی و راهنمای تخصصی دخانیات
               </h1>
               <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-normal">
@@ -625,7 +626,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
               {posts.map((post) => (
                 <div
                   key={post.id}

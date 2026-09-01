@@ -15,6 +15,7 @@ import {
   Image as ImageIcon,
   Server,
   Filter,
+  Loader2,
   AlertCircle
 } from 'lucide-react';
 import { BlogPost } from '../../types';
@@ -43,6 +44,7 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
   const [formData, setFormData] = useState<Partial<BlogPost>>({
     title: '',
@@ -139,6 +141,7 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
       return;
     }
 
+    setIsSubmitting(true);
     try {
       if (isEditing && editingPostId) {
         await djangoUpdateBlogPost(editingPostId, formData);
@@ -153,6 +156,8 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
       setTimeout(() => setMessage(null), 3000);
     } catch (err) {
       setMessage({ text: 'خطا در ثبت مقاله در API.', type: 'error' });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -424,16 +429,26 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
                 <button
                   type="button"
                   onClick={() => setShowForm(false)}
-                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
                 >
                   انصراف
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-1.5"
+                  disabled={isSubmitting}
+                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl shadow-xs transition-all active:scale-95 flex items-center gap-2 disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
                 >
-                  <Check className="w-4 h-4" />
-                  <span>{isEditing ? 'ذخیره تغییرات مقاله' : 'انتشار مقاله در دیتابیس'}</span>
+                  {isSubmitting ? (
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  ) : (
+                    <Check className="w-4 h-4 shrink-0" />
+                  )}
+                  <span>
+                    {isSubmitting
+                      ? (isEditing ? 'در حال ذخیره تغییرات...' : 'در حال ثبت در دیتابیس...')
+                      : (isEditing ? 'ذخیره تغییرات مقاله' : 'انتشار مقاله در دیتابیس')}
+                  </span>
                 </button>
               </div>
             </form>

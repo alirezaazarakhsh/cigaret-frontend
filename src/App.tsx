@@ -725,7 +725,7 @@ export default function App() {
       />
 
       {/* Main App Body */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+      <main className="flex-1 w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6">
         
         {/* TAB 1: Catalog */}
         {activeTab === 'catalog' && (

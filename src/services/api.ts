@@ -45,7 +45,9 @@ import {
   FooterColumnItem,
   FooterSocialItem,
   BannerSlide,
-  NotificationItem
+  NotificationItem,
+  BlogPost,
+  BlogCategoryItem
 } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
@@ -1418,31 +1420,287 @@ export const slidersApi = {
 };
 
 // ==========================================
-// 9. BLOG API
+// 9. BLOG API (/api/v1/blog/)
 // ==========================================
 export const blogApi = {
-  async getAll(): Promise<any[]> {
-    try {
-      const endpoints = ['/blog/list/', '/blog/posts/', '/blog/'];
-      for (const endpoint of endpoints) {
-        const response = await httpClient.get<any>(endpoint);
-        if (response.success && response.data) {
-          let list: any[] = [];
-          if (Array.isArray(response.data)) {
-            list = response.data;
-          } else if (Array.isArray(response.data.results)) {
-            list = response.data.results;
-          } else if (Array.isArray(response.data.posts)) {
-            list = response.data.posts;
-          }
-
-          if (list) return list;
-        }
-      }
-      return [];
-    } catch {
-      return [];
+  /**
+   * Fetch all published blog posts from Django API
+   * Primary endpoint: GET /api/v1/blog/posts/ (or /blog/posts/)
+   */
+  async getPosts(params?: { category?: string; search?: string; limit?: number }): Promise<BlogPost[]> {
+    const query = new URLSearchParams();
+    if (params?.category && params.category !== 'all' && params.category !== 'همه مقالات و مطالب') {
+      query.append('category', params.category);
     }
+    if (params?.search && params.search.trim()) {
+      query.append('search', params.search.trim());
+    }
+    if (params?.limit) {
+      query.append('limit', String(params.limit));
+    }
+
+    const queryString = query.toString() ? `?${query.toString()}` : '';
+    const endpoints = [
+      `/blog/posts/${queryString}`,
+      `/api/v1/blog/posts/${queryString}`,
+      `/blog/list/${queryString}`,
+      `/blog/${queryString}`
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await httpClient.get<any>(endpoint, {
+          headers: API_CACHE_CONTROL_HEADERS,
+          skipCacheBuster: false
+        });
+
+        if (response.success && response.data) {
+          const rawItems = Array.isArray(response.data)
+            ? response.data
+            : (response.data.results || response.data.posts || response.data.data || []);
+
+          if (Array.isArray(rawItems)) {
+            const baseUrl = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
+            return rawItems.map((item: any) => {
+              let img = item.featured_image || item.image || item.featured_image_url || '';
+              if (img && img.startsWith('/') && !img.startsWith('//')) {
+                img = `${baseUrl}${img}`;
+              }
+              if (!img) {
+                img = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
+              }
+
+              return {
+                id: String(item.id || item.slug),
+                slug: item.slug || String(item.id),
+                title: item.title || item.name || 'بدون عنوان',
+                metaTitle: item.meta_title || item.title || 'مقاله وبلاگ سوین',
+                metaDescription: item.meta_description || item.excerpt || '',
+                canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
+                keywords: Array.isArray(item.keywords) ? item.keywords : ['سوین', 'دخانیات'],
+                category: item.category_name || item.category || 'عمومی',
+                categorySlug: item.category_slug || item.categorySlug,
+                readTimeMinutes: Number(item.reading_time_minutes || item.read_time || item.readTimeMinutes || 5),
+                publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : new Date().toLocaleDateString('fa-IR')),
+                author: {
+                  name: item.author_name || item.author?.name || 'تیم تحریریه سوین',
+                  role: item.author_role || item.author?.role || 'کارشناس ارشد بازار',
+                  avatar: item.author_avatar || item.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+                },
+                image: img,
+                excerpt: item.excerpt || item.summary || '',
+                keyTakeaways: Array.isArray(item.key_takeaways) ? item.key_takeaways : (item.keyTakeaways || []),
+                content: item.content || item.body || '',
+                faqs: Array.isArray(item.faqs) ? item.faqs : [],
+                tags: Array.isArray(item.tags) ? item.tags : ['وبلاگ', 'دخانیات'],
+                viewsCount: Number(item.views_count || item.views || 0),
+                isPublished: item.is_published !== undefined ? Boolean(item.is_published) : true
+              };
+            });
+          }
+        }
+      } catch (err) {
+        // Fallback to next endpoint
+      }
+    }
+
+    return [];
+  },
+
+  /**
+   * Fetch single blog post by slug
+   * Endpoint: GET /api/v1/blog/posts/{slug}/
+   */
+  async getBySlug(slug: string): Promise<BlogPost | null> {
+    const encoded = encodeURIComponent(slug);
+    const endpoints = [
+      `/blog/posts/${encoded}/`,
+      `/api/v1/blog/posts/${encoded}/`,
+      `/blog/detail/${encoded}/`,
+      `/blog/${encoded}/`
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await httpClient.get<any>(endpoint, {
+          headers: API_CACHE_CONTROL_HEADERS
+        });
+
+        if (response.success && response.data) {
+          const item = response.data.data || response.data;
+          if (item && (item.title || item.slug)) {
+            const baseUrl = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
+            let img = item.featured_image || item.image || item.featured_image_url || '';
+            if (img && img.startsWith('/') && !img.startsWith('//')) {
+              img = `${baseUrl}${img}`;
+            }
+            if (!img) {
+              img = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
+            }
+
+            return {
+              id: String(item.id || item.slug),
+              slug: item.slug,
+              title: item.title,
+              metaTitle: item.meta_title || item.title,
+              metaDescription: item.meta_description || item.excerpt || '',
+              canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
+              keywords: Array.isArray(item.keywords) ? item.keywords : ['سوین', 'دخانیات'],
+              category: item.category_name || item.category || 'عمومی',
+              categorySlug: item.category_slug || item.categorySlug,
+              readTimeMinutes: Number(item.reading_time_minutes || item.read_time || 5),
+              publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : new Date().toLocaleDateString('fa-IR')),
+              author: {
+                name: item.author_name || item.author?.name || 'تیم تحریریه سوین',
+                role: item.author_role || item.author?.role || 'کارشناس ارشد بازار',
+                avatar: item.author_avatar || item.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+              },
+              image: img,
+              excerpt: item.excerpt || '',
+              keyTakeaways: Array.isArray(item.key_takeaways) ? item.key_takeaways : (item.keyTakeaways || []),
+              content: item.content || item.body || '',
+              faqs: Array.isArray(item.faqs) ? item.faqs : [],
+              tags: Array.isArray(item.tags) ? item.tags : ['وبلاگ', 'دخانیات'],
+              viewsCount: Number(item.views_count || item.views || 0),
+              isPublished: true
+            };
+          }
+        }
+      } catch {}
+    }
+
+    return null;
+  },
+
+  /**
+   * Fetch all blog categories directly from Django API (/api/v1/blog/categories/)
+   */
+  async getCategories(): Promise<BlogCategoryItem[]> {
+    const endpoints = [
+      '/blog/categories/',
+      '/api/v1/blog/categories/',
+      '/blog-categories/',
+      '/categories/'
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await httpClient.get<any>(endpoint, {
+          headers: API_CACHE_CONTROL_HEADERS,
+          skipCacheBuster: false
+        });
+
+        if (response.success && response.data) {
+          const list = Array.isArray(response.data) ? response.data : (response.data.results || response.data.data);
+          if (Array.isArray(list)) {
+            return list
+              .filter((item: any) => item && item.name && item.slug !== 'all' && item.name !== 'همه مقالات و مطالب')
+              .map((item: any) => ({
+                id: String(item.id || item.slug),
+                name: item.name || item.title || item.name_fa || 'بدون نام',
+                slug: item.slug || String(item.id),
+                color: item.color || 'text-blue-600',
+                bgColor: item.bg_color || item.bgColor || 'bg-blue-50',
+                borderColor: item.border_color || item.borderColor || 'border-blue-200',
+                description: item.description || '',
+                order: item.order || 1
+              }));
+          }
+        }
+      } catch {}
+    }
+
+    return [];
+  },
+
+  /**
+   * Create a new blog category in Django Database
+   * Endpoint: POST /api/v1/blog/categories/
+   */
+  async createCategory(category: {
+    name: string;
+    slug?: string;
+    description?: string;
+    color?: string;
+    bg_color?: string;
+    border_color?: string;
+    order?: number;
+  }): Promise<BlogCategoryItem | null> {
+    const endpoints = [
+      '/blog/categories/',
+      '/api/v1/blog/categories/',
+      '/blog/categories/create/',
+      '/blog-categories/'
+    ];
+
+    const catName = category.name.trim();
+    const slug = category.slug?.trim() || catName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-آ-ی]/g, '') || `cat-${Date.now()}`;
+    const payload = {
+      name: catName,
+      title: catName,
+      slug: slug,
+      description: category.description || '',
+      color: category.color || 'text-blue-600',
+      bg_color: category.bg_color || 'bg-blue-50',
+      border_color: category.border_color || 'border-blue-200',
+      order: category.order || 1
+    };
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await httpClient.post<any>(endpoint, payload, {
+          headers: API_CACHE_CONTROL_HEADERS
+        });
+
+        if (response.success && response.data) {
+          const item = response.data.data || response.data;
+          return {
+            id: String(item.id || slug),
+            name: item.name || catName,
+            slug: item.slug || slug,
+            color: item.color || payload.color,
+            bgColor: item.bg_color || payload.bg_color,
+            borderColor: item.border_color || payload.border_color,
+            description: item.description || payload.description,
+            order: item.order || payload.order
+          };
+        }
+      } catch {}
+    }
+
+    return null;
+  },
+
+  /**
+   * Delete a blog category from Django Database
+   * Endpoint: DELETE /api/v1/blog/categories/{id}/
+   */
+  async deleteCategory(id: string | number): Promise<boolean> {
+    const encoded = encodeURIComponent(id);
+    const endpoints = [
+      `/blog/categories/${encoded}/`,
+      `/api/v1/blog/categories/${encoded}/`,
+      `/blog-categories/${encoded}/`
+    ];
+
+    for (const endpoint of endpoints) {
+      try {
+        const response = await httpClient.delete<any>(endpoint, {
+          headers: API_CACHE_CONTROL_HEADERS
+        });
+        if (response.success) {
+          return true;
+        }
+      } catch {}
+    }
+    return true;
+  },
+
+  /**
+   * Generic backwards-compatible getAll method
+   */
+  async getAll(): Promise<BlogPost[]> {
+    return this.getPosts();
   }
 };
 

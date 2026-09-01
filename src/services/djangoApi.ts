@@ -295,20 +295,48 @@ class DjangoDatabaseStore {
 
   getBlogCategories(): BlogCategoryItem[] {
     try {
-      const saved = localStorage.getItem('sovin_django_blog_categories');
+      // Automatically sanitize legacy mock categories from old sessions
+      const oldLegacy = localStorage.getItem('sovin_django_blog_categories');
+      if (oldLegacy && (oldLegacy.includes('original-auth') || oldLegacy.includes('wholesale-shipping') || oldLegacy.includes('market-analysis') || oldLegacy.includes('iqos-technology') || oldLegacy.includes('freight-rules') || oldLegacy.includes('testi'))) {
+        localStorage.removeItem('sovin_django_blog_categories');
+      }
+
+      const saved = localStorage.getItem('sevin_v3_blog_categories') || localStorage.getItem('sovin_django_blog_categories');
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          return parsed;
+          return parsed.filter(c => 
+            c && 
+            c.id !== 'all' && 
+            c.name !== 'همه مقالات و مطالب' && 
+            c.slug !== 'original-auth' && 
+            c.slug !== 'wholesale-shipping' && 
+            c.slug !== 'market-analysis' && 
+            c.slug !== 'iqos-technology' && 
+            c.slug !== 'freight-rules' &&
+            c.slug !== 'testi'
+          );
         }
       }
     } catch {}
-    return [...this.defaultBlogCategories];
+    return [];
   }
 
   setBlogCategories(categories: BlogCategoryItem[]) {
     try {
-      localStorage.setItem('sovin_django_blog_categories', JSON.stringify(categories));
+      const sanitized = categories.filter(c => 
+        c && 
+        c.id !== 'all' && 
+        c.name !== 'همه مقالات و مطالب' && 
+        c.slug !== 'original-auth' && 
+        c.slug !== 'wholesale-shipping' && 
+        c.slug !== 'market-analysis' && 
+        c.slug !== 'iqos-technology' && 
+        c.slug !== 'freight-rules' &&
+        c.slug !== 'testi'
+      );
+      localStorage.setItem('sevin_v3_blog_categories', JSON.stringify(sanitized));
+      localStorage.removeItem('sovin_django_blog_categories');
     } catch {}
   }
 
@@ -336,18 +364,14 @@ class DjangoDatabaseStore {
       list.push(newCat);
     }
 
-    try {
-      localStorage.setItem('sovin_django_blog_categories', JSON.stringify(list));
-    } catch {}
+    this.setBlogCategories(list);
     return newCat;
   }
 
   deleteBlogCategory(id: string): boolean {
     const list = this.getBlogCategories();
-    const filtered = list.filter(c => c.id !== id && c.name !== id && c.id !== 'all');
-    try {
-      localStorage.setItem('sovin_django_blog_categories', JSON.stringify(filtered));
-    } catch {}
+    const filtered = list.filter(c => c.id !== id && c.name !== id);
+    this.setBlogCategories(filtered);
     return true;
   }
 

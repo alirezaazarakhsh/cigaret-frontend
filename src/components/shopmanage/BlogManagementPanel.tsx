@@ -26,6 +26,7 @@ import {
   Share2,
   RefreshCw,
   Palette,
+  Loader2,
   Image as ImageIcon
 } from 'lucide-react';
 import { BlogPost, BlogCategoryItem, DjangoCrmConfig } from '../../types';
@@ -68,7 +69,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   const [formData, setFormData] = useState<Partial<BlogPost>>({
     title: '',
     slug: '',
-    category: 'تحلیل بازار و ارز',
+    category: '',
     excerpt: '',
     content: '',
     image: '',
@@ -95,6 +96,8 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   const [newCatDesc, setNewCatDesc] = useState<string>('');
   const [newCatColor, setNewCatColor] = useState<string>('text-blue-600');
   const [isAddingCategory, setIsAddingCategory] = useState<boolean>(false);
+  const [isSubmittingCategory, setIsSubmittingCategory] = useState<boolean>(false);
+  const [isSubmittingArticle, setIsSubmittingArticle] = useState<boolean>(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -121,6 +124,17 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     setTimeout(() => {
       setNotification(null);
     }, 4000);
+  };
+
+  const handlePurgeAndSyncCategories = async () => {
+    try {
+      localStorage.removeItem('sovin_django_blog_categories');
+      localStorage.removeItem('sevin_v3_blog_categories');
+      await loadData();
+      showNotification('حافظه محلی پاکسازی و آخرین اطلاعات مستقیماً از سرور جنگو بازخوانی شد.');
+    } catch (e) {
+      showNotification('خطا در پاکسازی حافظه.', 'error');
+    }
   };
 
   // Image File Handling
@@ -265,6 +279,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       return;
     }
 
+    setIsSubmittingArticle(true);
     try {
       if (isEditing && editingPostId) {
         await djangoUpdateBlogPost(editingPostId, formData, crmConfig);
@@ -277,6 +292,8 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       setActiveTab('posts');
     } catch (err) {
       showNotification('خطا در ثبت اطلاعات در سرور.', 'error');
+    } finally {
+      setIsSubmittingArticle(false);
     }
   };
 
@@ -302,6 +319,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       return;
     }
 
+    setIsSubmittingCategory(true);
     try {
       await djangoCreateBlogCategory({
         name: newCatName.trim(),
@@ -309,14 +327,16 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
         description: newCatDesc.trim(),
         color: newCatColor
       }, crmConfig);
-      showNotification(`دسته‌بندی «${newCatName}» با موفقیت در سرور جنگو ایجاد شد.`);
+      showNotification(`دسته‌بندی «${newCatName}» با موفقیت در دیتابیس جنگو ثبت شد.`);
       setNewCatName('');
       setNewCatSlug('');
       setNewCatDesc('');
       setIsAddingCategory(false);
       await loadData();
     } catch (err) {
-      showNotification('خطا در ایجاد دسته‌بندی.', 'error');
+      showNotification('خطا در ایجاد دسته‌بندی در سرور.', 'error');
+    } finally {
+      setIsSubmittingCategory(false);
     }
   };
 
@@ -350,34 +370,34 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       
       {/* TOP HEADER BAR */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="w-full px-3 sm:px-6 lg:px-8 py-3.5 sm:py-4 flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-4">
           
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
-              <BookOpen className="w-6 h-6" />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-md shadow-blue-500/20 shrink-0">
+              <BookOpen className="w-5 h-5 sm:w-6 sm:h-6" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-base sm:text-lg md:text-xl font-black text-slate-900 tracking-tight">
                   مدیریت مقالات و وبلاگ تخصصی
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-blue-100 text-blue-700 border border-blue-200">
                   Django CMS Engine
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">
+              <p className="text-[11px] sm:text-xs text-slate-500 font-medium mt-0.5 line-clamp-1">
                 تولید محتوا، درج تصاویر شاخص، ویرایشگر TinyMCE و مدیریت دسته‌بندی‌های وبلاگ
               </p>
             </div>
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap">
             {onReturnToDashboard && (
               <button
                 type="button"
                 onClick={onReturnToDashboard}
-                className="px-3.5 py-2 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5"
+                className="px-3 sm:px-3.5 py-2 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5"
               >
                 <ArrowRight className="w-4 h-4" />
                 <span>بازگشت به صندوق</span>
@@ -393,7 +413,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                   window.location.href = '/blog';
                 }
               }}
-              className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center gap-1.5"
+              className="px-3 sm:px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center gap-1.5"
             >
               <Eye className="w-4 h-4 text-slate-600" />
               <span>مشاهده وبلاگ عمومی</span>
@@ -403,7 +423,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
               <button
                 type="button"
                 onClick={handleOpenCreateForm}
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 hover:scale-[1.02]"
+                className="px-3.5 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5 sm:gap-2 hover:scale-[1.02]"
               >
                 <Plus className="w-4 h-4" />
                 <span>افزودن مقاله جدید</span>
@@ -414,11 +434,11 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
         </div>
 
         {/* SUB NAVIGATION TABS */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center gap-2 border-t border-slate-100 overflow-x-auto">
+        <div className="w-full px-3 sm:px-6 lg:px-8 flex items-center gap-2 border-t border-slate-100 overflow-x-auto">
           <button
             type="button"
             onClick={() => setActiveTab('posts')}
-            className={`py-3 px-4 text-xs font-black border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+            className={`py-3 px-3 sm:px-4 text-xs font-black border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
               activeTab === 'posts'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-900'
@@ -434,7 +454,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
           <button
             type="button"
             onClick={() => setActiveTab('categories')}
-            className={`py-3 px-4 text-xs font-black border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+            className={`py-3 px-3 sm:px-4 text-xs font-black border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
               activeTab === 'categories'
                 ? 'border-blue-600 text-blue-600'
                 : 'border-transparent text-slate-500 hover:text-slate-900'
@@ -450,7 +470,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
           {activeTab === 'editor' && (
             <button
               type="button"
-              className="py-3 px-4 text-xs font-black border-b-2 border-amber-600 text-amber-600 flex items-center gap-2 whitespace-nowrap"
+              className="py-3 px-3 sm:px-4 text-xs font-black border-b-2 border-amber-600 text-amber-600 flex items-center gap-2 whitespace-nowrap"
             >
               <Edit3 className="w-4 h-4" />
               <span>{isEditing ? 'ویرایش مقاله' : 'نگارش مقاله جدید'}</span>
@@ -461,7 +481,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
 
       {/* NOTIFICATION TOAST */}
       {notification && (
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-4">
+        <div className="w-full px-3 sm:px-6 lg:px-8 pt-4">
           <div className={`p-3.5 rounded-2xl border flex items-center justify-between text-xs font-bold shadow-sm ${
             notification.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
@@ -469,9 +489,9 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
           }`}>
             <div className="flex items-center gap-2">
               {notification.type === 'success' ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
               ) : (
-                <AlertCircle className="w-4 h-4 text-red-600" />
+                <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
               )}
               <span>{notification.text}</span>
             </div>
@@ -487,7 +507,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       )}
 
       {/* MAIN CONTENT AREA */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6">
+      <div className="w-full px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6">
 
         {/* ======================================================== */}
         {/* VIEW 1: POSTS LIST TAB */}
@@ -496,50 +516,50 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
           <div className="space-y-6">
             
             {/* STATS OVERVIEW CARDS */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black shrink-0">
                   <FileText className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="text-[11px] text-slate-500 font-bold">کل مقالات ثبت شده</div>
-                  <div className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
+                <div className="min-w-0">
+                  <div className="text-[11px] text-slate-500 font-bold truncate">کل مقالات ثبت شده</div>
+                  <div className="text-sm sm:text-base md:text-lg font-black text-slate-900 mt-0.5">
                     {formatNumberFa(totalArticles)} <span className="text-xs font-normal text-slate-500">مقاله</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black">
+              <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black shrink-0">
                   <CheckCircle2 className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="text-[11px] text-slate-500 font-bold">منتشر شده در وبلاگ</div>
-                  <div className="text-base sm:text-lg font-black text-emerald-600 mt-0.5">
+                <div className="min-w-0">
+                  <div className="text-[11px] text-slate-500 font-bold truncate">منتشر شده در وبلاگ</div>
+                  <div className="text-sm sm:text-base md:text-lg font-black text-emerald-600 mt-0.5">
                     {formatNumberFa(publishedArticles)} <span className="text-xs font-normal text-slate-500">پست</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-black">
+              <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-black shrink-0">
                   <Eye className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="text-[11px] text-slate-500 font-bold">مجموع بازدیدها</div>
-                  <div className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
+                <div className="min-w-0">
+                  <div className="text-[11px] text-slate-500 font-bold truncate">مجموع بازدیدها</div>
+                  <div className="text-sm sm:text-base md:text-lg font-black text-slate-900 mt-0.5">
                     {formatNumberFa(totalViews)} <span className="text-xs font-normal text-slate-500">بازدید</span>
                   </div>
                 </div>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-black">
+              <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-black shrink-0">
                   <Layers className="w-5 h-5" />
                 </div>
-                <div>
-                  <div className="text-[11px] text-slate-500 font-bold">دسته‌بندی‌های فعال</div>
-                  <div className="text-base sm:text-lg font-black text-slate-900 mt-0.5">
+                <div className="min-w-0">
+                  <div className="text-[11px] text-slate-500 font-bold truncate">دسته‌بندی‌های فعال</div>
+                  <div className="text-sm sm:text-base md:text-lg font-black text-slate-900 mt-0.5">
                     {formatNumberFa(activeCategoriesCount)} <span className="text-xs font-normal text-slate-500">دسته</span>
                   </div>
                 </div>
@@ -547,7 +567,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
             </div>
 
             {/* FILTER & SEARCH TOOLBAR */}
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
               
               {/* Search Box */}
               <div className="relative w-full md:w-96">
@@ -557,7 +577,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="جستجو در عنوان، متن یا برچسب مقاله..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pr-10 pl-4 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl pr-10 pl-8 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all placeholder:text-slate-400"
                 />
                 {searchQuery && (
                   <button
@@ -571,15 +591,26 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
               </div>
 
               {/* Category Filter Pills */}
-              <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0">
-                <span className="text-xs font-bold text-slate-500 whitespace-nowrap ml-1">دسته‌بندی:</span>
+              <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-thin">
+                <span className="text-xs font-bold text-slate-500 whitespace-nowrap ml-1 shrink-0">دسته‌بندی:</span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedCategory('all')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                    selectedCategory === 'all' || !selectedCategory
+                      ? 'bg-blue-600 text-white shadow-xs'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                  }`}
+                >
+                  همه مقالات
+                </button>
                 {categories.map((cat) => (
                   <button
                     key={cat.id}
                     type="button"
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                      selectedCategory === cat.id
+                    onClick={() => setSelectedCategory(cat.name)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap shrink-0 ${
+                      selectedCategory === cat.name || selectedCategory === cat.id
                         ? 'bg-blue-600 text-white shadow-xs'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
                     }`}
@@ -591,7 +622,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
 
             </div>
 
-            {/* ARTICLES TABLE / LIST */}
+            {/* ARTICLES TABLE / LIST (DESKTOP & MOBILE RESPONSIVE) */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
               {loading ? (
                 <div className="p-12 text-center text-slate-500 text-xs font-bold flex flex-col items-center justify-center gap-3">
@@ -599,7 +630,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                   <span>در حال دریافت لیست مقالات از سرور جنگو...</span>
                 </div>
               ) : posts.length === 0 ? (
-                <div className="p-12 text-center space-y-4">
+                <div className="p-8 sm:p-12 text-center space-y-4">
                   <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
                     <BookOpen className="w-8 h-8" />
                   </div>
@@ -619,142 +650,234 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-right border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-slate-100/75 border-b border-slate-200 text-slate-700 font-black">
-                        <th className="p-4 w-12 text-center">#</th>
-                        <th className="p-4">تصویر شاخص و عنوان مقاله</th>
-                        <th className="p-4">دسته‌بندی</th>
-                        <th className="p-4">تاریخ انتشار (خودکار جنگو)</th>
-                        <th className="p-4">زمان مطالعه</th>
-                        <th className="p-4">وضعیت</th>
-                        <th className="p-4">بازدید</th>
-                        <th className="p-4 text-center">عملیات مدیریت</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {posts.map((post, idx) => (
-                        <tr key={post.id} className="hover:bg-slate-50/80 transition-colors">
-                          
-                          {/* Index */}
-                          <td className="p-4 text-center text-slate-400 font-bold">
-                            {formatNumberFa(idx + 1)}
-                          </td>
-
-                          {/* Image & Title */}
-                          <td className="p-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-14 h-12 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200 shadow-xs relative">
-                                {post.image ? (
-                                  <img
-                                    src={post.image}
-                                    alt={post.title}
-                                    className="w-full h-full object-cover"
-                                    referrerPolicy="no-referrer"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-slate-300">
-                                    <ImageIcon className="w-5 h-5" />
-                                  </div>
-                                )}
-                              </div>
-                              <div className="space-y-0.5 max-w-md">
-                                <div className="font-black text-slate-900 line-clamp-1 hover:text-blue-600 transition-colors">
-                                  {post.title}
-                                </div>
-                                <div className="text-[11px] text-slate-500 line-clamp-1">
-                                  {post.excerpt || 'بدون چکیده مختصر'}
-                                </div>
-                              </div>
-                            </div>
-                          </td>
-
-                          {/* Category */}
-                          <td className="p-4">
-                            <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60 inline-block">
-                              {post.category}
-                            </span>
-                          </td>
-
-                          {/* Published Date (Auto-set by Django) */}
-                          <td className="p-4">
-                            <div className="flex items-center gap-1.5 text-slate-600 font-bold">
-                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                              <span className="text-[11px] font-mono">{post.publishedDate}</span>
-                            </div>
-                          </td>
-
-                          {/* Read Time */}
-                          <td className="p-4">
-                            <div className="flex items-center gap-1 text-slate-600 font-medium">
-                              <Clock className="w-3.5 h-3.5 text-slate-400" />
-                              <span>{formatNumberFa(post.readTimeMinutes || 5)} دقیقه</span>
-                            </div>
-                          </td>
-
-                          {/* Status */}
-                          <td className="p-4">
-                            {post.isPublished ? (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                                منتشر شده
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-600 border border-slate-200">
-                                پیش‌نویس
-                              </span>
-                            )}
-                          </td>
-
-                          {/* Views */}
-                          <td className="p-4 font-bold text-slate-700">
-                            {formatNumberFa(post.viewsCount || 0)}
-                          </td>
-
-                          {/* Actions */}
-                          <td className="p-4">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (onNavigateToPublicBlog) {
-                                    onNavigateToPublicBlog(post.slug);
-                                  } else {
-                                    window.location.href = `/blog/${post.slug}`;
-                                  }
-                                }}
-                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition-colors"
-                                title="مشاهده در وبلاگ عمومی"
-                              >
-                                <ExternalLink className="w-4 h-4" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditForm(post)}
-                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-700 transition-colors"
-                                title="ویرایش مقاله"
-                              >
-                                <Edit3 className="w-4 h-4" />
-                              </button>
-
-                              <button
-                                type="button"
-                                onClick={() => handleDeletePost(post.id)}
-                                className="p-1.5 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 transition-colors"
-                                title="حذف مقاله"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-
+                <>
+                  {/* DESKTOP / TABLET VIEW (TABLE) */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-right border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-100/75 border-b border-slate-200 text-slate-700 font-black">
+                          <th className="p-4 w-12 text-center">#</th>
+                          <th className="p-4">تصویر شاخص و عنوان مقاله</th>
+                          <th className="p-4">دسته‌بندی</th>
+                          <th className="p-4">تاریخ انتشار (خودکار جنگو)</th>
+                          <th className="p-4">زمان مطالعه</th>
+                          <th className="p-4">وضعیت</th>
+                          <th className="p-4">بازدید</th>
+                          <th className="p-4 text-center">عملیات مدیریت</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {posts.map((post, idx) => (
+                          <tr key={post.id} className="hover:bg-slate-50/80 transition-colors">
+                            
+                            {/* Index */}
+                            <td className="p-4 text-center text-slate-400 font-bold">
+                              {formatNumberFa(idx + 1)}
+                            </td>
+
+                            {/* Image & Title */}
+                            <td className="p-4">
+                              <div className="flex items-center gap-3">
+                                <div className="w-14 h-12 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200 shadow-xs relative">
+                                  {post.image ? (
+                                    <img
+                                      src={post.image}
+                                      alt={post.title}
+                                      className="w-full h-full object-cover"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                      <ImageIcon className="w-5 h-5" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="space-y-0.5 max-w-lg">
+                                  <div className="font-black text-slate-900 line-clamp-1 hover:text-blue-600 transition-colors">
+                                    {post.title}
+                                  </div>
+                                  <div className="text-[11px] text-slate-500 line-clamp-1">
+                                    {post.excerpt || 'بدون چکیده مختصر'}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Category */}
+                            <td className="p-4">
+                              <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60 inline-block">
+                                {post.category}
+                              </span>
+                            </td>
+
+                            {/* Published Date (Auto-set by Django) */}
+                            <td className="p-4">
+                              <div className="flex items-center gap-1.5 text-slate-600 font-bold">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                <span className="text-[11px] font-mono">{post.publishedDate}</span>
+                              </div>
+                            </td>
+
+                            {/* Read Time */}
+                            <td className="p-4">
+                              <div className="flex items-center gap-1 text-slate-600 font-medium">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                <span>{formatNumberFa(post.readTimeMinutes || 5)} دقیقه</span>
+                              </div>
+                            </td>
+
+                            {/* Status */}
+                            <td className="p-4">
+                              {post.isPublished ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
+                                  منتشر شده
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-100 text-slate-600 border border-slate-200">
+                                  پیش‌نویس
+                                </span>
+                              )}
+                            </td>
+
+                            {/* Views */}
+                            <td className="p-4 font-bold text-slate-700">
+                              {formatNumberFa(post.viewsCount || 0)}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="p-4">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (onNavigateToPublicBlog) {
+                                      onNavigateToPublicBlog(post.slug);
+                                    } else {
+                                      window.location.href = `/blog/${post.slug}`;
+                                    }
+                                  }}
+                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-600 hover:text-blue-600 transition-colors"
+                                  title="مشاهده در وبلاگ عمومی"
+                                >
+                                  <ExternalLink className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditForm(post)}
+                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-amber-50 text-slate-600 hover:text-amber-700 transition-colors"
+                                  title="ویرایش مقاله"
+                                >
+                                  <Edit3 className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePost(post.id)}
+                                  className="p-1.5 rounded-lg bg-slate-100 hover:bg-red-50 text-slate-600 hover:text-red-600 transition-colors"
+                                  title="حذف مقاله"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* MOBILE RESPONSIVE CARDS VIEW (< md) */}
+                  <div className="block md:hidden divide-y divide-slate-100">
+                    {posts.map((post, idx) => (
+                      <div key={post.id} className="p-4 space-y-3 hover:bg-slate-50/50 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <div className="w-16 h-16 rounded-xl bg-slate-100 overflow-hidden shrink-0 border border-slate-200 relative">
+                            {post.image ? (
+                              <img
+                                src={post.image}
+                                alt={post.title}
+                                className="w-full h-full object-cover"
+                                referrerPolicy="no-referrer"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-slate-300">
+                                <ImageIcon className="w-6 h-6" />
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[10px] text-slate-400 font-bold">#{formatNumberFa(idx + 1)}</span>
+                              <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60">
+                                {post.category}
+                              </span>
+                            </div>
+                            <h4 className="text-xs font-black text-slate-900 leading-snug line-clamp-2">
+                              {post.title}
+                            </h4>
+                          </div>
+                        </div>
+
+                        {post.excerpt && (
+                          <p className="text-[11px] text-slate-500 line-clamp-2 font-medium">
+                            {post.excerpt}
+                          </p>
+                        )}
+
+                        <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-100 flex-wrap gap-2">
+                          <div className="flex items-center gap-3">
+                            <span className="flex items-center gap-1 font-mono text-[10px]">
+                              <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                              {post.publishedDate}
+                            </span>
+                            <span className="flex items-center gap-1">
+                              <Eye className="w-3.5 h-3.5 text-slate-400" />
+                              {formatNumberFa(post.viewsCount || 0)}
+                            </span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (onNavigateToPublicBlog) {
+                                  onNavigateToPublicBlog(post.slug);
+                                } else {
+                                  window.location.href = `/blog/${post.slug}`;
+                                }
+                              }}
+                              className="px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-blue-50 text-slate-700 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
+                              <span>مشاهده</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenEditForm(post)}
+                              className="px-2.5 py-1 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-800 text-[11px] font-bold flex items-center gap-1"
+                            >
+                              <Edit3 className="w-3.5 h-3.5 text-amber-600" />
+                              <span>ویرایش</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePost(post.id)}
+                              className="p-1 rounded-lg bg-red-50 hover:bg-red-100 text-red-600"
+                              title="حذف"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
               )}
             </div>
 
@@ -790,16 +913,26 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setActiveTab('posts')}
-                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors"
+                  disabled={isSubmittingArticle}
+                  className="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors disabled:opacity-50"
                 >
                   انصراف
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5"
+                  disabled={isSubmittingArticle}
+                  className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
                 >
-                  <Check className="w-4 h-4" />
-                  <span>{isEditing ? 'ذخیره تغییرات مقاله' : 'ثبت نهایی مقاله'}</span>
+                  {isSubmittingArticle ? (
+                    <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                  ) : (
+                    <Check className="w-4 h-4 shrink-0" />
+                  )}
+                  <span>
+                    {isSubmittingArticle
+                      ? (isEditing ? 'در حال ذخیره تغییرات...' : 'در حال ثبت در دیتابیس...')
+                      : (isEditing ? 'ذخیره تغییرات مقاله' : 'ثبت نهایی مقاله')}
+                  </span>
                 </button>
               </div>
             </div>
@@ -1046,11 +1179,18 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                     onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500"
                   >
-                    {categories.filter(c => c.id !== 'all').map((cat) => (
-                      <option key={cat.id} value={cat.name}>
-                        {cat.name}
-                      </option>
-                    ))}
+                    {categories.length === 0 ? (
+                      <option value="">(هنوز دسته‌ای ایجاد نشده است - لطفاً دسته جدید بسازید)</option>
+                    ) : (
+                      <>
+                        <option value="">-- انتخاب دسته‌بندی --</option>
+                        {categories.filter(c => c.id !== 'all').map((cat) => (
+                          <option key={cat.id} value={cat.name}>
+                            {cat.name}
+                          </option>
+                        ))}
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -1121,6 +1261,34 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                   </div>
                 </div>
 
+                {/* BOTTOM SUBMIT BUTTON */}
+                <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('posts')}
+                    disabled={isSubmittingArticle}
+                    className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors disabled:opacity-50"
+                  >
+                    انصراف
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmittingArticle}
+                    className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
+                  >
+                    {isSubmittingArticle ? (
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                    ) : (
+                      <Check className="w-4 h-4 shrink-0" />
+                    )}
+                    <span>
+                      {isSubmittingArticle
+                        ? (isEditing ? 'در حال ذخیره تغییرات...' : 'در حال ثبت در دیتابیس...')
+                        : (isEditing ? 'ذخیره تغییرات مقاله' : 'ثبت نهایی مقاله')}
+                    </span>
+                  </button>
+                </div>
+
               </div>
 
             </div>
@@ -1141,20 +1309,32 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                   <span>مدیریت و ساخت دسته‌بندی‌های وبلاگ</span>
                 </h2>
                 <p className="text-xs text-slate-500 mt-1">
-                  دسته‌بندی‌های جدید بسازید تا در فیلترها و در زمان نوشتن مقالات انتخاب شوند.
+                  دسته‌بندی‌های جدید بسازید تا مستقیماً در دیتابیس جنگو ثبت شوند و در فیلترها و در زمان نوشتن مقالات نمایش داده شوند.
                 </p>
               </div>
 
-              {!isAddingCategory && (
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   type="button"
-                  onClick={() => setIsAddingCategory(true)}
-                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs flex items-center gap-1.5"
+                  onClick={handlePurgeAndSyncCategories}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5"
+                  title="پاکسازی حافظه موقت و بازخوانی تازه از دیتابیس جنگو"
                 >
-                  <FolderPlus className="w-4 h-4" />
-                  <span>ایجاد دسته جدید</span>
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>همگام‌سازی از سرور</span>
                 </button>
-              )}
+
+                {!isAddingCategory && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAddingCategory(true)}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs flex items-center gap-1.5"
+                  >
+                    <FolderPlus className="w-4 h-4" />
+                    <span>ایجاد دسته جدید</span>
+                  </button>
+                )}
+              </div>
             </div>
 
             {/* CREATE CATEGORY FORM */}
@@ -1163,7 +1343,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                 <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                   <h3 className="text-xs font-black text-slate-900 flex items-center gap-1.5">
                     <Plus className="w-4 h-4 text-blue-600" />
-                    <span>مشخصات دسته‌بندی جدید</span>
+                    <span>مشخصات دسته‌بندی جدید (ثبت در دیتابیس جنگو)</span>
                   </h3>
                   <button
                     type="button"
@@ -1226,63 +1406,93 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                   <button
                     type="button"
                     onClick={() => setIsAddingCategory(false)}
+                    disabled={isSubmittingCategory}
                     className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100"
                   >
                     انصراف
                   </button>
                   <button
                     type="submit"
-                    className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs flex items-center gap-1.5"
+                    disabled={isSubmittingCategory}
+                    className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs flex items-center gap-2 disabled:opacity-60 cursor-pointer disabled:cursor-not-allowed"
                   >
-                    <Check className="w-4 h-4" />
-                    <span>ایجاد و ثبت در دیتابیس</span>
+                    {isSubmittingCategory ? (
+                      <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                    ) : (
+                      <Check className="w-4 h-4 shrink-0" />
+                    )}
+                    <span>{isSubmittingCategory ? 'در حال ثبت در دیتابیس...' : 'ایجاد و ثبت در دیتابیس'}</span>
                   </button>
                 </div>
               </form>
             )}
 
             {/* CATEGORIES GRID LIST */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {categories.map((cat) => {
-                const articleCount = posts.filter(p => p.category === cat.name || cat.id === 'all').length;
-                return (
-                  <div
-                    key={cat.id}
-                    className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
-                  >
-                    <div className="space-y-2.5">
-                      <div className="flex items-center justify-between">
-                        <span className="px-3 py-1 rounded-xl text-xs font-black bg-blue-50 text-blue-700 border border-blue-200/80">
-                          {cat.name}
-                        </span>
-                        <span className="text-[11px] font-bold text-slate-500">
-                          {formatNumberFa(articleCount)} مقاله
-                        </span>
+            {categories.length === 0 ? (
+              <div className="bg-white p-12 rounded-2xl border border-slate-200 shadow-xs text-center space-y-4">
+                <div className="w-14 h-14 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mx-auto border border-blue-100">
+                  <Layers className="w-7 h-7" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-sm font-black text-slate-800">هیچ دسته‌بندی در دیتابیس ثبت نشده است</h3>
+                  <p className="text-xs text-slate-500 max-w-md mx-auto">
+                    در حال حاضر دسته‌بندی در دیتابیس ثبت نشده است. می‌توانید با کلیک بر روی دکمه زیر دسته‌بندی‌های مد نظر خود را ایجاد نمایید تا مستقیماً به دیتابیس جنگو ارسال شوند.
+                  </p>
+                </div>
+                {!isAddingCategory && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddingCategory(true)}
+                      className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs transition-all"
+                    >
+                      <FolderPlus className="w-4 h-4" />
+                      <span>ایجاد اولین دسته‌بندی در دیتابیس جنگو</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {categories.map((cat) => {
+                  const articleCount = posts.filter(p => p.category === cat.name || cat.id === 'all').length;
+                  return (
+                    <div
+                      key={cat.id}
+                      className="bg-white p-5 rounded-2xl border border-slate-200/90 shadow-xs hover:shadow-md transition-all flex flex-col justify-between"
+                    >
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="px-3 py-1 rounded-xl text-xs font-black bg-blue-50 text-blue-700 border border-blue-200/80">
+                            {cat.name}
+                          </span>
+                          <span className="text-[11px] font-bold text-slate-500">
+                            {formatNumberFa(articleCount)} مقاله
+                          </span>
+                        </div>
+
+                        <div className="text-xs text-slate-600 font-medium line-clamp-2 min-h-[36px]">
+                          {cat.description || 'بدون توضیحات اضافی'}
+                        </div>
+
+                        <div className="text-[10px] text-slate-400 font-mono" dir="ltr">
+                          slug: {cat.slug || cat.id}
+                        </div>
                       </div>
 
-                      <div className="text-xs text-slate-600 font-medium line-clamp-2 min-h-[36px]">
-                        {cat.description || 'بدون توضیحات اضافی'}
-                      </div>
+                      <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedCategory(cat.name);
+                            setActiveTab('posts');
+                          }}
+                          className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
+                        >
+                          <span>مشاهده مقالات این دسته</span>
+                          <ArrowRight className="w-3.5 h-3.5 rotate-180" />
+                        </button>
 
-                      <div className="text-[10px] text-slate-400 font-mono" dir="ltr">
-                        slug: {cat.slug || cat.id}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center justify-between border-t border-slate-100 pt-3 mt-3">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedCategory(cat.id);
-                          setActiveTab('posts');
-                        }}
-                        className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1"
-                      >
-                        <span>مشاهده مقالات این دسته</span>
-                        <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-                      </button>
-
-                      {cat.id !== 'all' && (
                         <button
                           type="button"
                           onClick={() => handleDeleteCategory(cat.id, cat.name)}
@@ -1291,12 +1501,12 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
 
           </div>
         )}
