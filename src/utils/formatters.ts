@@ -8,6 +8,32 @@ export function formatNumberFa(val: number): string {
   return new Intl.NumberFormat('fa-IR').format(val);
 }
 
+/**
+ * Converts any Gregorian or ISO date string (e.g. "2026/08/30", "2026-08-30T12:00:00Z")
+ * to Shamsi (Jalali) Persian date string (e.g. "۱۴۰۵/۰۶/۰۸").
+ */
+export function toShamsiDate(dateInput?: string | Date | null): string {
+  if (!dateInput) return new Date().toLocaleDateString('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  try {
+    const str = String(dateInput).trim();
+    if (!str) return new Date().toLocaleDateString('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+
+    // Already Shamsi (starts with 13xx, 14xx or Persian digits ۱۳xx, ۱۴xx)
+    if (/^(13|14|۱۳|۱۴)/.test(str)) {
+      return str;
+    }
+
+    // Replace slashes with hyphens for standard date parsing if Gregorian YYYY/MM/DD
+    const isoStr = str.includes('/') && !str.includes('T') ? str.replace(/\//g, '-') : str;
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return str;
+    
+    return d.toLocaleDateString('fa-IR', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  } catch {
+    return String(dateInput);
+  }
+}
+
 export function getProductStockInfo(product: {
   category?: string;
   stockCartons: number;

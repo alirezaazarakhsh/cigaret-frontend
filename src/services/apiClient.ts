@@ -31,7 +31,7 @@ export const DEFAULT_NO_CACHE_HEADERS: Record<string, string> = {
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
-  timeoutMs = 8000
+  timeoutMs = 15000
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -121,7 +121,7 @@ async function request<T = any>(
             ...reqInit,
             headers: fallbackHeaders,
           };
-          const fallbackRes = await fetchWithTimeout(fullUrl, fallbackInit, options.timeoutMs || 8000);
+          const fallbackRes = await fetchWithTimeout(fullUrl, fallbackInit, options.timeoutMs || 15000);
           return await parseResponse(fallbackRes);
         } catch {
           // Fall through
@@ -138,7 +138,7 @@ async function request<T = any>(
   };
 
   try {
-    const response = await fetchWithTimeout(fullUrl, reqInit, options.timeoutMs || 8000);
+    const response = await fetchWithTimeout(fullUrl, reqInit, options.timeoutMs || 15000);
     return await parseResponse(response);
   } catch (error: any) {
     // If the request fails (e.g. cross-origin CORS preflight rejection when custom headers like Cache-Control are sent),
@@ -153,7 +153,7 @@ async function request<T = any>(
           ...reqInit,
           headers: fallbackHeaders,
         };
-        const fallbackRes = await fetchWithTimeout(fullUrl, fallbackInit, options.timeoutMs || 8000);
+        const fallbackRes = await fetchWithTimeout(fullUrl, fallbackInit, options.timeoutMs || 15000);
         return await parseResponse(fallbackRes);
       } catch {
         // Fall through to standard error handling

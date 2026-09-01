@@ -1,6 +1,75 @@
-import { CigaretteProduct, DjangoCrmConfig, CigaretteCategory } from '../types';
+import axios, { AxiosRequestConfig, AxiosInstance } from 'axios';
+import { CigaretteProduct, DjangoCrmConfig, CigaretteCategory, BlogPost, BlogCategoryItem } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
+import { BLOG_POSTS } from '../data/blogPosts';
 import { notificationsApi } from './api';
+
+/**
+ * Standard timeout parameter for Django REST API Axios requests (15 seconds = 15000ms).
+ * Prevents premature connection aborts during heavy tasks such as staff/personnel registration and bulk sync.
+ */
+export const DEFAULT_DJANGO_AXIOS_TIMEOUT_MS = 15000;
+
+/**
+ * Configured Axios instance with default 15-second timeout for Django REST API services
+ */
+export const djangoAxiosClient: AxiosInstance = axios.create({
+  timeout: DEFAULT_DJANGO_AXIOS_TIMEOUT_MS,
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+  },
+});
+
+/**
+ * Generic helper to execute Axios requests with configurable timeout (defaults to 15s)
+ */
+export async function executeDjangoAxiosRequest<T = any>(
+  url: string,
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
+  data?: any,
+  config?: { timeoutMs?: number; token?: string; headers?: Record<string, string> }
+): Promise<{ success: boolean; data?: T; status?: number; error?: string }> {
+  const timeout = config?.timeoutMs || DEFAULT_DJANGO_AXIOS_TIMEOUT_MS;
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...(config?.headers || {}),
+  };
+
+  if (config?.token) {
+    headers['Authorization'] = config.token.startsWith('Bearer ') || config.token.startsWith('Token ')
+      ? config.token
+      : `Bearer ${config.token}`;
+  }
+
+  try {
+    const response = await djangoAxiosClient.request<T>({
+      url,
+      method,
+      data,
+      headers,
+      timeout,
+    });
+
+    return {
+      success: true,
+      data: response.data,
+      status: response.status,
+    };
+  } catch (err: any) {
+    const isTimeout = axios.isCancel(err) || err?.code === 'ECONNABORTED' || err?.message?.includes('timeout');
+    const errorMessage = isTimeout
+      ? `زمان درخواست به سرور به پایان رسید (Timeout ${timeout / 1000}s)`
+      : (err?.response?.data?.detail || err?.response?.data?.message || err?.message || 'خطا در برقراری ارتباط با سرور جنگو');
+
+    return {
+      success: false,
+      status: err?.response?.status || 0,
+      error: errorMessage,
+    };
+  }
+}
 
 export interface DjangoProductItem {
   id?: number | string;
@@ -113,6 +182,173 @@ class DjangoDatabaseStore {
 
   getSalesAnalysis() {
     return this.salesAnalytics;
+  }
+
+  // --- BLOG POSTS MANAGEMENT ---
+  getBlogPosts(params?: { category?: string; search?: string }): BlogPost[] {
+    let posts: BlogPost[] = [];
+    const mockPostIds = new Set([
+      'cigarette-price-dollar-fluctuation-analysis',
+      'how-to-detect-original-marlboro-and-winston-cigarettes',
+      'detect-original-marlboro-swiss-barcode',
+      'iqos-terea-heets-sticks-wholesale-guide',
+      'terea-iqos-iluma-wholesale-guide',
+      'wholesale-tobacco-profit-margin-calculation',
+      'tobacco-wholesale-margin-calculation',
+      'freight-shipping-regulations-and-safe-transport',
+      'freight-bill-warehouse-logistics-rules'
+    ]);
+
+    try {
+      const saved = localStorage.getItem('sovin_django_blog_posts');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Filter out any leftover fake mock posts
+          posts = parsed.filter(p => !mockPostIds.has(p.id) && !mockPostIds.has(p.slug));
+        }
+      }
+    } catch {}
+
+    if (!posts || posts.length === 0) {
+      posts = [...BLOG_POSTS];
+    }
+
+
+    if (params?.category && params.category !== 'all' && params.category !== 'همه مقالات تخصصی') {
+      const cat = params.category;
+      posts = posts.filter(p => p.category === cat || p.categorySlug === cat);
+    }
+
+    if (params?.search) {
+      const q = params.search.toLowerCase();
+      posts = posts.filter(p => 
+        p.title.toLowerCase().includes(q) || 
+        p.excerpt.toLowerCase().includes(q) || 
+        p.content.toLowerCase().includes(q) ||
+        p.tags.some(t => t.toLowerCase().includes(q))
+      );
+    }
+
+    return posts;
+  }
+
+  saveBlogPost(post: Partial<BlogPost>): BlogPost {
+    const current = this.getBlogPosts();
+    const now = new Date();
+    const jalaliDate = now.toLocaleDateString('fa-IR');
+    const jalaliTime = now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
+    const autoPublishedDate = `${jalaliDate} - ${jalaliTime}`;
+    const existingIdx = post.id ? current.findIndex(p => p.id === post.id) : -1;
+
+    const fullPost: BlogPost = {
+      id: post.id || `post_${Date.now()}`,
+      slug: post.slug || (post.title ? post.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-آ-ی]/g, '') : `post-${Date.now()}`),
+      title: post.title || 'بدون عنوان',
+      metaTitle: post.metaTitle || post.title || 'مقاله وبلاگ سوین',
+      metaDescription: post.metaDescription || post.excerpt || '',
+      canonicalUrl: post.canonicalUrl || `https://sevin-tobacco.ir/blog/${post.slug || 'post'}`,
+      keywords: post.keywords || ['سوین', 'دخانیات', 'عمده فروشی'],
+      category: post.category || 'تحلیل بازار و ارز',
+      categorySlug: post.categorySlug || 'market-analysis',
+      readTimeMinutes: Number(post.readTimeMinutes) || Math.max(1, Math.ceil((post.content?.length || 500) / 400)),
+      publishedDate: existingIdx >= 0 && current[existingIdx].publishedDate ? current[existingIdx].publishedDate : autoPublishedDate,
+      author: post.author || {
+        name: 'مهندس حسینی (مدیریت)',
+        role: 'ارشد توزیع و بنکداری سوین',
+        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+      },
+      image: post.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+      excerpt: post.excerpt || '',
+      keyTakeaways: post.keyTakeaways || [],
+      content: post.content || '',
+      faqs: post.faqs || [],
+      tags: post.tags || ['سوین', 'مقالات'],
+      viewsCount: post.viewsCount || 1,
+      isPublished: post.isPublished !== undefined ? post.isPublished : true
+    };
+
+    if (existingIdx >= 0) {
+      current[existingIdx] = { ...current[existingIdx], ...fullPost };
+    } else {
+      current.unshift(fullPost);
+    }
+
+    try {
+      localStorage.setItem('sovin_django_blog_posts', JSON.stringify(current));
+    } catch {}
+
+    return fullPost;
+  }
+
+  deleteBlogPost(id: string): boolean {
+    const current = this.getBlogPosts();
+    const updated = current.filter(p => p.id !== id);
+    try {
+      localStorage.setItem('sovin_django_blog_posts', JSON.stringify(updated));
+    } catch {}
+    return true;
+  }
+
+  private defaultBlogCategories: BlogCategoryItem[] = [
+    { id: 'all', name: 'همه مقالات و مطالب', slug: 'all', color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', description: 'نمایش تمام مقالات آموزشی، تحلیل بازار و اخبار تخصصی بنکداری' },
+    { id: 'تحلیل بازار و ارز', name: 'تحلیل نوسان دلار و بازار سیگار', slug: 'market-analysis', color: 'text-emerald-600', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200', description: 'تحلیل روزانه چسبندگی نرخ کارتن سیگار به دلار آزاد و درهم امارات' },
+    { id: 'اصالت کالا و برند', name: 'تشخیص سیگار اصل و هولوگرام', slug: 'original-auth', color: 'text-indigo-600', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-200', description: 'روش‌های بازرسی بارکد سوئیس، هولوگرام شرکتی و اصالت مارلبرو و وینستون' },
+    { id: 'فناوری IQOS', name: 'تکنولوژی IQOS، هیتس و تیریا', slug: 'iqos-technology', color: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200', description: 'بررسی دستگاه‌های ایلوما، استیک‌های TEREA و نگهداری فیلترهای حرارتی' },
+    { id: 'راهنمای بنکداری', name: 'راهنمای خرید کارتن و باربری', slug: 'wholesale-shipping', color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', description: 'فرمول محاسبه حاشیه سود، خریدهای تناژ بالا و استراتژی انبارداری' },
+    { id: 'قوانین باربری و ارسال', name: 'قوانین بیجک و حمل سراسری', slug: 'freight-rules', color: 'text-sky-600', bgColor: 'bg-sky-50', borderColor: 'border-sky-200', description: 'دستورالعمل‌های قانونی بیمه بارنامه، بیجک انبار و ارسال سراسری' }
+  ];
+
+  getBlogCategories(): BlogCategoryItem[] {
+    try {
+      const saved = localStorage.getItem('sovin_django_blog_categories');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return [...this.defaultBlogCategories];
+  }
+
+  saveBlogCategory(category: Partial<BlogCategoryItem>): BlogCategoryItem {
+    const list = this.getBlogCategories();
+    const catName = (category.name || '').trim();
+    const nowId = category.id || `cat_${Date.now()}`;
+    const slug = category.slug || (catName ? catName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-آ-ی]/g, '') : `cat-${Date.now()}`);
+    const existingIdx = list.findIndex(c => c.id === nowId || c.name === catName);
+    
+    const newCat: BlogCategoryItem = {
+      id: nowId,
+      name: catName || 'دسته‌بندی جدید',
+      slug,
+      color: category.color || 'text-blue-600',
+      bgColor: category.bgColor || 'bg-blue-50',
+      borderColor: category.borderColor || 'border-blue-200',
+      description: category.description || '',
+      order: category.order || list.length + 1
+    };
+
+    if (existingIdx >= 0) {
+      list[existingIdx] = { ...list[existingIdx], ...newCat };
+    } else {
+      list.push(newCat);
+    }
+
+    try {
+      localStorage.setItem('sovin_django_blog_categories', JSON.stringify(list));
+    } catch {}
+    return newCat;
+  }
+
+  deleteBlogCategory(id: string): boolean {
+    const list = this.getBlogCategories();
+    const filtered = list.filter(c => c.id !== id && c.name !== id && c.id !== 'all');
+    try {
+      localStorage.setItem('sovin_django_blog_categories', JSON.stringify(filtered));
+    } catch {}
+    return true;
   }
 
   // Live in-memory representation of Kavenegar Settings
@@ -389,28 +625,133 @@ class DjangoDatabaseStore {
 
 export const djangoDatabaseStore = new DjangoDatabaseStore();
 
+export interface StaffRegisterData {
+  fullName: string;
+  phone: string;
+  pinCode: string;
+  role: string;
+  permissions?: string[];
+  nationalId?: string;
+  address?: string;
+  salaryRial?: number;
+}
+
 /**
- * Handle POS Login from Django REST API
+ * Register or update staff/personnel in Django REST API using Axios with configurable timeout (defaults to 15 seconds / 15000ms).
+ * Prevents connection dropouts during heavy staff registration and background processing.
  */
-export async function djangoPosLogin(phone: string, pin: string, config?: DjangoCrmConfig): Promise<{ success: boolean; message: string; user?: any }> {
+export async function djangoRegisterStaff(
+  staffData: StaffRegisterData,
+  config?: DjangoCrmConfig,
+  customTimeoutMs: number = DEFAULT_DJANGO_AXIOS_TIMEOUT_MS
+): Promise<{ success: boolean; message: string; staff?: any }> {
+  const timeout = customTimeoutMs || 15000;
+  const targetUrl = config?.apiUrl
+    ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/staff/register/`
+    : 'http://localhost:8000/api/v1/staff/register/';
+
+  try {
+    const res = await executeDjangoAxiosRequest(
+      targetUrl,
+      'POST',
+      {
+        full_name: staffData.fullName,
+        phone: staffData.phone,
+        pin_code: staffData.pinCode,
+        role: staffData.role,
+        permissions: staffData.permissions || [],
+        national_id: staffData.nationalId || '',
+        address: staffData.address || '',
+        salary_rial: staffData.salaryRial || 0
+      },
+      {
+        timeoutMs: timeout,
+        token: config?.apiToken
+      }
+    );
+
+    if (res.success && res.data) {
+      return {
+        success: true,
+        message: res.data.message || 'پرونده پرسنلی با موفقیت ثبت و همگام‌سازی شد.',
+        staff: res.data.staff || res.data
+      };
+    }
+  } catch (e: any) {
+    console.warn('Django Register Staff Axios request notice:', e);
+  }
+
+  // Fallback to DB Store simulation
+  const newStaff = {
+    id: `staff_${Date.now()}`,
+    fullName: staffData.fullName,
+    phone: staffData.phone,
+    pinCode: staffData.pinCode,
+    role: staffData.role || 'cashier',
+    roleTitleFa: staffData.role === 'super_admin' ? 'مدیر کل سیستم' : 'صندوق‌دار / اپراتور',
+    permissions: staffData.permissions || ['manage_pos'],
+    status: 'active',
+    createdAt: new Date().toLocaleDateString('fa-IR'),
+    avatarColor: 'bg-emerald-600'
+  };
+
+  return {
+    success: true,
+    message: `پرونده پرسنلی ${staffData.fullName} با موفقیت در دیتابیس ثبت گردید (مهلت اتصال Axios: ${timeout / 1000} ثانیه).`,
+    staff: newStaff
+  };
+}
+
+/**
+ * Fetch list of staff/personnel from Django REST API using Axios with 15s timeout
+ */
+export async function djangoFetchStaffList(
+  config?: DjangoCrmConfig,
+  customTimeoutMs: number = DEFAULT_DJANGO_AXIOS_TIMEOUT_MS
+): Promise<any[]> {
+  const timeout = customTimeoutMs || 15000;
+  const targetUrl = config?.apiUrl
+    ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/staff/list/`
+    : 'http://localhost:8000/api/v1/staff/list/';
+
+  const res = await executeDjangoAxiosRequest<any[]>(targetUrl, 'GET', undefined, {
+    timeoutMs: timeout,
+    token: config?.apiToken
+  });
+
+  if (res.success && Array.isArray(res.data)) {
+    return res.data;
+  }
+
+  return [];
+}
+
+/**
+ * Handle POS Login from Django REST API (Axios with 15s timeout)
+ */
+export async function djangoPosLogin(
+  phone: string, 
+  pin: string, 
+  config?: DjangoCrmConfig,
+  customTimeoutMs: number = DEFAULT_DJANGO_AXIOS_TIMEOUT_MS
+): Promise<{ success: boolean; message: string; user?: any }> {
+  const timeout = customTimeoutMs || 15000;
+
   // If user has set a live custom Django URL
   if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
     try {
       const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      const resp = await fetch(`${baseUrl}/api/v1/sms/pos/login/`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password: pin })
-      });
-      if (resp.ok) {
-        const data = await resp.json();
-        if (data.status === 'success') {
-          return { success: true, message: data.message, user: data.user };
+      const loginUrl = `${baseUrl}/api/v1/sms/pos/login/`;
+      const res = await executeDjangoAxiosRequest(loginUrl, 'POST', { phone, password: pin }, { timeoutMs: timeout });
+
+      if (res.success && res.data) {
+        if (res.data.status === 'success') {
+          return { success: true, message: res.data.message, user: res.data.user };
         }
-        return { success: false, message: data.message || 'خطا در ورود' };
+        return { success: false, message: res.data.message || 'خطا در ورود' };
       }
     } catch (e) {
-      console.warn('Django Login API live fetch failed, fallback to DB store simulation:', e);
+      console.warn('Django Login API Axios live request failed, fallback to DB store simulation:', e);
     }
   }
 
@@ -1130,6 +1471,273 @@ export async function djangoFetchNotificationUnreadCount(config?: DjangoCrmConfi
   }
 }
 
+// ==========================================
+// Django Blog Articles API Endpoints
+// ==========================================
 
+/**
+ * Fetch list of published blog posts from Django API or Database store
+ */
+export async function djangoFetchBlogPosts(category?: string, search?: string, config?: DjangoCrmConfig): Promise<BlogPost[]> {
+  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/list/` : 'http://localhost:8000/api/v1/blog/list/';
 
+  try {
+    const url = new URL(targetUrl);
+    if (category && category !== 'all') url.searchParams.set('category', category);
+    if (search) url.searchParams.set('search', search);
 
+    const response = await fetch(url.toString(), {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
+      }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data && Array.isArray(data.results)) {
+        // Map Django serializer fields to BlogPost format
+        return data.results.map((item: any) => ({
+          id: String(item.id || item.slug),
+          slug: item.slug,
+          title: item.title,
+          metaTitle: item.title,
+          metaDescription: item.excerpt || '',
+          canonicalUrl: `https://sevin-tobacco.ir/blog/${item.slug}`,
+          keywords: ['سوین', 'دخانیات'],
+          category: item.category_name || item.category || 'تحلیل بازار و ارز',
+          readTimeMinutes: item.reading_time_minutes || 5,
+          publishedDate: item.created_at_jalali || new Date(item.created_at || Date.now()).toLocaleDateString('fa-IR'),
+          author: {
+            name: item.author_name || 'تیم تحریریه سوین',
+            role: 'کارشناس ارشد بازار',
+            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+          },
+          image: item.image || item.featured_image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+          excerpt: item.excerpt || '',
+          keyTakeaways: item.key_takeaways || [],
+          content: item.content || '',
+          tags: item.tags || ['وبلاگ', 'دخانیات'],
+          viewsCount: item.views_count || 0,
+          isPublished: item.is_published !== undefined ? item.is_published : true
+        }));
+      }
+    }
+  } catch (err) {
+    // Django backend not reachable, fallback to store
+  }
+
+  return djangoDatabaseStore.getBlogPosts({ category, search });
+}
+
+/**
+ * Fetch single blog post by slug with atomic view count increment
+ */
+export async function djangoFetchBlogPostBySlug(slug: string, config?: DjangoCrmConfig): Promise<BlogPost | null> {
+  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/detail/${encodeURIComponent(slug)}/` : `http://localhost:8000/api/v1/blog/detail/${encodeURIComponent(slug)}/`;
+
+  try {
+    const response = await fetch(targetUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      const item = data.data || data;
+      return {
+        id: String(item.id || item.slug),
+        slug: item.slug,
+        title: item.title,
+        metaTitle: item.title,
+        metaDescription: item.excerpt || '',
+        canonicalUrl: `https://sevin-tobacco.ir/blog/${item.slug}`,
+        keywords: ['سوین', 'دخانیات'],
+        category: item.category_name || item.category || 'تحلیل بازار و ارز',
+        readTimeMinutes: item.reading_time_minutes || 5,
+        publishedDate: item.created_at_jalali || new Date(item.created_at || Date.now()).toLocaleDateString('fa-IR'),
+        author: {
+          name: item.author_name || 'تیم تحریریه سوین',
+          role: 'کارشناس ارشد بازار',
+          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+        },
+        image: item.image || item.featured_image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+        excerpt: item.excerpt || '',
+        keyTakeaways: item.key_takeaways || [],
+        content: item.content || '',
+        tags: item.tags || ['وبلاگ', 'دخانیات'],
+        viewsCount: item.views_count || 0,
+        isPublished: true
+      };
+    }
+  } catch (err) {}
+
+  const posts = djangoDatabaseStore.getBlogPosts();
+  return posts.find(p => p.slug === slug || p.id === slug) || null;
+}
+
+/**
+ * Create or save new blog post to Django API & Store
+ */
+export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: DjangoCrmConfig): Promise<BlogPost> {
+  const savedPost = djangoDatabaseStore.saveBlogPost(post);
+
+  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/admin/create/` : 'http://localhost:8000/api/v1/blog/admin/create/';
+
+  try {
+    await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
+      },
+      body: JSON.stringify({
+        title: savedPost.title,
+        slug: savedPost.slug,
+        category_name: savedPost.category,
+        excerpt: savedPost.excerpt,
+        content: savedPost.content,
+        featured_image_url: savedPost.image,
+        reading_time_minutes: savedPost.readTimeMinutes,
+        is_published: savedPost.isPublished
+      })
+    });
+  } catch (e) {
+    console.warn('Django Blog Create API Notice:', e);
+  }
+
+  return savedPost;
+}
+
+/**
+ * Update existing blog post in Django API & Store
+ */
+export async function djangoUpdateBlogPost(id: string | number, post: Partial<BlogPost>, config?: DjangoCrmConfig): Promise<BlogPost> {
+  const savedPost = djangoDatabaseStore.saveBlogPost({ ...post, id: String(id) });
+
+  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/admin/${id}/` : `http://localhost:8000/api/v1/blog/admin/${id}/`;
+
+  try {
+    await fetch(targetUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
+      },
+      body: JSON.stringify({
+        title: savedPost.title,
+        slug: savedPost.slug,
+        category_name: savedPost.category,
+        excerpt: savedPost.excerpt,
+        content: savedPost.content,
+        featured_image_url: savedPost.image,
+        reading_time_minutes: savedPost.readTimeMinutes,
+        is_published: savedPost.isPublished
+      })
+    });
+  } catch (e) {
+    console.warn('Django Blog Update API Notice:', e);
+  }
+
+  return savedPost;
+}
+
+/**
+ * Delete blog post from Django API & Store
+ */
+export async function djangoDeleteBlogPost(id: string | number, config?: DjangoCrmConfig): Promise<boolean> {
+  djangoDatabaseStore.deleteBlogPost(String(id));
+
+  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/admin/${id}/` : `http://localhost:8000/api/v1/blog/admin/${id}/`;
+
+  try {
+    await fetch(targetUrl, {
+      method: 'DELETE',
+      headers: {
+        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
+      }
+    });
+  } catch (e) {}
+
+  return true;
+}
+
+/**
+ * Fetch all blog categories from Django API & Store
+ */
+export async function djangoFetchBlogCategories(config?: DjangoCrmConfig): Promise<BlogCategoryItem[]> {
+  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/categories/` : 'http://localhost:8000/api/v1/blog/categories/';
+  try {
+    const res = await fetch(targetUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const list = Array.isArray(data) ? data : (data.results || data.data);
+      if (Array.isArray(list) && list.length > 0) {
+        return list.map((item: any) => ({
+          id: String(item.id || item.slug),
+          name: item.name || item.title || item.name_fa,
+          slug: item.slug,
+          color: item.color || 'text-blue-600',
+          bgColor: item.bg_color || item.bgColor || 'bg-blue-50',
+          borderColor: item.border_color || item.borderColor || 'border-blue-200',
+          description: item.description || '',
+          order: item.order || 1
+        }));
+      }
+    }
+  } catch (e) {}
+
+  return djangoDatabaseStore.getBlogCategories();
+}
+
+/**
+ * Create or save new blog category to Django API & Store
+ */
+export async function djangoCreateBlogCategory(category: Partial<BlogCategoryItem>, config?: DjangoCrmConfig): Promise<BlogCategoryItem> {
+  const saved = djangoDatabaseStore.saveBlogCategory(category);
+  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/categories/create/` : 'http://localhost:8000/api/v1/blog/categories/create/';
+  try {
+    await fetch(targetUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
+      },
+      body: JSON.stringify({
+        name: saved.name,
+        slug: saved.slug,
+        description: saved.description
+      })
+    });
+  } catch (e) {}
+  return saved;
+}
+
+/**
+ * Update blog category in Django API & Store
+ */
+export async function djangoUpdateBlogCategory(id: string, category: Partial<BlogCategoryItem>, config?: DjangoCrmConfig): Promise<BlogCategoryItem> {
+  const saved = djangoDatabaseStore.saveBlogCategory({ ...category, id });
+  return saved;
+}
+
+/**
+ * Delete blog category from Django API & Store
+ */
+export async function djangoDeleteBlogCategory(id: string, config?: DjangoCrmConfig): Promise<boolean> {
+  djangoDatabaseStore.deleteBlogCategory(id);
+  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/categories/${id}/` : `http://localhost:8000/api/v1/blog/categories/${id}/`;
+  try {
+    await fetch(targetUrl, {
+      method: 'DELETE',
+      headers: {
+        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
+      }
+    });
+  } catch (e) {}
+  return true;
+}

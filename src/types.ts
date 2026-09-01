@@ -556,6 +556,19 @@ export interface LiveDollarMarket {
   manualCustomUsdRate?: number;
 }
 
+export interface BlogCategoryItem {
+  id: string;
+  name: string;
+  slug: string;
+  color?: string;
+  bgColor?: string;
+  borderColor?: string;
+  description?: string;
+  iconName?: string;
+  postCount?: number;
+  order?: number;
+}
+
 export interface BlogPost {
   id: string;
   slug: string;
@@ -565,8 +578,9 @@ export interface BlogPost {
   canonicalUrl: string;
   keywords: string[];
   category: 'تحلیل بازار و ارز' | 'راهنمای بنکداری' | 'اصالت کالا و برند' | 'قوانین باربری و ارسال' | 'فناوری IQOS' | string;
+  categorySlug?: string;
   readTimeMinutes: number;
-  publishedDate: string;
+  publishedDate: string; // تاریخ شمسی مانند "۱۴۰۳/۰۶/۰۱"
   author: {
     name: string;
     role: string;
@@ -575,12 +589,14 @@ export interface BlogPost {
   image: string;
   excerpt: string;
   keyTakeaways: string[];
-  content: string; // Markdown or rich formatted text
+  content: string; // Markdown or rich HTML text (TinyMCE)
   faqs?: {
     question: string;
     answer: string;
   }[];
   tags: string[];
+  viewsCount?: number;
+  isPublished?: boolean;
 }
 
 export interface NotificationItem {

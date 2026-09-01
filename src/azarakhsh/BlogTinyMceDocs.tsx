@@ -5,7 +5,7 @@ import { AppDocTemplate, TableErdMeta, ApiEndpointMeta } from './AppDocTemplate'
 export const BlogTinyMceDocs: React.FC = () => {
   const modelsCode = `"""
 blog/models.py
-مدل مقالات آموزشی، اخبار دخانیات و ادیتور غنی TinyMCE
+مدل مقالات آموزشی، اخبار دخانیات، دسته‌بندی‌ها و ادیتور غنی TinyMCE
 """
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -13,13 +13,34 @@ from tinymce.models import HTMLField
 from accounts.models import User
 
 
+class BlogCategory(models.Model):
+    name = models.CharField(_("نام دسته‌بندی"), max_length=150)
+    slug = models.SlugField(_("اسلاگ سئو"), max_length=160, unique=True, allow_unicode=True)
+
+    class Meta:
+        verbose_name = _("دسته‌بندی مقاله")
+        verbose_name_plural = _("دسته‌بندی‌های وبلاگ")
+
+    def __str__(self):
+        return self.name
+
+
 class BlogPost(models.Model):
     title = models.CharField(_("عنوان مقاله"), max_length=250)
     slug = models.SlugField(_("اسلاگ سئو"), max_length=260, unique=True, allow_unicode=True)
+    category = models.ForeignKey(
+        BlogCategory, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='posts', 
+        verbose_name=_("دسته‌بندی مقاله")
+    )
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='blog_posts', verbose_name=_("نویسنده"))
     excerpt = models.TextField(_("خلاصه کوتاه"), max_length=500, help_text=_("نمایش در کارت‌های وبلاگ"))
     content = HTMLField(_("متن کامل مقاله (TinyMCE)"), help_text=_("شامل تصاویر، جداول، عناوین و فرمت‌بندی غنی"))
-    featured_image = models.ImageField(_("تصویر شاخص"), upload_to='blog/images/')
+    featured_image = models.ImageField(_("تصویر شاخص"), upload_to='blog/images/', null=True, blank=True)
+    featured_image_url = models.URLField(_("لینک تصویر (اختیاری)"), max_length=500, null=True, blank=True)
     views_count = models.PositiveIntegerField(_("تعداد بازدید"), default=0)
     reading_time_minutes = models.PositiveIntegerField(_("مدت زمان مطالعه (دقیقه)"), default=5)
     is_published = models.BooleanField(_("منتشر شده"), default=True)
@@ -36,20 +57,27 @@ class BlogPost(models.Model):
 
   const adminCode = `"""
 blog/admin.py
-پنل مدیریت مقالات با ادیتور غنی TinyMCE و تاریخ‌های شمسی
+پنل مدیریت مقالات و دسته‌بندی‌ها با ادیتور غنی TinyMCE و تاریخ‌های شمسی
 """
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
 from jalali_date.admin import ModelAdminJalaliMixin
 from jalali_date import datetime2jalali
-from .models import BlogPost
+from .models import BlogPost, BlogCategory
+
+
+@admin.register(BlogCategory)
+class BlogCategoryAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug')
+    prepopulated_fields = {'slug': ('name',)}
+    search_fields = ('name',)
 
 
 @admin.register(BlogPost)
 class BlogPostAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
-    list_display = ('title', 'slug', 'author', 'views_count', 'is_published', 'created_at_jalali')
-    list_filter = ('is_published', 'created_at', 'author')
+    list_display = ('title', 'category', 'slug', 'author', 'views_count', 'is_published', 'created_at_jalali')
+    list_filter = ('category', 'is_published', 'created_at', 'author')
     search_fields = ('title', 'excerpt', 'content')
     prepopulated_fields = {'slug': ('title',)}
     list_editable = ('is_published',)
@@ -57,10 +85,12 @@ class BlogPostAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     fields = (
         'title',
         'slug',
+        'category',
         'author',
         'excerpt',
         'content',
         'featured_image',
+        'featured_image_url',
         'image_preview',
         'reading_time_minutes',
         'is_published',
@@ -71,8 +101,9 @@ class BlogPostAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
 
     @admin.display(description=_("پیش‌نمایش تصویر شاخص"))
     def image_preview(self, obj):
-        if obj.featured_image:
-            return format_html('<img src="{}" style="max-height: 180px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" />', obj.featured_image.url)
+        img_src = obj.featured_image.url if obj.featured_image else obj.featured_image_url
+        if img_src:
+            return format_html('<img src="{}" style="max-height: 180px; border-radius: 8px; border: 1px solid #cbd5e1; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" />', img_src)
         return _("تصویری وجود ندارد")
 
     @admin.display(description=_("تاریخ انتشار"), ordering='created_at')
@@ -83,30 +114,67 @@ class BlogPostAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
 
   const serializersCode = `"""
 blog/serializers.py
-سریالایزر مقالات وبلاگ
+سریالایزر مقالات وبلاگ و دسته‌بندی‌ها با تبدیل تاریخ شمسی
 """
 from rest_framework import serializers
-from .models import BlogPost
+from jalali_date import datetime2jalali
+from .models import BlogPost, BlogCategory
+
+
+class BlogCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BlogCategory
+        fields = '__all__'
 
 
 class BlogPostListSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(source='author.get_full_name', read_only=True)
+    category_name = serializers.CharField(source='category.name', default='عمومی', read_only=True)
+    created_at_jalali = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = BlogPost
-        fields = ('id', 'title', 'slug', 'author_name', 'excerpt', 'featured_image', 'views_count', 'reading_time_minutes', 'created_at')
+        fields = (
+            'id', 'title', 'slug', 'category', 'category_name', 
+            'author_name', 'excerpt', 'image', 'views_count', 
+            'reading_time_minutes', 'created_at', 'created_at_jalali', 'is_published'
+        )
+
+    def get_created_at_jalali(self, obj):
+        if obj.created_at:
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d')
+        return ""
+
+    def get_image(self, obj):
+        if obj.featured_image:
+            return obj.featured_image.url
+        return obj.featured_image_url or "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"
 
 
 class BlogPostDetailSerializer(serializers.ModelSerializer):
     author_name = serializers.CharField(source='author.get_full_name', read_only=True)
+    category_name = serializers.CharField(source='category.name', default='عمومی', read_only=True)
+    created_at_jalali = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
 
     class Meta:
         model = BlogPost
-        fields = '__all__'`;
+        fields = '__all__'
+
+    def get_created_at_jalali(self, obj):
+        if obj.created_at:
+            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d')
+        return ""
+
+    def get_image(self, obj):
+        if obj.featured_image:
+            return obj.featured_image.url
+        return obj.featured_image_url or "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80"`;
 
   const viewsCode = `"""
 blog/views.py
-ویوهای اختصاصی صریح با استفاده از APIView (بدون ViewSet) جهت فهرست، مشاهده جزئیات با اسلاگ و افزایش خودکار شمارنده بازدید
+ویوهای اختصاصی APIView جهت مدیریت مقالات وبلاگ، فیلتر دسته‌بندی و افزایش خودکار شمارنده بازدید
 """
 
 from rest_framework import status
@@ -118,26 +186,50 @@ from django.db.models import F
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 
-from .models import BlogPost
-from .serializers import BlogPostListSerializer, BlogPostDetailSerializer
+from .models import BlogPost, BlogCategory
+from .serializers import BlogPostListSerializer, BlogPostDetailSerializer, BlogCategorySerializer
+
+
+class BlogCategoryListAPIView(APIView):
+    """
+    دریافت فهرست دسته‌بندی‌های وبلاگ
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        categories = BlogCategory.objects.all()
+        serializer = BlogCategorySerializer(categories, many=True)
+        return Response({
+            'status': 'success',
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
 
 
 class BlogPostListAPIView(APIView):
     """
-    اندپوینت عمومی دریافت فهرست مقالات منتشر شده وبلاگ
+    اندپوینت عمومی دریافت فهرست مقالات منتشر شده وبلاگ با فیلتر دسته‌بندی و جستجو
     """
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         operation_summary="دریافت فهرست مقالات وبلاگ (عمومی)",
+        manual_parameters=[
+            openapi.Parameter('category', openapi.IN_QUERY, description="شناسه یا اسلاگ دسته‌بندی", type=openapi.TYPE_STRING),
+            openapi.Parameter('search', openapi.IN_QUERY, description="عبارت جستجو در عنوان و متن", type=openapi.TYPE_STRING),
+        ],
         responses={200: BlogPostListSerializer(many=True)}
     )
     def get(self, request):
         search_query = request.query_params.get('search', '').strip()
+        category_param = request.query_params.get('category', '').strip()
+        
         queryset = BlogPost.objects.filter(is_published=True)
 
+        if category_param and category_param != 'all':
+            queryset = queryset.filter(category__name__icontains=category_param) | queryset.filter(category__slug=category_param)
+
         if search_query:
-            queryset = queryset.filter(title__icontains=search_query)
+            queryset = queryset.filter(title__icontains=search_query) | queryset.filter(excerpt__icontains=search_query)
 
         serializer = BlogPostListSerializer(queryset, many=True)
         return Response({
@@ -173,7 +265,7 @@ class BlogPostDetailAPIView(APIView):
 
 class BlogPostAdminCreateAPIView(APIView):
     """
-    اندپوینت ایجاد مقاله جدید توسط مدیر (مدیریت)
+    اندپوینت ایجاد مقاله جدید توسط مدیر (پنل صندوق)
     """
     permission_classes = [IsAdminUser]
 
@@ -197,7 +289,7 @@ class BlogPostAdminCreateAPIView(APIView):
 
 class BlogPostAdminDetailAPIView(APIView):
     """
-    اندپوینت ویرایش و حذف مقاله توسط مدیر (مدیریت)
+    اندپوینت ویرایش و حذف مقاله توسط مدیر (پنل صندوق)
     """
     permission_classes = [IsAdminUser]
 
@@ -233,12 +325,12 @@ class BlogPostAdminDetailAPIView(APIView):
 
   const urlsCode = `"""
 blog/urls.py
-مسیرهای صریح APIView جهت دریافت فهرست مقالات، مشاهده جزئیات با اسلاگ و مدیریت مقالات
-حتماً دقت کنید متغیر urlpatterns به صورت لیست [ ... ] باشد.
+مسیرهای صریح APIView جهت فهرست، دسته‌بندی‌ها، مشاهده جزئیات با اسلاگ و مدیریت مقالات
 """
 
 from django.urls import path
 from .views import (
+    BlogCategoryListAPIView,
     BlogPostListAPIView,
     BlogPostDetailAPIView,
     BlogPostAdminCreateAPIView,
@@ -248,42 +340,57 @@ from .views import (
 app_name = 'blog'
 
 urlpatterns = [
-    # ۱. لیست مقالات عمومی
+    # ۱. لیست دسته‌بندی‌های وبلاگ
+    path('categories/', BlogCategoryListAPIView.as_view(), name='blog-categories'),
+
+    # ۲. لیست مقالات عمومی
     path('list/', BlogPostListAPIView.as_view(), name='blog-list'),
 
-    # ۲. مشاهده متن کامل مقاله با اسلاگ سئو (عمومی)
+    # ۳. مشاهده متن کامل مقاله با اسلاگ سئو (عمومی)
     path('detail/<str:slug>/', BlogPostDetailAPIView.as_view(), name='blog-detail'),
 
-    # ۳. مسیرهای اختصاصی مدیریت (مدیریت)
+    # ۴. مسیرهای اختصاصی مدیریت (مدیریت صندوق)
     path('admin/create/', BlogPostAdminCreateAPIView.as_view(), name='blog-admin-create'),
     path('admin/<int:pk>/', BlogPostAdminDetailAPIView.as_view(), name='blog-admin-detail'),
 ]
 `;
 
-  const notesCode = `## 📌 راهنمای رفع خطای ImproperlyConfigured و تنظیمات وبلاگ
+  const notesCode = `## 📌 راهنمای جامع ماژول وبلاگ و تاریخ‌های شمسی
 
-### ⚠️ نحوه جلوگیری از خطای URLConf در اپلیکیشن blog:
-۱. از بکارگیری ViewSet و Router خودداری شده است؛ تمام ویوها مستقیماً با \`APIView\` تعریف می‌شوند تا متغیر \`urlpatterns\` همواره یک آرایه پایتون \`[ path(...), ... ]\` معتبر باشد.
-۲. جهت پشتیبانی از اسلاگ‌های فارسی سئو در دات‌نت و پایتون، در مسیر \`detail/<str:slug>/\` از پارامتر \`str:slug\` استفاده شده است.
+### ⚠️ نحوه پیکربندی دیتابیس و تاریخ شمسی در پایتون:
+۱. از پکیج \`django-jalali-date\` جهت تبدیل تاریخ‌های ایجاد پستی (\`created_at\`) به فرمت شمسی (مانند \`۱۴۰۳/۰۶/۰۱\`) در REST API و پنل مدیریت استفاده می‌شود.
+۲. فیلد دسته‌بندی (\`BlogCategory\`) اضافه شده تا مقالات به‌صورت هوشمند تفکیک شوند (تحلیل ارز، اصالت کالا، فناوری IQOS، راهنمای خرید کارتن و...).
 
 ---
 
 ### 💻 نمونه فراخوانی در فرانت‌اند React:
 
 \`\`\`typescript
-// دریافت متن کامل مقاله به همراه محتوای غنی TinyMCE
-const fetchBlogPostDetail = async (slug: string) => {
-  const response = await fetch(\`http://localhost:8000/api/v1/blog/detail/\${encodeURIComponent(slug)}/\`);
+// دریافت فهرست مقالات بر اساس دسته‌بندی انتخاب‌شده
+const fetchBlogPosts = async (categorySlug?: string) => {
+  const url = categorySlug && categorySlug !== 'all'
+    ? \`http://localhost:8000/api/v1/blog/list/?category=\${encodeURIComponent(categorySlug)}\`
+    : 'http://localhost:8000/api/v1/blog/list/';
+  const response = await fetch(url);
   const data = await response.json();
   if (data.status === 'success') {
-    console.log("عنوان مقاله:", data.data.title);
-    console.log("محتوای TinyMCE (HTML):", data.data.content);
+    console.log("مقالات دریافت شده:", data.results);
   }
 };
 \`\`\`
 `;
 
   const erdTables: TableErdMeta[] = [
+    {
+      name: 'blog_blogcategory',
+      verboseName: 'جدول دسته‌بندی‌های وبلاگ',
+      description: 'دسته‌بندی موضوعی مقالات (تحلیل دلار، اصالت کالا، IQOS، بنکداری)',
+      fields: [
+        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه' },
+        { name: 'name', type: 'CharField(max_length=150)', verbose: 'نام دسته‌بندی' },
+        { name: 'slug', type: 'SlugField', isUnique: true, verbose: 'اسلاگ سئو' },
+      ]
+    },
     {
       name: 'blog_blogpost',
       verboseName: 'جدول مقالات و اخبار دخانیات',
@@ -292,10 +399,12 @@ const fetchBlogPostDetail = async (slug: string) => {
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه' },
         { name: 'title', type: 'CharField(max_length=250)', verbose: 'عنوان مقاله' },
         { name: 'slug', type: 'SlugField', isUnique: true, verbose: 'اسلاگ سئو' },
+        { name: 'category_id', type: 'ForeignKey(BlogCategory)', verbose: 'کلید خارجی دسته‌بندی' },
         { name: 'content', type: 'HTMLField (TinyMCE)', verbose: 'متن غنی ادیتور' },
-        { name: 'featured_image', type: 'ImageField', verbose: 'تصویر شاخص' },
+        { name: 'featured_image', type: 'ImageField / URLField', verbose: 'تصویر شاخص' },
         { name: 'views_count', type: 'PositiveIntegerField', verbose: 'تعداد بازدید' },
         { name: 'reading_time_minutes', type: 'PositiveIntegerField', verbose: 'زمان تقریبی مطالعه' },
+        { name: 'created_at', type: 'DateTimeField (Jalali)', verbose: 'تاریخ انتشار (شمسی)' },
       ]
     }
   ];
@@ -303,9 +412,15 @@ const fetchBlogPostDetail = async (slug: string) => {
   const endpoints: ApiEndpointMeta[] = [
     {
       method: 'GET',
+      path: '/api/v1/blog/categories/',
+      auth: 'AllowAny',
+      description: 'دریافت فهرست دسته‌بندی‌های وبلاگ'
+    },
+    {
+      method: 'GET',
       path: '/api/v1/blog/list/',
       auth: 'AllowAny',
-      description: 'دریافت فهرست آخرین مقالات منتشرشده وبلاگ با قابلیت جستجو'
+      description: 'دریافت فهرست آخرین مقالات منتشرشده وبلاگ با فیلتر دسته‌بندی و جستجو'
     },
     {
       method: 'GET',
@@ -317,13 +432,13 @@ const fetchBlogPostDetail = async (slug: string) => {
       method: 'POST',
       path: '/api/v1/blog/admin/create/',
       auth: 'IsAdminUser',
-      description: 'ثبت مقاله جدید در سیستم (مدیریت)'
+      description: 'ثبت مقاله جدید در سیستم (مدیریت صندوق)'
     },
     {
       method: 'PUT',
       path: '/api/v1/blog/admin/{id}/',
       auth: 'IsAdminUser',
-      description: 'ویرایش یا حذف مقاله ثبت شده (مدیریت)'
+      description: 'ویرایش یا حذف مقاله ثبت شده (مدیریت صندوق)'
     }
   ];
 

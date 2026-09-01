@@ -720,6 +720,8 @@ export default function App() {
         companyTitle={footerSettings?.company_title || djangoConfig.companyName}
         phoneNumber={footerSettings?.phone_number || djangoConfig.transportPhoneCompany}
         warehouseAddress={footerSettings?.address_text}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
       />
 
       {/* Main App Body */}

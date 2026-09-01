@@ -30,7 +30,7 @@ import {
   UserCheck
 } from 'lucide-react';
 import { UserProfile, OrderInvoice, SupportTicket, ChatMessage, RetailShopCustomer, DjangoCrmConfig, CigaretteProduct, CartItem } from '../types';
-import { formatToman, formatNumberFa } from '../utils/formatters';
+import { formatToman, formatNumberFa, toShamsiDate } from '../utils/formatters';
 import { generateInvoicePdf } from '../utils/pdfGenerator';
 import { TicketDetailPage } from './TicketDetailPage';
 import { 
@@ -374,7 +374,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             city: dUser.city || 'تهران',
             address: dUser.address || '',
             isVerified: true,
-            createdAt: dUser.date_joined || new Date().toLocaleDateString('fa-IR'),
+            createdAt: toShamsiDate(dUser.date_joined),
             role: 'admin',
             isProfileCompleted: true,
           };
@@ -400,7 +400,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             bankName: '',
             bankAccountHolder: dUser.full_name || '',
             isVerified: Boolean(dUser.is_verified),
-            createdAt: dUser.date_joined || new Date().toLocaleDateString('fa-IR'),
+            createdAt: toShamsiDate(dUser.date_joined),
             role: 'visitor',
             visitorCode: visitorData?.visitor_code || `VISITOR-${dUser.id}`,
             commissionRate: Number(visitorData?.commission_rate || 2.5),
@@ -426,7 +426,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             address: dUser.address || '',
             nationalId: dUser.national_id || '',
             isVerified: Boolean(dUser.is_verified),
-            createdAt: dUser.date_joined || new Date().toLocaleDateString('fa-IR'),
+            createdAt: toShamsiDate(dUser.date_joined),
             role: 'customer',
             isProfileCompleted: Boolean(dUser.address && dUser.business_name),
           };
@@ -848,7 +848,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                 </span>
                 <span className="hidden xs:flex items-center gap-1">
                   <Clock className="w-3 h-3 text-slate-400" />
-                  عضویت: {currentUser.createdAt}
+                  عضویت: {toShamsiDate(currentUser.createdAt)}
                 </span>
               </div>
             </div>

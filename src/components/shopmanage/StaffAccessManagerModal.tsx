@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { WarehouseStaffUser, StaffPermission, StaffRole } from '../../types';
 import { accountsApi } from '../../services/api';
+import { toShamsiDate } from '../../utils/formatters';
 
 interface StaffAccessManagerModalProps {
   staffList: WarehouseStaffUser[];
@@ -148,7 +149,7 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
           roleTitleFa: item.roleTitleFa || item.role_title || 'صندوق‌دار',
           permissions: item.permissions || [],
           status: (item.is_active === false || item.status === 'suspended') ? 'suspended' : 'active',
-          createdAt: item.createdAt || item.created_at || new Date().toLocaleDateString('fa-IR'),
+          createdAt: toShamsiDate(item.createdAt || item.created_at || item.date_joined),
           avatarColor: 'bg-emerald-600',
         }));
         onUpdateStaffList(mappedList);
@@ -507,7 +508,7 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
                     {/* Actions & Status */}
                     <div className="flex items-center justify-between sm:justify-end gap-2 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100">
                       <div className="text-[10px] text-slate-400 hidden lg:block text-left pl-2">
-                        <div>ثبت: {staff.createdAt}</div>
+                        <div>ثبت: {toShamsiDate(staff.createdAt)}</div>
                         <div>{staff.status === 'active' ? '🟢 فعال' : '🔴 معلق'}</div>
                       </div>
 

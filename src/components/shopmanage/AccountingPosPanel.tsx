@@ -95,6 +95,8 @@ import { QuickAddProductModal } from './QuickAddProductModal';
 import { CustomerAppConnectModal } from './CustomerAppConnectModal';
 import { TicketManagementPanel } from './TicketManagementPanel';
 import { NotificationManagementPanel } from './NotificationManagementPanel';
+import { BlogManagementModal } from './BlogManagementModal';
+import { BlogManagementPanel } from './BlogManagementPanel';
 import { BackendConnectionModal } from '../BackendConnectionModal';
 import { 
   djangoSendPatternSMS, 
@@ -322,10 +324,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     return currentStaff.permissions?.includes(perm) ?? false;
   };
 
-  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications';
+  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog';
 
   const getSubTabFromPath = (pathname: string): PosSubTab => {
     const p = pathname.toLowerCase();
+    if (p.includes('/shopmanage/blog') || p.includes('/shopmanage/maghale') || p.includes('/shopmanage/maghalat')) return 'blog';
     if (p.includes('/shopmanage/anbar') || p.includes('/shopmanage/inventory')) return 'inventory';
     if (p.includes('/shopmanage/hesabdari') || p.includes('/shopmanage/ledger')) return 'ledger';
     if (p.includes('/shopmanage/customers') || p.includes('/shopmanage/moshtarian')) return 'customers';
@@ -355,6 +358,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       staff_management: '/shopmanage/staff',
       customer_app: '/shopmanage/customer-app',
       analytics: '/shopmanage/analytics',
+      blog: '/shopmanage/blog',
     };
     return map[tab] || '/shopmanage/sandogh';
   };
@@ -389,6 +393,23 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   }, []);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showToolsDropdown, setShowToolsDropdown] = useState(false);
+  const [showBlogManagementModal, setShowBlogManagementModal] = useState(false);
+  const toolsRef = useRef<HTMLDivElement>(null);
+
+  // Close tools dropdown on click outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) {
+        setShowToolsDropdown(false);
+      }
+    };
+    if (showToolsDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showToolsDropdown]);
 
   // Products stock state
   const [productsList, setProductsList] = useState<CigaretteProduct[]>(initialProducts);
@@ -1987,81 +2008,90 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-600 selection:text-white print:hidden" dir="rtl">
       
       {/* Header Section */}
-      <header className="bg-white/95 print:hidden backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[100] px-4 sm:px-6 py-3 shadow-md w-full transition-all duration-300">
-        <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4">
+      <header className="bg-white/95 print:hidden backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[100] px-3 sm:px-6 py-2.5 shadow-md w-full transition-all duration-300">
+        <div className="max-w-[1750px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2.5 md:gap-4">
           
-          <div className="flex items-center justify-between w-full md:w-auto">
-            <div className="flex items-center gap-2.5 sm:gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-center text-white shadow-md shadow-indigo-600/20">
-                <Barcode className="w-5 h-5 sm:w-6 sm:h-6" />
+          {/* Logo & Staff Info */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between w-full md:w-auto shrink-0 gap-1.5 md:gap-4">
+            <div className="flex items-center justify-between w-full md:w-auto gap-2.5 sm:gap-3">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                {/* Mobile Menu Toggle Button (Positioned at RTL Start - Right Side) */}
+                <button 
+                  onClick={() => setIsMenuOpen(!isMenuOpen)}
+                  className="md:hidden p-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-white shadow-md shadow-indigo-600/20 active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+                  title="باز و بستن منوی اصلی"
+                >
+                  {isMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+                  <span className="text-[11px] font-bold pl-0.5">منو</span>
+                </button>
+
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-2xl bg-gradient-to-br from-indigo-600 to-blue-700 flex items-center justify-center text-white shadow-md shadow-indigo-600/20 shrink-0">
+                  <Barcode className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-1.5 sm:gap-2">
+                    <h1 className="text-xs sm:text-base font-black text-slate-900 tracking-tight whitespace-nowrap">
+                      سامانه هوشمند سوین (POS)
+                    </h1>
+                    <span className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-[8px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
+                      آنلاین
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <div className="flex items-center gap-1.5 sm:gap-2">
-                  <h1 className="text-xs sm:text-base font-black text-slate-900 tracking-tight whitespace-nowrap">
-                    سامانه هوشمند سوین (POS)
-                  </h1>
-                  <span className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-[8px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full">
-                    آنلاین
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                  <p className="text-[9px] sm:text-[11px] text-slate-500">
-                    کاربر: <strong className="text-indigo-600 font-bold">{currentStaff.fullName}</strong> ({currentStaff.roleTitleFa})
-                  </p>
-                  <span className="text-[9px] text-slate-300 hidden sm:inline">•</span>
-                  <button
-                    onClick={() => setShowOnlineStaffModal(true)}
-                    className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] sm:text-xs font-bold transition-all shadow-2xs active:scale-95"
-                    title="مشاهده صندوق‌دارهای آنلاین و پرسنل فعال همزمان"
-                  >
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <Users className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>صندوق‌دارهای آنلاین:</span>
-                    <span className="bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-md">
-                      {onlineSessions.length} نفر
-                    </span>
-                  </button>
-                </div>
+
+              {/* Mobile Sound Action */}
+              <div className="flex items-center gap-2 md:hidden">
+                <button
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className="p-2 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 active:scale-95 transition-all"
+                  title="تنظیمات صدا"
+                >
+                  {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-400" />}
+                </button>
               </div>
             </div>
 
-            {/* Mobile Actions */}
-            <div className="flex items-center gap-2 md:hidden">
+            {/* Staff Info & Online Cashiers Badge */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <p className="text-[10px] sm:text-[11px] text-slate-600 font-medium whitespace-nowrap">
+                کاربر: <strong className="text-indigo-600 font-bold">{currentStaff.fullName}</strong> <span className="text-slate-400">({currentStaff.roleTitleFa})</span>
+              </p>
               <button
-                onClick={() => setSoundEnabled(!soundEnabled)}
-                className="p-2 sm:p-2.5 rounded-xl bg-slate-100 text-slate-600 border border-slate-200 active:scale-95 transition-all"
+                onClick={() => setShowOnlineStaffModal(true)}
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-[10px] font-bold transition-all shadow-2xs active:scale-95 whitespace-nowrap"
+                title="مشاهده صندوق‌دارهای آنلاین و پرسنل فعال همزمان"
               >
-                {soundEnabled ? <Volume2 className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-600" /> : <VolumeX className="w-4 h-4 sm:w-5 sm:h-5 text-slate-400" />}
-              </button>
-              <button 
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                className="p-2 sm:p-2.5 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-600/20 active:scale-95 transition-all flex items-center justify-center"
-              >
-                {isMenuOpen ? <X className="w-5 h-5 sm:w-6 sm:h-6" /> : <Menu className="w-5 h-5 sm:w-6 sm:h-6" />}
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <Users className="w-3 h-3 text-emerald-600" />
+                <span>صندوق‌دارهای آنلاین:</span>
+                <span className="bg-emerald-600 text-white text-[10px] font-black px-1.5 py-0.2 rounded-md">
+                  {onlineSessions.length} نفر
+                </span>
               </button>
             </div>
           </div>
 
-          {/* Navigation Tabs - Responsive Drawer on Mobile */}
-          <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center gap-1.5 bg-slate-50 md:bg-slate-100 p-2 md:p-1 rounded-2xl border border-slate-200 w-full md:w-auto overflow-x-auto overflow-y-auto max-h-[75vh] md:max-h-none [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full shadow-lg md:shadow-none`}>
+          {/* Navigation Tabs - Extended Width & Fully Uncropped */}
+          <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center md:justify-start md:flex-1 gap-1.5 bg-slate-50 md:bg-slate-100 p-2 md:p-1 rounded-2xl border border-slate-200 w-full overflow-x-auto overflow-y-auto max-h-[75vh] md:max-h-none no-scrollbar shadow-lg md:shadow-none min-w-0`}>
             {hasStaffPerm('manage_pos') && (
               <button
                 onClick={() => { setActiveSubTab('pos'); setIsMenuOpen(false); }}
-                className={`flex items-center justify-between md:justify-start gap-2 px-3 py-3 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                className={`flex items-center justify-between md:justify-start gap-2 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
                   activeSubTab === 'pos'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                 }`}
               >
-                <div className="flex items-center gap-2">
-                  <ShoppingCart className="w-4 h-4" />
-                  <span>صندوق و بارکدخوان</span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <ShoppingCart className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">صندوق و بارکدخوان</span>
                 </div>
                 {posCart.length > 0 && (
-                  <span className="w-5 h-5 bg-rose-500 text-white text-[10px] rounded-full flex items-center justify-center font-mono">
+                  <span className="w-5 h-5 bg-rose-500 text-white text-[10px] rounded-full flex items-center justify-center font-mono shrink-0">
                     {posCart.length}
                   </span>
                 )}
@@ -2071,18 +2101,18 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             {hasStaffPerm('manage_inventory') && (
               <button
                 onClick={() => { setActiveSubTab('inventory'); setIsMenuOpen(false); }}
-                className={`flex items-center justify-between md:justify-start gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                className={`flex items-center justify-between md:justify-start gap-1.5 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
                   activeSubTab === 'inventory'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                 }`}
               >
-                <div className="flex items-center gap-1.5">
-                  <Package className="w-4 h-4" />
-                  <span>موجودی انبار و کاردکس</span>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <Package className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">موجودی انبار و کاردکس</span>
                 </div>
                 {lowStockCount > 0 && (
-                  <span className="w-5 h-5 bg-amber-500 text-slate-950 text-[10px] rounded-full flex items-center justify-center font-bold">
+                  <span className="w-5 h-5 bg-amber-500 text-slate-950 text-[10px] rounded-full flex items-center justify-center font-bold shrink-0">
                     {lowStockCount}
                   </span>
                 )}
@@ -2092,58 +2122,70 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             {hasStaffPerm('manage_ledger') && (
               <button
                 onClick={() => { setActiveSubTab('customers'); setIsMenuOpen(false); }}
-                className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
                   activeSubTab === 'customers'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                 }`}
               >
-                <Users className="w-4 h-4" />
-                <span>حساب‌های دفتری (نسیه)</span>
+                <Users className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">حساب‌های دفتری (نسیه)</span>
               </button>
             )}
 
             {hasStaffPerm('view_reports') && (
               <button
                 onClick={() => { setActiveSubTab('reports'); setIsMenuOpen(false); }}
-                className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
                   activeSubTab === 'reports'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                 }`}
               >
-                <PieChart className="w-4 h-4" />
-                <span>گزارشات فروش روزانه</span>
+                <PieChart className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">گزارشات فروش روزانه</span>
               </button>
             )}
 
             {(hasStaffPerm('monthly_comparison') || hasStaffPerm('view_reports')) && (
               <button
                 onClick={() => { setActiveSubTab('monthly_compare'); setIsMenuOpen(false); }}
-                className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
                   activeSubTab === 'monthly_compare'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                 }`}
               >
-                <BarChart3 className="w-4 h-4" />
-                <span>تحلیل مقایسه‌ای ماه‌ها</span>
+                <BarChart3 className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">تحلیل مقایسه‌ای ماه‌ها</span>
               </button>
             )}
 
             {(hasStaffPerm('manage_ledger') || hasStaffPerm('view_reports')) && (
               <button
                 onClick={() => { setActiveSubTab('ledger'); setIsMenuOpen(false); }}
-                className={`flex items-center gap-1.5 px-3 py-2.5 md:py-2 rounded-xl text-xs font-black transition-all whitespace-nowrap ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
                   activeSubTab === 'ledger'
                     ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
                 }`}
               >
-                <Receipt className="w-4 h-4" />
-                <span>دفتر فاکتورها</span>
+                <Receipt className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">دفتر فاکتورها</span>
               </button>
             )}
+
+            <button
+              onClick={() => { setActiveSubTab('blog'); setIsMenuOpen(false); }}
+              className={`flex items-center gap-1.5 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
+                activeSubTab === 'blog'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <BookOpen className="w-4 h-4 shrink-0" />
+              <span className="whitespace-nowrap">مقالات و وبلاگ</span>
+            </button>
 
             {/* Mobile-Only Actions Row inside Menu Drawer */}
             <div className="md:hidden flex items-center justify-between gap-2 pt-2 border-t border-slate-200/80 mt-1">
@@ -2166,10 +2208,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           </div>
 
             {/* Quick Tools & Actions */}
-            <div className="flex items-center justify-center md:justify-end gap-2 relative">
+            <div className="flex items-center justify-center md:justify-end gap-2 relative shrink-0">
               
               {/* Tools & Settings Dropdown */}
-              <div className="relative">
+              <div className="relative" ref={toolsRef}>
                 <button
                   onClick={() => setShowToolsDropdown(!showToolsDropdown)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all active:scale-95"
@@ -2181,7 +2223,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 </button>
 
                 {showToolsDropdown && (
-                  <div className="absolute left-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="absolute right-0 md:right-auto md:left-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-[150] space-y-1 animate-in fade-in zoom-in-95 duration-200">
                     {currentStaff.role === 'super_admin' && (
                       <button
                         onClick={() => { setShowBackendModal(true); setShowToolsDropdown(false); }}
@@ -2211,6 +2253,17 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                         <span>اتصال اپلیکیشن مشتریان</span>
                       </button>
                     )}
+
+                    <button
+                      onClick={() => { setActiveSubTab('blog'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="w-4 h-4 text-blue-600" />
+                        <span>مدیریت مقالات و وبلاگ</span>
+                      </div>
+                      <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                    </button>
 
                     <div className="my-1 border-t border-slate-100"></div>
 
@@ -4730,6 +4783,23 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </motion.div>
           )}
 
+          {/* TAB: Blog & Article Management (Dedicated /shopmanage/blog View) */}
+          {activeSubTab === 'blog' && (
+            <motion.div
+              key="blog-management-page-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              dir="rtl"
+              className="space-y-6"
+            >
+              <BlogManagementPanel
+                crmConfig={crmConfig}
+                onOpenBackendModal={() => setShowBackendModal(true)}
+              />
+            </motion.div>
+          )}
+
 
         </AnimatePresence>
       </main>
@@ -6170,6 +6240,12 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         }}
         onAddProduct={handleQuickAddProduct}
         initialBarcode={pendingBarcode}
+      />
+
+      {/* Blog Management Modal */}
+      <BlogManagementModal
+        isOpen={showBlogManagementModal}
+        onClose={() => setShowBlogManagementModal(false)}
       />
 
     </div>
