@@ -124,7 +124,8 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
       'قوانین باربری و ارسال': Truck
     };
 
-    return categories.map((cat, idx) => ({
+    const hasAll = categories.some(cat => cat.slug === 'all' || cat.name === 'همه مقالات و مطالب' || cat.id === 'all');
+    const mapped = categories.map((cat, idx) => ({
       id: cat.slug === 'all' || cat.name === 'همه مقالات و مطالب' ? 'all' : cat.name,
       label: cat.name,
       icon: iconMap[cat.slug] || iconMap[cat.name] || (idx % 2 === 0 ? FileText : BookOpen),
@@ -133,6 +134,23 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
       borderColor: cat.borderColor || 'border-blue-200',
       description: cat.description || 'مشاهده مقالات مربوط به این دسته‌بندی تخصصی'
     }));
+
+    if (!hasAll) {
+      return [
+        {
+          id: 'all',
+          label: 'همه مقالات و مطالب',
+          icon: BookOpen,
+          color: 'text-blue-600',
+          bgColor: 'bg-blue-50',
+          borderColor: 'border-blue-200',
+          description: 'نمایش تمام مقالات آموزشی، تحلیل بازار و اخبار تخصصی بنکداری'
+        },
+        ...mapped
+      ];
+    }
+
+    return mapped;
   }, [categories]);
 
   const selectedCategorySpec = categorySpecs.find(c => c.id === selectedCategory) || categorySpecs[0] || {
@@ -595,26 +613,15 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
               در حال لود اطلاعات مقالات از دیتابیس...
             </div>
           ) : posts.length === 0 ? (
-            <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-xs text-slate-500 font-medium space-y-4">
+            <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-xs text-slate-500 font-medium space-y-3">
               <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-3xl mx-auto flex items-center justify-center border border-blue-100 shadow-xs">
                 <BookOpen className="w-8 h-8" />
               </div>
               <div className="space-y-1.5 max-w-md mx-auto">
-                <p className="text-base font-black text-slate-800">دیتابیس مقالات آماده و پاکسازی شد</p>
+                <p className="text-base font-black text-slate-800">مقاله‌ای یافت نشد</p>
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  تمامی داده‌های نمونه و تستی حذف شدند. اکنون می‌توانید مقالات واقعی و تخصصی خود را از طریق پنل مدیریت یا مستقیماً از وب‌سرویس جنگو درج نمایید.
+                  در حال حاضر مقاله‌ای در این بخش منتشر نشده است. به زودی مطالب و مقالات تخصصی جدید در این بخش قرار خواهد گرفت.
                 </p>
-              </div>
-              <div className="pt-2">
-                <button
-                  onClick={() => {
-                    window.location.href = '/shopmanage/sandogh';
-                  }}
-                  className="inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black px-5 py-2.5 rounded-2xl shadow-md shadow-blue-600/20 transition-all cursor-pointer"
-                >
-                  <PlusCircle className="w-4 h-4" />
-                  <span>ورود به پنل مدیریت مقالات</span>
-                </button>
               </div>
             </div>
           ) : (

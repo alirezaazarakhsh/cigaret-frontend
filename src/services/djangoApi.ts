@@ -3,6 +3,7 @@ import { CigaretteProduct, DjangoCrmConfig, CigaretteCategory, BlogPost, BlogCat
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { BLOG_POSTS } from '../data/blogPosts';
 import { notificationsApi } from './api';
+import { getApiBaseUrl, getApiToken } from './apiConfig';
 
 /**
  * Standard timeout parameter for Django REST API Axios requests (15 seconds = 15000ms).
@@ -290,26 +291,25 @@ class DjangoDatabaseStore {
     return true;
   }
 
-  private defaultBlogCategories: BlogCategoryItem[] = [
-    { id: 'all', name: 'همه مقالات و مطالب', slug: 'all', color: 'text-blue-600', bgColor: 'bg-blue-50', borderColor: 'border-blue-200', description: 'نمایش تمام مقالات آموزشی، تحلیل بازار و اخبار تخصصی بنکداری' },
-    { id: 'تحلیل بازار و ارز', name: 'تحلیل نوسان دلار و بازار سیگار', slug: 'market-analysis', color: 'text-emerald-600', bgColor: 'bg-emerald-50', borderColor: 'border-emerald-200', description: 'تحلیل روزانه چسبندگی نرخ کارتن سیگار به دلار آزاد و درهم امارات' },
-    { id: 'اصالت کالا و برند', name: 'تشخیص سیگار اصل و هولوگرام', slug: 'original-auth', color: 'text-indigo-600', bgColor: 'bg-indigo-50', borderColor: 'border-indigo-200', description: 'روش‌های بازرسی بارکد سوئیس، هولوگرام شرکتی و اصالت مارلبرو و وینستون' },
-    { id: 'فناوری IQOS', name: 'تکنولوژی IQOS، هیتس و تیریا', slug: 'iqos-technology', color: 'text-amber-600', bgColor: 'bg-amber-50', borderColor: 'border-amber-200', description: 'بررسی دستگاه‌های ایلوما، استیک‌های TEREA و نگهداری فیلترهای حرارتی' },
-    { id: 'راهنمای بنکداری', name: 'راهنمای خرید کارتن و باربری', slug: 'wholesale-shipping', color: 'text-purple-600', bgColor: 'bg-purple-50', borderColor: 'border-purple-200', description: 'فرمول محاسبه حاشیه سود، خریدهای تناژ بالا و استراتژی انبارداری' },
-    { id: 'قوانین باربری و ارسال', name: 'قوانین بیجک و حمل سراسری', slug: 'freight-rules', color: 'text-sky-600', bgColor: 'bg-sky-50', borderColor: 'border-sky-200', description: 'دستورالعمل‌های قانونی بیمه بارنامه، بیجک انبار و ارسال سراسری' }
-  ];
+  private defaultBlogCategories: BlogCategoryItem[] = [];
 
   getBlogCategories(): BlogCategoryItem[] {
     try {
       const saved = localStorage.getItem('sovin_django_blog_categories');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed;
         }
       }
     } catch {}
     return [...this.defaultBlogCategories];
+  }
+
+  setBlogCategories(categories: BlogCategoryItem[]) {
+    try {
+      localStorage.setItem('sovin_django_blog_categories', JSON.stringify(categories));
+    } catch {}
   }
 
   saveBlogCategory(category: Partial<BlogCategoryItem>): BlogCategoryItem {
@@ -1475,57 +1475,90 @@ export async function djangoFetchNotificationUnreadCount(config?: DjangoCrmConfi
 // Django Blog Articles API Endpoints
 // ==========================================
 
+export function getBlogApiBaseUrl(config?: DjangoCrmConfig): string {
+  let base = config?.apiUrl || getApiBaseUrl();
+  if (!base || base.trim() === '' || base.includes('localhost:8000')) {
+    base = 'https://cigar.sevinhost.ir/api/v1';
+  }
+  return base.replace(/\/+$/, '');
+}
+
+export function getBlogApiHeaders(config?: DjangoCrmConfig): Record<string, string> {
+  const token = config?.apiToken || getApiToken() || (typeof localStorage !== 'undefined' ? (localStorage.getItem('sevin_api_token') || localStorage.getItem('token') || '') : '');
+  const headers: Record<string, string> = {
+    'Accept': 'application/json',
+    'Content-Type': 'application/json',
+  };
+  if (token && token.trim()) {
+    headers['Authorization'] = token.startsWith('Bearer ') || token.startsWith('Token ')
+      ? token
+      : `Bearer ${token}`;
+  }
+  return headers;
+}
+
 /**
  * Fetch list of published blog posts from Django API or Database store
  */
 export async function djangoFetchBlogPosts(category?: string, search?: string, config?: DjangoCrmConfig): Promise<BlogPost[]> {
-  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/list/` : 'http://localhost:8000/api/v1/blog/list/';
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
 
-  try {
-    const url = new URL(targetUrl);
-    if (category && category !== 'all') url.searchParams.set('category', category);
-    if (search) url.searchParams.set('search', search);
+  const candidateEndpoints = [
+    '/blog/posts/',
+    '/blog/posts',
+    '/blog/list/',
+    '/blog/',
+    '/blog/articles/'
+  ];
 
-    const response = await fetch(url.toString(), {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
+  for (const ep of candidateEndpoints) {
+    try {
+      const url = new URL(`${baseUrl}${ep}`);
+      if (category && category !== 'all') url.searchParams.set('category', category);
+      if (search && search.trim()) url.searchParams.set('search', search.trim());
+
+      const response = await fetch(url.toString(), {
+        method: 'GET',
+        headers
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const results = Array.isArray(data) ? data : (data.results || data.data);
+        if (Array.isArray(results)) {
+          const mapped: BlogPost[] = results.map((item: any) => ({
+            id: String(item.id || item.slug),
+            slug: item.slug || String(item.id),
+            title: item.title || item.name || '',
+            metaTitle: item.meta_title || item.title || '',
+            metaDescription: item.meta_description || item.excerpt || '',
+            canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
+            keywords: item.keywords || ['سوین', 'دخانیات'],
+            category: item.category_name || item.category || 'عمومی',
+            readTimeMinutes: item.reading_time_minutes || item.read_time || 5,
+            publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : new Date().toLocaleDateString('fa-IR')),
+            author: {
+              name: item.author_name || item.author?.name || 'تیم تحریریه سوین',
+              role: item.author_role || item.author?.role || 'کارشناس ارشد بازار',
+              avatar: item.author_avatar || item.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+            },
+            image: item.featured_image || item.image || item.featured_image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+            excerpt: item.excerpt || item.summary || '',
+            keyTakeaways: item.key_takeaways || item.keyTakeaways || [],
+            content: item.content || item.body || '',
+            tags: item.tags || ['وبلاگ', 'دخانیات'],
+            viewsCount: item.views_count || item.views || 0,
+            isPublished: item.is_published !== undefined ? item.is_published : true
+          }));
+
+          mapped.forEach(p => djangoDatabaseStore.saveBlogPost(p));
+          return mapped;
+        }
       }
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      if (data && Array.isArray(data.results)) {
-        // Map Django serializer fields to BlogPost format
-        return data.results.map((item: any) => ({
-          id: String(item.id || item.slug),
-          slug: item.slug,
-          title: item.title,
-          metaTitle: item.title,
-          metaDescription: item.excerpt || '',
-          canonicalUrl: `https://sevin-tobacco.ir/blog/${item.slug}`,
-          keywords: ['سوین', 'دخانیات'],
-          category: item.category_name || item.category || 'تحلیل بازار و ارز',
-          readTimeMinutes: item.reading_time_minutes || 5,
-          publishedDate: item.created_at_jalali || new Date(item.created_at || Date.now()).toLocaleDateString('fa-IR'),
-          author: {
-            name: item.author_name || 'تیم تحریریه سوین',
-            role: 'کارشناس ارشد بازار',
-            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
-          },
-          image: item.image || item.featured_image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
-          excerpt: item.excerpt || '',
-          keyTakeaways: item.key_takeaways || [],
-          content: item.content || '',
-          tags: item.tags || ['وبلاگ', 'دخانیات'],
-          viewsCount: item.views_count || 0,
-          isPublished: item.is_published !== undefined ? item.is_published : true
-        }));
-      }
+    } catch (err) {
+      // Fall through to next candidate endpoint
     }
-  } catch (err) {
-    // Django backend not reachable, fallback to store
   }
 
   return djangoDatabaseStore.getBlogPosts({ category, search });
@@ -1535,43 +1568,55 @@ export async function djangoFetchBlogPosts(category?: string, search?: string, c
  * Fetch single blog post by slug with atomic view count increment
  */
 export async function djangoFetchBlogPostBySlug(slug: string, config?: DjangoCrmConfig): Promise<BlogPost | null> {
-  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/detail/${encodeURIComponent(slug)}/` : `http://localhost:8000/api/v1/blog/detail/${encodeURIComponent(slug)}/`;
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
 
-  try {
-    const response = await fetch(targetUrl, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' }
-    });
+  const candidateUrls = [
+    `${baseUrl}/blog/posts/${encodeURIComponent(slug)}/`,
+    `${baseUrl}/blog/posts/${encodeURIComponent(slug)}`,
+    `${baseUrl}/blog/detail/${encodeURIComponent(slug)}/`,
+    `${baseUrl}/blog/${encodeURIComponent(slug)}/`
+  ];
 
-    if (response.ok) {
-      const data = await response.json();
-      const item = data.data || data;
-      return {
-        id: String(item.id || item.slug),
-        slug: item.slug,
-        title: item.title,
-        metaTitle: item.title,
-        metaDescription: item.excerpt || '',
-        canonicalUrl: `https://sevin-tobacco.ir/blog/${item.slug}`,
-        keywords: ['سوین', 'دخانیات'],
-        category: item.category_name || item.category || 'تحلیل بازار و ارز',
-        readTimeMinutes: item.reading_time_minutes || 5,
-        publishedDate: item.created_at_jalali || new Date(item.created_at || Date.now()).toLocaleDateString('fa-IR'),
-        author: {
-          name: item.author_name || 'تیم تحریریه سوین',
-          role: 'کارشناس ارشد بازار',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
-        },
-        image: item.image || item.featured_image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
-        excerpt: item.excerpt || '',
-        keyTakeaways: item.key_takeaways || [],
-        content: item.content || '',
-        tags: item.tags || ['وبلاگ', 'دخانیات'],
-        viewsCount: item.views_count || 0,
-        isPublished: true
-      };
-    }
-  } catch (err) {}
+  for (const targetUrl of candidateUrls) {
+    try {
+      const response = await fetch(targetUrl, {
+        method: 'GET',
+        headers
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const item = data.data || data;
+        if (item && (item.title || item.slug)) {
+          return {
+            id: String(item.id || item.slug),
+            slug: item.slug,
+            title: item.title,
+            metaTitle: item.meta_title || item.title,
+            metaDescription: item.meta_description || item.excerpt || '',
+            canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
+            keywords: item.keywords || ['سوین', 'دخانیات'],
+            category: item.category_name || item.category || 'عمومی',
+            readTimeMinutes: item.reading_time_minutes || item.read_time || 5,
+            publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : new Date().toLocaleDateString('fa-IR')),
+            author: {
+              name: item.author_name || item.author?.name || 'تیم تحریریه سوین',
+              role: item.author_role || item.author?.role || 'کارشناس ارشد بازار',
+              avatar: item.author_avatar || item.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+            },
+            image: item.featured_image || item.image || item.featured_image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+            excerpt: item.excerpt || '',
+            keyTakeaways: item.key_takeaways || item.keyTakeaways || [],
+            content: item.content || item.body || '',
+            tags: item.tags || ['وبلاگ', 'دخانیات'],
+            viewsCount: item.views_count || item.views || 0,
+            isPublished: true
+          };
+        }
+      }
+    } catch (err) {}
+  }
 
   const posts = djangoDatabaseStore.getBlogPosts();
   return posts.find(p => p.slug === slug || p.id === slug) || null;
@@ -1581,31 +1626,57 @@ export async function djangoFetchBlogPostBySlug(slug: string, config?: DjangoCrm
  * Create or save new blog post to Django API & Store
  */
 export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: DjangoCrmConfig): Promise<BlogPost> {
-  const savedPost = djangoDatabaseStore.saveBlogPost(post);
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
 
-  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/admin/create/` : 'http://localhost:8000/api/v1/blog/admin/create/';
+  const payload = {
+    title: post.title,
+    slug: post.slug || (post.title ? post.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-آ-ی]/g, '') : `post-${Date.now()}`),
+    category: post.category,
+    category_name: post.category,
+    excerpt: post.excerpt || '',
+    content: post.content || '',
+    image: post.image || '',
+    featured_image: post.image || '',
+    featured_image_url: post.image || '',
+    reading_time_minutes: post.readTimeMinutes || 5,
+    is_published: post.isPublished !== undefined ? post.isPublished : true,
+    tags: post.tags || [],
+    key_takeaways: post.keyTakeaways || [],
+    meta_title: post.metaTitle || post.title,
+    meta_description: post.metaDescription || post.excerpt
+  };
 
-  try {
-    await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
-      },
-      body: JSON.stringify({
-        title: savedPost.title,
-        slug: savedPost.slug,
-        category_name: savedPost.category,
-        excerpt: savedPost.excerpt,
-        content: savedPost.content,
-        featured_image_url: savedPost.image,
-        reading_time_minutes: savedPost.readTimeMinutes,
-        is_published: savedPost.isPublished
-      })
-    });
-  } catch (e) {
-    console.warn('Django Blog Create API Notice:', e);
+  const candidateUrls = [
+    `${baseUrl}/blog/posts/`,
+    `${baseUrl}/blog/posts`,
+    `${baseUrl}/blog/create/`,
+    `${baseUrl}/blog/admin/create/`,
+    `${baseUrl}/blog/`
+  ];
+
+  let serverData: any = null;
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        serverData = await res.json().catch(() => null);
+        break;
+      }
+    } catch (e) {
+      console.warn('Django Blog Create API attempt error:', e);
+    }
   }
+
+  const savedPost = djangoDatabaseStore.saveBlogPost({
+    ...post,
+    id: serverData?.id ? String(serverData.id) : undefined,
+    slug: serverData?.slug || payload.slug
+  });
 
   return savedPost;
 }
@@ -1614,30 +1685,46 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
  * Update existing blog post in Django API & Store
  */
 export async function djangoUpdateBlogPost(id: string | number, post: Partial<BlogPost>, config?: DjangoCrmConfig): Promise<BlogPost> {
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+
   const savedPost = djangoDatabaseStore.saveBlogPost({ ...post, id: String(id) });
 
-  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/admin/${id}/` : `http://localhost:8000/api/v1/blog/admin/${id}/`;
+  const payload = {
+    title: savedPost.title,
+    slug: savedPost.slug,
+    category: savedPost.category,
+    category_name: savedPost.category,
+    excerpt: savedPost.excerpt,
+    content: savedPost.content,
+    image: savedPost.image,
+    featured_image: savedPost.image,
+    featured_image_url: savedPost.image,
+    reading_time_minutes: savedPost.readTimeMinutes,
+    is_published: savedPost.isPublished,
+    tags: savedPost.tags || [],
+    key_takeaways: savedPost.keyTakeaways || []
+  };
 
-  try {
-    await fetch(targetUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
-      },
-      body: JSON.stringify({
-        title: savedPost.title,
-        slug: savedPost.slug,
-        category_name: savedPost.category,
-        excerpt: savedPost.excerpt,
-        content: savedPost.content,
-        featured_image_url: savedPost.image,
-        reading_time_minutes: savedPost.readTimeMinutes,
-        is_published: savedPost.isPublished
-      })
-    });
-  } catch (e) {
-    console.warn('Django Blog Update API Notice:', e);
+  const candidateUrls = [
+    `${baseUrl}/blog/posts/${id}/`,
+    `${baseUrl}/blog/posts/${id}`,
+    `${baseUrl}/blog/admin/${id}/`,
+    `${baseUrl}/blog/update/${id}/`,
+    `${baseUrl}/blog/${id}/`
+  ];
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) break;
+    } catch (e) {
+      console.warn('Django Blog Update API Notice:', e);
+    }
   }
 
   return savedPost;
@@ -1649,16 +1736,25 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
 export async function djangoDeleteBlogPost(id: string | number, config?: DjangoCrmConfig): Promise<boolean> {
   djangoDatabaseStore.deleteBlogPost(String(id));
 
-  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/admin/${id}/` : `http://localhost:8000/api/v1/blog/admin/${id}/`;
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
 
-  try {
-    await fetch(targetUrl, {
-      method: 'DELETE',
-      headers: {
-        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
-      }
-    });
-  } catch (e) {}
+  const candidateUrls = [
+    `${baseUrl}/blog/posts/${id}/`,
+    `${baseUrl}/blog/posts/${id}`,
+    `${baseUrl}/blog/admin/${id}/`,
+    `${baseUrl}/blog/${id}/`
+  ];
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers
+      });
+      if (res.ok) break;
+    } catch (e) {}
+  }
 
   return true;
 }
@@ -1667,29 +1763,42 @@ export async function djangoDeleteBlogPost(id: string | number, config?: DjangoC
  * Fetch all blog categories from Django API & Store
  */
 export async function djangoFetchBlogCategories(config?: DjangoCrmConfig): Promise<BlogCategoryItem[]> {
-  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/categories/` : 'http://localhost:8000/api/v1/blog/categories/';
-  try {
-    const res = await fetch(targetUrl, {
-      method: 'GET',
-      headers: { 'Accept': 'application/json' }
-    });
-    if (res.ok) {
-      const data = await res.json();
-      const list = Array.isArray(data) ? data : (data.results || data.data);
-      if (Array.isArray(list) && list.length > 0) {
-        return list.map((item: any) => ({
-          id: String(item.id || item.slug),
-          name: item.name || item.title || item.name_fa,
-          slug: item.slug,
-          color: item.color || 'text-blue-600',
-          bgColor: item.bg_color || item.bgColor || 'bg-blue-50',
-          borderColor: item.border_color || item.borderColor || 'border-blue-200',
-          description: item.description || '',
-          order: item.order || 1
-        }));
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+
+  const candidateUrls = [
+    `${baseUrl}/blog/categories/`,
+    `${baseUrl}/blog/categories`,
+    `${baseUrl}/blog-categories/`,
+    `${baseUrl}/categories/`
+  ];
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, {
+        method: 'GET',
+        headers
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : (data.results || data.data);
+        if (Array.isArray(list)) {
+          const mapped: BlogCategoryItem[] = list.map((item: any) => ({
+            id: String(item.id || item.slug),
+            name: item.name || item.title || item.name_fa || 'بدون نام',
+            slug: item.slug || String(item.id),
+            color: item.color || 'text-blue-600',
+            bgColor: item.bg_color || item.bgColor || 'bg-blue-50',
+            borderColor: item.border_color || item.borderColor || 'border-blue-200',
+            description: item.description || '',
+            order: item.order || 1
+          }));
+          djangoDatabaseStore.setBlogCategories(mapped);
+          return mapped;
+        }
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
 
   return djangoDatabaseStore.getBlogCategories();
 }
@@ -1698,22 +1807,55 @@ export async function djangoFetchBlogCategories(config?: DjangoCrmConfig): Promi
  * Create or save new blog category to Django API & Store
  */
 export async function djangoCreateBlogCategory(category: Partial<BlogCategoryItem>, config?: DjangoCrmConfig): Promise<BlogCategoryItem> {
-  const saved = djangoDatabaseStore.saveBlogCategory(category);
-  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/categories/create/` : 'http://localhost:8000/api/v1/blog/categories/create/';
-  try {
-    await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
-      },
-      body: JSON.stringify({
-        name: saved.name,
-        slug: saved.slug,
-        description: saved.description
-      })
-    });
-  } catch (e) {}
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+
+  const catName = (category.name || '').trim();
+  const slug = category.slug?.trim() || (catName ? catName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-آ-ی]/g, '') : `cat-${Date.now()}`);
+
+  const payload = {
+    name: catName,
+    title: catName,
+    slug: slug,
+    description: category.description || '',
+    color: category.color || 'text-blue-600',
+    bg_color: category.bgColor || 'bg-blue-50',
+    border_color: category.borderColor || 'border-blue-200',
+    order: category.order || 1
+  };
+
+  const candidateUrls = [
+    `${baseUrl}/blog/categories/`,
+    `${baseUrl}/blog/categories`,
+    `${baseUrl}/blog/categories/create/`,
+    `${baseUrl}/blog-categories/`,
+    `${baseUrl}/categories/create/`
+  ];
+
+  let serverItem: any = null;
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) {
+        serverItem = await res.json().catch(() => null);
+        break;
+      }
+    } catch (e) {
+      console.warn('Django Category Create API attempt error:', e);
+    }
+  }
+
+  const saved = djangoDatabaseStore.saveBlogCategory({
+    ...category,
+    id: serverItem?.id ? String(serverItem.id) : undefined,
+    name: serverItem?.name || catName,
+    slug: serverItem?.slug || slug
+  });
+
   return saved;
 }
 
@@ -1721,7 +1863,39 @@ export async function djangoCreateBlogCategory(category: Partial<BlogCategoryIte
  * Update blog category in Django API & Store
  */
 export async function djangoUpdateBlogCategory(id: string, category: Partial<BlogCategoryItem>, config?: DjangoCrmConfig): Promise<BlogCategoryItem> {
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+
   const saved = djangoDatabaseStore.saveBlogCategory({ ...category, id });
+
+  const payload = {
+    name: saved.name,
+    title: saved.name,
+    slug: saved.slug,
+    description: saved.description,
+    color: saved.color,
+    bg_color: saved.bgColor,
+    border_color: saved.borderColor,
+    order: saved.order
+  };
+
+  const candidateUrls = [
+    `${baseUrl}/blog/categories/${id}/`,
+    `${baseUrl}/blog/categories/${id}`,
+    `${baseUrl}/blog-categories/${id}/`
+  ];
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      if (res.ok) break;
+    } catch (e) {}
+  }
+
   return saved;
 }
 
@@ -1730,14 +1904,24 @@ export async function djangoUpdateBlogCategory(id: string, category: Partial<Blo
  */
 export async function djangoDeleteBlogCategory(id: string, config?: DjangoCrmConfig): Promise<boolean> {
   djangoDatabaseStore.deleteBlogCategory(id);
-  const targetUrl = config?.apiUrl ? `${config.apiUrl.replace(/\/$/, '')}/api/v1/blog/categories/${id}/` : `http://localhost:8000/api/v1/blog/categories/${id}/`;
-  try {
-    await fetch(targetUrl, {
-      method: 'DELETE',
-      headers: {
-        ...(config?.apiToken ? { 'Authorization': `Bearer ${config.apiToken}` } : {})
-      }
-    });
-  } catch (e) {}
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+
+  const candidateUrls = [
+    `${baseUrl}/blog/categories/${id}/`,
+    `${baseUrl}/blog/categories/${id}`,
+    `${baseUrl}/blog-categories/${id}/`
+  ];
+
+  for (const url of candidateUrls) {
+    try {
+      const res = await fetch(url, {
+        method: 'DELETE',
+        headers
+      });
+      if (res.ok) break;
+    } catch (e) {}
+  }
+
   return true;
 }

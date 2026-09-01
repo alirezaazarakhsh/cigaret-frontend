@@ -100,8 +100,8 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     setLoading(true);
     try {
       const [fetchedPosts, fetchedCats] = await Promise.all([
-        djangoFetchBlogPosts(selectedCategory, searchQuery),
-        djangoFetchBlogCategories()
+        djangoFetchBlogPosts(selectedCategory, searchQuery, crmConfig),
+        djangoFetchBlogCategories(crmConfig)
       ]);
       setPosts(fetchedPosts);
       setCategories(fetchedCats);
@@ -114,7 +114,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
 
   useEffect(() => {
     loadData();
-  }, [selectedCategory, searchQuery]);
+  }, [selectedCategory, searchQuery, crmConfig]);
 
   const showNotification = (text: string, type: 'success' | 'error' = 'success') => {
     setNotification({ text, type });
@@ -267,10 +267,10 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
 
     try {
       if (isEditing && editingPostId) {
-        await djangoUpdateBlogPost(editingPostId, formData);
+        await djangoUpdateBlogPost(editingPostId, formData, crmConfig);
         showNotification('مقاله با موفقیت در دیتابیس بروزرسانی شد.');
       } else {
-        await djangoCreateBlogPost(formData);
+        await djangoCreateBlogPost(formData, crmConfig);
         showNotification('مقاله جدید با تاریخ خودکار سرور با موفقیت ثبت گردید.');
       }
       await loadData();
@@ -286,7 +286,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       return;
     }
     try {
-      await djangoDeleteBlogPost(id);
+      await djangoDeleteBlogPost(id, crmConfig);
       showNotification('مقاله مورد نظر با موفقیت حذف گردید.');
       await loadData();
     } catch (err) {
@@ -308,8 +308,8 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
         slug: newCatSlug.trim() || undefined,
         description: newCatDesc.trim(),
         color: newCatColor
-      });
-      showNotification(`دسته‌بندی «${newCatName}» با موفقیت ایجاد شد.`);
+      }, crmConfig);
+      showNotification(`دسته‌بندی «${newCatName}» با موفقیت در سرور جنگو ایجاد شد.`);
       setNewCatName('');
       setNewCatSlug('');
       setNewCatDesc('');
@@ -331,8 +331,8 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     }
 
     try {
-      await djangoDeleteBlogCategory(catId);
-      showNotification(`دسته‌بندی «${catName}» حذف شد.`);
+      await djangoDeleteBlogCategory(catId, crmConfig);
+      showNotification(`دسته‌بندی «${catName}» با موفقیت حذف شد.`);
       await loadData();
     } catch (err) {
       showNotification('خطا در حذف دسته‌بندی.', 'error');
