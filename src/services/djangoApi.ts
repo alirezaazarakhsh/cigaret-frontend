@@ -1540,7 +1540,15 @@ function base64ImageToBlob(dataUrl: string): Blob {
   return new Blob([bytes], { type: mime });
 }
 
-function mapDjangoBlogPost(item: any): BlogPost {
+function mapDjangoBlogPost(item: any, config?: DjangoCrmConfig): BlogPost {
+  // فیلد image برای فایل آپلودشده روی سرور یک مسیر نسبی برمی‌گرداند (مثلاً /media/blog/images/x.jpg)
+  // که باید به دامنه بک‌اند (نه فرانت) متصل شود، وگرنه در لیست شکسته نمایش داده می‌شود
+  const rawImage = item.image || item.featured_image || item.featured_image_url || '';
+  const backendOrigin = getBlogApiBaseUrl(config).replace(/\/api\/v1\/?$/, '');
+  const image = rawImage && rawImage.startsWith('/') && !rawImage.startsWith('//')
+    ? `${backendOrigin}${rawImage}`
+    : (rawImage || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80');
+
   return {
     id: String(item.id),
     slug: item.slug,
@@ -1558,7 +1566,7 @@ function mapDjangoBlogPost(item: any): BlogPost {
       role: 'کارشناس ارشد بازار',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
     },
-    image: item.image || item.featured_image || item.featured_image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+    image,
     excerpt: item.excerpt || '',
     keyTakeaways: [],
     content: item.content || '',
@@ -1584,7 +1592,7 @@ export async function djangoFetchBlogPosts(category?: string, search?: string, c
     if (response.ok) {
       const data = await response.json();
       const results = Array.isArray(data?.results) ? data.results : [];
-      const mapped = results.map(mapDjangoBlogPost);
+      const mapped = results.map((item: any) => mapDjangoBlogPost(item, config));
       mapped.forEach((p: BlogPost) => djangoDatabaseStore.saveBlogPost(p));
       return mapped;
     }
@@ -1607,7 +1615,7 @@ export async function djangoFetchBlogPostBySlug(slug: string, config?: DjangoCrm
     const response = await fetch(`${baseUrl}/blog/detail/${encodeURIComponent(slug)}/`, { method: 'GET', headers });
     if (response.ok) {
       const data = await response.json();
-      if (data?.data) return mapDjangoBlogPost(data.data);
+      if (data?.data) return mapDjangoBlogPost(data.data, config);
     }
   } catch (err) {
     console.warn('Django Blog Detail API error:', err);
