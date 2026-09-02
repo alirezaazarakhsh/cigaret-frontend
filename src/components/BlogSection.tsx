@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   BookOpen, 
   Search, 
@@ -22,26 +23,12 @@ import {
   Info,
   FileText,
   Newspaper,
-  PlusCircle
+  PlusCircle,
+  ChevronDown
 } from 'lucide-react';
-import { BlogPost, BlogCategoryItem } from '../types';
-import { api, blogApi } from '../services/api';
-import { djangoDatabaseStore } from '../services/djangoApi';
-import { formatNumberFa } from '../utils/formatters';
+// ... (rest of imports)
 
-interface BlogSectionProps {
-  onSelectProductTag?: (brand: string) => void;
-}
-
-interface CategorySpec {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  color: string;
-  bgColor: string;
-  borderColor: string;
-  description: string;
-}
+// ...
 
 export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) => {
   const [posts, setPosts] = useState<BlogPost[]>([]);
@@ -52,6 +39,41 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [openFaq, setOpenFaq] = useState<number | null>(null);
+
+  // SEO & URL Management
+  useEffect(() => {
+    if (selectedPost) {
+      const newUrl = `/blog/${selectedPost.slug}`;
+      if (window.location.pathname !== newUrl) {
+        window.history.pushState(null, '', newUrl);
+      }
+      document.title = `${selectedPost.title} - سوین دخانیات`;
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) metaDesc.setAttribute('content', selectedPost.metaDescription || selectedPost.excerpt);
+    } else {
+      if (window.location.pathname !== '/blog') {
+        window.history.pushState(null, '', '/blog');
+      }
+      document.title = "مجله مقالات - سامانه پخش عمده دخانیات سوین";
+    }
+  }, [selectedPost]);
+
+  // Handle URL slug on mount
+  useEffect(() => {
+    const handleInitialLoad = async () => {
+        if (allPosts.length === 0) return;
+        const pathParts = window.location.pathname.split('/');
+        const slug = pathParts[pathParts.length - 1];
+        if (slug && slug !== 'blog' && slug !== '') {
+            const post = allPosts.find(p => p.slug === slug);
+            if (post) await openPost(post);
+        }
+    };
+    handleInitialLoad();
+  }, [allPosts]);
+  
+  // ... (rest of the component)
 
   // Load all posts & categories for counts and initial state
   useEffect(() => {
@@ -499,13 +521,26 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
               </h3>
               <div className="space-y-2.5">
                 {selectedPost.faqs.map((faq, idx) => (
-                  <div key={idx} className="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-1">
-                    <div className="font-black text-xs text-slate-900">
+                  <div key={idx} className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
+                    <button
+                      onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                      className="w-full text-right p-4 font-black text-xs text-slate-900 flex justify-between items-center hover:bg-slate-100 transition-colors"
+                    >
                       {faq.question}
-                    </div>
-                    <div className="text-xs text-slate-600 leading-relaxed font-medium">
-                      {faq.answer}
-                    </div>
+                      <ChevronDown className={`w-4 h-4 transition-transform ${openFaq === idx ? 'rotate-180' : ''}`} />
+                    </button>
+                    <AnimatePresence>
+                      {openFaq === idx && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          className="px-4 pb-4 text-xs text-slate-600 leading-relaxed font-medium"
+                        >
+                          {faq.answer}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 ))}
               </div>

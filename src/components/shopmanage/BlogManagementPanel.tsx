@@ -502,6 +502,25 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   // New Tag / Key Takeaway inputs
   const [newTagInput, setNewTagInput] = useState<string>('');
   const [newTakeawayInput, setNewTakeawayInput] = useState<string>('');
+  const [newFaqQuestion, setNewFaqQuestion] = useState<string>('');
+  const [newFaqAnswer, setNewFaqAnswer] = useState<string>('');
+
+  const handleAddFaq = (e: React.KeyboardEvent | React.MouseEvent) => {
+    if ('key' in e && e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!newFaqQuestion.trim() || !newFaqAnswer.trim()) return;
+    const cur = formData.faqs || [];
+    setFormData(prev => ({ ...prev, faqs: [...cur, { question: newFaqQuestion.trim(), answer: newFaqAnswer.trim() }] }));
+    setNewFaqQuestion('');
+    setNewFaqAnswer('');
+  };
+
+  const handleRemoveFaq = (idx: number) => {
+    setFormData(prev => ({
+      ...prev,
+      faqs: (prev.faqs || []).filter((_, i) => i !== idx)
+    }));
+  };
 
   // Category Management Form State
   const [newCatName, setNewCatName] = useState<string>('');
@@ -630,7 +649,8 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       metaTitle: '',
       metaDescription: '',
       keyTakeaways: ['تحلیل چسبندگی قیمت بازار به نرخ ارز'],
-      tags: ['دخانیات', 'سوین']
+      tags: ['دخانیات', 'سوین'],
+      faqs: []
     });
     setActiveTab('editor');
   };
@@ -2047,6 +2067,54 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                           <X className="w-3 h-3" />
                         </button>
                       </span>
+                    ))}
+                  </div>
+                </div>
+
+                {/* FAQ MANAGEMENT */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+                  <label className="block text-xs font-black text-slate-900">
+                    پرسش‌های متداول (FAQ - Inline):
+                  </label>
+                  
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={newFaqQuestion}
+                      onChange={(e) => setNewFaqQuestion(e.target.value)}
+                      placeholder="پرسش..."
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-500"
+                    />
+                    <textarea
+                      value={newFaqAnswer}
+                      onChange={(e) => setNewFaqAnswer(e.target.value)}
+                      placeholder="پاسخ..."
+                      className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-900 focus:outline-none focus:border-blue-500"
+                      rows={2}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddFaq}
+                      className="w-full py-2 rounded-xl bg-slate-800 hover:bg-slate-950 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>افزودن پرسش و پاسخ</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    {(formData.faqs || []).map((faq, idx) => (
+                      <div key={idx} className="bg-slate-50 p-3 rounded-xl border border-slate-200 relative group">
+                        <div className="text-xs font-black text-slate-800 mb-1">{faq.question}</div>
+                        <div className="text-[11px] text-slate-600 leading-relaxed">{faq.answer}</div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFaq(idx)}
+                          className="absolute top-2 left-2 p-1 bg-red-100 text-red-600 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 </div>
