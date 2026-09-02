@@ -1489,7 +1489,8 @@ function mapBlogPostApiItem(item: any): BlogPost {
     tags,
     faqs,
     viewsCount: Number(item.views_count ?? 0),
-    isPublished: item.is_published !== undefined ? Boolean(item.is_published) : true
+    isPublished: item.is_published !== undefined ? Boolean(item.is_published) : true,
+    focusKeyword: item.focus_keyword || item.focusKeyword || ''
   };
 }
 

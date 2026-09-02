@@ -597,6 +597,7 @@ export interface BlogPost {
   tags: string[];
   viewsCount?: number;
   isPublished?: boolean;
+  focusKeyword?: string;
 }
 
 export interface NotificationItem {

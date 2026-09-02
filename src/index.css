@@ -81,4 +81,55 @@
   pre code, pre, code.raw-code {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace !important;
   }
+
+  /* Rich Text & TinyMCE HTML Content Styles (Preserve inline colors, links, tables, highlights) */
+  .prose a, .blog-content a, [contenteditable] a {
+    color: #2563eb !important;
+    text-decoration: underline !important;
+    font-weight: 700 !important;
+    cursor: pointer !important;
+    transition: color 0.15s ease-in-out;
+  }
+  .prose a:hover, .blog-content a:hover, [contenteditable] a:hover {
+    color: #1d4ed8 !important;
+  }
+
+  /* Ensure text colors applied via TinyMCE inline styles or font tags are strictly preserved */
+  .prose span[style*="color"], .blog-content span[style*="color"], [contenteditable] span[style*="color"] {
+    display: inline;
+  }
+  .prose font[color], .blog-content font[color], [contenteditable] font[color] {
+    display: inline;
+  }
+  
+  /* Rich tables in blog articles */
+  .prose table, .blog-content table, [contenteditable] table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1rem 0;
+  }
+  .prose th, .blog-content th, [contenteditable] th {
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    padding: 0.5rem 0.75rem;
+    font-weight: 800;
+    text-align: right;
+  }
+  .prose td, .blog-content td, [contenteditable] td {
+    border: 1px solid #e2e8f0;
+    padding: 0.5rem 0.75rem;
+    text-align: right;
+  }
+  
+  /* Blockquotes in blog articles */
+  .prose blockquote, .blog-content blockquote, [contenteditable] blockquote {
+    border-right: 4px solid #3b82f6 !important;
+    border-left: none !important;
+    background-color: #eff6ff;
+    padding: 0.75rem 1rem;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+    color: #1e3a8a;
+    font-style: italic;
+  }
 }

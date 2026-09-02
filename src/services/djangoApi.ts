@@ -240,37 +240,39 @@ class DjangoDatabaseStore {
     const jalaliDate = now.toLocaleDateString('fa-IR');
     const jalaliTime = now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
     const autoPublishedDate = `${jalaliDate} - ${jalaliTime}`;
-    const existingIdx = post.id ? current.findIndex(p => p.id === post.id) : -1;
+    const existingIdx = post.id ? current.findIndex(p => String(p.id) === String(post.id) || (post.slug && p.slug === post.slug)) : -1;
+    const existing = existingIdx >= 0 ? current[existingIdx] : null;
 
     const fullPost: BlogPost = {
-      id: post.id || `post_${Date.now()}`,
-      slug: post.slug || (post.title ? post.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-آ-ی]/g, '') : `post-${Date.now()}`),
-      title: post.title || 'بدون عنوان',
-      metaTitle: post.metaTitle || post.title || 'مقاله وبلاگ سوین',
-      metaDescription: post.metaDescription || post.excerpt || '',
-      canonicalUrl: post.canonicalUrl || `https://sevin-tobacco.ir/blog/${post.slug || 'post'}`,
-      keywords: post.keywords || ['سوین', 'دخانیات', 'عمده فروشی'],
-      category: post.category || 'تحلیل بازار و ارز',
-      categorySlug: post.categorySlug || 'market-analysis',
-      readTimeMinutes: Number(post.readTimeMinutes) || Math.max(1, Math.ceil((post.content?.length || 500) / 400)),
-      publishedDate: existingIdx >= 0 && current[existingIdx].publishedDate ? current[existingIdx].publishedDate : autoPublishedDate,
-      author: post.author || {
+      id: post.id || (existing ? existing.id : `post_${Date.now()}`),
+      slug: post.slug || (existing ? existing.slug : (post.title ? post.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-آ-ی]/g, '') : `post-${Date.now()}`)),
+      title: post.title || (existing ? existing.title : 'بدون عنوان'),
+      metaTitle: (post.metaTitle && post.metaTitle.trim()) ? post.metaTitle : (existing?.metaTitle || post.title || 'مقاله وبلاگ سوین'),
+      metaDescription: (post.metaDescription && post.metaDescription.trim()) ? post.metaDescription : (existing?.metaDescription || post.excerpt || ''),
+      canonicalUrl: post.canonicalUrl || existing?.canonicalUrl || `https://sevin-tobacco.ir/blog/${post.slug || 'post'}`,
+      keywords: (post.keywords && post.keywords.length > 0) ? post.keywords : (existing?.keywords || ['سوین', 'دخانیات', 'عمده فروشی']),
+      category: post.category || existing?.category || 'تحلیل بازار و ارز',
+      categorySlug: post.categorySlug || existing?.categorySlug || 'market-analysis',
+      readTimeMinutes: Number(post.readTimeMinutes) || existing?.readTimeMinutes || Math.max(1, Math.ceil(((post.content || existing?.content)?.length || 500) / 400)),
+      publishedDate: existing?.publishedDate || post.publishedDate || autoPublishedDate,
+      author: post.author || existing?.author || {
         name: 'مهندس حسینی (مدیریت)',
         role: 'ارشد توزیع و بنکداری سوین',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
       },
-      image: post.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
-      excerpt: post.excerpt || '',
-      keyTakeaways: post.keyTakeaways || [],
-      content: post.content || '',
-      faqs: post.faqs || [],
-      tags: post.tags || ['سوین', 'مقالات'],
-      viewsCount: post.viewsCount || 1,
-      isPublished: post.isPublished !== undefined ? post.isPublished : true
+      image: post.image || existing?.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+      excerpt: (post.excerpt && post.excerpt.trim()) ? post.excerpt : (existing?.excerpt || ''),
+      keyTakeaways: (post.keyTakeaways && post.keyTakeaways.length > 0) ? post.keyTakeaways : (existing?.keyTakeaways || []),
+      content: (post.content && post.content.trim()) ? post.content : (existing?.content || ''),
+      faqs: (post.faqs && post.faqs.length > 0) ? post.faqs : (existing?.faqs || []),
+      tags: (post.tags && post.tags.length > 0) ? post.tags : (existing?.tags || ['سوین', 'مقالات']),
+      viewsCount: post.viewsCount !== undefined ? post.viewsCount : (existing?.viewsCount || 1),
+      isPublished: post.isPublished !== undefined ? post.isPublished : (existing?.isPublished !== undefined ? existing.isPublished : true),
+      focusKeyword: post.focusKeyword || existing?.focusKeyword || ''
     };
 
     if (existingIdx >= 0) {
-      current[existingIdx] = { ...current[existingIdx], ...fullPost };
+      current[existingIdx] = fullPost;
     } else {
       current.unshift(fullPost);
     }
@@ -1614,7 +1616,8 @@ function mapDjangoBlogPost(item: any, config?: DjangoCrmConfig): BlogPost {
     tags,
     faqs,
     viewsCount: Number(item.views_count ?? 0),
-    isPublished: item.is_published !== undefined ? Boolean(item.is_published) : true
+    isPublished: item.is_published !== undefined ? Boolean(item.is_published) : true,
+    focusKeyword: item.focus_keyword || item.focusKeyword || ''
   };
 }
 
@@ -1657,14 +1660,17 @@ export async function djangoFetchBlogPostBySlug(slug: string, config?: DjangoCrm
     const response = await fetch(`${baseUrl}/blog/detail/${encodeURIComponent(slug)}/`, { method: 'GET', headers });
     if (response.ok) {
       const data = await response.json();
-      if (data?.data) return mapDjangoBlogPost(data.data, config);
+      if (data?.data) {
+        const mapped = mapDjangoBlogPost(data.data, config);
+        return djangoDatabaseStore.saveBlogPost(mapped);
+      }
     }
   } catch (err) {
     console.warn('Django Blog Detail API error:', err);
   }
 
   const posts = djangoDatabaseStore.getBlogPosts();
-  return posts.find(p => p.slug === slug || p.id === slug) || null;
+  return posts.find(p => p.slug === slug || String(p.id) === String(slug)) || null;
 }
 
 /**
@@ -1674,10 +1680,14 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
   const allCategories = djangoDatabaseStore.getBlogCategories();
   const matchedCat = allCategories.find(c =>
     String(c.id) === String(post.category) ||
-    c.name === post.category ||
-    c.slug === post.category
+    (c.name && post.category && c.name.trim().toLowerCase() === post.category.trim().toLowerCase()) ||
+    (c.slug && post.category && c.slug.trim().toLowerCase() === post.category.trim().toLowerCase())
   );
-  const categoryPk = matchedCat && !isNaN(Number(matchedCat.id)) ? Number(matchedCat.id) : null;
+  
+  // If no match found by ID/Name/Slug, check if the input itself might be a valid ID number
+  const categoryPk = matchedCat 
+    ? Number(matchedCat.id) 
+    : (!isNaN(Number(post.category)) ? Number(post.category) : null);
 
   const postTitle = (post.title || '').trim();
   const postSlug = post.slug?.trim() || (postTitle ? postTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0600-\u06FF-]/g, '') : `post-${Date.now()}`);
@@ -1713,6 +1723,7 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
       form.append('faqs', JSON.stringify(post.faqs || []));
       form.append('meta_title', post.metaTitle || postTitle);
       form.append('meta_description', post.metaDescription || postExcerpt);
+      form.append('focus_keyword', post.focusKeyword || '');
       if (categoryPk !== null) form.append('category', String(categoryPk));
       form.append('featured_image', base64ImageToBlob(imageValue), 'featured-image.jpg');
 
@@ -1736,7 +1747,8 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
         tags: post.tags || [],
         faqs: post.faqs || [],
         meta_title: post.metaTitle || postTitle,
-        meta_description: post.metaDescription || postExcerpt
+        meta_description: post.metaDescription || postExcerpt,
+        focus_keyword: post.focusKeyword || ''
       };
       if (categoryPk !== null) payload.category = categoryPk;
 
@@ -1804,6 +1816,7 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
       form.append('faqs', JSON.stringify(savedPost.faqs || []));
       form.append('meta_title', savedPost.metaTitle || savedPost.title);
       form.append('meta_description', savedPost.metaDescription || postExcerpt);
+      form.append('focus_keyword', savedPost.focusKeyword || '');
       if (categoryPk !== null) form.append('category', String(categoryPk));
       form.append('featured_image', base64ImageToBlob(imageValue), 'featured-image.jpg');
 
@@ -1814,6 +1827,14 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
         headers: uploadHeaders,
         body: form
       });
+      if (!res.ok) {
+        // همچنین تلاش با PATCH در صورتی که متد PUT محدود شده باشد
+        await fetch(`${baseUrl}/blog/admin/${id}/`, {
+          method: 'PATCH',
+          headers: uploadHeaders,
+          body: form
+        }).catch(() => {});
+      }
     } else {
       const payload: Record<string, any> = {
         title: savedPost.title,
@@ -1827,7 +1848,8 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
         tags: savedPost.tags || [],
         faqs: savedPost.faqs || [],
         meta_title: savedPost.metaTitle || savedPost.title,
-        meta_description: savedPost.metaDescription || postExcerpt
+        meta_description: savedPost.metaDescription || postExcerpt,
+        focus_keyword: savedPost.focusKeyword || ''
       };
       if (categoryPk !== null) payload.category = categoryPk;
 
@@ -1836,6 +1858,13 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
         headers,
         body: JSON.stringify(payload)
       });
+      if (!res.ok) {
+        await fetch(`${baseUrl}/blog/admin/${id}/`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(payload)
+        }).catch(() => {});
+      }
     }
 
     if (!res.ok) {

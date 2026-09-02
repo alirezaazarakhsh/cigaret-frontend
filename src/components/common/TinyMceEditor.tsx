@@ -58,6 +58,26 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [activeMenu, setActiveMenu] = useState<string | null>(null);
+  const savedSelectionRangeRef = useRef<Range | null>(null);
+
+  const saveSelection = () => {
+    if (typeof window !== 'undefined' && window.getSelection) {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode)) {
+        savedSelectionRangeRef.current = sel.getRangeAt(0).cloneRange();
+      }
+    }
+  };
+
+  const restoreSelection = () => {
+    if (typeof window !== 'undefined' && window.getSelection && savedSelectionRangeRef.current) {
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(savedSelectionRangeRef.current);
+      }
+    }
+  };
 
   // Sync initial content
   useEffect(() => {
@@ -89,14 +109,32 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
       onChange(html);
       setSourceCode(html);
       updateStats();
+      saveSelection();
     }
   };
 
   const executeCommand = (command: string, value: string | undefined = undefined) => {
     if (editorRef.current) {
       editorRef.current.focus();
+      restoreSelection();
+      try {
+        document.execCommand('styleWithCSS', false, 'true');
+      } catch {}
       document.execCommand(command, false, value);
       handleInput();
+    }
+  };
+
+  const applyTextColor = (color: string) => {
+    if (editorRef.current) {
+      editorRef.current.focus();
+      restoreSelection();
+      try {
+        document.execCommand('styleWithCSS', false, 'true');
+      } catch {}
+      document.execCommand('foreColor', false, color);
+      handleInput();
+      setShowColorPicker(false);
     }
   };
 
@@ -106,15 +144,41 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
     setShowHeadingMenu(false);
   };
 
+  const openLinkModal = () => {
+    saveSelection();
+    let selectedStr = '';
+    if (typeof window !== 'undefined' && window.getSelection) {
+      selectedStr = window.getSelection()?.toString() || '';
+    }
+    setLinkText(selectedStr);
+    setLinkUrl('');
+    setShowLinkModal(true);
+  };
+
   const handleInsertLink = (e: React.FormEvent) => {
     e.preventDefault();
     if (!linkUrl) return;
-    if (linkText) {
-      const html = `<a href="${linkUrl}" target="_blank" rel="noopener noreferrer" class="text-blue-600 underline font-bold hover:text-blue-800">${linkText}</a>`;
-      executeCommand('insertHTML', html);
-    } else {
-      executeCommand('createLink', linkUrl);
+    const cleanUrl = linkUrl.trim().startsWith('http://') || linkUrl.trim().startsWith('https://') || linkUrl.trim().startsWith('/') || linkUrl.trim().startsWith('#')
+      ? linkUrl.trim()
+      : `https://${linkUrl.trim()}`;
+
+    if (editorRef.current) {
+      editorRef.current.focus();
+      restoreSelection();
+      
+      const sel = window.getSelection();
+      const textToUse = (linkText || (sel?.toString() || '')).trim() || cleanUrl;
+
+      const linkHtml = `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline; font-weight: 700;">${textToUse}</a>`;
+      
+      try {
+        document.execCommand('insertHTML', false, linkHtml);
+      } catch {
+        document.execCommand('createLink', false, cleanUrl);
+      }
+      handleInput();
     }
+    
     setLinkUrl('');
     setLinkText('');
     setShowLinkModal(false);
@@ -178,6 +242,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="relative">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setActiveMenu(activeMenu === 'file' ? null : 'file')}
               className="px-2 py-1 rounded-md hover:bg-slate-200 text-slate-700"
             >
@@ -187,6 +252,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
               <div className="absolute top-full right-0 mt-1 w-40 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 text-xs">
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     executeCommand('selectAll');
                     executeCommand('delete');
@@ -198,6 +264,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => {
                     window.print();
                     setActiveMenu(null);
@@ -213,6 +280,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="relative">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setActiveMenu(activeMenu === 'edit' ? null : 'edit')}
               className="px-2 py-1 rounded-md hover:bg-slate-200 text-slate-700"
             >
@@ -222,6 +290,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
               <div className="absolute top-full right-0 mt-1 w-36 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 text-xs">
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { executeCommand('undo'); setActiveMenu(null); }}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-700 font-medium"
                 >
@@ -229,6 +298,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { executeCommand('redo'); setActiveMenu(null); }}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-700 font-medium"
                 >
@@ -236,6 +306,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { executeCommand('selectAll'); setActiveMenu(null); }}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-700 font-medium"
                 >
@@ -248,6 +319,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="relative">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setActiveMenu(activeMenu === 'insert' ? null : 'insert')}
               className="px-2 py-1 rounded-md hover:bg-slate-200 text-slate-700"
             >
@@ -257,13 +329,15 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
               <div className="absolute top-full right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 text-xs">
                 <button
                   type="button"
-                  onClick={() => { setShowLinkModal(true); setActiveMenu(null); }}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { openLinkModal(); setActiveMenu(null); }}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-700 font-medium flex items-center gap-2"
                 >
                   <LinkIcon className="w-3.5 h-3.5" /> درج پیوند (لینک)
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { handleInsertTable(3, 3); setActiveMenu(null); }}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-700 font-medium flex items-center gap-2"
                 >
@@ -271,6 +345,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { executeCommand('insertHorizontalRule'); setActiveMenu(null); }}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-700 font-medium flex items-center gap-2"
                 >
@@ -283,6 +358,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="relative">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setActiveMenu(activeMenu === 'table' ? null : 'table')}
               className="px-2 py-1 rounded-md hover:bg-slate-200 text-slate-700"
             >
@@ -292,6 +368,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
               <div className="absolute top-full right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-20 py-1 text-xs">
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { handleInsertTable(2, 2); setActiveMenu(null); }}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-700 font-medium"
                 >
@@ -299,6 +376,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => { handleInsertTable(4, 3); setActiveMenu(null); }}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-700 font-medium"
                 >
@@ -313,6 +391,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
         <div className="flex items-center gap-1">
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={handleToggleSource}
             className={`p-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-colors ${
               isSourceMode
@@ -327,6 +406,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
 
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => setIsFullscreen(!isFullscreen)}
             className="p-1.5 rounded-lg bg-white hover:bg-slate-200 text-slate-700 border border-slate-200 transition-colors"
             title={isFullscreen ? 'خروج از حالت تمام‌صفحه' : 'تمام‌صفحه'}
@@ -344,16 +424,18 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="flex items-center border-l border-slate-200 pl-1.5 ml-1">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('undo')}
-              className="p-1.5 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+              className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="بازگردانی (Undo)"
             >
               <RotateCcw className="w-4 h-4" />
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('redo')}
-              className="p-1.5 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
+              className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="تکرار (Redo)"
             >
               <RotateCw className="w-4 h-4" />
@@ -364,6 +446,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="relative border-l border-slate-200 pl-1.5 ml-1">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => setShowHeadingMenu(!showHeadingMenu)}
               className="flex items-center gap-1.5 px-2.5 py-1 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg text-xs font-bold text-slate-800"
             >
@@ -375,6 +458,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
               <div className="absolute top-full right-0 mt-1 w-44 bg-white border border-slate-200 rounded-xl shadow-xl z-30 py-1.5 text-xs font-bold">
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleFormatBlock('p', 'پاراگراف عادی')}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-700 font-normal"
                 >
@@ -382,6 +466,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleFormatBlock('h1', 'تیتر ۱ (H1)')}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-900 font-black text-sm"
                 >
@@ -389,6 +474,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleFormatBlock('h2', 'تیتر ۲ (H2)')}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-900 font-black text-xs"
                 >
@@ -396,6 +482,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleFormatBlock('h3', 'تیتر ۳ (H3)')}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-800 font-bold text-xs"
                 >
@@ -403,6 +490,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleFormatBlock('blockquote', 'باکس نقل‌قول')}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-blue-700 font-medium"
                 >
@@ -410,6 +498,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                 </button>
                 <button
                   type="button"
+                  onMouseDown={(e) => e.preventDefault()}
                   onClick={() => handleFormatBlock('pre', 'کد / فرمول')}
                   className="w-full text-right px-3 py-1.5 hover:bg-slate-100 text-slate-600 font-mono"
                 >
@@ -423,6 +512,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="flex items-center gap-0.5 border-l border-slate-200 pl-1.5 ml-1">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('bold')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors font-black"
               title="پررنگ (Bold)"
@@ -431,6 +521,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('italic')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="کج (Italic)"
@@ -439,6 +530,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('underline')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="خط زیرین (Underline)"
@@ -447,6 +539,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('strikeThrough')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="خط روی متن (Strikethrough)"
@@ -459,6 +552,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="flex items-center gap-0.5 border-l border-slate-200 pl-1.5 ml-1">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('justifyRight')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="راست‌چین"
@@ -467,6 +561,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('justifyCenter')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="وسط‌چین"
@@ -475,6 +570,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('justifyLeft')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="چپ‌چین"
@@ -483,6 +579,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('justifyFull')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="تراز از دو طرف (Justify)"
@@ -495,6 +592,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="flex items-center gap-0.5 border-l border-slate-200 pl-1.5 ml-1">
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('insertUnorderedList')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="فهرست نشانه‌دار (Bullet List)"
@@ -503,6 +601,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('insertOrderedList')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="فهرست شماره‌دار (Numbered List)"
@@ -511,6 +610,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleFormatBlock('blockquote', 'نقل‌قول')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="باکس نکته / نقل‌قول"
@@ -523,9 +623,13 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="relative border-l border-slate-200 pl-1.5 ml-1">
             <button
               type="button"
-              onClick={() => setShowColorPicker(!showColorPicker)}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                saveSelection();
+                setShowColorPicker(!showColorPicker);
+              }}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors flex items-center gap-1"
-              title="رنگ متن"
+              title="رنگ متن (اعمال روی کلمه یا عبارت انتخاب‌شده)"
             >
               <Palette className="w-4 h-4 text-blue-600" />
             </button>
@@ -536,11 +640,9 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
                   <button
                     key={c}
                     type="button"
-                    onClick={() => {
-                      executeCommand('foreColor', c);
-                      setShowColorPicker(false);
-                    }}
-                    className="w-5 h-5 rounded-full border border-slate-300 hover:scale-110 transition-transform"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => applyTextColor(c)}
+                    className="w-5 h-5 rounded-full border border-slate-300 hover:scale-110 transition-transform shadow-xs"
                     style={{ backgroundColor: c }}
                   />
                 ))}
@@ -552,14 +654,16 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           <div className="flex items-center gap-0.5 border-l border-slate-200 pl-1.5 ml-1">
             <button
               type="button"
-              onClick={() => setShowLinkModal(true)}
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={openLinkModal}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
-              title="افزودن لینک"
+              title="افزودن لینک روی کلمه انتخاب شده"
             >
               <LinkIcon className="w-4 h-4 text-blue-600" />
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => handleInsertTable(3, 3)}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="افزودن جدول داده‌ها"
@@ -568,6 +672,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
             </button>
             <button
               type="button"
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => executeCommand('insertHorizontalRule')}
               className="p-1.5 hover:bg-slate-200 text-slate-800 rounded-lg transition-colors"
               title="خط جداکننده"
@@ -579,6 +684,7 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
           {/* Clear Format */}
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => executeCommand('removeFormat')}
             className="p-1.5 hover:bg-slate-200 text-slate-500 hover:text-red-600 rounded-lg transition-colors"
             title="پاکسازی استایل و فونت انتخاب‌شده"
@@ -608,9 +714,12 @@ export const TinyMceEditor: React.FC<TinyMceEditorProps> = ({
             contentEditable
             onInput={handleInput}
             onBlur={handleInput}
+            onKeyUp={saveSelection}
+            onMouseUp={saveSelection}
+            onSelect={saveSelection}
             style={{ minHeight }}
             dir="rtl"
-            className="w-full h-full focus:outline-none text-xs sm:text-sm text-slate-900 leading-loose prose max-w-none empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400"
+            className="w-full h-full focus:outline-none text-xs sm:text-sm text-slate-900 leading-loose prose max-w-none empty:before:content-[attr(data-placeholder)] empty:before:text-slate-400 blog-content"
             data-placeholder={placeholder}
           />
         )}

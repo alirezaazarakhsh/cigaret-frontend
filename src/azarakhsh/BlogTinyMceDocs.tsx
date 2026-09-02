@@ -73,7 +73,8 @@ class BlogPost(models.Model):
         help_text=_("لیست پرسش و پاسخ‌های متداول به صورت JSON")
     )
 
-    # متاتگ‌های سئو
+    # متاتگ‌های سئو و کلمه کلیدی کانونی (مشابه Yoast SEO)
+    focus_keyword = models.CharField(_("کلمه کلیدی کانونی (Focus Keyphrase)"), max_length=150, blank=True, default="")
     meta_title = models.CharField(_("عنوان سئو (Meta Title)"), max_length=255, blank=True, default="")
     meta_description = models.TextField(_("توضیحات سئو (Meta Description)"), max_length=500, blank=True, default="")
 
@@ -155,9 +156,10 @@ class BlogPostAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
             ),
             'description': _("نکات کلیدی به صورت لیست آرایه‌ای ['نکته اول', 'نکته دوم'] وارد می‌شود.")
         }),
-        (_("۵. تنظیمات سئو و متاتگ‌ها"), {
+        (_("۵. تنظیمات سئو، کلمه کلیدی کانونی و متاتگ‌ها (Yoast SEO)"), {
             'classes': ('collapse',),
             'fields': (
+                'focus_keyword',
                 'meta_title',
                 'meta_description',
                 'tags',
@@ -212,7 +214,7 @@ class BlogPostListSerializer(serializers.ModelSerializer):
         model = BlogPost
         fields = (
             'id', 'title', 'slug', 'category', 'category_name', 
-            'author_name', 'excerpt', 'image', 'key_takeaways', 'tags',
+            'author_name', 'excerpt', 'image', 'key_takeaways', 'tags', 'focus_keyword',
             'views_count', 'reading_time_minutes', 'created_at', 'created_at_jalali', 'is_published'
         )
 
@@ -245,6 +247,7 @@ class BlogPostDetailSerializer(serializers.ModelSerializer):
             'key_takeaways': {'required': False},
             'tags': {'required': False},
             'faqs': {'required': False},
+            'focus_keyword': {'required': False, 'allow_blank': True},
             'meta_title': {'required': False, 'allow_blank': True},
             'meta_description': {'required': False, 'allow_blank': True},
         }
@@ -552,6 +555,7 @@ const fetchBlogPosts = async (categorySlug?: string) => {
         { name: 'key_takeaways', type: 'JSONField (list)', verbose: 'نکات کلیدی مقاله (Key Takeaways)' },
         { name: 'tags', type: 'JSONField (list)', verbose: 'برچسب‌های سئو (Tags)' },
         { name: 'faqs', type: 'JSONField (list)', verbose: 'پرسش‌های متداول (FAQ)' },
+        { name: 'focus_keyword', type: 'CharField(max_length=150)', verbose: 'کلمه کلیدی کانونی (Focus Keyphrase)' },
         { name: 'meta_title', type: 'CharField(max_length=255)', verbose: 'عنوان سئو' },
         { name: 'meta_description', type: 'TextField(max_length=500)', verbose: 'توضیحات سئو' },
         { name: 'views_count', type: 'PositiveIntegerField', verbose: 'تعداد بازدید' },
