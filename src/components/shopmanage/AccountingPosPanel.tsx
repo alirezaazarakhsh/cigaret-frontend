@@ -660,12 +660,21 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [crmConfig, setCrmConfig] = useState<DjangoCrmConfig>(() => {
     try {
       const saved = localStorage.getItem('azarakhsh_crm_config');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        // آدرس قدیمی و غیرفعال api.azarakhsh-sovin.com را به بک‌اند واقعی اصلاح کن
+        if (!parsed.apiUrl || parsed.apiUrl.includes('api.azarakhsh-sovin.com')) {
+          parsed.apiUrl = 'https://cigar.sevinhost.ir/api/v1';
+        }
+        return parsed;
+      }
     } catch {}
     return {
-      apiUrl: 'https://api.azarakhsh-sovin.com',
-      apiKey: 'azarakhsh_pos_secret_key_2025',
+      apiUrl: 'https://cigar.sevinhost.ir/api/v1',
+      apiToken: (typeof localStorage !== 'undefined' ? localStorage.getItem('sevin_api_token') || '' : ''),
       autoSync: true,
+      status: 'idle',
+      totalSyncedProducts: 0,
       lastSyncTime: '۱۴۰۳/۰۶/۱۰ - ۱۰:۰۰'
     };
   });

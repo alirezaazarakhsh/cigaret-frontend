@@ -1502,7 +1502,8 @@ export async function djangoFetchNotificationUnreadCount(config?: DjangoCrmConfi
 
 export function getBlogApiBaseUrl(config?: DjangoCrmConfig): string {
   let base = config?.apiUrl || getApiBaseUrl();
-  if (!base || base.trim() === '' || base.includes('localhost:8000')) {
+  // آدرس قدیمی و غیرفعال (DNS resolve نمی‌شود) را همیشه به بک‌اند واقعی اصلاح کن
+  if (!base || base.trim() === '' || base.includes('localhost:8000') || base.includes('api.azarakhsh-sovin.com')) {
     base = 'https://cigar.sevinhost.ir/api/v1';
   }
   return base.replace(/\/+$/, '');
