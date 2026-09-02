@@ -51,6 +51,7 @@ import {
 } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
+import { djangoDatabaseStore } from './djangoApi';
 
 // Local storage keys for resilient offline-first fallback
 const STORAGE_KEYS = {
@@ -1424,27 +1425,69 @@ function mapBlogPostApiItem(item: any): BlogPost {
     img = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
   }
 
+  // استخراج امن نکات کلیدی
+  let keyTakeaways: string[] = [];
+  if (Array.isArray(item.key_takeaways)) {
+    keyTakeaways = item.key_takeaways;
+  } else if (Array.isArray(item.keyTakeaways)) {
+    keyTakeaways = item.keyTakeaways;
+  } else if (Array.isArray(item.takeaways)) {
+    keyTakeaways = item.takeaways;
+  } else if (typeof item.key_takeaways === 'string' && item.key_takeaways.trim()) {
+    try {
+      const parsed = JSON.parse(item.key_takeaways);
+      if (Array.isArray(parsed)) keyTakeaways = parsed;
+    } catch {
+      keyTakeaways = [item.key_takeaways];
+    }
+  }
+
+  // استخراج برچسب‌ها
+  let tags: string[] = [];
+  if (Array.isArray(item.tags)) {
+    tags = item.tags;
+  } else if (typeof item.tags === 'string' && item.tags.trim()) {
+    try {
+      const parsed = JSON.parse(item.tags);
+      if (Array.isArray(parsed)) tags = parsed;
+    } catch {
+      tags = [item.tags];
+    }
+  }
+
+  // استخراج پرسش و پاسخ‌ها
+  let faqs: { question: string; answer: string }[] = [];
+  if (Array.isArray(item.faqs)) {
+    faqs = item.faqs;
+  } else if (typeof item.faqs === 'string' && item.faqs.trim()) {
+    try {
+      const parsed = JSON.parse(item.faqs);
+      if (Array.isArray(parsed)) faqs = parsed;
+    } catch {}
+  }
+
   return {
     id: String(item.id),
     slug: item.slug,
     title: item.title || '',
-    metaTitle: item.title || '',
-    metaDescription: item.excerpt || '',
-    canonicalUrl: `https://sevin-tobacco.ir/blog/${item.slug}`,
-    keywords: ['سوین', 'دخانیات'],
-    category: item.category_name || 'عمومی',
+    metaTitle: item.meta_title || item.metaTitle || item.title || '',
+    metaDescription: item.meta_description || item.metaDescription || item.excerpt || '',
+    canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
+    keywords: tags.length ? tags : ['سوین', 'دخانیات'],
+    category: item.category_name || (typeof item.category === 'object' && item.category?.name ? item.category.name : 'عمومی'),
     readTimeMinutes: Number(item.reading_time_minutes ?? 5),
     publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : new Date().toLocaleDateString('fa-IR')),
     author: {
-      name: item.author_name || 'تیم تحریریه سوین',
+      name: item.author_name || (typeof item.author === 'object' && item.author?.name ? item.author.name : 'تیم تحریریه سوین'),
       role: 'کارشناس ارشد بازار',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
     },
     image: img,
     excerpt: item.excerpt || '',
-    keyTakeaways: [],
+    keyTakeaways,
     content: item.content || '',
-    tags: [],
+    tags,
+    faqs,
     viewsCount: Number(item.views_count ?? 0),
     isPublished: item.is_published !== undefined ? Boolean(item.is_published) : true
   };
@@ -1469,12 +1512,14 @@ export const blogApi = {
         headers: API_CACHE_CONTROL_HEADERS,
         skipCacheBuster: false
       });
-      if (response.success && Array.isArray(response.data?.results)) {
-        return response.data.results.map(mapBlogPostApiItem);
+      if (response.success && Array.isArray(response.data?.results) && response.data.results.length > 0) {
+        const mapped = response.data.results.map(mapBlogPostApiItem);
+        mapped.forEach((p: BlogPost) => djangoDatabaseStore.saveBlogPost(p));
+        return mapped;
       }
     } catch {}
 
-    return [];
+    return djangoDatabaseStore.getBlogPosts({ category: params?.category, search: params?.search });
   },
 
   /**
@@ -1486,11 +1531,14 @@ export const blogApi = {
         headers: API_CACHE_CONTROL_HEADERS
       });
       if (response.success && response.data?.data) {
-        return mapBlogPostApiItem(response.data.data);
+        const mapped = mapBlogPostApiItem(response.data.data);
+        djangoDatabaseStore.saveBlogPost(mapped);
+        return mapped;
       }
     } catch {}
 
-    return null;
+    const localPosts = djangoDatabaseStore.getBlogPosts();
+    return localPosts.find(p => p.slug === slug || String(p.id) === String(slug)) || null;
   },
 
   /**

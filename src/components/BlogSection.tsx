@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { BlogPost, BlogCategoryItem } from '../types';
 import { api, blogApi } from '../services/api';
+import { djangoDatabaseStore } from '../services/djangoApi';
 import { formatNumberFa } from '../utils/formatters';
 
 interface BlogSectionProps {
@@ -95,13 +96,20 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
   };
 
   // فهرست مقالات (/blog/list/) فیلد content را برنمی‌گرداند؛ متن کامل باید از جزئیات (/blog/detail/{slug}/) گرفته شود
-  const openPost = (post: BlogPost) => {
-    setSelectedPost(post);
-    blogApi.getBySlug(post.slug).then((fullPost) => {
+  const openPost = async (post: BlogPost) => {
+    // ابتدا از حافظه محلی در صورت وجود متن کامل، آن را قرار می‌دهیم تا در موبایل و PWA لحظه‌ای لود شود
+    const localStorePost = djangoDatabaseStore.getBlogPosts().find(p => p.slug === post.slug || String(p.id) === String(post.id));
+    const initialPost = localStorePost ? { ...localStorePost, ...post, content: post.content || localStorePost.content || '' } : post;
+    setSelectedPost(initialPost);
+
+    try {
+      const fullPost = await blogApi.getBySlug(post.slug);
       if (fullPost) {
-        setSelectedPost(prev => (prev && prev.slug === post.slug ? { ...prev, ...fullPost } : prev));
+        setSelectedPost(prev => (prev && (prev.slug === post.slug || String(prev.id) === String(post.id)) ? { ...prev, ...fullPost } : prev));
       }
-    }).catch(() => {});
+    } catch (e) {
+      console.warn('Error fetching full post detail:', e);
+    }
   };
 
   const getCategoryCount = (catId: string) => {

@@ -46,6 +46,8 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
   const [showForm, setShowForm] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [newTakeawayInput, setNewTakeawayInput] = useState<string>('');
+  const [newTagInput, setNewTagInput] = useState<string>('');
 
   const [formData, setFormData] = useState<Partial<BlogPost>>({
     title: '',
@@ -60,6 +62,40 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
     keyTakeaways: ['تحلیل لحظه‌ای قیمت بازار', 'اصالت تضمینی هولوگرام'],
     tags: ['دخانیات', 'سوین', 'عمده فروشی']
   });
+
+  const handleAddTakeaway = (e?: React.KeyboardEvent | React.MouseEvent) => {
+    if (e && 'key' in e && e.key !== 'Enter') return;
+    if (e) e.preventDefault();
+    if (!newTakeawayInput.trim()) return;
+    const cur = formData.keyTakeaways || [];
+    setFormData(prev => ({ ...prev, keyTakeaways: [...cur, newTakeawayInput.trim()] }));
+    setNewTakeawayInput('');
+  };
+
+  const handleRemoveTakeaway = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      keyTakeaways: (prev.keyTakeaways || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddTag = (e?: React.KeyboardEvent | React.MouseEvent) => {
+    if (e && 'key' in e && e.key !== 'Enter') return;
+    if (e) e.preventDefault();
+    if (!newTagInput.trim()) return;
+    const cur = formData.tags || [];
+    if (!cur.includes(newTagInput.trim())) {
+      setFormData(prev => ({ ...prev, tags: [...cur, newTagInput.trim()] }));
+    }
+    setNewTagInput('');
+  };
+
+  const handleRemoveTag = (tag: string) => {
+    setFormData(prev => ({
+      ...prev,
+      tags: (prev.tags || []).filter(t => t !== tag)
+    }));
+  };
 
   const categories = [
     { id: 'all', label: 'همه دسته‌بندی‌ها' },
@@ -424,6 +460,91 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
                   onChange={(e) => setFormData({ ...formData, content: e.target.value })}
                   className="w-full bg-white border border-slate-200 rounded-xl p-3 text-xs font-mono text-slate-800 focus:outline-none focus:border-blue-500"
                 />
+              </div>
+
+              {/* Key Takeaways */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                <label className="block text-xs font-bold text-slate-800">
+                  نکات کلیدی و چکیده محتوا (Key Takeaways):
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newTakeawayInput}
+                    onChange={(e) => setNewTakeawayInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddTakeaway();
+                      }
+                    }}
+                    placeholder="یک نکته کلیدی بنویسید و دکمه افزودن نکته را بزنید..."
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddTakeaway()}
+                    className="px-3.5 py-2 bg-blue-50 text-blue-700 hover:bg-blue-100 text-xs font-bold rounded-xl transition-colors shrink-0"
+                  >
+                    افزودن نکته
+                  </button>
+                </div>
+                <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                  {(formData.keyTakeaways || []).map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs text-slate-800">
+                      <div className="flex items-center gap-2">
+                        <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span>{item}</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTakeaway(idx)}
+                        className="text-slate-400 hover:text-rose-600 p-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
+                <label className="block text-xs font-bold text-slate-800">
+                  برچسب‌های سئو و موضوعی (Tags):
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={newTagInput}
+                    onChange={(e) => setNewTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddTag();
+                      }
+                    }}
+                    placeholder="برچسب جدید تایپ کنید..."
+                    className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddTag()}
+                    className="px-3.5 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 text-xs font-bold rounded-xl transition-colors shrink-0"
+                  >
+                    افزودن برچسب
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(formData.tags || []).map((t, idx) => (
+                    <span key={idx} className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium border border-slate-200">
+                      <span>{t}</span>
+                      <button type="button" onClick={() => handleRemoveTag(t)} className="hover:text-rose-600">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
               </div>
 
               {/* Published Switch */}
