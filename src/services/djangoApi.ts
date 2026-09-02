@@ -1529,9 +1529,10 @@ export async function djangoFetchBlogPosts(category?: string, search?: string, c
   const headers = getBlogApiHeaders(config);
 
   const candidateEndpoints = [
+    '/blog/list/',
+    '/blog/list',
     '/blog/posts/',
     '/blog/posts',
-    '/blog/list/',
     '/blog/',
     '/blog/articles/'
   ];
@@ -1549,21 +1550,21 @@ export async function djangoFetchBlogPosts(category?: string, search?: string, c
 
       if (response.ok) {
         const data = await response.json();
-        const results = Array.isArray(data) ? data : (data.results || data.data);
-        if (Array.isArray(results)) {
+        const results = Array.isArray(data) ? data : (data.results || data.data || data.posts);
+        if (Array.isArray(results) && results.length > 0) {
           const mapped: BlogPost[] = results.map((item: any) => ({
-            id: String(item.id || item.slug),
+            id: String(item.id || item.slug || item.pk),
             slug: item.slug || String(item.id),
             title: item.title || item.name || '',
             metaTitle: item.meta_title || item.title || '',
             metaDescription: item.meta_description || item.excerpt || '',
             canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
             keywords: item.keywords || ['سوین', 'دخانیات'],
-            category: item.category_name || item.category || 'عمومی',
+            category: item.category_name || (typeof item.category === 'object' ? item.category?.name : item.category) || 'عمومی',
             readTimeMinutes: item.reading_time_minutes || item.read_time || 5,
             publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : new Date().toLocaleDateString('fa-IR')),
             author: {
-              name: item.author_name || item.author?.name || 'تیم تحریریه سوین',
+              name: item.author_name || (typeof item.author === 'object' ? item.author?.name || item.author?.username : item.author) || 'تیم تحریریه سوین',
               role: item.author_role || item.author?.role || 'کارشناس ارشد بازار',
               avatar: item.author_avatar || item.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
             },
@@ -1596,9 +1597,10 @@ export async function djangoFetchBlogPostBySlug(slug: string, config?: DjangoCrm
   const headers = getBlogApiHeaders(config);
 
   const candidateUrls = [
+    `${baseUrl}/blog/detail/${encodeURIComponent(slug)}/`,
+    `${baseUrl}/blog/detail/${encodeURIComponent(slug)}`,
     `${baseUrl}/blog/posts/${encodeURIComponent(slug)}/`,
     `${baseUrl}/blog/posts/${encodeURIComponent(slug)}`,
-    `${baseUrl}/blog/detail/${encodeURIComponent(slug)}/`,
     `${baseUrl}/blog/${encodeURIComponent(slug)}/`
   ];
 
@@ -1614,18 +1616,18 @@ export async function djangoFetchBlogPostBySlug(slug: string, config?: DjangoCrm
         const item = data.data || data;
         if (item && (item.title || item.slug)) {
           return {
-            id: String(item.id || item.slug),
+            id: String(item.id || item.slug || item.pk),
             slug: item.slug,
             title: item.title,
             metaTitle: item.meta_title || item.title,
             metaDescription: item.meta_description || item.excerpt || '',
             canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
             keywords: item.keywords || ['سوین', 'دخانیات'],
-            category: item.category_name || item.category || 'عمومی',
+            category: item.category_name || (typeof item.category === 'object' ? item.category?.name : item.category) || 'عمومی',
             readTimeMinutes: item.reading_time_minutes || item.read_time || 5,
             publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : new Date().toLocaleDateString('fa-IR')),
             author: {
-              name: item.author_name || item.author?.name || 'تیم تحریریه سوین',
+              name: item.author_name || (typeof item.author === 'object' ? item.author?.name || item.author?.username : item.author) || 'تیم تحریریه سوین',
               role: item.author_role || item.author?.role || 'کارشناس ارشد بازار',
               avatar: item.author_avatar || item.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
             },
@@ -1653,53 +1655,100 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
   const baseUrl = getBlogApiBaseUrl(config);
   const headers = getBlogApiHeaders(config);
 
-  const payload = {
-    title: post.title,
-    slug: post.slug || (post.title ? post.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-آ-ی]/g, '') : `post-${Date.now()}`),
-    category: post.category,
-    category_name: post.category,
-    excerpt: post.excerpt || '',
+  // Determine category foreign key ID if available
+  let categoryPk: number | null = null;
+  const allCategories = djangoDatabaseStore.getBlogCategories();
+  const matchedCat = allCategories.find(c =>
+    String(c.id) === String(post.category) ||
+    c.name === post.category ||
+    c.slug === post.category
+  );
+  if (matchedCat && !isNaN(Number(matchedCat.id))) {
+    categoryPk = Number(matchedCat.id);
+  } else if (post.category && !isNaN(Number(post.category))) {
+    categoryPk = Number(post.category);
+  }
+
+  const postTitle = (post.title || '').trim();
+  const postSlug = post.slug?.trim() || (postTitle ? postTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0600-\u06FF-]/g, '') : `post-${Date.now()}`);
+  const postExcerpt = post.excerpt?.trim() || (post.content ? post.content.replace(/<[^>]*>?/gm, '').slice(0, 180).trim() : '');
+
+  // 1. Standard Django DRF Model Payload
+  const djangoModelPayload: Record<string, any> = {
+    title: postTitle,
+    slug: postSlug,
+    excerpt: postExcerpt,
     content: post.content || '',
-    image: post.image || '',
-    featured_image: post.image || '',
     featured_image_url: post.image || '',
     reading_time_minutes: post.readTimeMinutes || 5,
     is_published: post.isPublished !== undefined ? post.isPublished : true,
+  };
+  if (categoryPk !== null) {
+    djangoModelPayload['category'] = categoryPk;
+  }
+
+  // 2. Extended Payload with aliases
+  const extendedPayload: Record<string, any> = {
+    ...djangoModelPayload,
+    category_id: categoryPk,
+    category_name: matchedCat?.name || post.category || 'عمومی',
+    image: post.image || '',
+    featured_image: post.image || '',
     tags: post.tags || [],
     key_takeaways: post.keyTakeaways || [],
-    meta_title: post.metaTitle || post.title,
-    meta_description: post.metaDescription || post.excerpt
+    meta_title: post.metaTitle || postTitle,
+    meta_description: post.metaDescription || postExcerpt
   };
 
   const candidateUrls = [
+    `${baseUrl}/blog/admin/create/`,
+    `${baseUrl}/blog/admin/create`,
+    `${baseUrl}/blog/create/`,
+    `${baseUrl}/blog/create`,
+    `${baseUrl}/blog/posts/create/`,
     `${baseUrl}/blog/posts/`,
     `${baseUrl}/blog/posts`,
-    `${baseUrl}/blog/create/`,
-    `${baseUrl}/blog/admin/create/`,
+    `${baseUrl}/blog/list/`,
     `${baseUrl}/blog/`
   ];
 
   let serverData: any = null;
   for (const url of candidateUrls) {
     try {
-      const res = await fetch(url, {
+      // First attempt with djangoModelPayload
+      let res = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(payload)
+        body: JSON.stringify(djangoModelPayload)
+      });
+      if (res.ok) {
+        serverData = await res.json().catch(() => null);
+        break;
+      }
+
+      // Second attempt with extendedPayload
+      res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(extendedPayload)
       });
       if (res.ok) {
         serverData = await res.json().catch(() => null);
         break;
       }
     } catch (e) {
-      console.warn('Django Blog Create API attempt error:', e);
+      console.warn('Django Blog Create API attempt error on', url, e);
     }
   }
 
+  const createdId = serverData?.id || serverData?.data?.id || serverData?.pk || serverData?.data?.pk;
+  const createdSlug = serverData?.slug || serverData?.data?.slug || postSlug;
+
   const savedPost = djangoDatabaseStore.saveBlogPost({
     ...post,
-    id: serverData?.id ? String(serverData.id) : undefined,
-    slug: serverData?.slug || payload.slug
+    id: createdId ? String(createdId) : undefined,
+    slug: createdSlug,
+    category: matchedCat?.name || post.category || 'عمومی'
   });
 
   return savedPost;
@@ -1714,11 +1763,22 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
 
   const savedPost = djangoDatabaseStore.saveBlogPost({ ...post, id: String(id) });
 
-  const payload = {
+  let categoryPk: number | null = null;
+  const allCategories = djangoDatabaseStore.getBlogCategories();
+  const matchedCat = allCategories.find(c =>
+    String(c.id) === String(savedPost.category) ||
+    c.name === savedPost.category ||
+    c.slug === savedPost.category
+  );
+  if (matchedCat && !isNaN(Number(matchedCat.id))) {
+    categoryPk = Number(matchedCat.id);
+  } else if (savedPost.category && !isNaN(Number(savedPost.category))) {
+    categoryPk = Number(savedPost.category);
+  }
+
+  const payload: Record<string, any> = {
     title: savedPost.title,
     slug: savedPost.slug,
-    category: savedPost.category,
-    category_name: savedPost.category,
     excerpt: savedPost.excerpt,
     content: savedPost.content,
     image: savedPost.image,
@@ -1729,11 +1789,15 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
     tags: savedPost.tags || [],
     key_takeaways: savedPost.keyTakeaways || []
   };
+  if (categoryPk !== null) {
+    payload['category'] = categoryPk;
+  }
 
   const candidateUrls = [
+    `${baseUrl}/blog/admin/${id}/`,
+    `${baseUrl}/blog/admin/${id}`,
     `${baseUrl}/blog/posts/${id}/`,
     `${baseUrl}/blog/posts/${id}`,
-    `${baseUrl}/blog/admin/${id}/`,
     `${baseUrl}/blog/update/${id}/`,
     `${baseUrl}/blog/${id}/`
   ];
@@ -1747,7 +1811,7 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
       });
       if (res.ok) break;
     } catch (e) {
-      console.warn('Django Blog Update API Notice:', e);
+      console.warn('Django Blog Update API Notice on', url, e);
     }
   }
 
@@ -1764,9 +1828,10 @@ export async function djangoDeleteBlogPost(id: string | number, config?: DjangoC
   const headers = getBlogApiHeaders(config);
 
   const candidateUrls = [
+    `${baseUrl}/blog/admin/${id}/`,
+    `${baseUrl}/blog/admin/${id}`,
     `${baseUrl}/blog/posts/${id}/`,
     `${baseUrl}/blog/posts/${id}`,
-    `${baseUrl}/blog/admin/${id}/`,
     `${baseUrl}/blog/${id}/`
   ];
 
@@ -1793,8 +1858,11 @@ export async function djangoFetchBlogCategories(config?: DjangoCrmConfig): Promi
   const candidateUrls = [
     `${baseUrl}/blog/categories/`,
     `${baseUrl}/blog/categories`,
+    `${baseUrl}/blog/category/`,
     `${baseUrl}/blog-categories/`,
-    `${baseUrl}/categories/`
+    `${baseUrl}/blog-categories`,
+    `${baseUrl}/categories/`,
+    `${baseUrl}/categories`
   ];
 
   for (const url of candidateUrls) {
@@ -1805,10 +1873,10 @@ export async function djangoFetchBlogCategories(config?: DjangoCrmConfig): Promi
       });
       if (res.ok) {
         const data = await res.json();
-        const list = Array.isArray(data) ? data : (data.results || data.data);
-        if (Array.isArray(list)) {
+        const list = Array.isArray(data) ? data : (data.results || data.data || data.categories);
+        if (Array.isArray(list) && list.length > 0) {
           const mapped: BlogCategoryItem[] = list.map((item: any) => ({
-            id: String(item.id || item.slug),
+            id: String(item.id || item.slug || item.pk),
             name: item.name || item.title || item.name_fa || 'بدون نام',
             slug: item.slug || String(item.id),
             color: item.color || 'text-blue-600',
@@ -1821,7 +1889,9 @@ export async function djangoFetchBlogCategories(config?: DjangoCrmConfig): Promi
           return mapped;
         }
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Django Categories Fetch error on', url, e);
+    }
   }
 
   return djangoDatabaseStore.getBlogCategories();
@@ -1835,9 +1905,15 @@ export async function djangoCreateBlogCategory(category: Partial<BlogCategoryIte
   const headers = getBlogApiHeaders(config);
 
   const catName = (category.name || '').trim();
-  const slug = category.slug?.trim() || (catName ? catName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-آ-ی]/g, '') : `cat-${Date.now()}`);
+  const rawSlug = (category.slug || '').trim();
+  const slug = rawSlug || (catName ? catName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0600-\u06FF-]/g, '') : `cat-${Date.now()}`);
 
-  const payload = {
+  const minimalPayload = {
+    name: catName,
+    slug: slug
+  };
+
+  const extendedPayload = {
     name: catName,
     title: catName,
     slug: slug,
@@ -1852,32 +1928,60 @@ export async function djangoCreateBlogCategory(category: Partial<BlogCategoryIte
     `${baseUrl}/blog/categories/`,
     `${baseUrl}/blog/categories`,
     `${baseUrl}/blog/categories/create/`,
+    `${baseUrl}/blog/category/create/`,
+    `${baseUrl}/blog/category/`,
+    `${baseUrl}/blog/admin/categories/create/`,
+    `${baseUrl}/blog/admin/categories/`,
     `${baseUrl}/blog-categories/`,
-    `${baseUrl}/categories/create/`
+    `${baseUrl}/categories/create/`,
+    `${baseUrl}/categories/`
   ];
 
   let serverItem: any = null;
   for (const url of candidateUrls) {
     try {
-      const res = await fetch(url, {
+      // 1. Try minimal { name, slug } matching Django DRF serializer
+      let res = await fetch(url, {
         method: 'POST',
         headers,
-        body: JSON.stringify(payload)
+        body: JSON.stringify(minimalPayload)
+      });
+      if (res.ok) {
+        serverItem = await res.json().catch(() => null);
+        break;
+      }
+
+      // 2. Try extended payload
+      res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(extendedPayload)
+      });
+      if (res.ok) {
+        serverItem = await res.json().catch(() => null);
+        break;
+      }
+
+      // 3. Try with name only
+      res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ name: catName })
       });
       if (res.ok) {
         serverItem = await res.json().catch(() => null);
         break;
       }
     } catch (e) {
-      console.warn('Django Category Create API attempt error:', e);
+      console.warn('Django Category Create API attempt error on', url, e);
     }
   }
 
   const saved = djangoDatabaseStore.saveBlogCategory({
     ...category,
-    id: serverItem?.id ? String(serverItem.id) : undefined,
-    name: serverItem?.name || catName,
-    slug: serverItem?.slug || slug
+    id: serverItem?.id ? String(serverItem.id) : (serverItem?.data?.id ? String(serverItem.data.id) : undefined),
+    name: serverItem?.name || serverItem?.data?.name || catName,
+    slug: serverItem?.slug || serverItem?.data?.slug || slug
   });
 
   return saved;
@@ -1891,6 +1995,11 @@ export async function djangoUpdateBlogCategory(id: string, category: Partial<Blo
   const headers = getBlogApiHeaders(config);
 
   const saved = djangoDatabaseStore.saveBlogCategory({ ...category, id });
+
+  const minimalPayload = {
+    name: saved.name,
+    slug: saved.slug
+  };
 
   const payload = {
     name: saved.name,
@@ -1906,12 +2015,21 @@ export async function djangoUpdateBlogCategory(id: string, category: Partial<Blo
   const candidateUrls = [
     `${baseUrl}/blog/categories/${id}/`,
     `${baseUrl}/blog/categories/${id}`,
-    `${baseUrl}/blog-categories/${id}/`
+    `${baseUrl}/blog/category/${id}/`,
+    `${baseUrl}/blog-categories/${id}/`,
+    `${baseUrl}/categories/${id}/`
   ];
 
   for (const url of candidateUrls) {
     try {
-      const res = await fetch(url, {
+      let res = await fetch(url, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(minimalPayload)
+      });
+      if (res.ok) break;
+
+      res = await fetch(url, {
         method: 'PUT',
         headers,
         body: JSON.stringify(payload)
@@ -1934,7 +2052,9 @@ export async function djangoDeleteBlogCategory(id: string, config?: DjangoCrmCon
   const candidateUrls = [
     `${baseUrl}/blog/categories/${id}/`,
     `${baseUrl}/blog/categories/${id}`,
-    `${baseUrl}/blog-categories/${id}/`
+    `${baseUrl}/blog/category/${id}/`,
+    `${baseUrl}/blog-categories/${id}/`,
+    `${baseUrl}/categories/${id}/`
   ];
 
   for (const url of candidateUrls) {

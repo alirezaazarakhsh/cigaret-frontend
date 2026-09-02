@@ -98,6 +98,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   const [isAddingCategory, setIsAddingCategory] = useState<boolean>(false);
   const [isSubmittingCategory, setIsSubmittingCategory] = useState<boolean>(false);
   const [isSubmittingArticle, setIsSubmittingArticle] = useState<boolean>(false);
+  const [isSyncingCategories, setIsSyncingCategories] = useState<boolean>(false);
 
   const loadData = async () => {
     setLoading(true);
@@ -127,13 +128,19 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   };
 
   const handlePurgeAndSyncCategories = async () => {
+    setIsSyncingCategories(true);
     try {
       localStorage.removeItem('sovin_django_blog_categories');
       localStorage.removeItem('sevin_v3_blog_categories');
+      // Directly fetch latest categories from Django backend API
+      const latestCats = await djangoFetchBlogCategories(crmConfig);
+      setCategories(latestCats);
       await loadData();
-      showNotification('حافظه محلی پاکسازی و آخرین اطلاعات مستقیماً از سرور جنگو بازخوانی شد.');
+      showNotification(`همگام‌سازی با موفقیت انجام شد (${latestCats.length} دسته‌بندی از سرور جنگو دریافت گردید).`);
     } catch (e) {
-      showNotification('خطا در پاکسازی حافظه.', 'error');
+      showNotification('خطا در پاکسازی حافظه و دریافت اطلاعات از سرور جنگو.', 'error');
+    } finally {
+      setIsSyncingCategories(false);
     }
   };
 
@@ -1317,11 +1324,12 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                 <button
                   type="button"
                   onClick={handlePurgeAndSyncCategories}
-                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5"
+                  disabled={isSyncingCategories}
+                  className="px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
                   title="پاکسازی حافظه موقت و بازخوانی تازه از دیتابیس جنگو"
                 >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>همگام‌سازی از سرور</span>
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSyncingCategories ? 'animate-spin text-blue-600' : 'text-slate-600'}`} />
+                  <span>{isSyncingCategories ? 'در حال همگام‌سازی...' : 'همگام‌سازی از سرور'}</span>
                 </button>
 
                 {!isAddingCategory && (

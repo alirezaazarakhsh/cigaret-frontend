@@ -161,6 +161,12 @@ class BlogPostDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = BlogPost
         fields = '__all__'
+        read_only_fields = ('views_count', 'created_at', 'updated_at')
+        extra_kwargs = {
+            'author': {'required': False, 'allow_null': True},
+            'excerpt': {'required': False, 'allow_blank': True},
+            'slug': {'required': False, 'allow_blank': True},
+        }
 
     def get_created_at_jalali(self, obj):
         if obj.created_at:
@@ -192,17 +198,62 @@ from .serializers import BlogPostListSerializer, BlogPostDetailSerializer, BlogC
 
 class BlogCategoryListAPIView(APIView):
     """
-    دریافت فهرست دسته‌بندی‌های وبلاگ
+    دریافت فهرست دسته‌بندی‌های وبلاگ و ایجاد دسته‌بندی جدید
     """
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="دریافت فهرست دسته‌بندی‌های وبلاگ",
+        responses={200: BlogCategorySerializer(many=True)}
+    )
     def get(self, request):
-        categories = BlogCategory.objects.all()
+        categories = BlogCategory.objects.all().order_by('id')
         serializer = BlogCategorySerializer(categories, many=True)
         return Response({
             'status': 'success',
             'results': serializer.data
         }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="ایجاد دسته‌بندی جدید در وبلاگ",
+        request_body=BlogCategorySerializer,
+        responses={201: BlogCategorySerializer}
+    )
+    def post(self, request):
+        serializer = BlogCategorySerializer(data=request.data)
+        if serializer.is_valid():
+            cat = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'دسته‌بندی با موفقیت در دیتابیس جنگو ایجاد گردید.',
+                'data': BlogCategorySerializer(cat).data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BlogCategoryDetailAPIView(APIView):
+    """
+    مشاهده، ویرایش و حذف دسته‌بندی وبلاگ
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request, pk):
+        category = get_object_or_404(BlogCategory, pk=pk)
+        serializer = BlogCategorySerializer(category)
+        return Response({'status': 'success', 'data': serializer.data}, status=status.HTTP_200_OK)
+
+    def put(self, request, pk):
+        category = get_object_or_404(BlogCategory, pk=pk)
+        serializer = BlogCategorySerializer(category, data=request.data, partial=True)
+        if serializer.is_valid():
+            cat = serializer.save()
+            return Response({'status': 'success', 'message': 'دسته‌بندی به‌روزرسانی شد.', 'data': BlogCategorySerializer(cat).data}, status=status.HTTP_200_OK)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    def delete(self, request, pk):
+        category = get_object_or_404(BlogCategory, pk=pk)
+        category.delete()
+        return Response({'status': 'success', 'message': 'دسته‌بندی با موفقیت حذف گردید.'}, status=status.HTTP_200_OK)
 
 
 class BlogPostListAPIView(APIView):
@@ -340,8 +391,9 @@ from .views import (
 app_name = 'blog'
 
 urlpatterns = [
-    # ۱. لیست دسته‌بندی‌های وبلاگ
+    # ۱. دسته‌بندی‌های وبلاگ (دریافت و ایجاد)
     path('categories/', BlogCategoryListAPIView.as_view(), name='blog-categories'),
+    path('categories/<int:pk>/', BlogCategoryDetailAPIView.as_view(), name='blog-category-detail'),
 
     # ۲. لیست مقالات عمومی
     path('list/', BlogPostListAPIView.as_view(), name='blog-list'),
@@ -417,6 +469,24 @@ const fetchBlogPosts = async (categorySlug?: string) => {
       description: 'دریافت فهرست دسته‌بندی‌های وبلاگ'
     },
     {
+      method: 'POST',
+      path: '/api/v1/blog/categories/',
+      auth: 'AllowAny',
+      description: 'ایجاد و ثبت دسته‌بندی جدید در دیتابیس جنگو'
+    },
+    {
+      method: 'PUT',
+      path: '/api/v1/blog/categories/{id}/',
+      auth: 'AllowAny',
+      description: 'ویرایش نام و مشخصات دسته‌بندی وبلاگ'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v1/blog/categories/{id}/',
+      auth: 'AllowAny',
+      description: 'حذف دسته‌بندی از دیتابیس جنگو'
+    },
+    {
       method: 'GET',
       path: '/api/v1/blog/list/',
       auth: 'AllowAny',
@@ -431,14 +501,20 @@ const fetchBlogPosts = async (categorySlug?: string) => {
     {
       method: 'POST',
       path: '/api/v1/blog/admin/create/',
-      auth: 'IsAdminUser',
-      description: 'ثبت مقاله جدید در سیستم (مدیریت صندوق)'
+      auth: 'IsAdminUser / AllowAny',
+      description: 'ثبت و ذخیره مقاله جدید در دیتابیس جنگو (مدیریت وبلاگ)'
     },
     {
       method: 'PUT',
       path: '/api/v1/blog/admin/{id}/',
-      auth: 'IsAdminUser',
-      description: 'ویرایش یا حذف مقاله ثبت شده (مدیریت صندوق)'
+      auth: 'IsAdminUser / AllowAny',
+      description: 'ویرایش مشخصات، متن TinyMCE و تصویر مقاله (مدیریت وبلاگ)'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v1/blog/admin/{id}/',
+      auth: 'IsAdminUser / AllowAny',
+      description: 'حذف دائمی مقاله از دیتابیس جنگو (مدیریت وبلاگ)'
     }
   ];
 
