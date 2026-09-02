@@ -1754,6 +1754,87 @@ export const notificationsApi = {
   },
 
   /**
+   * Get single notification details
+   * Endpoint: GET /api/v1/notifications/{id}/
+   */
+  async getById(id: string | number): Promise<NotificationItem | null> {
+    let response = await httpClient.get<any>(`/notifications/${id}/`);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>(`/api/v1/notifications/${id}/`);
+    }
+    if (response.success && response.data) {
+      const item = response.data.data || response.data;
+      const notifType = item.notification_type || item.type || 'system';
+      return {
+        id: item.id,
+        title: item.title || '',
+        message: item.message || '',
+        type: notifType === 'price' ? 'warning' : notifType === 'order' ? 'success' : notifType === 'finance' ? 'urgent' : 'info',
+        notification_type: notifType,
+        targetAudience: item.target_audience || item.targetAudience || (item.user ? 'direct' : 'all'),
+        user: item.user,
+        user_id: item.user,
+        user_name: item.user_name || '',
+        user_phone: item.user_phone || '',
+        createdAt: item.created_at || 'لحظاتی پیش',
+        created_at: item.created_at || '',
+        isRead: Boolean(item.is_read ?? item.isRead),
+        is_read: Boolean(item.is_read ?? item.isRead),
+      };
+    }
+    return null;
+  },
+
+  /**
+   * Update notification details (Full CRUD)
+   * Endpoint: PUT / PATCH /api/v1/notifications/{id}/
+   */
+  async update(id: string | number, payload: Partial<NotificationItem>): Promise<NotificationItem | null> {
+    const body: Record<string, any> = {};
+    if (payload.title !== undefined) body.title = payload.title;
+    if (payload.message !== undefined) body.message = payload.message;
+    if (payload.notification_type !== undefined) body.notification_type = payload.notification_type;
+    if (payload.targetAudience !== undefined) body.target_audience = payload.targetAudience;
+    if (payload.is_read !== undefined || payload.isRead !== undefined) {
+      body.is_read = Boolean(payload.is_read ?? payload.isRead);
+    }
+    if (payload.user !== undefined) body.user = payload.user;
+
+    let response = await httpClient.patch<any>(`/notifications/${id}/`, body);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.patch<any>(`/api/v1/notifications/${id}/`, body);
+    }
+    if (!response.success) {
+      response = await httpClient.put<any>(`/notifications/${id}/`, body);
+      if (!response.success && response.status === 404) {
+        response = await httpClient.put<any>(`/api/v1/notifications/${id}/`, body);
+      }
+    }
+
+    if (response.success && response.data) {
+      const data = response.data.data || response.data;
+      const notifType = data.notification_type || body.notification_type || 'system';
+      return {
+        id: data.id || id,
+        title: data.title || payload.title || '',
+        message: data.message || payload.message || '',
+        type: notifType === 'price' ? 'warning' : notifType === 'order' ? 'success' : notifType === 'finance' ? 'urgent' : 'info',
+        notification_type: notifType,
+        targetAudience: data.target_audience || payload.targetAudience || 'all',
+        user: data.user ?? payload.user,
+        user_id: data.user ?? payload.user,
+        user_name: data.user_name || payload.user_name || '',
+        user_phone: data.user_phone || payload.user_phone || '',
+        createdAt: data.created_at || payload.createdAt || 'لحظاتی پیش',
+        created_at: data.created_at || payload.created_at || '',
+        isRead: Boolean(data.is_read ?? payload.isRead ?? false),
+        is_read: Boolean(data.is_read ?? payload.is_read ?? false),
+      };
+    }
+    return null;
+  },
+
+  /**
    * Mark a notification as read or unread
    * Endpoint: POST /api/v1/notifications/{id}/mark-read/
    */

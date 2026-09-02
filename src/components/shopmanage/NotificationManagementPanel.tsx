@@ -25,13 +25,16 @@ import {
   Briefcase,
   Store,
   Building2,
-  BadgePercent
+  BadgePercent,
+  Pencil,
+  X
 } from 'lucide-react';
 import { DjangoCrmConfig, RetailShopCustomer, WarehouseStaffUser } from '../../types';
 import { visitorsApi } from '../../services/api';
 import { 
   djangoFetchNotifications, 
   djangoCreateNotification, 
+  djangoUpdateNotification,
   djangoDeleteNotification, 
   djangoMarkNotificationRead, 
   djangoMarkAllNotificationsRead,
@@ -80,6 +83,14 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
 
   // Selected Notification Preview Modal
   const [previewNotification, setPreviewNotification] = useState<any | null>(null);
+
+  // Edit Notification Modal State
+  const [editingNotification, setEditingNotification] = useState<any | null>(null);
+  const [editTitle, setEditTitle] = useState<string>('');
+  const [editMessage, setEditMessage] = useState<string>('');
+  const [editType, setEditType] = useState<'system' | 'price' | 'order' | 'finance'>('system');
+  const [editAudience, setEditAudience] = useState<'all' | 'customers' | 'visitors' | 'direct'>('all');
+  const [isUpdating, setIsUpdating] = useState<boolean>(false);
 
   // Default visitors fallback if backend has no records yet
   const DEFAULT_VISITORS = [
@@ -289,6 +300,53 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
       setTimeout(() => setErrorMessage(''), 4000);
     } finally {
       setIsSending(false);
+    }
+  };
+
+  const handleOpenEditModal = (item: any) => {
+    setEditingNotification(item);
+    setEditTitle(item.title || '');
+    setEditMessage(item.message || '');
+    setEditType((item.notification_type || item.type || 'system') as any);
+    setEditAudience(item.targetAudience || (item.user ? 'direct' : 'all'));
+  };
+
+  const handleSaveEditNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingNotification) return;
+    if (!editTitle.trim() || !editMessage.trim()) {
+      setErrorMessage('عنوان و متن اطلاعیه نمی‌تواند خالی باشد.');
+      setTimeout(() => setErrorMessage(''), 3000);
+      return;
+    }
+
+    setIsUpdating(true);
+    try {
+      const updatePayload = {
+        title: editTitle.trim(),
+        message: editMessage.trim(),
+        notification_type: editType,
+        type: editType,
+        targetAudience: editAudience,
+      };
+
+      await djangoUpdateNotification(editingNotification.id, updatePayload, crmConfig);
+      
+      setNotifications(prev => prev.map(n => 
+        String(n.id) === String(editingNotification.id)
+          ? { ...n, ...updatePayload }
+          : n
+      ));
+
+      window.dispatchEvent(new Event('storage'));
+      setSuccessMessage('اعلان با موفقیت در پایگاه‌داده دیتابیس جنگو ویرایش و ذخیره شد.');
+      setEditingNotification(null);
+      setTimeout(() => setSuccessMessage(''), 4000);
+    } catch {
+      setErrorMessage('خطا در ویرایش اعلان در سرور جنگو.');
+      setTimeout(() => setErrorMessage(''), 3500);
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -1161,6 +1219,15 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
 
                         <div className="flex items-center gap-2">
                           <button
+                            onClick={() => handleOpenEditModal(item)}
+                            className="px-2.5 py-1 text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg font-bold flex items-center gap-1 transition-colors"
+                            title="ویرایش اعلان"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                            <span>ویرایش</span>
+                          </button>
+
+                          <button
                             onClick={() => setPreviewNotification(item)}
                             className="px-2.5 py-1 text-slate-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg font-bold flex items-center gap-1 transition-colors"
                           >
@@ -1186,6 +1253,167 @@ export const NotificationManagementPanel: React.FC<NotificationManagementPanelPr
           </div>
         </div>
       </div>
+
+      {/* Edit Notification Modal */}
+      {editingNotification && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-100 space-y-4 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-2xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-600/30">
+                  <Pencil className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">ویرایش اعلان #{editingNotification.id}</h3>
+                  <p className="text-[10px] text-slate-500">ویرایش در دیتابیس جنگو و همگام‌سازی لحظه‌ای</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEditingNotification(null)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors text-sm font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditNotification} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-800">
+                  نوع اعلان:
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditType('system')}
+                    className={`py-2 px-2.5 rounded-xl border text-[11px] font-black flex items-center gap-1.5 transition-all ${
+                      editType === 'system'
+                        ? 'bg-purple-50 text-purple-800 border-purple-300 ring-2 ring-purple-500/20'
+                        : 'bg-white text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    <Info className="w-3.5 h-3.5 text-purple-600" />
+                    <span>📢 اطلاعیه سیستم</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditType('price')}
+                    className={`py-2 px-2.5 rounded-xl border text-[11px] font-black flex items-center gap-1.5 transition-all ${
+                      editType === 'price'
+                        ? 'bg-amber-50 text-amber-800 border-amber-300 ring-2 ring-amber-500/20'
+                        : 'bg-white text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    <Tag className="w-3.5 h-3.5 text-amber-600" />
+                    <span>🏷️ تغییر نرخ و قیمت</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditType('order')}
+                    className={`py-2 px-2.5 rounded-xl border text-[11px] font-black flex items-center gap-1.5 transition-all ${
+                      editType === 'order'
+                        ? 'bg-blue-50 text-blue-800 border-blue-300 ring-2 ring-blue-500/20'
+                        : 'bg-white text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    <Package className="w-3.5 h-3.5 text-blue-600" />
+                    <span>📦 وضعیت سفارش</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditType('finance')}
+                    className={`py-2 px-2.5 rounded-xl border text-[11px] font-black flex items-center gap-1.5 transition-all ${
+                      editType === 'finance'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 ring-2 ring-emerald-500/20'
+                        : 'bg-white text-slate-600 border-slate-200'
+                    }`}
+                  >
+                    <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>💳 حسابداری و چک</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-800">
+                  دامنه مخاطبان:
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditAudience('all')}
+                    className={`py-1.5 px-2 rounded-xl border text-[10px] font-bold ${
+                      editAudience === 'all'
+                        ? 'bg-slate-900 text-white border-slate-900'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    همه کاربران
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditAudience('customers')}
+                    className={`py-1.5 px-2 rounded-xl border text-[10px] font-bold ${
+                      editAudience === 'customers'
+                        ? 'bg-blue-600 text-white border-blue-600'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    مشتریان عمومی
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditAudience('visitors')}
+                    className={`py-1.5 px-2 rounded-xl border text-[10px] font-bold ${
+                      editAudience === 'visitors'
+                        ? 'bg-purple-600 text-white border-purple-600'
+                        : 'bg-white text-slate-700 border-slate-200'
+                    }`}
+                  >
+                    ویزیتوران
+                  </button>
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-800">عنوان اعلان:</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-black text-slate-800">متن اعلان:</label>
+                <textarea
+                  rows={4}
+                  value={editMessage}
+                  onChange={(e) => setEditMessage(e.target.value)}
+                  className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-none leading-relaxed"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingNotification(null)}
+                  className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-blue-600/20 flex items-center gap-1.5"
+                >
+                  {isUpdating ? 'در حال ذخیره...' : 'ذخیره تغییرات در دیتابیس'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Preview Modal (Mimicking Website Notification Modal) */}
       {previewNotification && (

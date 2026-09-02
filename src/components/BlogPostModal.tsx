@@ -190,8 +190,27 @@ export const BlogPostModal: React.FC<BlogPostModalProps> = ({
           </div>
 
           {/* Article Main Text Content */}
-          <div className="prose prose-slate max-w-none text-xs sm:text-sm text-slate-700 leading-relaxed space-y-4 pt-2 whitespace-pre-line font-normal">
-            {post.content}
+          <div className="text-xs sm:text-sm text-slate-800 leading-loose space-y-4 pt-2 font-normal">
+            {post.content ? (
+              post.content.includes('<') && post.content.includes('>') ? (
+                <div 
+                  className="prose prose-slate max-w-none prose-p:leading-relaxed prose-headings:font-black prose-headings:text-slate-900 prose-img:rounded-2xl break-words"
+                  dangerouslySetInnerHTML={{ __html: post.content }} 
+                />
+              ) : (
+                <div className="whitespace-pre-line leading-relaxed text-justify break-words">
+                  {post.content}
+                </div>
+              )
+            ) : post.excerpt ? (
+              <div className="whitespace-pre-line leading-relaxed text-justify break-words text-slate-600">
+                {post.excerpt}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400 italic">
+                متن مقاله‌ای ثبت نشده است.
+              </div>
+            )}
           </div>
 
           {/* FAQ Accordion Section */}

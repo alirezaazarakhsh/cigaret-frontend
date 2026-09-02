@@ -1256,6 +1256,241 @@ class VisitorTicketSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'ticket_code', 'visitor', 'created_at', 'updated_at']
         ref_name = "VisitorTickets_VisitorTicketSerializer"
 `
+  },
+  {
+    id: 'notifications',
+    name: 'نوتیفیکیشن‌ها و اعلانات کاربران (notifications)',
+    path: 'notifications/',
+    viewsCode: `"""
+notifications/views.py
+ویوهای اختصاصی صریح با استفاده از APIView جهت اتصال کامل صندوق به پایگاه‌داده اعلانات
+پشتیبانی از CRUD کامل: لیست، ایجاد، ویرایش، حذف، تغییر وضعیت و شمارش اعلانات خوانده‌نشده
+"""
+from rest_framework import status, permissions
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from django.shortcuts import get_object_or_404
+from django.db.models import Q
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+
+from .models import UserNotification
+from .serializers import UserNotificationSerializer
+
+
+class NotificationListAPIView(APIView):
+    """
+    دریافت لیست اعلانات و اطلاعیه‌ها با فیلتر پیشرفته
+    """
+    permission_classes = [permissions.AllowAny]
+
+    @swagger_auto_schema(
+        operation_id="لیست_اعلانات_کاربران",
+        operation_summary="دریافت لیست اعلانات با فیلتر نوع، مخاطب و وضعیت خوانده‌شده",
+        tags=["نوتیفیکیشن‌ها و اعلانات (Notifications)"],
+        responses={200: UserNotificationSerializer(many=True)}
+    )
+    def get(self, request):
+        user = request.user if request.user.is_authenticated else None
+        notif_type = request.query_params.get('type')
+        audience = request.query_params.get('audience')
+        is_read = request.query_params.get('is_read')
+        search = request.query_params.get('search')
+
+        if user and getattr(user, 'is_staff', False):
+            queryset = UserNotification.objects.all()
+        elif user:
+            queryset = UserNotification.objects.filter(Q(user=user) | Q(user__isnull=True))
+        else:
+            queryset = UserNotification.objects.all()
+
+        if notif_type and notif_type != 'all':
+            queryset = queryset.filter(notification_type=notif_type)
+        if audience and audience != 'all':
+            queryset = queryset.filter(target_audience=audience)
+        if is_read is not None and is_read != '' and is_read != 'all':
+            is_read_bool = is_read.lower() in ['true', '1']
+            queryset = queryset.filter(is_read=is_read_bool)
+        if search:
+            queryset = queryset.filter(
+                Q(title__icontains=search) | Q(message__icontains=search) |
+                Q(user__phone__icontains=search) | Q(user__full_name__icontains=search)
+            )
+
+        queryset = queryset.order_by('-created_at')[:100]
+        serializer = UserNotificationSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class NotificationCreateAPIView(APIView):
+    """
+    ثبت و ارسال آنی نوتیفیکیشن از صندوق به کاربران
+    """
+    permission_classes = [permissions.AllowAny]
+
+    @swagger_auto_schema(
+        operation_id="ارسال_اعلان_جدید",
+        operation_summary="ثبت و ارسال نوتیفیکیشن جدید از صندوق به دیتابیس",
+        tags=["نوتیفیکیشن‌ها و اعلانات (Notifications)"],
+        request_body=UserNotificationSerializer,
+        responses={201: UserNotificationSerializer}
+    )
+    def post(self, request):
+        serializer = UserNotificationSerializer(data=request.data)
+        if serializer.is_valid():
+            notif = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اعلان جدید با موفقیت در پایگاه‌داده جنگو ثبت شد.',
+                'data': UserNotificationSerializer(notif).data
+            }, status=status.HTTP_201_CREATED)
+        return Response({'status': 'error', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class NotificationDetailAPIView(APIView):
+    """
+    مشاهده، ویرایش و حذف اعلان
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request, pk):
+        notif = get_object_or_404(UserNotification, pk=pk)
+        return Response({'status': 'success', 'data': UserNotificationSerializer(notif).data})
+
+    def put(self, request, pk):
+        notif = get_object_or_404(UserNotification, pk=pk)
+        serializer = UserNotificationSerializer(notif, data=request.data, partial=True)
+        if serializer.is_valid():
+            saved = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اعلان با موفقیت ویرایش شد.',
+                'data': UserNotificationSerializer(saved).data
+            })
+        return Response({'status': 'error', 'errors': serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+    def patch(self, request, pk):
+        return self.put(request, pk)
+
+    def delete(self, request, pk):
+        notif = get_object_or_404(UserNotification, pk=pk)
+        notif.delete()
+        return Response({'status': 'success', 'message': 'اعلان با موفقیت حذف گردید.'})
+
+
+class NotificationUnreadCountAPIView(APIView):
+    """
+    دریافت تعداد اعلانات خوانده‌نشده
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        user = request.user if request.user.is_authenticated else None
+        if user:
+            count = UserNotification.objects.filter(Q(user=user) | Q(user__isnull=True), is_read=False).count()
+        else:
+            count = UserNotification.objects.filter(is_read=False).count()
+        return Response({'status': 'success', 'unread_count': count})
+
+
+class NotificationMarkReadAPIView(APIView):
+    """
+    تغییر وضعیت خوانده‌شده
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request, pk):
+        notif = get_object_or_404(UserNotification, pk=pk)
+        is_read_val = request.data.get('is_read', True)
+        notif.is_read = bool(is_read_val)
+        notif.save(update_fields=['is_read', 'updated_at'])
+        return Response({'status': 'success', 'is_read': notif.is_read})
+
+
+class NotificationMarkAllReadAPIView(APIView):
+    """
+    علامت‌گذاری همه به عنوان خوانده‌شده
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        user = request.user if request.user.is_authenticated else None
+        if user and not getattr(user, 'is_staff', False):
+            updated = UserNotification.objects.filter(Q(user=user) | Q(user__isnull=True), is_read=False).update(is_read=True)
+        else:
+            updated = UserNotification.objects.filter(is_read=False).update(is_read=True)
+        return Response({'status': 'success', 'message': f'{updated} اعلان خوانده شدند.'})
+
+
+class NotificationDeleteAPIView(APIView):
+    """
+    حذف اختصاصی
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def delete(self, request, pk):
+        notif = get_object_or_404(UserNotification, pk=pk)
+        notif.delete()
+        return Response({'status': 'success', 'message': 'اعلان حذف گردید.'})
+`,
+    serializersCode: `# notifications/serializers.py - ✅ ref_name اختصاصی
+from rest_framework import serializers
+from .models import UserNotification
+
+try:
+    import jdatetime
+except ImportError:
+    jdatetime = None
+
+
+class UserNotificationSerializer(serializers.ModelSerializer):
+    user_name = serializers.SerializerMethodField()
+    user_phone = serializers.SerializerMethodField()
+    created_at_jalali = serializers.SerializerMethodField()
+
+    class Meta:
+        model = UserNotification
+        fields = [
+            'id', 'user', 'user_id', 'user_name', 'user_phone',
+            'title', 'message', 'notification_type', 'target_audience',
+            'is_read', 'created_at', 'created_at_jalali', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+        ref_name = "Notifications_UserNotificationSerializer"
+
+    def get_user_name(self, obj):
+        if obj.user:
+            return obj.user.full_name or obj.user.phone
+        if obj.target_audience == 'visitors':
+            return 'کلیه سفیران فروش (ویزیتوران)'
+        if obj.target_audience == 'customers':
+            return 'مشتریان عمومی و مغازه‌داران'
+        return 'همه کاربران سامانه (عمومی)'
+
+    def get_user_phone(self, obj):
+        if obj.user:
+            return obj.user.phone
+        if obj.target_audience == 'visitors':
+            return 'ویزیتوران'
+        if obj.target_audience == 'customers':
+            return 'مشتریان عمومی'
+        return 'عمومی'
+
+    def get_created_at_jalali(self, obj):
+        if not obj.created_at:
+            return ''
+        if jdatetime:
+            try:
+                j_date = jdatetime.datetime.fromgregorian(datetime=obj.created_at)
+                return j_date.strftime('%Y/%m/%d %H:%M')
+            except Exception:
+                pass
+        return obj.created_at.strftime('%Y-%m-%d %H:%M')
+`
   }
 ];
 

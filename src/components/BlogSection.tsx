@@ -458,11 +458,29 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
             </div>
           )}
 
-          {/* Article HTML Content */}
-          <div 
-            className="prose prose-slate max-w-none text-xs sm:text-sm text-slate-800 leading-loose space-y-4 font-normal"
-            dangerouslySetInnerHTML={{ __html: selectedPost.content }}
-          />
+          {/* Article HTML/Text Content (Responsive & PWA Optimized) */}
+          <div className="text-xs sm:text-sm text-slate-800 leading-loose space-y-4 font-normal">
+            {selectedPost.content ? (
+              selectedPost.content.includes('<') && selectedPost.content.includes('>') ? (
+                <div 
+                  className="prose prose-slate max-w-none prose-p:leading-relaxed prose-headings:font-black prose-headings:text-slate-900 prose-img:rounded-2xl break-words"
+                  dangerouslySetInnerHTML={{ __html: selectedPost.content }}
+                />
+              ) : (
+                <div className="whitespace-pre-line leading-relaxed text-justify break-words">
+                  {selectedPost.content}
+                </div>
+              )
+            ) : selectedPost.excerpt ? (
+              <div className="whitespace-pre-line leading-relaxed text-justify break-words text-slate-600">
+                {selectedPost.excerpt}
+              </div>
+            ) : (
+              <div className="text-xs text-slate-400 italic">
+                متن کامل این مقاله در حال بارگذاری یا بروزرسانی است...
+              </div>
+            )}
+          </div>
 
           {/* FAQs section */}
           {selectedPost.faqs && selectedPost.faqs.length > 0 && (

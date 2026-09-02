@@ -1438,15 +1438,15 @@ export async function djangoCreateNotification(payload: {
  * Update notification details
  */
 export async function djangoUpdateNotification(id: string | number, payload: any, config?: DjangoCrmConfig): Promise<any> {
-  const updated = djangoDatabaseStore.updateNotification(id, payload);
+  let backendUpdated: any = null;
   try {
-    if (payload.is_read !== undefined || payload.isRead !== undefined) {
-      await notificationsApi.markRead(id, Boolean(payload.is_read ?? payload.isRead));
-    }
+    backendUpdated = await notificationsApi.update(id, payload);
   } catch (e) {
     console.warn('Django Update Notification API notice:', e);
   }
-  return updated;
+
+  const updated = djangoDatabaseStore.updateNotification(id, backendUpdated || payload);
+  return updated || backendUpdated;
 }
 
 /**
