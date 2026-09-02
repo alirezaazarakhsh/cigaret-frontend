@@ -1524,6 +1524,22 @@ export function getBlogApiHeaders(config?: DjangoCrmConfig): Record<string, stri
   return headers;
 }
 
+// عکس‌های آپلود شده در ادیتور به‌صورت data URL (base64) نگهداری می‌شوند؛ این‌ها معتبر URL نیستند
+// و طول‌شان از محدودیت ۵۰۰ کاراکتری فیلد featured_image_url در بک‌اند بسیار بیشتر است.
+function isBase64ImageData(value?: string): boolean {
+  return !!value && value.startsWith('data:');
+}
+
+function base64ImageToBlob(dataUrl: string): Blob {
+  const [meta, base64Data] = dataUrl.split(',');
+  const mimeMatch = /data:(.*?);base64/.exec(meta);
+  const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+  const binary = atob(base64Data);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: mime });
+}
+
 function mapDjangoBlogPost(item: any): BlogPost {
   return {
     id: String(item.id),
@@ -1622,25 +1638,50 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
 
   const postTitle = (post.title || '').trim();
   const postSlug = post.slug?.trim() || (postTitle ? postTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0600-\u06FF-]/g, '') : `post-${Date.now()}`);
-  const postExcerpt = post.excerpt?.trim() || (post.content ? post.content.replace(/<[^>]*>?/gm, '').slice(0, 180).trim() : '');
+  const postExcerpt = (post.excerpt?.trim() || (post.content ? post.content.replace(/<[^>]*>?/gm, '').slice(0, 180).trim() : '')).slice(0, 500);
 
-  // پیلود دقیقاً منطبق با فیلدهای BlogPostDetailSerializer (blog/serializers.py)
-  const payload: Record<string, any> = {
-    title: postTitle,
-    slug: postSlug,
-    excerpt: postExcerpt,
-    content: post.content || '',
-    featured_image_url: post.image || '',
-    reading_time_minutes: post.readTimeMinutes || 5,
-    is_published: post.isPublished !== undefined ? post.isPublished : true,
-  };
-  if (categoryPk !== null) payload.category = categoryPk;
+  const imageValue = post.image || '';
+  const isBase64Image = isBase64ImageData(imageValue);
 
-  const res = await fetch(`${baseUrl}/blog/admin/create/`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload)
-  });
+  let res: Response;
+  if (isBase64Image) {
+    // آپلود واقعی تصویر به‌صورت فایل (multipart) به فیلد featured_image؛ مرورگر خودش Content-Type/boundary را تنظیم می‌کند
+    const form = new FormData();
+    form.append('title', postTitle);
+    form.append('slug', postSlug);
+    form.append('excerpt', postExcerpt);
+    form.append('content', post.content || '');
+    form.append('reading_time_minutes', String(post.readTimeMinutes || 5));
+    form.append('is_published', String(post.isPublished !== undefined ? post.isPublished : true));
+    if (categoryPk !== null) form.append('category', String(categoryPk));
+    form.append('featured_image', base64ImageToBlob(imageValue), 'featured-image.jpg');
+
+    const uploadHeaders = { ...headers };
+    delete uploadHeaders['Content-Type'];
+    res = await fetch(`${baseUrl}/blog/admin/create/`, {
+      method: 'POST',
+      headers: uploadHeaders,
+      body: form
+    });
+  } else {
+    // پیلود دقیقاً منطبق با فیلدهای BlogPostDetailSerializer (blog/serializers.py)
+    const payload: Record<string, any> = {
+      title: postTitle,
+      slug: postSlug,
+      excerpt: postExcerpt,
+      content: post.content || '',
+      featured_image_url: imageValue.slice(0, 500),
+      reading_time_minutes: post.readTimeMinutes || 5,
+      is_published: post.isPublished !== undefined ? post.isPublished : true,
+    };
+    if (categoryPk !== null) payload.category = categoryPk;
+
+    res = await fetch(`${baseUrl}/blog/admin/create/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+  }
 
   if (!res.ok) {
     const errBody = await res.text().catch(() => '');
@@ -1681,22 +1722,47 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
   );
   const categoryPk = matchedCat && !isNaN(Number(matchedCat.id)) ? Number(matchedCat.id) : null;
 
-  const payload: Record<string, any> = {
-    title: savedPost.title,
-    slug: savedPost.slug,
-    excerpt: savedPost.excerpt,
-    content: savedPost.content,
-    featured_image_url: savedPost.image,
-    reading_time_minutes: savedPost.readTimeMinutes,
-    is_published: savedPost.isPublished,
-  };
-  if (categoryPk !== null) payload.category = categoryPk;
+  const postExcerpt = (savedPost.excerpt || '').slice(0, 500);
+  const imageValue = savedPost.image || '';
+  const isBase64Image = isBase64ImageData(imageValue);
 
-  const res = await fetch(`${baseUrl}/blog/admin/${id}/`, {
-    method: 'PUT',
-    headers,
-    body: JSON.stringify(payload)
-  });
+  let res: Response;
+  if (isBase64Image) {
+    const form = new FormData();
+    form.append('title', savedPost.title);
+    form.append('slug', savedPost.slug);
+    form.append('excerpt', postExcerpt);
+    form.append('content', savedPost.content);
+    form.append('reading_time_minutes', String(savedPost.readTimeMinutes));
+    form.append('is_published', String(savedPost.isPublished));
+    if (categoryPk !== null) form.append('category', String(categoryPk));
+    form.append('featured_image', base64ImageToBlob(imageValue), 'featured-image.jpg');
+
+    const uploadHeaders = { ...headers };
+    delete uploadHeaders['Content-Type'];
+    res = await fetch(`${baseUrl}/blog/admin/${id}/`, {
+      method: 'PUT',
+      headers: uploadHeaders,
+      body: form
+    });
+  } else {
+    const payload: Record<string, any> = {
+      title: savedPost.title,
+      slug: savedPost.slug,
+      excerpt: postExcerpt,
+      content: savedPost.content,
+      featured_image_url: imageValue.slice(0, 500),
+      reading_time_minutes: savedPost.readTimeMinutes,
+      is_published: savedPost.isPublished,
+    };
+    if (categoryPk !== null) payload.category = categoryPk;
+
+    res = await fetch(`${baseUrl}/blog/admin/${id}/`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(payload)
+    });
+  }
 
   if (!res.ok) {
     const errBody = await res.text().catch(() => '');
@@ -1744,7 +1810,7 @@ export async function djangoFetchBlogCategories(config?: DjangoCrmConfig): Promi
     if (res.ok) {
       const data = await res.json();
       const list = Array.isArray(data?.results) ? data.results : [];
-      // مدل BlogCategory فقط name و slug دارد؛ ویژگی‌های ظاهری (رنگ و...) صرفاً در سمت فرانت نگهداری می‌شوند
+      // name، slug و description از سرور می‌آیند؛ ویژگی‌های صرفاً ظاهری (رنگ و...) در فرانت نگهداری می‌شوند
       const localExtras = new Map(djangoDatabaseStore.getBlogCategories().map(c => [String(c.id), c]));
       const mapped: BlogCategoryItem[] = list.map((item: any) => {
         const extra = localExtras.get(String(item.id));
@@ -1755,7 +1821,7 @@ export async function djangoFetchBlogCategories(config?: DjangoCrmConfig): Promi
           color: extra?.color || 'text-blue-600',
           bgColor: extra?.bgColor || 'bg-blue-50',
           borderColor: extra?.borderColor || 'border-blue-200',
-          description: extra?.description || '',
+          description: item.description || '',
           order: extra?.order || 1
         };
       });
@@ -1779,12 +1845,13 @@ export async function djangoCreateBlogCategory(category: Partial<BlogCategoryIte
 
   const catName = (category.name || '').trim();
   const slug = (category.slug || '').trim() || (catName ? catName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0600-\u06FF-]/g, '') : `cat-${Date.now()}`);
+  const description = (category.description || '').trim().slice(0, 300);
 
-  // پیلود دقیقاً منطبق با فیلدهای مدل BlogCategory (name, slug) — این اندپوینت AllowAny است، نیازی به توکن ندارد
+  // پیلود دقیقاً منطبق با فیلدهای مدل BlogCategory (name, slug, description) — این اندپوینت AllowAny است، نیازی به توکن ندارد
   const res = await fetch(`${baseUrl}/blog/categories/`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ name: catName, slug })
+    body: JSON.stringify({ name: catName, slug, description })
   });
 
   if (!res.ok) {
@@ -1798,7 +1865,8 @@ export async function djangoCreateBlogCategory(category: Partial<BlogCategoryIte
     ...category,
     id: serverItem?.id ? String(serverItem.id) : undefined,
     name: serverItem?.name || catName,
-    slug: serverItem?.slug || slug
+    slug: serverItem?.slug || slug,
+    description: serverItem?.description ?? description
   });
 }
 
@@ -1814,7 +1882,7 @@ export async function djangoUpdateBlogCategory(id: string, category: Partial<Blo
   const res = await fetch(`${baseUrl}/blog/categories/${id}/`, {
     method: 'PUT',
     headers,
-    body: JSON.stringify({ name: saved.name, slug: saved.slug })
+    body: JSON.stringify({ name: saved.name, slug: saved.slug, description: (saved.description || '').slice(0, 300) })
   });
 
   if (!res.ok) {
