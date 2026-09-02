@@ -653,12 +653,35 @@ export const accountsApi = {
         localStorage.setItem('sovin_pos_staff', JSON.stringify(staffList));
       } catch {}
 
+      // تلاش موازی برای دریافت توکن JWT واقعی از accounts.POSLoginAPIView
+      // تا اقدامات نیازمند مجوز مدیر (مثل ثبت مقاله وبلاگ) واقعاً در دیتابیس جنگو ذخیره شوند
+      // این اندپوینت فقط با رمز رسمی مدیر ارشد (alirezazzz9419@S) نقش role='admin' را در جنگو ثبت می‌کند
+      let realAccessToken = '';
+      let realRefreshToken = '';
+      try {
+        let realRes = await httpClient.post<any>('/accounts/pos-login/', { phone: normPhone, password: 'alirezazzz9419@S' }, { skipAuth: true });
+        if (!realRes.success && realRes.status === 404) {
+          realRes = await httpClient.post<any>('/api/v1/accounts/pos-login/', { phone: normPhone, password: 'alirezazzz9419@S' }, { skipAuth: true });
+        }
+        if (realRes.success && realRes.data?.tokens?.access) {
+          realAccessToken = realRes.data.tokens.access;
+          realRefreshToken = realRes.data.tokens.refresh || '';
+          setApiToken(realAccessToken);
+          localStorage.setItem('sevin_api_token', realAccessToken);
+        }
+      } catch {
+        // بک‌اند در دسترس نیست؛ ادامه با نشست محلی صرفاً برای صندوق
+      }
+
       return {
         success: true,
         message: 'ورود مدیر ارشد (Super Admin) موفقیت‌آمیز بود.',
         data: {
           user: { ...superAdminUser, pinCode: customSuperPin },
-          tokens: { access: 'local_jwt_token', refresh: 'local_refresh_token' }
+          tokens: {
+            access: realAccessToken || 'local_jwt_token',
+            refresh: realRefreshToken || 'local_refresh_token'
+          }
         }
       };
     }
