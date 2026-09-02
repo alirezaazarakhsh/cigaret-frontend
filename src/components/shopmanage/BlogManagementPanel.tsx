@@ -32,6 +32,7 @@ import {
 import { BlogPost, BlogCategoryItem, DjangoCrmConfig } from '../../types';
 import {
   djangoFetchBlogPosts,
+  djangoFetchBlogPostBySlug,
   djangoCreateBlogPost,
   djangoUpdateBlogPost,
   djangoDeleteBlogPost,
@@ -211,7 +212,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   };
 
   // Open Edit Form
-  const handleOpenEditForm = (post: BlogPost) => {
+  const handleOpenEditForm = async (post: BlogPost) => {
     setIsEditing(true);
     setEditingPostId(post.id);
     setImagePreview(post.image || '');
@@ -219,6 +220,25 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     setImageFileSize('');
     setFormData({ ...post });
     setActiveTab('editor');
+
+    // فهرست مقالات (/blog/list/) فیلد content را برنمی‌گرداند؛ برای جلوگیری از پاک شدن متن مقاله
+    // هنگام ذخیره، متن کامل باید از اندپوینت جزئیات (/blog/detail/{slug}/) دوباره دریافت شود
+    try {
+      const fullPost = await djangoFetchBlogPostBySlug(post.slug, crmConfig);
+      if (fullPost && fullPost.id === post.id) {
+        setFormData(prev => ({
+          ...prev,
+          content: fullPost.content || prev.content,
+          keyTakeaways: fullPost.keyTakeaways?.length ? fullPost.keyTakeaways : prev.keyTakeaways,
+          tags: fullPost.tags?.length ? fullPost.tags : prev.tags,
+          faqs: fullPost.faqs?.length ? fullPost.faqs : prev.faqs,
+          metaTitle: fullPost.metaTitle || prev.metaTitle,
+          metaDescription: fullPost.metaDescription || prev.metaDescription
+        }));
+      }
+    } catch (err) {
+      showNotification('خطا در دریافت متن کامل مقاله از سرور.', 'error');
+    }
   };
 
   // Handle Title & Auto Slug

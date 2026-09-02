@@ -21,6 +21,7 @@ import {
 import { BlogPost } from '../../types';
 import { 
   djangoFetchBlogPosts, 
+  djangoFetchBlogPostBySlug,
   djangoCreateBlogPost, 
   djangoUpdateBlogPost, 
   djangoDeleteBlogPost,
@@ -113,11 +114,21 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
     setShowForm(true);
   };
 
-  const handleOpenEditForm = (post: BlogPost) => {
+  const handleOpenEditForm = async (post: BlogPost) => {
     setIsEditing(true);
     setEditingPostId(post.id);
     setFormData({ ...post });
     setShowForm(true);
+
+    // فهرست مقالات (/blog/list/) فیلد content را برنمی‌گرداند； متن کامل باید از جزئیات (/blog/detail/{slug}/) دوباره بیاید
+    try {
+      const fullPost = await djangoFetchBlogPostBySlug(post.slug);
+      if (fullPost && fullPost.id === post.id) {
+        setFormData(prev => ({ ...prev, content: fullPost.content || prev.content }));
+      }
+    } catch {
+      setMessage({ text: 'خطا در دریافت متن کامل مقاله از سرور.', type: 'error' });
+    }
   };
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -94,6 +94,16 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
+  // فهرست مقالات (/blog/list/) فیلد content را برنمی‌گرداند؛ متن کامل باید از جزئیات (/blog/detail/{slug}/) گرفته شود
+  const openPost = (post: BlogPost) => {
+    setSelectedPost(post);
+    blogApi.getBySlug(post.slug).then((fullPost) => {
+      if (fullPost) {
+        setSelectedPost(prev => (prev && prev.slug === post.slug ? { ...prev, ...fullPost } : prev));
+      }
+    }).catch(() => {});
+  };
+
   const getCategoryCount = (catId: string) => {
     if (catId === 'all') return allPosts.length;
     return allPosts.filter(p => p.category === catId).length;
@@ -505,7 +515,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
                   <div
                     key={relPost.id}
                     onClick={() => {
-                      setSelectedPost(relPost);
+                      openPost(relPost);
                       window.scrollTo({ top: 0, behavior: 'smooth' });
                     }}
                     className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden hover:border-blue-400 transition-all cursor-pointer p-3 space-y-2 group"
@@ -535,7 +545,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
           {/* Featured Post Card (if available and category is all) */}
           {featuredPost && selectedCategory === 'all' && !searchQuery && (
             <div 
-              onClick={() => setSelectedPost(featuredPost)}
+              onClick={() => openPost(featuredPost)}
               className="bg-gradient-to-r from-blue-900 via-slate-900 to-slate-900 text-white border border-slate-800 rounded-3xl overflow-hidden shadow-md hover:border-blue-500 transition-all cursor-pointer grid grid-cols-1 lg:grid-cols-12 group"
             >
               <div className="lg:col-span-7 p-6 sm:p-8 flex flex-col justify-between space-y-4">
@@ -631,7 +641,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
                 <div
                   key={post.id}
                   onClick={() => {
-                    setSelectedPost(post);
+                    openPost(post);
                     window.scrollTo({ top: 0, behavior: 'smooth' });
                   }}
                   className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-xs hover:shadow-md hover:border-blue-400 transition-all cursor-pointer flex flex-col group"
