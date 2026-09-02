@@ -1497,6 +1497,7 @@ export async function djangoFetchNotificationUnreadCount(config?: DjangoCrmConfi
 
 // ==========================================
 // Django Blog Articles API Endpoints
+// دقیقاً منطبق با اپ blog/ سرویس cigarbackend (blog/urls.py) زیر پیشوند api/v1/blog/
 // ==========================================
 
 export function getBlogApiBaseUrl(config?: DjangoCrmConfig): string {
@@ -1513,6 +1514,7 @@ export function getBlogApiHeaders(config?: DjangoCrmConfig): Record<string, stri
     'Accept': 'application/json',
     'Content-Type': 'application/json',
   };
+  // accounts app توکن JWT (SimpleJWT) صادر می‌کند => هدر باید Bearer باشد
   if (token && token.trim()) {
     headers['Authorization'] = token.startsWith('Bearer ') || token.startsWith('Token ')
       ? token
@@ -1521,127 +1523,77 @@ export function getBlogApiHeaders(config?: DjangoCrmConfig): Record<string, stri
   return headers;
 }
 
+function mapDjangoBlogPost(item: any): BlogPost {
+  return {
+    id: String(item.id),
+    slug: item.slug,
+    title: item.title || '',
+    metaTitle: item.title || '',
+    metaDescription: item.excerpt || '',
+    canonicalUrl: `https://sevin-tobacco.ir/blog/${item.slug}`,
+    keywords: ['سوین', 'دخانیات'],
+    category: item.category_name || 'عمومی',
+    categorySlug: typeof item.category === 'number' ? String(item.category) : undefined,
+    readTimeMinutes: Number(item.reading_time_minutes ?? 5),
+    publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : ''),
+    author: {
+      name: item.author_name || 'تیم تحریریه سوین',
+      role: 'کارشناس ارشد بازار',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
+    },
+    image: item.image || item.featured_image || item.featured_image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
+    excerpt: item.excerpt || '',
+    keyTakeaways: [],
+    content: item.content || '',
+    tags: [],
+    viewsCount: Number(item.views_count ?? 0),
+    isPublished: item.is_published !== undefined ? Boolean(item.is_published) : true
+  };
+}
+
 /**
- * Fetch list of published blog posts from Django API or Database store
+ * دریافت فهرست مقالات منتشر شده — GET /api/v1/blog/list/ (BlogPostListAPIView)
  */
 export async function djangoFetchBlogPosts(category?: string, search?: string, config?: DjangoCrmConfig): Promise<BlogPost[]> {
   const baseUrl = getBlogApiBaseUrl(config);
   const headers = getBlogApiHeaders(config);
 
-  const candidateEndpoints = [
-    '/blog/list/',
-    '/blog/list',
-    '/blog/posts/',
-    '/blog/posts',
-    '/blog/',
-    '/blog/articles/'
-  ];
+  try {
+    const url = new URL(`${baseUrl}/blog/list/`);
+    if (category && category !== 'all') url.searchParams.set('category', category);
+    if (search && search.trim()) url.searchParams.set('search', search.trim());
 
-  for (const ep of candidateEndpoints) {
-    try {
-      const url = new URL(`${baseUrl}${ep}`);
-      if (category && category !== 'all') url.searchParams.set('category', category);
-      if (search && search.trim()) url.searchParams.set('search', search.trim());
-
-      const response = await fetch(url.toString(), {
-        method: 'GET',
-        headers
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const results = Array.isArray(data) ? data : (data.results || data.data || data.posts);
-        if (Array.isArray(results) && results.length > 0) {
-          const mapped: BlogPost[] = results.map((item: any) => ({
-            id: String(item.id || item.slug || item.pk),
-            slug: item.slug || String(item.id),
-            title: item.title || item.name || '',
-            metaTitle: item.meta_title || item.title || '',
-            metaDescription: item.meta_description || item.excerpt || '',
-            canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
-            keywords: item.keywords || ['سوین', 'دخانیات'],
-            category: item.category_name || (typeof item.category === 'object' ? item.category?.name : item.category) || 'عمومی',
-            readTimeMinutes: item.reading_time_minutes || item.read_time || 5,
-            publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : new Date().toLocaleDateString('fa-IR')),
-            author: {
-              name: item.author_name || (typeof item.author === 'object' ? item.author?.name || item.author?.username : item.author) || 'تیم تحریریه سوین',
-              role: item.author_role || item.author?.role || 'کارشناس ارشد بازار',
-              avatar: item.author_avatar || item.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
-            },
-            image: item.featured_image || item.image || item.featured_image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
-            excerpt: item.excerpt || item.summary || '',
-            keyTakeaways: item.key_takeaways || item.keyTakeaways || [],
-            content: item.content || item.body || '',
-            tags: item.tags || ['وبلاگ', 'دخانیات'],
-            viewsCount: item.views_count || item.views || 0,
-            isPublished: item.is_published !== undefined ? item.is_published : true
-          }));
-
-          mapped.forEach(p => djangoDatabaseStore.saveBlogPost(p));
-          return mapped;
-        }
-      }
-    } catch (err) {
-      // Fall through to next candidate endpoint
+    const response = await fetch(url.toString(), { method: 'GET', headers });
+    if (response.ok) {
+      const data = await response.json();
+      const results = Array.isArray(data?.results) ? data.results : [];
+      const mapped = results.map(mapDjangoBlogPost);
+      mapped.forEach((p: BlogPost) => djangoDatabaseStore.saveBlogPost(p));
+      return mapped;
     }
+    console.warn('Django Blog List API returned non-OK status:', response.status);
+  } catch (err) {
+    console.warn('Django Blog List API error:', err);
   }
 
   return djangoDatabaseStore.getBlogPosts({ category, search });
 }
 
 /**
- * Fetch single blog post by slug with atomic view count increment
+ * دریافت جزئیات یک مقاله با اسلاگ — GET /api/v1/blog/detail/{slug}/ (BlogPostDetailAPIView)
  */
 export async function djangoFetchBlogPostBySlug(slug: string, config?: DjangoCrmConfig): Promise<BlogPost | null> {
   const baseUrl = getBlogApiBaseUrl(config);
   const headers = getBlogApiHeaders(config);
 
-  const candidateUrls = [
-    `${baseUrl}/blog/detail/${encodeURIComponent(slug)}/`,
-    `${baseUrl}/blog/detail/${encodeURIComponent(slug)}`,
-    `${baseUrl}/blog/posts/${encodeURIComponent(slug)}/`,
-    `${baseUrl}/blog/posts/${encodeURIComponent(slug)}`,
-    `${baseUrl}/blog/${encodeURIComponent(slug)}/`
-  ];
-
-  for (const targetUrl of candidateUrls) {
-    try {
-      const response = await fetch(targetUrl, {
-        method: 'GET',
-        headers
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        const item = data.data || data;
-        if (item && (item.title || item.slug)) {
-          return {
-            id: String(item.id || item.slug || item.pk),
-            slug: item.slug,
-            title: item.title,
-            metaTitle: item.meta_title || item.title,
-            metaDescription: item.meta_description || item.excerpt || '',
-            canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
-            keywords: item.keywords || ['سوین', 'دخانیات'],
-            category: item.category_name || (typeof item.category === 'object' ? item.category?.name : item.category) || 'عمومی',
-            readTimeMinutes: item.reading_time_minutes || item.read_time || 5,
-            publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : new Date().toLocaleDateString('fa-IR')),
-            author: {
-              name: item.author_name || (typeof item.author === 'object' ? item.author?.name || item.author?.username : item.author) || 'تیم تحریریه سوین',
-              role: item.author_role || item.author?.role || 'کارشناس ارشد بازار',
-              avatar: item.author_avatar || item.author?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
-            },
-            image: item.featured_image || item.image || item.featured_image_url || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
-            excerpt: item.excerpt || '',
-            keyTakeaways: item.key_takeaways || item.keyTakeaways || [],
-            content: item.content || item.body || '',
-            tags: item.tags || ['وبلاگ', 'دخانیات'],
-            viewsCount: item.views_count || item.views || 0,
-            isPublished: true
-          };
-        }
-      }
-    } catch (err) {}
+  try {
+    const response = await fetch(`${baseUrl}/blog/detail/${encodeURIComponent(slug)}/`, { method: 'GET', headers });
+    if (response.ok) {
+      const data = await response.json();
+      if (data?.data) return mapDjangoBlogPost(data.data);
+    }
+  } catch (err) {
+    console.warn('Django Blog Detail API error:', err);
   }
 
   const posts = djangoDatabaseStore.getBlogPosts();
@@ -1649,32 +1601,30 @@ export async function djangoFetchBlogPostBySlug(slug: string, config?: DjangoCrm
 }
 
 /**
- * Create or save new blog post to Django API & Store
+ * ثبت مقاله جدید — POST /api/v1/blog/admin/create/ (BlogPostAdminCreateAPIView، نیازمند JWT ادمین)
  */
 export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: DjangoCrmConfig): Promise<BlogPost> {
   const baseUrl = getBlogApiBaseUrl(config);
   const headers = getBlogApiHeaders(config);
 
-  // Determine category foreign key ID if available
-  let categoryPk: number | null = null;
+  if (!headers['Authorization']) {
+    throw new Error('توکن ورود مدیر معتبر نیست. ابتدا باید از طریق صندوق با حساب واقعی جنگو وارد شوید تا مقاله در دیتابیس ذخیره شود.');
+  }
+
   const allCategories = djangoDatabaseStore.getBlogCategories();
   const matchedCat = allCategories.find(c =>
     String(c.id) === String(post.category) ||
     c.name === post.category ||
     c.slug === post.category
   );
-  if (matchedCat && !isNaN(Number(matchedCat.id))) {
-    categoryPk = Number(matchedCat.id);
-  } else if (post.category && !isNaN(Number(post.category))) {
-    categoryPk = Number(post.category);
-  }
+  const categoryPk = matchedCat && !isNaN(Number(matchedCat.id)) ? Number(matchedCat.id) : null;
 
   const postTitle = (post.title || '').trim();
   const postSlug = post.slug?.trim() || (postTitle ? postTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0600-\u06FF-]/g, '') : `post-${Date.now()}`);
   const postExcerpt = post.excerpt?.trim() || (post.content ? post.content.replace(/<[^>]*>?/gm, '').slice(0, 180).trim() : '');
 
-  // 1. Standard Django DRF Model Payload
-  const djangoModelPayload: Record<string, any> = {
+  // پیلود دقیقاً منطبق با فیلدهای BlogPostDetailSerializer (blog/serializers.py)
+  const payload: Record<string, any> = {
     title: postTitle,
     slug: postSlug,
     excerpt: postExcerpt,
@@ -1683,312 +1633,176 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
     reading_time_minutes: post.readTimeMinutes || 5,
     is_published: post.isPublished !== undefined ? post.isPublished : true,
   };
-  if (categoryPk !== null) {
-    djangoModelPayload['category'] = categoryPk;
-  }
+  if (categoryPk !== null) payload.category = categoryPk;
 
-  // 2. Extended Payload with aliases
-  const extendedPayload: Record<string, any> = {
-    ...djangoModelPayload,
-    category_id: categoryPk,
-    category_name: matchedCat?.name || post.category || 'عمومی',
-    image: post.image || '',
-    featured_image: post.image || '',
-    tags: post.tags || [],
-    key_takeaways: post.keyTakeaways || [],
-    meta_title: post.metaTitle || postTitle,
-    meta_description: post.metaDescription || postExcerpt
-  };
-
-  const candidateUrls = [
-    `${baseUrl}/blog/admin/create/`,
-    `${baseUrl}/blog/admin/create`,
-    `${baseUrl}/blog/create/`,
-    `${baseUrl}/blog/create`,
-    `${baseUrl}/blog/posts/create/`,
-    `${baseUrl}/blog/posts/`,
-    `${baseUrl}/blog/posts`,
-    `${baseUrl}/blog/list/`,
-    `${baseUrl}/blog/`
-  ];
-
-  let serverData: any = null;
-  for (const url of candidateUrls) {
-    try {
-      // First attempt with djangoModelPayload
-      let res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(djangoModelPayload)
-      });
-      if (res.ok) {
-        serverData = await res.json().catch(() => null);
-        break;
-      }
-
-      // Second attempt with extendedPayload
-      res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(extendedPayload)
-      });
-      if (res.ok) {
-        serverData = await res.json().catch(() => null);
-        break;
-      }
-    } catch (e) {
-      console.warn('Django Blog Create API attempt error on', url, e);
-    }
-  }
-
-  const createdId = serverData?.id || serverData?.data?.id || serverData?.pk || serverData?.data?.pk;
-  const createdSlug = serverData?.slug || serverData?.data?.slug || postSlug;
-
-  const savedPost = djangoDatabaseStore.saveBlogPost({
-    ...post,
-    id: createdId ? String(createdId) : undefined,
-    slug: createdSlug,
-    category: matchedCat?.name || post.category || 'عمومی'
+  const res = await fetch(`${baseUrl}/blog/admin/create/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload)
   });
 
-  return savedPost;
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('دسترسی مدیر رد شد. کاربر واردشده دسترسی ادمین جنگو ندارد؛ مقاله در دیتابیس ذخیره نشد.');
+    }
+    throw new Error(`ثبت مقاله در دیتابیس جنگو ناموفق بود (کد ${res.status}): ${errBody}`);
+  }
+
+  const serverData = await res.json().catch(() => null);
+  const created = serverData?.data;
+  return djangoDatabaseStore.saveBlogPost({
+    ...post,
+    id: created?.id ? String(created.id) : undefined,
+    slug: created?.slug || postSlug,
+    category: matchedCat?.name || post.category || 'عمومی'
+  });
 }
 
 /**
- * Update existing blog post in Django API & Store
+ * ویرایش مقاله — PUT /api/v1/blog/admin/{pk}/ (BlogPostAdminDetailAPIView، نیازمند JWT ادمین)
  */
 export async function djangoUpdateBlogPost(id: string | number, post: Partial<BlogPost>, config?: DjangoCrmConfig): Promise<BlogPost> {
   const baseUrl = getBlogApiBaseUrl(config);
   const headers = getBlogApiHeaders(config);
 
+  if (!headers['Authorization']) {
+    throw new Error('توکن ورود مدیر معتبر نیست. ابتدا باید از طریق صندوق با حساب واقعی جنگو وارد شوید تا ویرایش در دیتابیس ذخیره شود.');
+  }
+
   const savedPost = djangoDatabaseStore.saveBlogPost({ ...post, id: String(id) });
 
-  let categoryPk: number | null = null;
   const allCategories = djangoDatabaseStore.getBlogCategories();
   const matchedCat = allCategories.find(c =>
     String(c.id) === String(savedPost.category) ||
     c.name === savedPost.category ||
     c.slug === savedPost.category
   );
-  if (matchedCat && !isNaN(Number(matchedCat.id))) {
-    categoryPk = Number(matchedCat.id);
-  } else if (savedPost.category && !isNaN(Number(savedPost.category))) {
-    categoryPk = Number(savedPost.category);
-  }
+  const categoryPk = matchedCat && !isNaN(Number(matchedCat.id)) ? Number(matchedCat.id) : null;
 
   const payload: Record<string, any> = {
     title: savedPost.title,
     slug: savedPost.slug,
     excerpt: savedPost.excerpt,
     content: savedPost.content,
-    image: savedPost.image,
-    featured_image: savedPost.image,
     featured_image_url: savedPost.image,
     reading_time_minutes: savedPost.readTimeMinutes,
     is_published: savedPost.isPublished,
-    tags: savedPost.tags || [],
-    key_takeaways: savedPost.keyTakeaways || []
   };
-  if (categoryPk !== null) {
-    payload['category'] = categoryPk;
-  }
+  if (categoryPk !== null) payload.category = categoryPk;
 
-  const candidateUrls = [
-    `${baseUrl}/blog/admin/${id}/`,
-    `${baseUrl}/blog/admin/${id}`,
-    `${baseUrl}/blog/posts/${id}/`,
-    `${baseUrl}/blog/posts/${id}`,
-    `${baseUrl}/blog/update/${id}/`,
-    `${baseUrl}/blog/${id}/`
-  ];
+  const res = await fetch(`${baseUrl}/blog/admin/${id}/`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify(payload)
+  });
 
-  for (const url of candidateUrls) {
-    try {
-      const res = await fetch(url, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) break;
-    } catch (e) {
-      console.warn('Django Blog Update API Notice on', url, e);
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('دسترسی مدیر رد شد. کاربر واردشده دسترسی ادمین جنگو ندارد؛ تغییرات در دیتابیس ذخیره نشد.');
     }
+    throw new Error(`بروزرسانی مقاله در دیتابیس جنگو ناموفق بود (کد ${res.status}): ${errBody}`);
   }
 
   return savedPost;
 }
 
 /**
- * Delete blog post from Django API & Store
+ * حذف مقاله — DELETE /api/v1/blog/admin/{pk}/ (BlogPostAdminDetailAPIView، نیازمند JWT ادمین)
  */
 export async function djangoDeleteBlogPost(id: string | number, config?: DjangoCrmConfig): Promise<boolean> {
-  djangoDatabaseStore.deleteBlogPost(String(id));
-
   const baseUrl = getBlogApiBaseUrl(config);
   const headers = getBlogApiHeaders(config);
 
-  const candidateUrls = [
-    `${baseUrl}/blog/admin/${id}/`,
-    `${baseUrl}/blog/admin/${id}`,
-    `${baseUrl}/blog/posts/${id}/`,
-    `${baseUrl}/blog/posts/${id}`,
-    `${baseUrl}/blog/${id}/`
-  ];
-
-  for (const url of candidateUrls) {
-    try {
-      const res = await fetch(url, {
-        method: 'DELETE',
-        headers
-      });
-      if (res.ok) break;
-    } catch (e) {}
+  if (!headers['Authorization']) {
+    throw new Error('توکن ورود مدیر معتبر نیست. ابتدا باید از طریق صندوق با حساب واقعی جنگو وارد شوید تا حذف در دیتابیس ثبت شود.');
   }
 
+  const res = await fetch(`${baseUrl}/blog/admin/${id}/`, { method: 'DELETE', headers });
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) {
+      throw new Error('دسترسی مدیر رد شد. کاربر واردشده دسترسی ادمین جنگو ندارد؛ مقاله حذف نشد.');
+    }
+    throw new Error(`حذف مقاله از دیتابیس جنگو ناموفق بود (کد ${res.status})`);
+  }
+
+  djangoDatabaseStore.deleteBlogPost(String(id));
   return true;
 }
 
 /**
- * Fetch all blog categories from Django API & Store
+ * دریافت فهرست دسته‌بندی‌های وبلاگ — GET /api/v1/blog/categories/ (BlogCategoryListAPIView)
  */
 export async function djangoFetchBlogCategories(config?: DjangoCrmConfig): Promise<BlogCategoryItem[]> {
   const baseUrl = getBlogApiBaseUrl(config);
   const headers = getBlogApiHeaders(config);
 
-  const candidateUrls = [
-    `${baseUrl}/blog/categories/`,
-    `${baseUrl}/blog/categories`,
-    `${baseUrl}/blog/category/`,
-    `${baseUrl}/blog-categories/`,
-    `${baseUrl}/blog-categories`,
-    `${baseUrl}/categories/`,
-    `${baseUrl}/categories`
-  ];
-
-  for (const url of candidateUrls) {
-    try {
-      const res = await fetch(url, {
-        method: 'GET',
-        headers
+  try {
+    const res = await fetch(`${baseUrl}/blog/categories/`, { method: 'GET', headers });
+    if (res.ok) {
+      const data = await res.json();
+      const list = Array.isArray(data?.results) ? data.results : [];
+      // مدل BlogCategory فقط name و slug دارد؛ ویژگی‌های ظاهری (رنگ و...) صرفاً در سمت فرانت نگهداری می‌شوند
+      const localExtras = new Map(djangoDatabaseStore.getBlogCategories().map(c => [String(c.id), c]));
+      const mapped: BlogCategoryItem[] = list.map((item: any) => {
+        const extra = localExtras.get(String(item.id));
+        return {
+          id: String(item.id),
+          name: item.name,
+          slug: item.slug,
+          color: extra?.color || 'text-blue-600',
+          bgColor: extra?.bgColor || 'bg-blue-50',
+          borderColor: extra?.borderColor || 'border-blue-200',
+          description: extra?.description || '',
+          order: extra?.order || 1
+        };
       });
-      if (res.ok) {
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : (data.results || data.data || data.categories);
-        if (Array.isArray(list) && list.length > 0) {
-          const mapped: BlogCategoryItem[] = list.map((item: any) => ({
-            id: String(item.id || item.slug || item.pk),
-            name: item.name || item.title || item.name_fa || 'بدون نام',
-            slug: item.slug || String(item.id),
-            color: item.color || 'text-blue-600',
-            bgColor: item.bg_color || item.bgColor || 'bg-blue-50',
-            borderColor: item.border_color || item.borderColor || 'border-blue-200',
-            description: item.description || '',
-            order: item.order || 1
-          }));
-          djangoDatabaseStore.setBlogCategories(mapped);
-          return mapped;
-        }
-      }
-    } catch (e) {
-      console.warn('Django Categories Fetch error on', url, e);
+      djangoDatabaseStore.setBlogCategories(mapped);
+      return mapped;
     }
+    console.warn('Django Blog Categories API returned non-OK status:', res.status);
+  } catch (e) {
+    console.warn('Django Blog Categories API error:', e);
   }
 
   return djangoDatabaseStore.getBlogCategories();
 }
 
 /**
- * Create or save new blog category to Django API & Store
+ * ایجاد دسته‌بندی جدید — POST /api/v1/blog/categories/ (BlogCategoryListAPIView، عمومی/بدون نیاز به توکن)
  */
 export async function djangoCreateBlogCategory(category: Partial<BlogCategoryItem>, config?: DjangoCrmConfig): Promise<BlogCategoryItem> {
   const baseUrl = getBlogApiBaseUrl(config);
   const headers = getBlogApiHeaders(config);
 
   const catName = (category.name || '').trim();
-  const rawSlug = (category.slug || '').trim();
-  const slug = rawSlug || (catName ? catName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0600-\u06FF-]/g, '') : `cat-${Date.now()}`);
+  const slug = (category.slug || '').trim() || (catName ? catName.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0600-\u06FF-]/g, '') : `cat-${Date.now()}`);
 
-  const minimalPayload = {
-    name: catName,
-    slug: slug
-  };
-
-  const extendedPayload = {
-    name: catName,
-    title: catName,
-    slug: slug,
-    description: category.description || '',
-    color: category.color || 'text-blue-600',
-    bg_color: category.bgColor || 'bg-blue-50',
-    border_color: category.borderColor || 'border-blue-200',
-    order: category.order || 1
-  };
-
-  const candidateUrls = [
-    `${baseUrl}/blog/categories/`,
-    `${baseUrl}/blog/categories`,
-    `${baseUrl}/blog/categories/create/`,
-    `${baseUrl}/blog/category/create/`,
-    `${baseUrl}/blog/category/`,
-    `${baseUrl}/blog/admin/categories/create/`,
-    `${baseUrl}/blog/admin/categories/`,
-    `${baseUrl}/blog-categories/`,
-    `${baseUrl}/categories/create/`,
-    `${baseUrl}/categories/`
-  ];
-
-  let serverItem: any = null;
-  for (const url of candidateUrls) {
-    try {
-      // 1. Try minimal { name, slug } matching Django DRF serializer
-      let res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(minimalPayload)
-      });
-      if (res.ok) {
-        serverItem = await res.json().catch(() => null);
-        break;
-      }
-
-      // 2. Try extended payload
-      res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(extendedPayload)
-      });
-      if (res.ok) {
-        serverItem = await res.json().catch(() => null);
-        break;
-      }
-
-      // 3. Try with name only
-      res = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ name: catName })
-      });
-      if (res.ok) {
-        serverItem = await res.json().catch(() => null);
-        break;
-      }
-    } catch (e) {
-      console.warn('Django Category Create API attempt error on', url, e);
-    }
-  }
-
-  const saved = djangoDatabaseStore.saveBlogCategory({
-    ...category,
-    id: serverItem?.id ? String(serverItem.id) : (serverItem?.data?.id ? String(serverItem.data.id) : undefined),
-    name: serverItem?.name || serverItem?.data?.name || catName,
-    slug: serverItem?.slug || serverItem?.data?.slug || slug
+  // پیلود دقیقاً منطبق با فیلدهای مدل BlogCategory (name, slug) — این اندپوینت AllowAny است، نیازی به توکن ندارد
+  const res = await fetch(`${baseUrl}/blog/categories/`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ name: catName, slug })
   });
 
-  return saved;
+  if (!res.ok) {
+    const errBody = await res.text().catch(() => '');
+    throw new Error(`ثبت دسته‌بندی در دیتابیس جنگو ناموفق بود (کد ${res.status}): ${errBody}`);
+  }
+
+  const data = await res.json().catch(() => null);
+  const serverItem = data?.data;
+  return djangoDatabaseStore.saveBlogCategory({
+    ...category,
+    id: serverItem?.id ? String(serverItem.id) : undefined,
+    name: serverItem?.name || catName,
+    slug: serverItem?.slug || slug
+  });
 }
 
 /**
- * Update blog category in Django API & Store
+ * ویرایش دسته‌بندی — PUT /api/v1/blog/categories/{id}/ (BlogCategoryDetailAPIView)
  */
 export async function djangoUpdateBlogCategory(id: string, category: Partial<BlogCategoryItem>, config?: DjangoCrmConfig): Promise<BlogCategoryItem> {
   const baseUrl = getBlogApiBaseUrl(config);
@@ -1996,76 +1810,31 @@ export async function djangoUpdateBlogCategory(id: string, category: Partial<Blo
 
   const saved = djangoDatabaseStore.saveBlogCategory({ ...category, id });
 
-  const minimalPayload = {
-    name: saved.name,
-    slug: saved.slug
-  };
+  const res = await fetch(`${baseUrl}/blog/categories/${id}/`, {
+    method: 'PUT',
+    headers,
+    body: JSON.stringify({ name: saved.name, slug: saved.slug })
+  });
 
-  const payload = {
-    name: saved.name,
-    title: saved.name,
-    slug: saved.slug,
-    description: saved.description,
-    color: saved.color,
-    bg_color: saved.bgColor,
-    border_color: saved.borderColor,
-    order: saved.order
-  };
-
-  const candidateUrls = [
-    `${baseUrl}/blog/categories/${id}/`,
-    `${baseUrl}/blog/categories/${id}`,
-    `${baseUrl}/blog/category/${id}/`,
-    `${baseUrl}/blog-categories/${id}/`,
-    `${baseUrl}/categories/${id}/`
-  ];
-
-  for (const url of candidateUrls) {
-    try {
-      let res = await fetch(url, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(minimalPayload)
-      });
-      if (res.ok) break;
-
-      res = await fetch(url, {
-        method: 'PUT',
-        headers,
-        body: JSON.stringify(payload)
-      });
-      if (res.ok) break;
-    } catch (e) {}
+  if (!res.ok) {
+    throw new Error(`بروزرسانی دسته‌بندی در دیتابیس جنگو ناموفق بود (کد ${res.status})`);
   }
 
   return saved;
 }
 
 /**
- * Delete blog category from Django API & Store
+ * حذف دسته‌بندی — DELETE /api/v1/blog/categories/{id}/ (BlogCategoryDetailAPIView)
  */
 export async function djangoDeleteBlogCategory(id: string, config?: DjangoCrmConfig): Promise<boolean> {
-  djangoDatabaseStore.deleteBlogCategory(id);
   const baseUrl = getBlogApiBaseUrl(config);
   const headers = getBlogApiHeaders(config);
 
-  const candidateUrls = [
-    `${baseUrl}/blog/categories/${id}/`,
-    `${baseUrl}/blog/categories/${id}`,
-    `${baseUrl}/blog/category/${id}/`,
-    `${baseUrl}/blog-categories/${id}/`,
-    `${baseUrl}/categories/${id}/`
-  ];
-
-  for (const url of candidateUrls) {
-    try {
-      const res = await fetch(url, {
-        method: 'DELETE',
-        headers
-      });
-      if (res.ok) break;
-    } catch (e) {}
+  const res = await fetch(`${baseUrl}/blog/categories/${id}/`, { method: 'DELETE', headers });
+  if (!res.ok) {
+    throw new Error(`حذف دسته‌بندی از دیتابیس جنگو ناموفق بود (کد ${res.status})`);
   }
 
+  djangoDatabaseStore.deleteBlogCategory(id);
   return true;
 }

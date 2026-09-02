@@ -155,7 +155,7 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
       loadPosts();
       setTimeout(() => setMessage(null), 3000);
     } catch (err) {
-      setMessage({ text: 'خطا در ثبت مقاله در API.', type: 'error' });
+      setMessage({ text: err instanceof Error ? err.message : 'خطا در ثبت مقاله در API.', type: 'error' });
     } finally {
       setIsSubmitting(false);
     }
@@ -163,9 +163,13 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
 
   const handleDelete = async (id: string) => {
     if (window.confirm('آیا از حذف این مقاله از دیتابیس مطمئن هستید؟')) {
-      await djangoDeleteBlogPost(id);
-      setMessage({ text: 'مقاله با موفقیت حذف شد.', type: 'success' });
-      loadPosts();
+      try {
+        await djangoDeleteBlogPost(id);
+        setMessage({ text: 'مقاله با موفقیت حذف شد.', type: 'success' });
+        loadPosts();
+      } catch (err) {
+        setMessage({ text: err instanceof Error ? err.message : 'خطا در حذف مقاله از دیتابیس.', type: 'error' });
+      }
       setTimeout(() => setMessage(null), 3000);
     }
   };

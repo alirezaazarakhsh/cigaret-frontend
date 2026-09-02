@@ -298,7 +298,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       await loadData();
       setActiveTab('posts');
     } catch (err) {
-      showNotification('خطا در ثبت اطلاعات در سرور.', 'error');
+      showNotification(err instanceof Error ? err.message : 'خطا در ثبت اطلاعات در سرور.', 'error');
     } finally {
       setIsSubmittingArticle(false);
     }
@@ -314,7 +314,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       showNotification('مقاله مورد نظر با موفقیت حذف گردید.');
       await loadData();
     } catch (err) {
-      showNotification('خطا در حذف مقاله.', 'error');
+      showNotification(err instanceof Error ? err.message : 'خطا در حذف مقاله.', 'error');
     }
   };
 
