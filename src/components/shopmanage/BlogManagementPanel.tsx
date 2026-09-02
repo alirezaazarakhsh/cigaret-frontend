@@ -94,6 +94,8 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   const [newCatName, setNewCatName] = useState<string>('');
   const [newCatSlug, setNewCatSlug] = useState<string>('');
   const [newCatDesc, setNewCatDesc] = useState<string>('');
+  const [isCatSlugTouched, setIsCatSlugTouched] = useState<boolean>(false);
+  const slugifyCategory = (value: string) => value.trim().toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0600-\u06FF-]/g, '');
   const [newCatColor, setNewCatColor] = useState<string>('text-blue-600');
   const [isAddingCategory, setIsAddingCategory] = useState<boolean>(false);
   const [isSubmittingCategory, setIsSubmittingCategory] = useState<boolean>(false);
@@ -338,6 +340,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       setNewCatName('');
       setNewCatSlug('');
       setNewCatDesc('');
+      setIsCatSlugTouched(false);
       setIsAddingCategory(false);
       await loadData();
     } catch (err) {
@@ -1372,8 +1375,8 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                       value={newCatName}
                       onChange={(e) => {
                         setNewCatName(e.target.value);
-                        if (!newCatSlug) {
-                          setNewCatSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'));
+                        if (!isCatSlugTouched) {
+                          setNewCatSlug(slugifyCategory(e.target.value));
                         }
                       }}
                       placeholder="مثلاً: اخبار و مصاحبه‌های بازار"
@@ -1389,7 +1392,10 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                     <input
                       type="text"
                       value={newCatSlug}
-                      onChange={(e) => setNewCatSlug(e.target.value)}
+                      onChange={(e) => {
+                        setIsCatSlugTouched(true);
+                        setNewCatSlug(e.target.value);
+                      }}
                       placeholder="market-news"
                       dir="ltr"
                       className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-mono focus:outline-none focus:border-blue-500"

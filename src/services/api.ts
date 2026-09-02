@@ -1146,31 +1146,17 @@ function parseUnifiedOrFooterData(raw: any): FooterSettingsData | null {
 export const footerApi = {
   /**
    * Fetches footer & site settings from Django backend with zero cache
+   * اندپوینت واقعی: GET /api/v1/footer-settings/settings/ (FooterConfigAPIView)
    */
   async getSettings(): Promise<FooterSettingsData | null> {
-    const candidateEndpoints = [
-      '/footer-settings/settings/',
-      '/footer_settings/settings/',
-      '/footer-settings/',
-      '/footer_settings/',
-      '/footer/settings/',
-      '/site-settings/public-config/',
-      '/site_settings/public-config/',
-      '/api/footer-settings/settings/',
-      '/api/footer_settings/settings/',
-      '/api/site-settings/public-config/',
-    ];
-
-    for (const endpoint of candidateEndpoints) {
-      const response = await httpClient.get<any>(endpoint);
-      if (response.success && response.data) {
-        const parsed = parseUnifiedOrFooterData(response.data);
-        if (parsed) {
-          try {
-            localStorage.setItem(STORAGE_KEYS.FOOTER_SETTINGS, JSON.stringify(parsed));
-          } catch {}
-          return parsed;
-        }
+    const response = await httpClient.get<any>('/footer-settings/settings/');
+    if (response.success && response.data) {
+      const parsed = parseUnifiedOrFooterData(response.data);
+      if (parsed) {
+        try {
+          localStorage.setItem(STORAGE_KEYS.FOOTER_SETTINGS, JSON.stringify(parsed));
+        } catch {}
+        return parsed;
       }
     }
 
@@ -1182,13 +1168,10 @@ export const footerApi = {
   },
 
   /**
-   * Updates footer configuration on PUT /footer-settings/settings/update/
+   * Updates footer configuration on PUT /api/v1/footer-settings/settings/update/ (FooterUpdateAPIView)
    */
   async updateSettings(settingsData: Partial<FooterSettingsData>): Promise<boolean> {
-    let response = await httpClient.put('/footer-settings/settings/update/', settingsData);
-    if (!response.success) {
-      response = await httpClient.put('/footer_settings/settings/update/', settingsData);
-    }
+    const response = await httpClient.put('/footer-settings/settings/update/', settingsData);
     if (response.success) {
       try {
         const current = JSON.parse(localStorage.getItem(STORAGE_KEYS.FOOTER_SETTINGS) || '{}');
@@ -1235,7 +1218,7 @@ function updateLocalProductList(product: CigaretteProduct, action: 'add' | 'upda
 // ==========================================
 export const contactApi = {
   /**
-   * Submits contact message to POST /warehouse-contact/send-message/ or /warehouse_contact/send-message/
+   * Submits contact message to POST /api/v1/warehouse_contact/send-message/ (WarehouseMessageCreateAPIView)
    */
   async sendMessage(payload: {
     fullName: string;
@@ -1253,21 +1236,7 @@ export const contactApi = {
         : payload.message,
     };
 
-    // 1. Try /warehouse-contact/send-message/
-    let response = await httpClient.post<any>('/warehouse-contact/send-message/', body);
-
-    // 2. Fallback to /warehouse_contact/send-message/
-    if (!response.success) {
-      response = await httpClient.post<any>('/warehouse_contact/send-message/', body);
-    }
-
-    // 3. Fallback to /warehouse-contact/messages/ or /warehouse_contact/messages/
-    if (!response.success) {
-      response = await httpClient.post<any>('/warehouse-contact/messages/', body);
-    }
-    if (!response.success) {
-      response = await httpClient.post<any>('/warehouse_contact/messages/', body);
-    }
+    const response = await httpClient.post<any>('/warehouse_contact/send-message/', body);
 
     if (response.success) {
       return {
