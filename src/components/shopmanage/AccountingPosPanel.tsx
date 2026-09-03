@@ -959,15 +959,22 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         const ctx = new AudioContextClass();
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(600, ctx.currentTime);
-        osc.frequency.linearRampToValueAtTime(200, ctx.currentTime + 0.5); // Downward sweep
-        gain.gain.setValueAtTime(0.2, ctx.currentTime);
-        gain.gain.linearRampToValueAtTime(0.0, ctx.currentTime + 0.5);
+        
+        // Use a softer, more professional "ding-down" sound
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(800, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(400, ctx.currentTime + 0.3);
+        
+        gain.gain.setValueAtTime(0.15, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.start();
-        osc.stop(ctx.currentTime + 0.5);
+        osc.stop(ctx.currentTime + 0.3);
+        
+        // Clean up context after sound plays
+        setTimeout(() => ctx.close(), 500);
       }
     } catch {}
   };
@@ -2214,8 +2221,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       )}
       
       {/* Header Section */}
-      <header className="bg-white/95 print:hidden backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[100] px-3 sm:px-6 py-2.5 shadow-md w-full transition-all duration-300">
-        <div className="max-w-[1750px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-2.5 md:gap-4">
+      <header className="bg-white/95 print:hidden backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[100] px-3 py-1.5 shadow-sm w-full transition-all duration-300">
+        <div className="max-w-[1750px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2">
           
           {/* Logo & Staff Info */}
           <div className="flex flex-col md:flex-row md:items-center justify-between w-full md:w-auto shrink-0 gap-1.5 md:gap-4">
