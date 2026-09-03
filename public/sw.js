@@ -100,11 +100,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // B. HTML Navigations & Document Requests: Network-First with forced no-cache revalidation
+  // B. HTML Navigations & Document Requests: Network-First with forced revalidation
   // Ensures user always gets the latest index.html pointing to newly hashed asset chunks
   if (request.mode === 'navigate' || request.destination === 'document') {
     event.respondWith(
-      fetch(request, { cache: 'no-cache' })
+      fetch(request)
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
@@ -113,7 +113,45 @@ self.addEventListener('fetch', (event) => {
           return networkResponse;
         })
         .catch(() => {
-          return caches.match(request).then((cached) => cached || caches.match('/index.html') || caches.match('/'));
+          return caches.match(request).then((cached) => {
+            if (cached) return cached;
+            return caches.match('/index.html').then((fallback) => {
+              if (fallback) return fallback;
+              return caches.match('/').then((rootFallback) => {
+                if (rootFallback) return rootFallback;
+                // If completely empty (e.g. user cleared site data / offline), return a helpful fallback Response
+                // instead of returning undefined which triggers Chrome's unrecoverable ERR_FAILED screen
+                return new Response(
+                  `<!DOCTYPE html>
+                  <html lang="fa" dir="rtl">
+                  <head>
+                    <meta charset="utf-8">
+                    <title>خطا در بارگذاری سامانه آذرخش</title>
+                    <style>
+                      body { font-family: system-ui, sans-serif; background: #f8fafc; color: #1e293b; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+                      .card { background: white; padding: 2rem; border-radius: 1rem; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); text-align: center; max-width: 400px; border: 1px solid #e2e8f0; }
+                      h1 { color: #2563eb; font-size: 1.5rem; margin-top: 0; }
+                      p { font-size: 0.95rem; line-height: 1.5; color: #64748b; }
+                      button { background: #2563eb; color: white; border: none; padding: 0.6rem 1.2rem; border-radius: 0.5rem; font-weight: bold; cursor: pointer; margin-top: 1rem; }
+                      button:hover { background: #1d4ed8; }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="card">
+                      <h1>سامانه پخش عمده آذرخش</h1>
+                      <p>داده‌های محلی مرورگر شما پاک شده است یا آفلاین هستید. برای اتصال مجدد و هماهنگ‌سازی اطلاعات، روی دکمه زیر کلیک کنید.</p>
+                      <button onclick="window.location.reload()">تلاش مجدد و بارگذاری</button>
+                    </div>
+                  </body>
+                  </html>`,
+                  {
+                    status: 200,
+                    headers: { 'Content-Type': 'text/html; charset=utf-8' }
+                  }
+                );
+              });
+            });
+          });
         })
     );
     return;

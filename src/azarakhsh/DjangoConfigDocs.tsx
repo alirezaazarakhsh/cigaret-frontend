@@ -68,9 +68,10 @@ INSTALLED_APPS = [
     'tinymce',                                   # ادیتور متن پیشرفته TinyMCE
     'jalali_date',                               # تاریخ‌های شمسی در پنل مدیریت و API
 
-    # ۱۸ اپلیکیشن اختصاصی سامانه آذرخش
+    # ۱۹ اپلیکیشن اختصاصی سامانه آذرخش
     'accounts.apps.AccountsConfig',
     'roles.apps.RolesConfig',                    # مدیریت نقشها، دسترسیها و پین صندوق
+    'posuser.apps.PosuserConfig',                # مدیریت پرسنل و کارکنان صندوق فروشگاهی (POS Staff)
     'regular_customers.apps.RegularCustomersConfig', # مشتریان معمولی و عمده
     'categories.apps.CategoriesConfig',
     'products.apps.ProductsConfig',
@@ -199,16 +200,74 @@ SPECTACULAR_SETTINGS = {
 }
 
 # --------------------------------------------------------------------------
-# ۷. تنظیمات JWT با انقضای منعطف توکن دسترسی (مثلاً ۱ یا ۲ ساعت)
+# ۷. تنظیمات JWT با انقضای منعطف و پویا (با قابلیت به‌روزرسانی زمان انقضا توسط کاربر/ادمین)
 # --------------------------------------------------------------------------
+# دریافت زمان انقضا به صورت پویا از فایل .env یا دیتابیس (پیش‌فرض ۶۰ دقیقه / ۱ ساعت)
+JWT_ACCESS_MINUTES = int(os.getenv('JWT_ACCESS_TOKEN_LIFETIME_MINUTES', 60))
+
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # انقضای توکن اکسس (بر اساس ترجیح صندوق‌دار مثلاً ۶۰ یا ۱۲۰ دقیقه)
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),       # انقضای ۷ روزه رفرش توکن
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=JWT_ACCESS_MINUTES),   # زمان انقضا به صورت پویا (قابل تنطیم روی ۶۰ یا ۱۲۰ دقیقه)
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),                       # انقضای ۷ روزه رفرش توکن
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'UPDATE_LAST_LOGIN': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
+
+# ==============================================================================
+# راهنمای پیاده‌سازی سریالایزر توکن با قابلیت تغییر پویا زمان انقضا بر اساس انتخاب کاربر (فرانت‌اند صندوق):
+# ==============================================================================
+# شما می‌توانید با اورراید کردن متد get_token یا validate در TokenObtainPairSerializer، مدت زمان
+# اعتبار توکن را مستقیماً بر اساس فیلد ارسالی فرانت‌اند (session_duration به دقیقه) تغییر دهید:
+#
+# # ۱. در فایل serializers.py اپلیکیشن accounts پروژه جنگو:
+#
+# from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+# from datetime import timedelta
+#
+# class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+#     @classmethod
+#     def get_token(cls, user):
+#         token = super().get_token(user)
+#         # افزودن اطلاعات ضروری به توکن JWT
+#         token['phone'] = user.phone
+#         token['role'] = getattr(user, 'role', 'customer')
+#         return token
+#
+#     def validate(self, attrs):
+#         request = self.context.get('request')
+#         session_duration = None
+#         if request and request.data:
+#             session_duration = request.data.get('session_duration')
+#
+#         refresh = self.get_token(self.user)
+#
+#         if session_duration:
+#             try:
+#                 minutes = int(session_duration)
+#                 if 15 <= minutes <= 1440:
+#                     refresh.access_token.set_exp(lifetime=timedelta(minutes=minutes))
+#             except (ValueError, TypeError):
+#                 pass
+#
+#         data = {
+#             'refresh': str(refresh),
+#             'access': str(refresh.access_token),
+#         }
+#         data['phone'] = self.user.phone
+#         data['role'] = getattr(self.user, 'role', 'customer')
+#         if session_duration:
+#             data['session_duration_minutes'] = int(session_duration)
+#
+#         return data
+#
+# # ۲. در فایل views.py اپلیکیشن accounts پروژه جنگو:
+#
+# from rest_framework_simplejwt.views import TokenObtainPairView
+# from .serializers import CustomTokenObtainPairSerializer
+#
+# class CustomTokenObtainPairView(TokenObtainPairView):
+#     serializer_class = CustomTokenObtainPairSerializer
 
 # --------------------------------------------------------------------------
 # ۸. تنظیمات TinyMCE (ادیتور غنی متن)

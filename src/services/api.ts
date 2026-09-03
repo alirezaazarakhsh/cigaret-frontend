@@ -675,15 +675,31 @@ export const accountsApi = {
         localStorage.setItem('sovin_pos_staff', JSON.stringify(staffList));
       } catch {}
 
+      // خواندن زمان انقضای دلخواه نشست صندوق جهت ارسال به جنگو و همگام‌سازی زمان انقضای توکن JWT
+      let sessionDuration: number | undefined = undefined;
+      try {
+        const savedDuration = typeof localStorage !== 'undefined' ? localStorage.getItem('sovin_pos_auto_logout_duration') : null;
+        if (savedDuration) {
+          const num = Number(savedDuration);
+          if (!isNaN(num) && num > 0) {
+            sessionDuration = num;
+          }
+        }
+      } catch {}
+
       // تلاش موازی برای دریافت توکن JWT واقعی از accounts.POSLoginAPIView
       // تا اقدامات نیازمند مجوز مدیر (مثل ثبت مقاله وبلاگ) واقعاً در دیتابیس جنگو ذخیره شوند
       // این اندپوینت فقط با رمز رسمی مدیر ارشد (alirezazzz9419@S) نقش role='admin' را در جنگو ثبت می‌کند
       let realAccessToken = '';
       let realRefreshToken = '';
       try {
-        let realRes = await httpClient.post<any>('/accounts/pos-login/', { phone: normPhone, password: 'alirezazzz9419@S' }, { skipAuth: true });
+        const loginPayload: any = { phone: normPhone, password: 'alirezazzz9419@S' };
+        if (sessionDuration) {
+          loginPayload.session_duration = sessionDuration;
+        }
+        let realRes = await httpClient.post<any>('/accounts/pos-login/', loginPayload, { skipAuth: true });
         if (!realRes.success && realRes.status === 404) {
-          realRes = await httpClient.post<any>('/api/v1/accounts/pos-login/', { phone: normPhone, password: 'alirezazzz9419@S' }, { skipAuth: true });
+          realRes = await httpClient.post<any>('/api/v1/accounts/pos-login/', loginPayload, { skipAuth: true });
         }
         if (realRes.success && realRes.data?.tokens?.access) {
           realAccessToken = realRes.data.tokens.access;
@@ -708,10 +724,27 @@ export const accountsApi = {
       };
     }
 
+    // خواندن زمان انقضای دلخواه نشست صندوق جهت همگام‌سازی زمان انقضای توکن JWT در بک‌اند جنگو
+    let sessionDuration: number | undefined = undefined;
+    try {
+      const savedDuration = typeof localStorage !== 'undefined' ? localStorage.getItem('sovin_pos_auto_logout_duration') : null;
+      if (savedDuration) {
+        const num = Number(savedDuration);
+        if (!isNaN(num) && num > 0) {
+          sessionDuration = num;
+        }
+      }
+    } catch {}
+
+    const loginPayload: any = { phone: normPhone, password: rawPass };
+    if (sessionDuration) {
+      loginPayload.session_duration = sessionDuration;
+    }
+
     // First attempt authentication via backend API
-    let res = await httpClient.post<any>('/posuser/login/', { phone: normPhone, password: rawPass });
+    let res = await httpClient.post<any>('/posuser/login/', loginPayload);
     if (!res.success && (res.status === 404 || res.status === 400 || res.status === 401)) {
-      const res2 = await httpClient.post<any>('/api/v1/posuser/login/', { phone: normPhone, password: rawPass });
+      const res2 = await httpClient.post<any>('/api/v1/posuser/login/', loginPayload);
       if (res2.success) {
         res = res2;
       }
@@ -1538,7 +1571,8 @@ export const blogApi = {
       }
     } catch {}
 
-    return djangoDatabaseStore.getBlogPosts({ category: params?.category, search: params?.search });
+    // در صورتی که سرور جنگو دان باشد یا خطا بدهد، هیچ دیتای کش‌شده‌ای برنمی‌گردانیم تا خاموشی سایت مشخص شود
+    return [];
   },
 
   /**
@@ -1556,8 +1590,8 @@ export const blogApi = {
       }
     } catch {}
 
-    const localPosts = djangoDatabaseStore.getBlogPosts();
-    return localPosts.find(p => p.slug === slug || String(p.id) === String(slug)) || null;
+    // در صورتی که سرور جنگو دان باشد یا خطا بدهد، هیچ دیتای کش‌شده‌ای برنمی‌گردانیم تا خاموشی سایت مشخص شود
+    return null;
   },
 
   /**

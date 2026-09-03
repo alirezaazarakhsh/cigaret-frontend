@@ -1601,6 +1601,41 @@ function isBase64ImageData(value?: string): boolean {
   return !!value && value.startsWith('data:');
 }
 
+function sanitizeReportageUrl(url: any): string {
+  if (!url || typeof url !== 'string') return '';
+  let trimmed = url.trim();
+  if (!trimmed) return '';
+  
+  if (trimmed.startsWith('data:') || trimmed.startsWith('blob:')) {
+    return '';
+  }
+  
+  // If it is a relative path (e.g. /media/...), it is not a valid external URL
+  if (trimmed.startsWith('/')) {
+    return '';
+  }
+
+  // If it has spaces or doesn't have a dot, it is not a valid domain/URL
+  if (trimmed.includes(' ') || !trimmed.includes('.')) {
+    return '';
+  }
+  
+  if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+    trimmed = 'https://' + trimmed;
+  }
+  
+  try {
+    const parsed = new URL(trimmed);
+    if (!parsed.hostname || parsed.hostname.length < 3) {
+      return '';
+    }
+  } catch (e) {
+    return '';
+  }
+  
+  return trimmed.slice(0, 500);
+}
+
 function base64ImageToBlob(dataUrl: string): Blob {
   const [meta, base64Data] = dataUrl.split(',');
   const mimeMatch = /data:(.*?);base64/.exec(meta);
@@ -1727,7 +1762,8 @@ export async function djangoFetchBlogPosts(category?: string, search?: string, c
     console.warn('Django Blog List API error:', err);
   }
 
-  return djangoDatabaseStore.getBlogPosts({ category, search });
+  // در صورتی که سرور دان باشد یا خطا بدهد، برای جلوگیری از نشان دادن اطلاعات کش‌شده قدیمی، آرایه خالی برمی‌گردانیم
+  return [];
 }
 
 /**
@@ -1750,8 +1786,8 @@ export async function djangoFetchBlogPostBySlug(slug: string, config?: DjangoCrm
     console.warn('Django Blog Detail API error:', err);
   }
 
-  const posts = djangoDatabaseStore.getBlogPosts();
-  return posts.find(p => p.slug === slug || String(p.id) === String(slug)) || null;
+  // در صورت خطا یا از دسترس خارج بودن سرور جنگو، کش محلی را برنمی‌گردانیم تا لایو بودن سایت مشخص شود
+  return null;
 }
 
 /**
@@ -1832,7 +1868,7 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
       form.append('focus_keyword', post.focusKeyword || '');
       form.append('is_reportage', String(Boolean(post.isReportage)));
       form.append('reportage_sponsor', post.reportageSponsor || '');
-      form.append('reportage_link', post.reportageLink || '');
+      form.append('reportage_link', sanitizeReportageUrl(post.reportageLink));
       if (categoryPk !== null) form.append('category', String(categoryPk));
       form.append('featured_image', base64ImageToBlob(imageValue), 'featured-image.jpg');
 
@@ -1841,7 +1877,7 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
           const isGif = post.reportageBanner.includes('image/gif');
           form.append('reportage_banner', base64ImageToBlob(post.reportageBanner), isGif ? 'banner.gif' : 'banner.png');
         } else {
-          form.append('reportage_banner_url', post.reportageBanner);
+          form.append('reportage_banner_url', sanitizeReportageUrl(post.reportageBanner));
         }
       }
 
@@ -1874,8 +1910,8 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
         is_published: post.isPublished !== undefined ? post.isPublished : true,
         is_reportage: Boolean(post.isReportage),
         reportage_sponsor: post.reportageSponsor || '',
-        reportage_banner_url: post.reportageBanner || '',
-        reportage_link: post.reportageLink || '',
+        reportage_banner_url: sanitizeReportageUrl(post.reportageBanner),
+        reportage_link: sanitizeReportageUrl(post.reportageLink),
         key_takeaways: post.keyTakeaways || [],
         tags: post.tags || [],
         faqs: post.faqs || [],
@@ -2048,9 +2084,18 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
       form.append('focus_keyword', savedPost.focusKeyword || '');
       form.append('is_reportage', String(Boolean(savedPost.isReportage)));
       form.append('reportage_sponsor', savedPost.reportageSponsor || '');
-      form.append('reportage_link', savedPost.reportageLink || '');
+      form.append('reportage_link', sanitizeReportageUrl(savedPost.reportageLink));
       if (categoryPk !== null) form.append('category', String(categoryPk));
       form.append('featured_image', base64ImageToBlob(imageValue), 'featured-image.jpg');
+
+      if (savedPost.reportageBanner) {
+        if (isBase64ImageData(savedPost.reportageBanner)) {
+          const isGif = savedPost.reportageBanner.includes('image/gif');
+          form.append('reportage_banner', base64ImageToBlob(savedPost.reportageBanner), isGif ? 'banner.gif' : 'banner.png');
+        } else {
+          form.append('reportage_banner_url', sanitizeReportageUrl(savedPost.reportageBanner));
+        }
+      }
 
       res = await fetch(`${baseUrl}/blog/admin/${id}/`, {
         method: 'PUT',
@@ -2103,8 +2148,8 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
         is_published: savedPost.isPublished,
         is_reportage: Boolean(savedPost.isReportage),
         reportage_sponsor: savedPost.reportageSponsor || '',
-        reportage_banner_url: savedPost.reportageBanner || '',
-        reportage_link: savedPost.reportageLink || '',
+        reportage_banner_url: sanitizeReportageUrl(savedPost.reportageBanner),
+        reportage_link: sanitizeReportageUrl(savedPost.reportageLink),
         key_takeaways: savedPost.keyTakeaways || [],
         tags: savedPost.tags || [],
         faqs: savedPost.faqs || [],
@@ -2222,7 +2267,8 @@ export async function djangoFetchBlogCategories(config?: DjangoCrmConfig): Promi
     console.warn('Django Blog Categories API error:', e);
   }
 
-  return djangoDatabaseStore.getBlogCategories();
+  // در صورت خارج شدن جنگو از دسترس، آرایه خالی به جای اطلاعات کش‌شده قدیمی بازمی‌گردانیم
+  return [];
 }
 
 /**
