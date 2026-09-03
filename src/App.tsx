@@ -754,60 +754,6 @@ export default function App() {
     );
   }
 
-  if (isServerOffline) {
-    return (
-      <div className="min-h-screen bg-slate-950 text-white flex flex-col items-center justify-center p-4 selection:bg-amber-600 selection:text-white relative overflow-hidden" dir="rtl">
-        {/* Decorative Grid Patterns */}
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-40 pointer-events-none" />
-        
-        <div className="max-w-md w-full bg-slate-900/90 backdrop-blur-2xl border border-slate-800/80 rounded-[32px] p-6 sm:p-8 shadow-2xl flex flex-col items-center text-center space-y-6 animate-in fade-in zoom-in-95 duration-300 relative z-10">
-          
-          {/* Animated luxury visual indicator */}
-          <div className="relative">
-            <div className="w-20 h-20 rounded-3xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-500 animate-pulse">
-              <Server className="w-10 h-10" />
-            </div>
-            <div className="absolute -bottom-1 -left-1 w-8 h-8 rounded-2xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-500 shadow-lg">
-              <WifiOff className="w-4 h-4" />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <h1 className="text-xl sm:text-2xl font-black text-slate-100 tracking-tight">
-              وب سایت دخانیات سرور در دسترس نیست
-            </h1>
-            <p className="text-xs sm:text-sm text-slate-400 font-bold tracking-wide">
-              اتصال با بک‌اند برقرار نشد
-            </p>
-          </div>
-
-          <div className="p-4 sm:p-5 rounded-2xl bg-slate-950/80 border border-slate-800 text-[11px] sm:text-xs text-slate-300 leading-relaxed font-semibold text-right space-y-2">
-            <p className="text-slate-400">
-              ارتباط با سرویس مرکزی برقرار نمی‌باشد. به منظور جلوگیری از بروز هرگونه خطا یا نمایش اطلاعات نامعتبر، دسترسی به پنل کاربری و بخش‌های سایت تا زمان برقراری ارتباط مجدد غیرفعال شده است.
-            </p>
-            <p className="text-amber-400/95 flex items-center gap-1.5 justify-center pt-2 border-t border-slate-800/60 font-black">
-              <AlertCircle className="w-4 h-4 text-amber-500" />
-              <span>پاسخگویی وب‌سرویس با خطا مواجه شد</span>
-            </p>
-          </div>
-
-          <div className="flex flex-col w-full gap-2.5">
-            <button
-              type="button"
-              onClick={checkConnectionToDjango}
-              disabled={isCheckingConnection}
-              className="w-full py-4 bg-amber-600 hover:bg-amber-500 active:scale-[0.98] disabled:opacity-50 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-2 transition-all cursor-pointer shadow-lg shadow-amber-900/10"
-            >
-              <RefreshCw className={`w-4 h-4 ${isCheckingConnection ? 'animate-spin' : ''}`} />
-              <span>{isCheckingConnection ? 'در حال تست مجدد کانکشن...' : 'تلاش مجدد برای اتصال به سرور'}</span>
-            </button>
-          </div>
-
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-blue-600 selection:text-white transition-colors duration-200">
       
@@ -845,7 +791,7 @@ export default function App() {
       <main className="flex-1 w-full mx-auto px-3 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-6">
         
         {/* Django Server Offline Graceful Alert Banner */}
-        {isServerOffline && !dismissedOfflineWarning && (
+        {isServerOffline && !dismissedOfflineWarning && window.location.hostname !== 'localhost' && !window.location.hostname.includes('ais') && (
           <div className="bg-amber-50/90 border border-amber-200 rounded-3xl p-4 sm:p-5 flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 animate-in fade-in duration-200" dir="rtl">
             <div className="flex items-start gap-3.5 min-w-0">
               <div className="w-10 h-10 rounded-2xl bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 mt-0.5">
@@ -853,13 +799,10 @@ export default function App() {
               </div>
               <div className="space-y-1 min-w-0">
                 <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2">
-                  <span>عدم دسترسی به سرور مرکزی جنگو (Django)</span>
-                  <span className="px-2 py-0.5 rounded-full bg-amber-200 text-amber-800 text-[9px] font-bold border border-amber-300">
-                    حالت آفلاین محلی (Sandbox)
-                  </span>
+                  <span>عدم دسترسی به سرور مرکزی</span>
                 </h4>
                 <p className="text-[11px] sm:text-xs text-slate-700 leading-relaxed font-medium">
-                  سیستم به دلیل عدم پاسخگویی پایگاه‌داده یا سرور بک‌اند، به طور خودکار به حالت شبیه‌ساز محلی انتقال یافته است تا هیچ‌گونه خللی در صدور فاکتور، کنترل انبار و سبد خرید ایجاد نشود. داده‌های شما در مرورگر ذخیره شده و به محض بالا آمدن سرور قابل همگام‌سازی خواهند بود.
+                  سیستم در حال تلاش برای اتصال به سرور مرکزی است. لطفاً منتظر بمانید...
                 </p>
               </div>
             </div>
@@ -873,13 +816,6 @@ export default function App() {
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${isCheckingConnection ? 'animate-spin' : ''}`} />
                 <span>تلاش مجدد</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsBackendModalOpen(true)}
-                className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 rounded-xl text-[11px] font-black transition-colors cursor-pointer"
-              >
-                تنظیمات آدرس IP / سرور
               </button>
               <button
                 type="button"
