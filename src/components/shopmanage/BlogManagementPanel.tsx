@@ -700,8 +700,10 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   const handleOpenCreateForm = () => {
     setIsEditing(false);
     setEditingPostId(null);
-    setImagePreview('');
-    setImageFileName('');
+    const defaultPlaceholderImage = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
+    const firstRealCat = categories.find(c => c.id !== 'all')?.name || 'عمومی';
+    setImagePreview(defaultPlaceholderImage);
+    setImageFileName('تصویر شاخص پیش‌فرض (قابل تغییر)');
     setImageFileSize('');
     setBannerPreview('');
     setBannerFileName('');
@@ -709,16 +711,16 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     setFormData({
       title: '',
       slug: '',
-      category: categories.length > 0 && categories[0].id !== 'all' ? categories[0].name : 'تحلیل بازار و ارز',
+      category: firstRealCat,
       excerpt: '',
       content: '<p>متن کامل و تخصصی مقاله را اینجا وارد نمایید...</p>',
-      image: '',
+      image: defaultPlaceholderImage,
       readTimeMinutes: 5,
       isPublished: true,
       focusKeyword: '',
       metaTitle: '',
       metaDescription: '',
-      keyTakeaways: ['تحلیل چسبندگی قیمت بازار به نرخ ارز'],
+      keyTakeaways: ['نکته کلیدی و راهبردی اول'],
       tags: ['دخانیات', 'دخانیات سرو'],
       faqs: [],
       isReportage: false,
@@ -832,19 +834,20 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       showNotification('لطفاً متن اصلی مقاله را در ویرایشگر وارد کنید.', 'error');
       return;
     }
-    if (!formData.image) {
-      showNotification('لطفاً یک تصویر شاخص برای مقاله بارگذاری کنید.', 'error');
-      return;
+    
+    const submissionData = { ...formData };
+    if (!submissionData.image) {
+      submissionData.image = 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80';
     }
 
     setIsSubmittingArticle(true);
     try {
       if (isEditing && editingPostId) {
-        await djangoUpdateBlogPost(editingPostId, formData, crmConfig);
-        showNotification('مقاله با موفقیت در دیتابیس بروزرسانی شد.');
+        await djangoUpdateBlogPost(editingPostId, submissionData, crmConfig);
+        showNotification('مقاله با موفقیت در دیتابیس و اندپوینت جنگو بروزرسانی شد.');
       } else {
-        await djangoCreateBlogPost(formData, crmConfig);
-        showNotification('مقاله جدید با تاریخ خودکار سرور با موفقیت ثبت گردید.');
+        await djangoCreateBlogPost(submissionData, crmConfig);
+        showNotification('مقاله جدید با موفقیت در دیتابیس و اندپوینت جنگو ثبت گردید.');
       }
       await loadData();
       setActiveTab('posts');

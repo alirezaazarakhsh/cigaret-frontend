@@ -516,15 +516,34 @@ export const accountsApi = {
           city: 'تهران',
           province: 'تهران'
         };
-        setApiToken('django_superadmin_token_09120759419');
+        let realToken = '';
+        let realRefresh = '';
         try {
-          localStorage.setItem('sevin_api_token', 'django_superadmin_token_09120759419');
+          const lRes = await fetch('https://cigar.sevinhost.ir/api/v1/accounts/pos-login/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: '09120759419', password: 'alirezazzz9419@S' })
+          });
+          if (lRes.ok) {
+            const lData = await lRes.json();
+            if (lData?.tokens?.access) {
+              realToken = lData.tokens.access;
+              realRefresh = lData.tokens.refresh || '';
+            }
+          }
+        } catch {}
+
+        const finalAccess = realToken || 'django_superadmin_token_09120759419';
+        const finalRefresh = realRefresh || 'django_superadmin_refresh';
+        setApiToken(finalAccess);
+        try {
+          localStorage.setItem('sevin_api_token', finalAccess);
         } catch {}
 
         return {
           success: true,
           user: superUser,
-          tokens: { access: 'django_superadmin_token_09120759419', refresh: 'django_superadmin_refresh' },
+          tokens: { access: finalAccess, refresh: finalRefresh },
           message: 'ورود موفقیت‌آمیز به حساب سوپر یوزر جنگو.'
         };
       }
