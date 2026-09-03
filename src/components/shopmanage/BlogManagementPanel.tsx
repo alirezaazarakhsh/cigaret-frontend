@@ -48,7 +48,8 @@ import {
   djangoDeleteBlogPost,
   djangoFetchBlogCategories,
   djangoCreateBlogCategory,
-  djangoDeleteBlogCategory
+  djangoDeleteBlogCategory,
+  djangoDatabaseStore
 } from '../../services/djangoApi';
 import { formatNumberFa } from '../../utils/formatters';
 import { TinyMceEditor } from '../common/TinyMceEditor';
@@ -557,6 +558,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   const [isSubmittingCategory, setIsSubmittingCategory] = useState<boolean>(false);
   const [isSubmittingArticle, setIsSubmittingArticle] = useState<boolean>(false);
   const [isSyncingCategories, setIsSyncingCategories] = useState<boolean>(false);
+  const [isSyncingLocalPosts, setIsSyncingLocalPosts] = useState<boolean>(false);
 
   // Yoast SEO State
   const [seoSnippetTab, setSeoSnippetTab] = useState<'desktop' | 'mobile'>('desktop');
@@ -609,6 +611,44 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     } finally {
       setIsSyncingCategories(false);
     }
+  };
+
+  const handleSyncLocalPosts = async () => {
+    const unsynced = posts.filter(post => String(post.id).startsWith('post_'));
+    if (unsynced.length === 0) {
+      showNotification('هیچ مقاله محلی برای همگام‌سازی یافت نشد.', 'error');
+      return;
+    }
+
+    setIsSyncingLocalPosts(true);
+    let successCount = 0;
+    let failedCount = 0;
+    let lastError = '';
+
+    for (const post of unsynced) {
+      try {
+        const { id, ...cleanData } = post;
+        await djangoCreateBlogPost(cleanData, crmConfig);
+        // Remove from local store on success to prevent duplication
+        djangoDatabaseStore.deleteBlogPost(String(id));
+        successCount++;
+      } catch (err: any) {
+        failedCount++;
+        lastError = err instanceof Error ? err.message : String(err);
+        console.error(`Failed to sync post with local id ${post.id}:`, err);
+      }
+    }
+
+    setIsSyncingLocalPosts(false);
+    
+    if (successCount > 0) {
+      showNotification(`تعداد ${formatNumberFa(successCount)} مقاله با موفقیت به دیتابیس جنگو منتقل و همگام‌سازی شد.`);
+    }
+    if (failedCount > 0) {
+      showNotification(`همگام‌سازی ${formatNumberFa(failedCount)} مقاله با خطا مواجه شد: ${lastError}`, 'error');
+    }
+    
+    await loadData();
   };
 
   // Image File Handling
@@ -852,7 +892,10 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       await loadData();
       setActiveTab('posts');
     } catch (err) {
-      showNotification(err instanceof Error ? err.message : 'خطا در ثبت اطلاعات در سرور.', 'error');
+      console.warn('API sync failed but post is preserved locally:', err);
+      showNotification('مقاله به‌صورت محلی (Local) ذخیره شد، اما ثبت در سرور با خطا مواجه گردید. لطفاً از دکمه همگام‌سازی استفاده کنید.', 'error');
+      await loadData();
+      setActiveTab('posts');
     } finally {
       setIsSubmittingArticle(false);
     }
@@ -1128,6 +1171,42 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
               </div>
             </div>
 
+            {/* LOCAL ARTICLES SYNC WARNING & ACTION BANNER */}
+            {(() => {
+              const unsyncedPosts = posts.filter(p => String(p.id).startsWith('post_'));
+              if (unsyncedPosts.length === 0) return null;
+              return (
+                <div className="bg-amber-50 border-2 border-amber-200/80 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-sm">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-6 h-6 animate-pulse" />
+                    </div>
+                    <div className="space-y-1">
+                      <h4 className="font-black text-slate-900 text-sm">
+                        یافتن {formatNumberFa(unsyncedPosts.length)} مقاله ذخیره شده در حافظه محلی
+                      </h4>
+                      <p className="text-xs text-slate-600 leading-relaxed font-bold max-w-2xl">
+                        این مقالات فقط در حافظه لوکال مرورگر شما ذخیره شده‌اند و هنوز به دیتابیس جنگو منتقل نگردیده‌اند. برای جلوگیری از پاک شدن ناگهانی و همچنین انتشار رسمی آنها، لطفاً دکمه زیر را جهت همگام‌سازی و انتقال به دیتابیس کلیک کنید.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isSyncingLocalPosts}
+                    onClick={handleSyncLocalPosts}
+                    className="w-full md:w-auto px-5 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white text-xs font-black transition-all flex items-center justify-center gap-2 hover:shadow-md hover:shadow-amber-600/10 active:scale-[0.98] shrink-0"
+                  >
+                    {isSyncingLocalPosts ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <UploadCloud className="w-4 h-4" />
+                    )}
+                    <span>{isSyncingLocalPosts ? 'در حال انتقال و همگام‌سازی...' : 'همگام‌سازی و ذخیره در دیتابیس جنگو'}</span>
+                  </button>
+                </div>
+              );
+            })()}
+
             {/* FILTER & SEARCH TOOLBAR */}
             <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
               
@@ -1318,7 +1397,12 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
 
                             {/* Status */}
                             <td className="p-4">
-                              {post.isPublished ? (
+                              {String(post.id).startsWith('post_') ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-700 border border-amber-200/60 animate-pulse">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                  ذخیره محلی (منتظر همگام‌سازی)
+                                </span>
+                              ) : post.isPublished ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-100 text-emerald-800 border border-emerald-200">
                                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
                                   منتشر شده
@@ -1338,6 +1422,31 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                             {/* Actions */}
                             <td className="p-4">
                               <div className="flex items-center justify-center gap-1.5">
+                                {String(post.id).startsWith('post_') && (
+                                  <button
+                                    type="button"
+                                    disabled={isSyncingLocalPosts}
+                                    onClick={async () => {
+                                      setIsSyncingLocalPosts(true);
+                                      try {
+                                        const { id, ...cleanData } = post;
+                                        await djangoCreateBlogPost(cleanData, crmConfig);
+                                        djangoDatabaseStore.deleteBlogPost(String(id));
+                                        showNotification('مقاله با موفقیت به دیتابیس جنگو منتقل و همگام‌سازی شد.');
+                                        await loadData();
+                                      } catch (err: any) {
+                                        showNotification(`خطا در همگام‌سازی: ${err instanceof Error ? err.message : err}`, 'error');
+                                      } finally {
+                                        setIsSyncingLocalPosts(false);
+                                      }
+                                    }}
+                                    className="p-1.5 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-700 hover:text-amber-800 border border-amber-200 transition-colors flex items-center justify-center shrink-0"
+                                    title="همگام‌سازی تکی با دیتابیس"
+                                  >
+                                    <UploadCloud className="w-4 h-4" />
+                                  </button>
+                                )}
+
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1453,6 +1562,31 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                           </div>
 
                           <div className="flex items-center gap-1.5">
+                            {String(post.id).startsWith('post_') && (
+                              <button
+                                type="button"
+                                disabled={isSyncingLocalPosts}
+                                onClick={async () => {
+                                  setIsSyncingLocalPosts(true);
+                                  try {
+                                    const { id, ...cleanData } = post;
+                                    await djangoCreateBlogPost(cleanData, crmConfig);
+                                    djangoDatabaseStore.deleteBlogPost(String(id));
+                                    showNotification('مقاله با موفقیت به دیتابیس جنگو منتقل و همگام‌سازی شد.');
+                                    await loadData();
+                                  } catch (err: any) {
+                                    showNotification(`خطا در همگام‌سازی: ${err instanceof Error ? err.message : err}`, 'error');
+                                  } finally {
+                                    setIsSyncingLocalPosts(false);
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-bold flex items-center gap-1 shrink-0"
+                              >
+                                <UploadCloud className="w-3.5 h-3.5" />
+                                <span>انتقال به دیتابیس</span>
+                              </button>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => {
