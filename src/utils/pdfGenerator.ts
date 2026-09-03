@@ -87,7 +87,7 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
               <tr>
                 <td style="text-align: right; vertical-align: middle; padding-bottom: 8px;">
                   <div style="font-size: 16px; font-weight: 900; color: #1e3a8a; margin-bottom: 3px;">
-                    🏢 سامانه پخش عمده دخانیات ${config.companyName} | لیست رسمی نرخ روز
+                    🏢 سامانه پخش عمده دخانیات سرو | لیست رسمی نرخ روز
                   </div>
                   <div style="font-size: 10px; color: #2563eb; font-weight: bold;">
                     مرکز پخش کارتن و باکس سیگارهای وارداتی و شرکتی | انبار مرکزی تهران

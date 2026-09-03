@@ -397,3 +397,149 @@ INSTALLED_APPS = [
 python manage.py makemigrations posuser
 python manage.py migrate
 ```
+
+---
+
+# مستندات و کدهای بک‌اند جنگو برای اپلیکیشن `blog` (مدیریت مقالات، ریپورتاژ آگهی و سوالات متداول JSON)
+
+این بخش شامل ساختار مدل، سریالایزر، ادمین و ویوهای جنگو برای مدیریت مقالات وبلاگ، ریپورتاژهای آگهی درون‌مقاله‌ای و سوالات متداول به صورت فیلد JSON (بدون آیکون) است.
+
+### ۱. فایل `blog/models.py`
+```python
+from django.db import models
+
+class BlogPost(models.Model):
+    title = models.CharField(max_length=200, verbose_name='عنوان مقاله')
+    slug = models.SlugField(max_length=250, unique=True, verbose_name='اسلاگ (URL)')
+    excerpt = models.TextField(verbose_name='خلاصه مقاله')
+    content = models.TextField(verbose_name='متن کامل مقاله')
+    meta_description = models.CharField(max_length=300, blank=True, null=True, verbose_name='توضیحات متا سئو')
+    image = models.ImageField(upload_to='blog/images/', blank=True, null=True, verbose_name='تصویر شاخص')
+    category = models.CharField(max_length=100, default='news', verbose_name='دسته بندی')
+    
+    # سوالات متداول به صورت JSON (شامل آرایه ای از اجزای سوال و جواب، بدون آیکون)
+    # مثال: [{"question": "سوال اول؟", "answer": "پاسخ اول..."}, ...]
+    faqs = models.JSONField(default=list, blank=True, verbose_name='سوالات متداول (JSON)')
+
+    # فیلدهای ریپورتاژ آگهی (Sponsored Reportage Ad)
+    is_reportage = models.BooleanField(default=False, verbose_name='آیا این پست ریپورتاژ آگهی است؟')
+    reportage_title = models.CharField(max_length=200, blank=True, null=True, verbose_name='عنوان آگهی / ریپورتاژ')
+    reportage_content = models.TextField(blank=True, null=True, verbose_name='متن ریپورتاژ آگهی')
+    reportage_button_text = models.CharField(max_length=50, blank=True, null=True, verbose_name='متن دکمه اقدام (CTA)')
+    reportage_button_link = models.CharField(max_length=255, blank=True, null=True, verbose_name='لینک دکمه اقدام')
+    reportage_image = models.ImageField(upload_to='blog/reportage/', blank=True, null=True, verbose_name='بنر ریپورتاژ آگهی')
+    reportage_badge = models.CharField(max_length=50, default='رپرتاژ آگهی', verbose_name='برچسب آگهی')
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='تاریخ ایجاد')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='تاریخ بروزرسانی')
+
+    class Meta:
+        verbose_name = 'مقاله و ریپورتاژ'
+        verbose_name_plural = 'مدیریت مقالات و ریپورتاژها'
+
+    def __str__(self):
+        return f"{'[ریپورتاژ] ' if self.is_reportage else ''}{self.title}"
+```
+
+### ۲. فایل `blog/admin.py`
+در پنل ادمین جنگو، سوالات متداول به‌صورت یک ویجت JSONField تمیز مدیریت می‌شوند و نیازی به اینلاین‌های پیچیده نیست.
+```python
+from django.contrib import admin
+from .models import BlogPost
+
+@admin.register(BlogPost)
+class BlogPostAdmin(admin.ModelAdmin):
+    list_display = ('title', 'category', 'is_reportage', 'created_at')
+    list_filter = ('category', 'is_reportage', 'created_at')
+    search_fields = ('title', 'excerpt', 'content')
+    prepopulated_fields = {'slug': ('title',)}
+    
+    fieldsets = (
+        ('اطلاعات اصلی مقاله', {
+            'fields': ('title', 'slug', 'category', 'image', 'excerpt', 'content', 'meta_description')
+        }),
+        ('سوالات متداول (JSON)', {
+            'fields': ('faqs',),
+            'description': 'سوالات متداول را به صورت فرمت JSON وارد کنید. نمونه: [{"question": "...", "answer": "..."}]'
+        }),
+        ('تنظیمات ریپورتاژ آگهی (Sponsored Ad)', {
+            'fields': (
+                'is_reportage', 'reportage_title', 'reportage_content', 
+                'reportage_button_text', 'reportage_button_link', 'reportage_image', 'reportage_badge'
+            ),
+            'classes': ('collapse',)
+        }),
+    )
+```
+
+### ۳. فایل `blog/serializers.py`
+```python
+from rest_framework import serializers
+from .models import BlogPost
+
+class BlogPostSerializer(serializers.ModelSerializer):
+    imageUrl = serializers.SerializerMethodField()
+    reportageImageUrl = serializers.SerializerMethodField()
+
+    class Meta:
+        model = BlogPost
+        fields = [
+            'id', 'title', 'slug', 'excerpt', 'content', 'meta_description',
+            'imageUrl', 'category', 'faqs', 'is_reportage',
+            'reportage_title', 'reportage_content', 'reportage_button_text',
+            'reportage_button_link', 'reportageImageUrl', 'reportage_badge',
+            'created_at', 'updated_at'
+        ]
+
+    def get_imageUrl(self, obj):
+        if obj.image and hasattr(obj.image, 'url'):
+            return obj.image.url
+        return "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80"
+
+    def get_reportageImageUrl(self, obj):
+        if obj.reportage_image and hasattr(obj.reportage_image, 'url'):
+            return obj.reportage_image.url
+        return None
+```
+
+### ۴. فایل `blog/views.py` و `blog/urls.py`
+```python
+# blog/views.py
+from rest_framework import generics
+from rest_framework.permissions import AllowAny
+from .models import BlogPost
+from .serializers import BlogPostSerializer
+
+class BlogPostListView(generics.ListAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = BlogPostSerializer
+
+    def get_queryset(self):
+        queryset = BlogPost.objects.all().order_by('-created_at')
+        category = self.request.query_params.get('category')
+        search = self.request.query_params.get('search')
+        
+        if category and category != 'all':
+            queryset = queryset.filter(category=category)
+        if search:
+            queryset = queryset.filter(models.Q(title__icontains=search) | models.Q(content__icontains=search))
+        return queryset
+
+class BlogPostDetailView(generics.RetrieveAPIView):
+    permission_classes = [AllowAny]
+    queryset = BlogPost.objects.all()
+    serializer_class = BlogPostSerializer
+    lookup_field = 'slug'
+```
+
+```python
+# blog/urls.py
+from django.urls import path
+from .views import BlogPostListView, BlogPostDetailView
+
+urlpatterns = [
+    path('posts/', BlogPostListView.as_view(), name='blog-posts-list'),
+    path('posts/<slug:slug>/', BlogPostDetailView.as_view(), name='blog-post-detail'),
+]
+```
+

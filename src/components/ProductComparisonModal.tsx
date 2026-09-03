@@ -49,6 +49,18 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
               <p className="text-sm font-bold text-slate-600">هیچ محصولی برای مقایسه انتخاب نشده است.</p>
               <p className="text-xs text-slate-400">از کارت محصولات در کاتالوگ گزینه «مقایسه» را انتخاب کنید.</p>
             </div>
+          ) : selectedProducts.length === 1 ? (
+            <div className="text-center py-16 space-y-4 max-w-md mx-auto">
+              <div className="w-16 h-16 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mx-auto text-xl font-black border border-amber-200">
+                VS
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-black text-slate-800">نیاز به انتخاب حداقل ۲ محصول</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  برای مشاهده جدول مقایسه، لطفاً حداقل دو محصول را انتخاب کنید (در حال حاضر ۱ محصول انتخاب شده است). از کاتالوگ محصولات یک محصول دیگر را برای مقایسه انتخاب کنید.
+                </p>
+              </div>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-right">

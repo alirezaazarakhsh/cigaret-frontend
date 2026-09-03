@@ -3,7 +3,7 @@ import { CigaretteProduct, DjangoCrmConfig, CigaretteCategory, BlogPost, BlogCat
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { BLOG_POSTS } from '../data/blogPosts';
 import { notificationsApi } from './api';
-import { getApiBaseUrl, getApiToken } from './apiConfig';
+import { getApiBaseUrl, getApiToken, getWebAppBaseUrl } from './apiConfig';
 
 /**
  * Standard timeout parameter for Django REST API Axios requests (15 seconds = 15000ms).
@@ -249,7 +249,7 @@ class DjangoDatabaseStore {
       title: post.title || (existing ? existing.title : 'بدون عنوان'),
       metaTitle: (post.metaTitle && post.metaTitle.trim()) ? post.metaTitle : (existing?.metaTitle || post.title || 'مقاله وبلاگ دخانیات سرو'),
       metaDescription: (post.metaDescription && post.metaDescription.trim()) ? post.metaDescription : (existing?.metaDescription || post.excerpt || ''),
-      canonicalUrl: post.canonicalUrl || existing?.canonicalUrl || `https://sevin-tobacco.ir/blog/${post.slug || 'post'}`,
+      canonicalUrl: post.canonicalUrl || existing?.canonicalUrl || `${getWebAppBaseUrl()}/blog/${post.slug || 'post'}`,
       keywords: (post.keywords && post.keywords.length > 0) ? post.keywords : (existing?.keywords || ['دخانیات سرو', 'دخانیات', 'عمده فروشی']),
       category: post.category || existing?.category || 'تحلیل بازار و ارز',
       categorySlug: post.categorySlug || existing?.categorySlug || 'market-analysis',
@@ -268,7 +268,11 @@ class DjangoDatabaseStore {
       tags: (post.tags && post.tags.length > 0) ? post.tags : (existing?.tags || ['دخانیات سرو', 'مقالات']),
       viewsCount: post.viewsCount !== undefined ? post.viewsCount : (existing?.viewsCount || 1),
       isPublished: post.isPublished !== undefined ? post.isPublished : (existing?.isPublished !== undefined ? existing.isPublished : true),
-      focusKeyword: post.focusKeyword || existing?.focusKeyword || ''
+      focusKeyword: post.focusKeyword || existing?.focusKeyword || '',
+      isReportage: post.isReportage !== undefined ? post.isReportage : (existing?.isReportage || false),
+      reportageSponsor: post.reportageSponsor || existing?.reportageSponsor || '',
+      reportageBanner: post.reportageBanner || existing?.reportageBanner || '',
+      reportageLink: post.reportageLink || existing?.reportageLink || ''
     };
 
     if (existingIdx >= 0) {
@@ -1598,7 +1602,7 @@ function mapDjangoBlogPost(item: any, config?: DjangoCrmConfig): BlogPost {
     title: item.title || '',
     metaTitle: item.meta_title || item.metaTitle || item.title || '',
     metaDescription: item.meta_description || item.metaDescription || item.excerpt || '',
-    canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
+    canonicalUrl: item.canonical_url || `${getWebAppBaseUrl()}/blog/${item.slug}`,
     keywords: tags.length ? tags : ['دخانیات سرو', 'دخانیات'],
     category: item.category_name || (typeof item.category === 'object' && item.category?.name ? item.category.name : 'عمومی'),
     categorySlug: typeof item.category === 'number' ? String(item.category) : (typeof item.category === 'object' ? item.category?.slug : undefined),
@@ -1617,7 +1621,13 @@ function mapDjangoBlogPost(item: any, config?: DjangoCrmConfig): BlogPost {
     faqs,
     viewsCount: Number(item.views_count ?? 0),
     isPublished: item.is_published !== undefined ? Boolean(item.is_published) : true,
-    focusKeyword: item.focus_keyword || item.focusKeyword || ''
+    focusKeyword: item.focus_keyword || item.focusKeyword || '',
+    isReportage: Boolean(item.is_reportage ?? item.isReportage ?? false),
+    reportageSponsor: item.reportage_sponsor || item.reportageSponsor || '',
+    reportageBanner: (item.reportage_banner && typeof item.reportage_banner === 'string' && item.reportage_banner.startsWith('/') && !item.reportage_banner.startsWith('//'))
+      ? `${backendOrigin}${item.reportage_banner}`
+      : (item.reportage_banner || item.reportageBanner || ''),
+    reportageLink: item.reportage_link || item.reportageLink || ''
   };
 }
 
@@ -1724,6 +1734,17 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
       form.append('meta_title', post.metaTitle || postTitle);
       form.append('meta_description', post.metaDescription || postExcerpt);
       form.append('focus_keyword', post.focusKeyword || '');
+      form.append('is_reportage', String(Boolean(post.isReportage)));
+      form.append('reportage_sponsor', post.reportageSponsor || '');
+      form.append('reportage_link', post.reportageLink || '');
+      if (post.reportageBanner) {
+        if (isBase64ImageData(post.reportageBanner)) {
+          const isGif = post.reportageBanner.includes('image/gif');
+          form.append('reportage_banner', base64ImageToBlob(post.reportageBanner), isGif ? 'banner.gif' : 'banner.png');
+        } else {
+          form.append('reportage_banner_url', post.reportageBanner);
+        }
+      }
       if (categoryPk !== null) form.append('category', String(categoryPk));
       form.append('featured_image', base64ImageToBlob(imageValue), 'featured-image.jpg');
 
@@ -1743,6 +1764,10 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
         featured_image_url: imageValue.slice(0, 500),
         reading_time_minutes: post.readTimeMinutes || 5,
         is_published: post.isPublished !== undefined ? post.isPublished : true,
+        is_reportage: Boolean(post.isReportage),
+        reportage_sponsor: post.reportageSponsor || '',
+        reportage_banner: post.reportageBanner || '',
+        reportage_link: post.reportageLink || '',
         key_takeaways: post.keyTakeaways || [],
         tags: post.tags || [],
         faqs: post.faqs || [],
@@ -1817,6 +1842,17 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
       form.append('meta_title', savedPost.metaTitle || savedPost.title);
       form.append('meta_description', savedPost.metaDescription || postExcerpt);
       form.append('focus_keyword', savedPost.focusKeyword || '');
+      form.append('is_reportage', String(Boolean(savedPost.isReportage)));
+      form.append('reportage_sponsor', savedPost.reportageSponsor || '');
+      form.append('reportage_link', savedPost.reportageLink || '');
+      if (savedPost.reportageBanner) {
+        if (isBase64ImageData(savedPost.reportageBanner)) {
+          const isGif = savedPost.reportageBanner.includes('image/gif');
+          form.append('reportage_banner', base64ImageToBlob(savedPost.reportageBanner), isGif ? 'banner.gif' : 'banner.png');
+        } else {
+          form.append('reportage_banner_url', savedPost.reportageBanner);
+        }
+      }
       if (categoryPk !== null) form.append('category', String(categoryPk));
       form.append('featured_image', base64ImageToBlob(imageValue), 'featured-image.jpg');
 
@@ -1844,6 +1880,10 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
         featured_image_url: imageValue.slice(0, 500),
         reading_time_minutes: savedPost.readTimeMinutes,
         is_published: savedPost.isPublished,
+        is_reportage: Boolean(savedPost.isReportage),
+        reportage_sponsor: savedPost.reportageSponsor || '',
+        reportage_banner: savedPost.reportageBanner || '',
+        reportage_link: savedPost.reportageLink || '',
         key_takeaways: savedPost.keyTakeaways || [],
         tags: savedPost.tags || [],
         faqs: savedPost.faqs || [],

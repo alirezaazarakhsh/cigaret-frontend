@@ -598,6 +598,10 @@ export interface BlogPost {
   viewsCount?: number;
   isPublished?: boolean;
   focusKeyword?: string;
+  isReportage?: boolean;
+  reportageSponsor?: string;
+  reportageBanner?: string;
+  reportageLink?: string;
 }
 
 export interface NotificationItem {

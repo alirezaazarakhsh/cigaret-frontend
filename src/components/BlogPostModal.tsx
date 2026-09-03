@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { BlogPost } from '../types';
 import { formatNumberFa } from '../utils/formatters';
+import { getWebAppBaseUrl } from '../services/apiConfig';
 
 interface BlogPostModalProps {
   post: BlogPost | null;
@@ -61,7 +62,7 @@ export const BlogPostModal: React.FC<BlogPostModalProps> = ({
           "name": "سامانه پخش عمده دخانیات دخانیات سرو",
           "logo": {
             "@type": "ImageObject",
-            "url": "https://sevin-tobacco.ir/logo.png"
+            "url": `${getWebAppBaseUrl()}/logo.png`
           }
         },
         "keywords": post.keywords.join(', ')

@@ -52,6 +52,7 @@ import {
 } from '../../services/djangoApi';
 import { formatNumberFa } from '../../utils/formatters';
 import { TinyMceEditor } from '../common/TinyMceEditor';
+import { getFrontendDomain, getWebAppBaseUrl } from '../../services/apiConfig';
 
 export interface SeoCheckItem {
   id: string;
@@ -479,6 +480,22 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   // Editor Form State
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editingPostId, setEditingPostId] = useState<string | null>(null);
+
+  // Dynamic Frontend Domain tracking (syncs live across whole app whenever changed)
+  const [frontendDomain, setFrontendDomain] = useState<string>(() => getFrontendDomain());
+
+  useEffect(() => {
+    const handleUrlChange = () => {
+      setFrontendDomain(getFrontendDomain());
+    };
+    window.addEventListener('sevin-webapp-url-changed', handleUrlChange);
+    window.addEventListener('storage', handleUrlChange);
+    return () => {
+      window.removeEventListener('sevin-webapp-url-changed', handleUrlChange);
+      window.removeEventListener('storage', handleUrlChange);
+    };
+  }, []);
+
   const [formData, setFormData] = useState<Partial<BlogPost>>({
     title: '',
     slug: '',
@@ -498,6 +515,13 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   const [imageFileSize, setImageFileSize] = useState<string>('');
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reportage 120x240 Banner Upload State (supports all formats including GIF)
+  const [bannerPreview, setBannerPreview] = useState<string>('');
+  const [bannerFileName, setBannerFileName] = useState<string>('');
+  const [bannerFileSize, setBannerFileSize] = useState<string>('');
+  const [isBannerDragging, setIsBannerDragging] = useState<boolean>(false);
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
 
   // New Tag / Key Takeaway inputs
   const [newTagInput, setNewTagInput] = useState<string>('');
@@ -629,6 +653,49 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     }
   };
 
+  // Reportage Banner File Handling (Supports all image formats + GIF, standard 120x240)
+  const handleBannerFile = (file: File) => {
+    const isImageOrGif = file.type.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|svg|avif)$/i.test(file.name);
+    if (!isImageOrGif) {
+      showNotification('لطفاً یک فایل تصویر یا گیف معتبر (GIF, PNG, JPG, WebP, SVG) انتخاب نمایید.', 'error');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      showNotification('حجم فایل بنر نباید بیشتر از ۸ مگابایت باشد.', 'error');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      setBannerPreview(result);
+      setBannerFileName(file.name);
+      setBannerFileSize(`${(file.size / 1024).toFixed(0)} KB`);
+      setFormData(prev => ({ ...prev, reportageBanner: result }));
+      showNotification('بنر تبلیغاتی ریپورتاژ (ابعاد ۱۲۰ × ۲۴۰) با موفقیت بارگذاری شد.', 'success');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleBannerDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsBannerDragging(false);
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleBannerFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleRemoveBanner = () => {
+    setBannerPreview('');
+    setBannerFileName('');
+    setBannerFileSize('');
+    setFormData(prev => ({ ...prev, reportageBanner: '' }));
+    if (bannerFileInputRef.current) {
+      bannerFileInputRef.current.value = '';
+    }
+  };
+
   // Open Create Form
   const handleOpenCreateForm = () => {
     setIsEditing(false);
@@ -636,6 +703,9 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     setImagePreview('');
     setImageFileName('');
     setImageFileSize('');
+    setBannerPreview('');
+    setBannerFileName('');
+    setBannerFileSize('');
     setFormData({
       title: '',
       slug: '',
@@ -650,7 +720,11 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       metaDescription: '',
       keyTakeaways: ['تحلیل چسبندگی قیمت بازار به نرخ ارز'],
       tags: ['دخانیات', 'دخانیات سرو'],
-      faqs: []
+      faqs: [],
+      isReportage: false,
+      reportageSponsor: '',
+      reportageBanner: '',
+      reportageLink: ''
     });
     setActiveTab('editor');
   };
@@ -662,6 +736,9 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     setImagePreview(post.image || '');
     setImageFileName('تصویر بارگذاری شده قبلی');
     setImageFileSize('');
+    setBannerPreview(post.reportageBanner || '');
+    setBannerFileName(post.reportageBanner ? 'بنر تبلیغاتی بارگذاری شده' : '');
+    setBannerFileSize('');
     setFormData({ ...post });
     setActiveTab('editor');
 
@@ -670,6 +747,9 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     try {
       const fullPost = await djangoFetchBlogPostBySlug(post.slug, crmConfig);
       if (fullPost && fullPost.id === post.id) {
+        if (fullPost.reportageBanner) {
+          setBannerPreview(fullPost.reportageBanner);
+        }
         setFormData(prev => ({
           ...prev,
           content: fullPost.content || prev.content,
@@ -678,7 +758,11 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
           faqs: fullPost.faqs?.length ? fullPost.faqs : prev.faqs,
           focusKeyword: fullPost.focusKeyword || post.focusKeyword || prev.focusKeyword || '',
           metaTitle: fullPost.metaTitle || post.metaTitle || prev.metaTitle || '',
-          metaDescription: fullPost.metaDescription || post.metaDescription || prev.metaDescription || ''
+          metaDescription: fullPost.metaDescription || post.metaDescription || prev.metaDescription || '',
+          isReportage: fullPost.isReportage !== undefined ? fullPost.isReportage : prev.isReportage,
+          reportageSponsor: fullPost.reportageSponsor || prev.reportageSponsor || '',
+          reportageBanner: fullPost.reportageBanner || prev.reportageBanner || '',
+          reportageLink: fullPost.reportageLink || prev.reportageLink || ''
         }));
       }
     } catch (err) {
@@ -1181,9 +1265,17 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
 
                             {/* Category */}
                             <td className="p-4">
-                              <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60 inline-block">
-                                {post.category}
-                              </span>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60 inline-block">
+                                  {post.category}
+                                </span>
+                                {post.isReportage && (
+                                  <span className="px-2 py-0.5 rounded-lg text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-200 inline-flex items-center gap-1">
+                                    <Sparkles className="w-2.5 h-2.5 text-purple-600" />
+                                    <span>ریپورتاژ</span>
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* Published Date (Auto-set by Django) */}
@@ -1325,6 +1417,12 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                                 <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-50 text-blue-700 border border-blue-200/60">
                                   {post.category}
                                 </span>
+                                {post.isReportage && (
+                                  <span className="px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-purple-100 text-purple-800 border border-purple-200 inline-flex items-center gap-1">
+                                    <Sparkles className="w-2.5 h-2.5 text-purple-600" />
+                                    <span>ریپورتاژ</span>
+                                  </span>
+                                )}
                               </div>
                             </div>
                             <h4 className="text-xs font-black text-slate-900 leading-snug line-clamp-2">
@@ -1632,11 +1730,29 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
 
                   {/* GOOGLE SERP PREVIEW BOX */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
-                        <Eye className="w-4 h-4 text-slate-600" />
-                        <span>پیش‌نمایش در صفحه اول نتایج جستجوی گوگل (Google Snippet):</span>
-                      </label>
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <label className="text-xs font-black text-slate-800 flex items-center gap-1.5">
+                          <Eye className="w-4 h-4 text-slate-600" />
+                          <span>پیش‌نمایش در صفحه اول نتایج جستجوی گوگل (Google Snippet):</span>
+                        </label>
+                        {/* Dynamic Frontend Domain Badge */}
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-emerald-50 text-emerald-800 border border-emerald-200 text-[11px] font-bold">
+                          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                          <span className="text-[10px] text-emerald-700">دامنه فرانت:</span>
+                          <span className="font-mono text-xs text-emerald-900" dir="ltr">{frontendDomain}</span>
+                          {onOpenBackendModal && (
+                            <button
+                              type="button"
+                              onClick={onOpenBackendModal}
+                              className="text-[10px] text-blue-600 hover:text-blue-800 underline font-normal mr-1 cursor-pointer"
+                              title="تغییر آدرس فرانت در تنظیمات وب‌اپلیکیشن"
+                            >
+                              (تغییر)
+                            </button>
+                          )}
+                        </div>
+                      </div>
 
                       {/* Device Toggle */}
                       <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 text-xs">
@@ -1673,11 +1789,11 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                     }`}>
                       {/* Domain Breadcrumb */}
                       <div className="flex items-center gap-2 mb-1 text-slate-800 text-[11px]" dir="ltr">
-                        <div className="w-5 h-5 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0 text-slate-600 text-[9px] font-bold">
-                          S
+                        <div className="w-5 h-5 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center shrink-0 text-blue-700 text-[9px] font-bold uppercase">
+                          {(frontendDomain || 'S').charAt(0).toUpperCase()}
                         </div>
                         <div className="min-w-0 truncate text-slate-700 font-sans">
-                          <span className="font-semibold text-slate-900">sevin-tobacco.ir</span>
+                          <span className="font-semibold text-slate-900">{frontendDomain}</span>
                           <span className="text-slate-400"> › blog › {formData.slug || 'slug-url'}</span>
                         </div>
                       </div>
@@ -2140,6 +2256,206 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                       <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
+                </div>
+
+                {/* OPTIONAL REPORTAGE & ADVERTISING SETTINGS */}
+                <div className="bg-white p-5 rounded-2xl border border-purple-200/80 shadow-xs space-y-4">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-black text-purple-950 flex items-center gap-1.5">
+                      <Sparkles className="w-4 h-4 text-purple-600" />
+                      <span>تنظیمات ریپورتاژ آگهی و تبلیغات:</span>
+                    </label>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-purple-100/70 text-purple-700 border border-purple-200">
+                      کاملاً اختیاری (Optional)
+                    </span>
+                  </div>
+
+                  {/* Toggle Reportage */}
+                  <div className="flex items-center justify-between p-3.5 rounded-xl bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-purple-50/70 border border-purple-100">
+                    <div>
+                      <div className="text-xs font-bold text-purple-900">این مقاله ریپورتاژ آگهی است؟</div>
+                      <div className="text-[10px] text-purple-600 mt-0.5">
+                        فعال‌سازی بنر تبلیغاتی استاندارد ۱۲۰×۲۴۰، نام حامی و لینک کلیک‌خور
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(formData.isReportage)}
+                        onChange={(e) => setFormData(prev => ({ ...prev, isReportage: e.target.checked }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                    </label>
+                  </div>
+
+                  {Boolean(formData.isReportage) && (
+                    <div className="space-y-4 pt-2 border-t border-purple-100">
+                      {/* Sponsor Brand Name */}
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                          نام برند یا اسپانسر آگهی:
+                        </label>
+                        <input
+                          type="text"
+                          value={formData.reportageSponsor || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, reportageSponsor: e.target.value }))}
+                          placeholder="مثلاً: شرکت بازرگانی سرو / آکادمی تخصصی..."
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-purple-500 focus:bg-white transition-all"
+                        />
+                      </div>
+
+                      {/* BANNER FILE UPLOAD (ALL FORMATS + GIF, 120x240) */}
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[11px] font-bold text-slate-800">
+                            بنر تبلیغاتی ریپورتاژ (آپلود عکس یا گیف):
+                          </label>
+                          <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                            ابعاد ۱۲۰ × ۲۴۰ پیکسل
+                          </span>
+                        </div>
+
+                        {(bannerPreview || formData.reportageBanner) ? (
+                          <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-2xl border border-purple-200">
+                            <div className="flex flex-col sm:flex-row items-center gap-4 justify-center py-2">
+                              {/* Exact 120x240 Frame Preview */}
+                              <div className="relative w-[120px] h-[240px] rounded-xl overflow-hidden border-2 border-purple-400/80 shadow-md bg-slate-900 shrink-0 flex items-center justify-center">
+                                <img
+                                  src={bannerPreview || formData.reportageBanner}
+                                  alt="Reportage Banner Preview"
+                                  className="w-full h-full object-cover"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={handleRemoveBanner}
+                                  className="absolute top-1.5 left-1.5 p-1 rounded-lg bg-red-600/90 hover:bg-red-700 text-white shadow transition-colors"
+                                  title="حذف بنر تبلیغاتی"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                                <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-mono px-1.5 py-0.5 rounded">
+                                  120×240
+                                </div>
+                              </div>
+
+                              {/* Details & Action */}
+                              <div className="flex-1 space-y-2 text-right w-full sm:w-auto">
+                                <div className="p-2.5 rounded-xl bg-white border border-slate-200 text-[11px] text-slate-700 space-y-1">
+                                  <div className="font-bold text-slate-900 truncate">
+                                    {bannerFileName || 'فایل بنر تبلیغاتی'}
+                                  </div>
+                                  <div className="text-[10px] text-slate-400 flex items-center justify-between">
+                                    <span>پشتیبانی از انواع فرمت و GIF</span>
+                                    {bannerFileSize && <span className="font-mono">{bannerFileSize}</span>}
+                                  </div>
+                                </div>
+
+                                <button
+                                  type="button"
+                                  onClick={() => bannerFileInputRef.current?.click()}
+                                  className="w-full py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-purple-200"
+                                >
+                                  <UploadCloud className="w-4 h-4 text-purple-600" />
+                                  <span>انتخاب یا تعویض فایل بنر</span>
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div
+                            onDragOver={(e) => { e.preventDefault(); setIsBannerDragging(true); }}
+                            onDragLeave={() => setIsBannerDragging(false)}
+                            onDrop={handleBannerDrop}
+                            onClick={() => bannerFileInputRef.current?.click()}
+                            className={`border-2 border-dashed rounded-2xl p-5 text-center cursor-pointer transition-all ${
+                              isBannerDragging
+                                ? 'border-purple-500 bg-purple-50'
+                                : 'border-purple-200 hover:border-purple-400 bg-purple-50/30 hover:bg-purple-50/60'
+                            }`}
+                          >
+                            <div className="w-11 h-11 rounded-2xl bg-purple-100 text-purple-700 flex items-center justify-center mx-auto mb-2.5">
+                              <UploadCloud className="w-5 h-5" />
+                            </div>
+                            <div className="text-xs font-black text-purple-950">
+                              کلیک یا کشیدن و رها کردن فایل بنر
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-1">
+                              پشتیبانی از تمامی فرمت‌ها: <strong className="text-purple-700">GIF متحرک</strong>، PNG، JPG، WebP و SVG
+                            </p>
+                            <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[10px] font-bold text-purple-800">
+                              <span>ابعاد پیشنهادی بنر عمودی: ۱۲۰ × ۲۴۰ پیکسل</span>
+                            </div>
+                          </div>
+                        )}
+
+                        <input
+                          type="file"
+                          ref={bannerFileInputRef}
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              handleBannerFile(e.target.files[0]);
+                            }
+                          }}
+                          accept="image/*,.gif,.png,.jpg,.jpeg,.webp,.svg,.avif"
+                          className="hidden"
+                        />
+
+                        {/* Direct URL Fallback */}
+                        <div className="pt-2">
+                          <label className="block text-[10px] font-bold text-slate-500 mb-1">
+                            یا وارد کردن مستقیم آدرس اینترنتی بنر (URL):
+                          </label>
+                          <input
+                            type="text"
+                            value={formData.reportageBanner || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setFormData(prev => ({ ...prev, reportageBanner: val }));
+                              if (val.startsWith('http://') || val.startsWith('https://') || val.startsWith('data:image')) {
+                                setBannerPreview(val);
+                                setBannerFileName('بنر از آدرس اینترنتی');
+                              }
+                            }}
+                            placeholder="https://example.com/banner.gif"
+                            dir="ltr"
+                            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 font-mono focus:outline-none focus:border-purple-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Sponsor Link */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="block text-[11px] font-bold text-slate-700">
+                            لینک هدایت بنر (URL وبسایت مقصد حامی):
+                          </label>
+                          {formData.reportageLink && (
+                            <a
+                              href={formData.reportageLink}
+                              target="_blank"
+                              rel="noopener noreferrer sponsored"
+                              className="text-[10px] font-bold text-purple-600 hover:text-purple-800 flex items-center gap-1"
+                            >
+                              <span>تست باز شدن لینک</span>
+                              <ExternalLink className="w-3 h-3" />
+                            </a>
+                          )}
+                        </div>
+                        <input
+                          type="text"
+                          value={formData.reportageLink || ''}
+                          onChange={(e) => setFormData(prev => ({ ...prev, reportageLink: e.target.value }))}
+                          placeholder="https://sponsor-website.com"
+                          dir="ltr"
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-purple-500"
+                        />
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          هنگامی که کاربر روی بنر کلیک کند، در تب جدید به این آدرس هدایت خواهد شد (rel=sponsored).
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* BOTTOM SUBMIT BUTTON */}

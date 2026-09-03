@@ -88,17 +88,52 @@ export function getWebAppBaseUrl(): string {
     return import.meta.env.VITE_APP_URL.trim().replace(/\/+$/, '');
   }
 
-  // If running in browser on a custom vercel/live domain, we can prioritize the production link
+  // If running in browser on a custom production domain, dynamically adopt window.location.origin
+  if (typeof window !== 'undefined' && window.location.origin) {
+    const host = window.location.hostname;
+    if (host && !host.includes('run.app') && !host.includes('localhost') && !host.includes('127.0.0.1')) {
+      return window.location.origin.replace(/\/+$/, '');
+    }
+  }
+
   return DEFAULT_WEB_APP_URL;
 }
 
 /**
- * Sets a new Web App URL (for custom domains).
+ * Extracts a clean domain string (e.g. "sevin-tobacco.ir" or "cigaretsevin.vercel.app")
+ * dynamically reflecting the current Frontend Web App URL or current browser host.
+ */
+export function getFrontendDomain(): string {
+  try {
+    const fullUrl = getWebAppBaseUrl();
+    if (fullUrl) {
+      const normalized = fullUrl.startsWith('http://') || fullUrl.startsWith('https://')
+        ? fullUrl
+        : `https://${fullUrl}`;
+      const parsed = new URL(normalized);
+      if (parsed.host) {
+        return parsed.host;
+      }
+    }
+  } catch {}
+
+  if (typeof window !== 'undefined' && window.location.host) {
+    return window.location.host;
+  }
+
+  return 'cigaretsevin.vercel.app';
+}
+
+/**
+ * Sets a new Web App URL (for custom domains) and broadcasts change to all components.
  */
 export function setWebAppBaseUrl(url: string): void {
   try {
     const cleanUrl = url.trim().replace(/\/+$/, '');
     localStorage.setItem(STORAGE_KEY_WEB_APP_URL, cleanUrl);
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sevin-webapp-url-changed', { detail: { url: cleanUrl } }));
+    }
   } catch (e) {
     console.error('Failed to store Web App URL:', e);
   }

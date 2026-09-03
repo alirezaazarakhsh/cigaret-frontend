@@ -24,7 +24,8 @@ import {
   FileText,
   Newspaper,
   PlusCircle,
-  ChevronDown
+  ChevronDown,
+  ExternalLink
 } from 'lucide-react';
 import { BlogPost, BlogCategoryItem } from '../types';
 import { blogApi } from '../services/api';
@@ -50,18 +51,68 @@ interface BlogSectionProps {
 // ...
 
 export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) => {
-  const [posts, setPosts] = useState<BlogPost[]>([]);
-  const [allPosts, setAllPosts] = useState<BlogPost[]>([]);
-  const [categories, setCategories] = useState<BlogCategoryItem[]>([]);
-  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(null);
+  // Helper to load initial selected post from localStorage or local store instantly on refresh
+  const getInitialSelectedPost = (): BlogPost | null => {
+    try {
+      const pathParts = window.location.pathname.split('/');
+      const rawSlug = pathParts[pathParts.length - 1];
+      if (rawSlug && rawSlug !== 'blog' && rawSlug !== '') {
+        const decodedSlug = decodeURIComponent(rawSlug);
+        const cachedSelected = localStorage.getItem('sovin_cached_selected_post');
+        if (cachedSelected) {
+          const parsed = JSON.parse(cachedSelected);
+          if (parsed && (parsed.slug === decodedSlug || String(parsed.id) === decodedSlug)) {
+            return parsed;
+          }
+        }
+        const allLocal = djangoDatabaseStore.getBlogPosts();
+        const found = allLocal.find(p => p.slug === decodedSlug || String(p.id) === decodedSlug);
+        if (found) return found;
+      }
+    } catch {}
+    return null;
+  };
+
+  const getInitialPosts = (): BlogPost[] => {
+    try {
+      return djangoDatabaseStore.getBlogPosts();
+    } catch {
+      return [];
+    }
+  };
+
+  const [posts, setPosts] = useState<BlogPost[]>(getInitialPosts());
+  const [allPosts, setAllPosts] = useState<BlogPost[]>(getInitialPosts());
+  const [categories, setCategories] = useState<BlogCategoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('sovin_django_blog_categories');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+  const [selectedPost, setSelectedPost] = useState<BlogPost | null>(getInitialSelectedPost);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [copiedLink, setCopiedLink] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [isUrlInitialized] = useState(true);
+
+  // Cache selected post when it changes
+  useEffect(() => {
+    if (selectedPost) {
+      localStorage.setItem('sovin_cached_selected_post', JSON.stringify(selectedPost));
+    } else {
+      localStorage.removeItem('sovin_cached_selected_post');
+    }
+  }, [selectedPost]);
 
   // SEO & URL Management
   useEffect(() => {
+    if (!isUrlInitialized) return;
     if (selectedPost) {
       const newUrl = `/blog/${selectedPost.slug}`;
       if (window.location.pathname !== newUrl) {
@@ -71,63 +122,48 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) metaDesc.setAttribute('content', selectedPost.metaDescription || selectedPost.excerpt);
     } else {
-      if (window.location.pathname !== '/blog') {
+      if (window.location.pathname !== '/blog' && window.location.pathname !== '/') {
         window.history.pushState(null, '', '/blog');
       }
       document.title = "مجله مقالات - سامانه پخش عمده دخانیات دخانیات سرو";
     }
-  }, [selectedPost]);
+  }, [selectedPost, isUrlInitialized]);
 
-  // Handle URL slug on mount
+  // Background API Sync for posts, categories, and current slug detail
   useEffect(() => {
-    const handleInitialLoad = async () => {
-        if (allPosts.length === 0) return;
-        const pathParts = window.location.pathname.split('/');
-        const slug = pathParts[pathParts.length - 1];
-        if (slug && slug !== 'blog' && slug !== '') {
-            const post = allPosts.find(p => p.slug === slug);
-            if (post) await openPost(post);
-        }
-    };
-    handleInitialLoad();
-  }, [allPosts]);
-  
-  // ... (rest of the component)
-
-  // Load all posts & categories for counts and initial state
-  useEffect(() => {
-    const loadAll = async () => {
+    const syncWithApi = async () => {
       try {
+        const pathParts = window.location.pathname.split('/');
+        const rawSlug = pathParts[pathParts.length - 1];
+        if (rawSlug && rawSlug !== 'blog' && rawSlug !== '') {
+          const decodedSlug = decodeURIComponent(rawSlug);
+          const freshPost = await blogApi.getBySlug(decodedSlug);
+          if (freshPost) {
+            setSelectedPost(freshPost);
+          }
+        }
+
         const [fullList, fetchedCats] = await Promise.all([
-          blogApi.getPosts({ category: 'all' }),
+          blogApi.getPosts({ category: selectedCategory, search: searchQuery }),
           blogApi.getCategories()
         ]);
-        setAllPosts(fullList);
-        setCategories(fetchedCats);
-      } catch (e) {
-        console.error('Error fetching all blog posts and categories:', e);
-      }
-    };
-    loadAll();
-  }, []);
 
-  // Load filtered posts based on selected category & search
-  useEffect(() => {
-    const loadPosts = async () => {
-      setIsLoading(true);
-      try {
-        const res = await blogApi.getPosts({
-          category: selectedCategory,
-          search: searchQuery
-        });
-        setPosts(res);
+        if (fullList && fullList.length > 0) {
+          setPosts(fullList);
+          if (selectedCategory === 'all' && !searchQuery) {
+            setAllPosts(fullList);
+          }
+        }
+
+        if (fetchedCats && fetchedCats.length > 0) {
+          setCategories(fetchedCats);
+          localStorage.setItem('sovin_django_blog_categories', JSON.stringify(fetchedCats));
+        }
       } catch (e) {
-        console.error('Error fetching filtered blog posts:', e);
-      } finally {
-        setIsLoading(false);
+        console.error('Background blog sync failed:', e);
       }
     };
-    loadPosts();
+    syncWithApi();
   }, [selectedCategory, searchQuery]);
 
   const handleShare = () => {
@@ -450,10 +486,19 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
 
           {/* Post Category & Title & Excerpt */}
           <div className="space-y-4">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="inline-block bg-blue-600 text-white text-xs font-black px-3 py-1 rounded-xl shadow-xs">
                 {selectedPost.category}
               </span>
+              {selectedPost.isReportage && (
+                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black px-3 py-1 rounded-xl shadow-xs">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>ریپورتاژ آگهی</span>
+                  {selectedPost.reportageSponsor && (
+                    <span className="text-purple-200">| {selectedPost.reportageSponsor}</span>
+                  )}
+                </span>
+              )}
               <span className="text-xs text-slate-400 font-bold">
                 کد مقاله: #{selectedPost.id.slice(0, 8)}
               </span>
@@ -504,6 +549,77 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
                   <li key={i} className="leading-relaxed">{item}</li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Reportage & Advertising Banner Section (Standard 120x240 Banner Ad) */}
+          {(selectedPost.isReportage || selectedPost.reportageBanner) && (
+            <div className="bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-purple-50/70 border-2 border-purple-200/90 rounded-3xl p-5 shadow-xs">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-5">
+                <div className="flex-1 space-y-2.5 text-right w-full sm:w-auto">
+                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-[11px] font-black border border-purple-200">
+                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                    <span>ریپورتاژ آگهی و تبلیغات تجاری</span>
+                  </div>
+                  <h4 className="text-sm sm:text-base font-black text-slate-900">
+                    {selectedPost.reportageSponsor ? `معرفی رسمی: ${selectedPost.reportageSponsor}` : 'حامی تبلیغاتی مقاله'}
+                  </h4>
+                  <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                    این محتوا توسط حامی تجاری تهیه شده است. برای کسب اطلاعات بیشتر، مشاهده محصولات یا دسترسی به خدمات، روی بنر یا دکمه زیر کلیک نمایید.
+                  </p>
+                  {selectedPost.reportageLink && (
+                    <div className="pt-1">
+                      <a
+                        href={selectedPost.reportageLink}
+                        target="_blank"
+                        rel="noopener noreferrer sponsored"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-black shadow-xs hover:shadow transition-all"
+                      >
+                        <span>مشاهده وبسایت {selectedPost.reportageSponsor || 'اسپانسر'}</span>
+                        <ExternalLink className="w-3.5 h-3.5" />
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {/* 120x240 Vertical Banner */}
+                {selectedPost.reportageBanner && (
+                  <div className="shrink-0 flex flex-col items-center">
+                    {selectedPost.reportageLink ? (
+                      <a
+                        href={selectedPost.reportageLink}
+                        target="_blank"
+                        rel="noopener noreferrer sponsored"
+                        className="group relative block w-[120px] h-[240px] rounded-2xl overflow-hidden border-2 border-purple-300 shadow-md hover:shadow-xl hover:border-purple-500 transition-all duration-300 bg-slate-900"
+                        title={selectedPost.reportageSponsor || 'مشاهده وبسایت حامی'}
+                      >
+                        <img
+                          src={selectedPost.reportageBanner}
+                          alt={selectedPost.reportageSponsor || 'بنر تبلیغاتی ریپورتاژ ۱۲۰ در ۲۴۰'}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-center p-2">
+                          <span className="text-[10px] font-bold text-white bg-purple-600/95 px-2 py-0.5 rounded-full flex items-center gap-1 shadow">
+                            <span>ورود</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </span>
+                        </div>
+                      </a>
+                    ) : (
+                      <div className="w-[120px] h-[240px] rounded-2xl overflow-hidden border-2 border-purple-300 shadow bg-slate-900">
+                        <img
+                          src={selectedPost.reportageBanner}
+                          alt={selectedPost.reportageSponsor || 'بنر تبلیغاتی'}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    )}
+                    <span className="text-[9px] text-purple-700/80 font-bold mt-1.5 font-mono">
+                      بنر ۱۲۰ × ۲۴۰
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -736,6 +852,12 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
                     <div className="absolute top-3 right-3 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-700/50">
                       {post.category}
                     </div>
+                    {post.isReportage && (
+                      <div className="absolute top-3 left-3 bg-purple-900/90 backdrop-blur-xs text-purple-200 text-[10px] font-bold px-2 py-0.5 rounded-lg border border-purple-500/50 flex items-center gap-1 shadow-xs">
+                        <Sparkles className="w-3 h-3 text-purple-400" />
+                        <span>ریپورتاژ</span>
+                      </div>
+                    )}
                   </div>
 
                   {/* Card Body */}
