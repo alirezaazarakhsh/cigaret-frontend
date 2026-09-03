@@ -35,6 +35,7 @@ import {
   DEFAULT_API_BASE_URL,
   DEFAULT_WEB_APP_URL
 } from './apiConfig';
+import { invalidatePosTokenAndSession } from './sessionSecurity';
 import { 
   CigaretteProduct, 
   OrderInvoice, 
@@ -824,10 +825,7 @@ export const accountsApi = {
     if (!res.success && res.status === 404) {
       res = await httpClient.post<any>('/api/v1/posuser/logout/', {});
     }
-    setApiToken('');
-    try {
-      localStorage.removeItem('sevin_api_token');
-    } catch {}
+    invalidatePosTokenAndSession('manual_logout');
     return res;
   },
 

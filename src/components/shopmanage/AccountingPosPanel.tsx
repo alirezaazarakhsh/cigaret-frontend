@@ -98,6 +98,16 @@ import { NotificationManagementPanel } from './NotificationManagementPanel';
 import { BlogManagementModal } from './BlogManagementModal';
 import { BlogManagementPanel } from './BlogManagementPanel';
 import { BackendConnectionModal } from '../BackendConnectionModal';
+import { SessionSecurityModal } from './SessionSecurityModal';
+import { 
+  getRemainingSessionSeconds, 
+  formatRemainingTime, 
+  isPosSessionExpired, 
+  initPosSessionExpiry, 
+  extendPosSession, 
+  invalidatePosTokenAndSession, 
+  consumeLastLogoutReason 
+} from '../../services/sessionSecurity';
 import { 
   djangoSendPatternSMS, 
   djangoFetchSmsLogs, 
@@ -304,14 +314,35 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   onUpdateProductsStock,
   onReturnToStore,
 }) => {
-  // Authentication state
+  // Authentication state with proactive token expiration check
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     try {
-      return localStorage.getItem('sovin_pos_auth') === 'true';
+      const hasAuth = localStorage.getItem('sovin_pos_auth') === 'true';
+      if (!hasAuth) return false;
+      // اگر زمان توکن به پایان رسیده باشد، بلافاصله ابطال و عدم احراز هویت اعمال می‌گردد
+      if (isPosSessionExpired()) {
+        invalidatePosTokenAndSession('token_expired');
+        return false;
+      }
+      return true;
     } catch {
       return false;
     }
   });
+
+  const [sessionRemainingSeconds, setSessionRemainingSeconds] = useState<number>(() => {
+    return getRemainingSessionSeconds();
+  });
+
+  const [sessionExpiredNotice, setSessionExpiredNotice] = useState<string>(() => {
+    const reason = consumeLastLogoutReason();
+    if (reason === 'token_expired' || reason === 'token_invalid_or_expired') {
+      return 'نشست امنیتی شما به پایان رسید و توکن منقضی گردید. جهت حفظ امنیت مالی و انبار، به صورت خودکار از صندوق خارج شدید. لطفاً مجدداً وارد شوید.';
+    }
+    return '';
+  });
+
+  const [showSessionSecurityModal, setShowSessionSecurityModal] = useState<boolean>(false);
 
   const [loginPhone, setLoginPhone] = useState(AUTHORIZED_PHONE);
   const [loginPass, setLoginPass] = useState('');
@@ -918,6 +949,85 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     } catch {}
   };
 
+  // پخش صدای هشدار انقضای نشست
+  const playAlertTone = () => {
+    if (!soundEnabled) return;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        const ctx = new AudioContextClass();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(360, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(160, ctx.currentTime + 0.35);
+        gain.gain.setValueAtTime(0.25, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.35);
+      }
+    } catch {}
+  };
+
+  // تابع خروج خودکار امنیتی کاربر از صندوق به محض پایان زمان توکن
+  const handleAutoLogoutDueToExpiration = (reason: string = 'token_expired') => {
+    // ۱. ابطال کامل توکن در حافظه، هدرها و LocalStorage
+    invalidatePosTokenAndSession(reason);
+
+    // ۲. خروج کاربر از وضعیت احراز هویت صندوق و بستن دسترسی‌ها
+    setIsAuthenticated(false);
+
+    // ۳. پاکسازی پرسنل از لیست نشست‌های فعال آنلاین
+    if (currentStaff?.phone) {
+      setOnlineSessions(prev => prev.filter(s => s.phone !== currentStaff.phone));
+    }
+
+    // ۴. ثبت پیام هشدار شفاف در صفحه ورود
+    setSessionExpiredNotice('نشست امنیتی شما به دلیل انقضای توکن به پایان رسید. توکن باطل گردیده و جهت حفظ امنیت صندوق، سیستم به صورت خودکار شما را خارج کرد. لطفاً مجدداً وارد شوید.');
+
+    // ۵. پخش هشدار صوتی
+    playAlertTone();
+  };
+
+  // پایش بی‌وقفه زمان اعتبار توکن و خروج خودکار به محض اتمام زمان
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    // بررسی بدو ورود/لود مجدد
+    if (isPosSessionExpired()) {
+      handleAutoLogoutDueToExpiration('token_expired');
+      return;
+    }
+
+    setSessionRemainingSeconds(getRemainingSessionSeconds());
+
+    const intervalId = setInterval(() => {
+      const rem = getRemainingSessionSeconds();
+      setSessionRemainingSeconds(rem);
+
+      if (rem <= 0) {
+        clearInterval(intervalId);
+        handleAutoLogoutDueToExpiration('token_expired');
+      }
+    }, 1000);
+
+    const handleExpiredEvent = (e: any) => {
+      const reason = e?.detail?.reason || 'token_expired';
+      handleAutoLogoutDueToExpiration(reason);
+    };
+
+    window.addEventListener('sevin-pos-session-expired', handleExpiredEvent);
+    window.addEventListener('sevin-token-expired', handleExpiredEvent);
+
+    return () => {
+      clearInterval(intervalId);
+      window.removeEventListener('sevin-pos-session-expired', handleExpiredEvent);
+      window.removeEventListener('sevin-token-expired', handleExpiredEvent);
+    };
+  }, [isAuthenticated, currentStaff?.phone, soundEnabled]);
+
   // Login handler connected to Django API with loading spinner
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -928,6 +1038,13 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         setIsAuthenticated(true);
         setCurrentStaff(res.data.user);
         setLoginError('');
+        setSessionExpiredNotice('');
+
+        // مقداردهی اولیه زمان اعتبار توکن و آغاز تایمر پایش نشست
+        const token = res.data?.tokens?.access;
+        initPosSessionExpiry(token);
+        setSessionRemainingSeconds(getRemainingSessionSeconds());
+
         try {
           localStorage.setItem('sovin_pos_auth', 'true');
           localStorage.setItem('sovin_pos_current_staff', JSON.stringify(res.data.user));
@@ -982,10 +1099,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     }
     setOnlineSessions(prev => prev.filter(s => s.phone !== currentStaff.phone));
     setIsAuthenticated(false);
-    try {
-      localStorage.removeItem('sovin_pos_auth');
-      localStorage.removeItem('sovin_pos_current_staff');
-    } catch {}
+    invalidatePosTokenAndSession('manual_logout');
+    setSessionExpiredNotice('');
   };
 
   // Add Product to POS Cart by Product Object
@@ -1936,6 +2051,16 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </p>
           </div>
 
+          {sessionExpiredNotice && (
+            <div className="mb-5 p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+              <Clock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+              <div className="leading-relaxed">
+                <strong className="font-bold block mb-1 text-amber-200 text-xs">خروج امنیتی خودکار از صندوق:</strong>
+                <p className="text-amber-300/95 text-[11px] leading-5">{sessionExpiredNotice}</p>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-300 mb-1.5">
@@ -2185,21 +2310,47 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             )}
 
             {/* Mobile-Only Actions Row inside Menu Drawer */}
-            <div className="md:hidden flex items-center justify-between gap-2 pt-2 border-t border-slate-200/80 mt-1">
-              <button
-                onClick={onReturnToStore}
-                className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-200 text-slate-800 text-xs font-bold rounded-xl active:scale-95 transition-all"
-              >
-                <ArrowRight className="w-4 h-4" />
-                <span>بازگشت به کاتالوگ</span>
-              </button>
-              <button
-                onClick={handleLogout}
-                className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-rose-100 text-rose-700 text-xs font-bold rounded-xl active:scale-95 transition-all"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>خروج</span>
-              </button>
+            <div className="md:hidden flex flex-col gap-2 pt-2 border-t border-slate-200/80 mt-1">
+              <div className="flex items-center justify-between px-3 py-2 bg-slate-100 rounded-xl text-xs border border-slate-200">
+                <button
+                  onClick={() => { setShowSessionSecurityModal(true); setIsMenuOpen(false); }}
+                  className="flex items-center gap-1.5 text-slate-700 hover:text-indigo-600 font-bold"
+                >
+                  <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>اعتبار توکن صندوق:</span>
+                </button>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono font-black text-indigo-700 dir-ltr">{formatRemainingTime(sessionRemainingSeconds)}</span>
+                  <button
+                    onClick={() => {
+                      extendPosSession(30);
+                      setSessionRemainingSeconds(getRemainingSessionSeconds());
+                      setSuccessBanner('نشست صندوق ۳۰ دقیقه تمدید شد.');
+                      setTimeout(() => setSuccessBanner(null), 3000);
+                    }}
+                    className="px-2 py-0.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-[10px] font-bold rounded-lg border border-indigo-200 active:scale-95"
+                  >
+                    تمدید
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-2">
+                <button
+                  onClick={onReturnToStore}
+                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 bg-slate-200 text-slate-800 text-xs font-bold rounded-xl active:scale-95 transition-all"
+                >
+                  <ArrowRight className="w-4 h-4" />
+                  <span>بازگشت به کاتالوگ</span>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center justify-center gap-1.5 px-3 py-2.5 bg-rose-100 text-rose-700 text-xs font-bold rounded-xl active:scale-95 transition-all"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>خروج</span>
+                </button>
+              </div>
             </div>
 
           </div>
@@ -2221,6 +2372,20 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
                 {showToolsDropdown && (
                   <div className="absolute right-0 md:right-auto md:left-0 mt-2 w-64 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-[150] space-y-1 animate-in fade-in zoom-in-95 duration-200">
+                    <button
+                      onClick={() => { setShowSessionSecurityModal(true); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                        <span>امنیت و زمان توکن صندوق</span>
+                      </div>
+                      <span className="text-[10px] font-mono bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-md font-bold">
+                        {formatRemainingTime(sessionRemainingSeconds)}
+                      </span>
+                    </button>
+
+                    <div className="my-1 border-t border-slate-100"></div>
                     {currentStaff.role === 'super_admin' && (
                       <button
                         onClick={() => { setShowBackendModal(true); setShowToolsDropdown(false); }}
@@ -2318,6 +2483,25 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   </div>
                 )}
               </div>
+
+            {/* Live Token Expiration Security Badge */}
+            <button
+              onClick={() => setShowSessionSecurityModal(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 whitespace-nowrap shadow-2xs ${
+                sessionRemainingSeconds <= 60
+                  ? 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-700 animate-pulse'
+                  : sessionRemainingSeconds <= 300
+                    ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-700'
+                    : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+              }`}
+              title="زمان باقی‌مانده از اعتبار توکن امنیتی صندوق (کلیک برای مشاهده وضعیت امنیت، تمدید یا تنظیم خروج خودکار)"
+            >
+              <Clock className={`w-3.5 h-3.5 shrink-0 ${
+                sessionRemainingSeconds <= 60 ? 'text-rose-600' : sessionRemainingSeconds <= 300 ? 'text-amber-600' : 'text-emerald-600'
+              }`} />
+              <span className="hidden xl:inline text-[11px] text-slate-500 font-normal">اعتبار توکن:</span>
+              <span className="font-mono font-black text-xs dir-ltr">{formatRemainingTime(sessionRemainingSeconds)}</span>
+            </button>
 
             <button
               onClick={() => setSoundEnabled(!soundEnabled)}
@@ -6243,6 +6427,22 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       <BlogManagementModal
         isOpen={showBlogManagementModal}
         onClose={() => setShowBlogManagementModal(false)}
+      />
+
+      {/* Session Security & Token Expiry Modal */}
+      <SessionSecurityModal
+        isOpen={showSessionSecurityModal}
+        onClose={() => setShowSessionSecurityModal(false)}
+        currentStaff={currentStaff}
+        onExtendSuccess={(msg) => {
+          setSuccessBanner(msg);
+          setTimeout(() => setSuccessBanner(null), 3500);
+          setSessionRemainingSeconds(getRemainingSessionSeconds());
+        }}
+        onForceLogout={() => {
+          setShowSessionSecurityModal(false);
+          handleAutoLogoutDueToExpiration('manual_force_test');
+        }}
       />
 
     </div>

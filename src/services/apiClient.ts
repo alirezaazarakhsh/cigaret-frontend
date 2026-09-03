@@ -4,6 +4,7 @@
  */
 
 import { getApiBaseUrl, getApiToken, setApiToken } from './apiConfig';
+import { invalidatePosTokenAndSession } from './sessionSecurity';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -110,9 +111,7 @@ async function request<T = any>(
       // If token expired or invalid, purge bad token from storage and retry once without token
       if (response.status === 401 && responseData?.code === 'token_not_valid' && !options._isRetry) {
         try {
-          setApiToken('');
-          localStorage.removeItem('sevin_api_token');
-          localStorage.removeItem('sevin_auth_token');
+          invalidatePosTokenAndSession('token_invalid_or_expired');
         } catch {}
         try {
           const fallbackHeaders = { ...headers };
