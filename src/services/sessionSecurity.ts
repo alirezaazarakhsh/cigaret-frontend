@@ -87,19 +87,21 @@ export function getPosSessionExpiry(token?: string): number | null {
   try {
     if (typeof localStorage === 'undefined') return null;
 
-    const activeToken = token || getStoredApiToken();
-    if (activeToken && activeToken.includes('.')) {
-      const payload = parseJwtPayload(activeToken);
-      if (payload?.exp && typeof payload.exp === 'number' && payload.exp > 0) {
-        return payload.exp * 1000;
-      }
-    }
-
+    // ابتدا بررسی انقضای تعیین‌شده دستی (که توسط extendPosSession یا انتخاب کاربر مقداردهی می‌شود)
     const savedExpiryStr = localStorage.getItem(POS_SESSION_STORAGE_KEYS.SESSION_EXPIRES_AT);
     if (savedExpiryStr) {
       const expNum = Number(savedExpiryStr);
       if (!isNaN(expNum) && expNum > 0) {
         return expNum;
+      }
+    }
+
+    // در غیر این صورت، استفاده از توکن JWT به عنوان پشتیبان ثانویه
+    const activeToken = token || getStoredApiToken();
+    if (activeToken && activeToken.includes('.')) {
+      const payload = parseJwtPayload(activeToken);
+      if (payload?.exp && typeof payload.exp === 'number' && payload.exp > 0) {
+        return payload.exp * 1000;
       }
     }
   } catch {}
@@ -154,20 +156,30 @@ export function initPosSessionExpiry(token?: string, defaultDurationMinutes: num
   try {
     if (typeof localStorage === 'undefined') return Date.now();
 
-    const activeToken = token || getStoredApiToken();
+    const savedDuration = localStorage.getItem(POS_SESSION_STORAGE_KEYS.AUTO_LOGOUT_DURATION_MINUTES);
     let expiryMs: number = 0;
 
-    if (activeToken && activeToken.includes('.')) {
-      const payload = parseJwtPayload(activeToken);
-      if (payload?.exp && typeof payload.exp === 'number' && payload.exp > 0) {
-        expiryMs = payload.exp * 1000;
+    if (savedDuration) {
+      // اگر قبلاً مدت زمان دستی (مثل ۱ ساعت یا ۲ ساعت) تعیین شده، از همان برای انقضا استفاده کن
+      const minutes = Number(savedDuration);
+      if (!isNaN(minutes) && minutes > 0) {
+        expiryMs = Date.now() + (minutes * 60 * 1000);
       }
     }
 
-    // اگر توکن JWT نبود یا فیلد exp نداشت، از مدت‌زمان پیش‌فرض (مثلاً ۳۰ دقیقه) استفاده کن
+    // در غیر این صورت، از زمان مندرج در JWT یا مقدار پیش‌فرض ۳۰ دقیقه استفاده کن
     if (!expiryMs || expiryMs <= Date.now()) {
-      const savedDuration = Number(localStorage.getItem(POS_SESSION_STORAGE_KEYS.AUTO_LOGOUT_DURATION_MINUTES)) || defaultDurationMinutes;
-      expiryMs = Date.now() + (savedDuration * 60 * 1000);
+      const activeToken = token || getStoredApiToken();
+      if (activeToken && activeToken.includes('.')) {
+        const payload = parseJwtPayload(activeToken);
+        if (payload?.exp && typeof payload.exp === 'number' && payload.exp > 0) {
+          expiryMs = payload.exp * 1000;
+        }
+      }
+    }
+
+    if (!expiryMs || expiryMs <= Date.now()) {
+      expiryMs = Date.now() + (defaultDurationMinutes * 60 * 1000);
     }
 
     localStorage.setItem(POS_SESSION_STORAGE_KEYS.SESSION_EXPIRES_AT, String(expiryMs));
@@ -222,17 +234,19 @@ export function invalidatePosTokenAndSession(reason: string = 'token_expired'): 
     }
 
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('sevin-pos-session-expired', {
-        detail: {
-          reason,
-          timestamp: Date.now(),
-          message: 'مدت اعتبار توکن امنیتی به پایان رسید و کاربر به صورت خودکار از صندوق خارج شد.'
-        }
-      }));
+      if (reason !== 'manual_logout') {
+        window.dispatchEvent(new CustomEvent('sevin-pos-session-expired', {
+          detail: {
+            reason,
+            timestamp: Date.now(),
+            message: 'مدت اعتبار توکن امنیتی به پایان رسید و کاربر به صورت خودکار از صندوق خارج شد.'
+          }
+        }));
 
-      window.dispatchEvent(new CustomEvent('sevin-token-expired', {
-        detail: { reason }
-      }));
+        window.dispatchEvent(new CustomEvent('sevin-token-expired', {
+          detail: { reason }
+        }));
+      }
 
       window.dispatchEvent(new CustomEvent('sevin-api-token-changed', {
         detail: { token: '' }

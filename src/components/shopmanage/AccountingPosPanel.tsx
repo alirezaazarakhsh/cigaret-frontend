@@ -991,11 +991,6 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
     // ۵. پخش هشدار صوتی
     playAlertTone();
-
-    // خروج خودکار به صفحه کاتالوگ/اصلی فروشگاه جهت هدایت بهینه کاربر
-    if (onReturnToStore) {
-      onReturnToStore();
-    }
   };
 
   // پایش بی‌وقفه زمان اعتبار توکن و خروج خودکار به محض اتمام زمان
@@ -1029,6 +1024,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
     const handleExpiredEvent = (e: any) => {
       const reason = e?.detail?.reason || 'token_expired';
+      if (reason === 'manual_logout') return;
       handleAutoLogoutDueToExpiration(reason);
     };
 
@@ -1109,21 +1105,24 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    // Simulating an elegant 1-second logout animation/cleanup phase
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    try {
-      await api.accounts.posLogout();
-    } catch (err) {
-      console.error('Logout error:', err);
-    }
-    setOnlineSessions(prev => prev.filter(s => s.phone !== currentStaff.phone));
-    setIsAuthenticated(false);
+    
+    // ۱. پاکسازی نشست در حافظه کلاینت بلافاصله
     invalidatePosTokenAndSession('manual_logout');
+    
+    // ۲. فراخوانی بک‌اند در پس‌زمینه بدون مسدودسازی رابط کاربری
+    api.accounts.posLogout().catch(err => console.error('Logout background API error:', err));
+    
+    if (currentStaff?.phone) {
+      setOnlineSessions(prev => prev.filter(s => s.phone !== currentStaff.phone));
+    }
+
+    // انیمیشن نرم خروج امنیتی به مدت ۸۰۰ میلی‌ثانیه
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    setIsAuthenticated(false);
     setSessionExpiredNotice('');
     setIsLoggingOut(false);
-    if (onReturnToStore) {
-      onReturnToStore();
-    }
+    // عدم ارجاع خودکار به کاتالوگ فروشگاه؛ هدایت و حفظ مستقیم کاربر بر روی صفحه لاگین صندوق
   };
 
   const handleExtendSession = () => {

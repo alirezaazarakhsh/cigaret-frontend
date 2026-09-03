@@ -199,10 +199,10 @@ SPECTACULAR_SETTINGS = {
 }
 
 # --------------------------------------------------------------------------
-# ۷. تنظیمات JWT با انقضای ۳۰ دقیقهای توکن دسترسی
+# ۷. تنظیمات JWT با انقضای منعطف توکن دسترسی (مثلاً ۱ یا ۲ ساعت)
 # --------------------------------------------------------------------------
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),   # انقضای ۳۰ دقیقه توکن اکسس
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # انقضای توکن اکسس (بر اساس ترجیح صندوق‌دار مثلاً ۶۰ یا ۱۲۰ دقیقه)
     'REFRESH_TOKEN_LIFETIME': timedelta(days=7),       # انقضای ۷ روزه رفرش توکن
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,

@@ -102,12 +102,14 @@ export const SessionSecurityModal: React.FC<SessionSecurityModalProps> = ({
     extendPosSession(minutes);
     setRemainingSeconds(getRemainingSessionSeconds());
     onExtendSuccess(`مدت زمان اعتبار نشست به ${minutes} دقیقه تنظیم و تمدید گردید.`);
+    onClose(); // بستن خودکار پاپ‌آپ جهت اعمال تمیز
   };
 
   const handleExtendClick = (extraMinutes: number = 30) => {
     extendPosSession(extraMinutes);
     setRemainingSeconds(getRemainingSessionSeconds());
     onExtendSuccess(`نشست کاری صندوق با موفقیت برای ${extraMinutes} دقیقه دیگر تمدید شد.`);
+    onClose(); // بستن خودکار پاپ‌آپ پس از تمدید نشست
   };
 
   return (
