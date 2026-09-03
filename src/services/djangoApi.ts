@@ -1774,14 +1774,14 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
   );
   
   let categoryPk: number | null = null;
-  if (matchedCat && !isNaN(Number(matchedCat.id))) {
+  if (matchedCat && !isNaN(Number(matchedCat.id)) && Number(matchedCat.id) > 0) {
     categoryPk = Number(matchedCat.id);
-  } else if (!isNaN(Number(post.category)) && Number(post.category) > 0) {
+  } else if (post.category && !isNaN(Number(post.category)) && Number(post.category) > 0) {
     categoryPk = Number(post.category);
-  } else if (post.category && typeof post.category === 'string' && post.category.trim()) {
+  } else if (post.category && typeof post.category === 'string' && post.category.trim() && !post.category.startsWith('cat_')) {
     try {
       const newCat = await djangoCreateBlogCategory({ name: post.category }, config);
-      if (newCat && newCat.id && !isNaN(Number(newCat.id))) {
+      if (newCat && newCat.id && !isNaN(Number(newCat.id)) && Number(newCat.id) > 0) {
         categoryPk = Number(newCat.id);
       }
     } catch (e) {
@@ -1789,14 +1789,15 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
     }
   }
 
-  // If still null, try to use first available category, or fallback to creating 'عمومی'
-  if (categoryPk === null) {
-    if (allCategories && allCategories.length > 0) {
-      categoryPk = Number(allCategories[0].id);
+  // If still null, NaN, or non-positive, try to use first available numeric category or create 'عمومی'
+  if (categoryPk === null || isNaN(categoryPk) || categoryPk <= 0) {
+    const validNumericCat = (allCategories || []).find(c => !isNaN(Number(c.id)) && Number(c.id) > 0);
+    if (validNumericCat) {
+      categoryPk = Number(validNumericCat.id);
     } else {
       try {
         const defaultCat = await djangoCreateBlogCategory({ name: 'عمومی' }, config);
-        if (defaultCat && defaultCat.id) {
+        if (defaultCat && defaultCat.id && !isNaN(Number(defaultCat.id)) && Number(defaultCat.id) > 0) {
           categoryPk = Number(defaultCat.id);
         }
       } catch {}
@@ -1956,11 +1957,18 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
       });
       return finalSaved;
     } else {
-      const errorMsg = resData?.detail || 
-        (resData?.slug ? `اسلاگ: ${resData.slug.join(', ')}` : '') ||
-        (resData?.title ? `عنوان: ${resData.title.join(', ')}` : '') ||
-        (resData?.category ? `دسته‌بندی: ${resData.category.join(', ')}` : '') ||
-        (resData?.message || `خطای سرور (${res.status})`);
+      let errorMsg = '';
+      if (resData && typeof resData === 'object') {
+        errorMsg = Object.entries(resData)
+          .map(([key, val]) => {
+            const label = key === 'category' ? 'دسته‌بندی' : key === 'slug' ? 'اسلاگ' : key === 'title' ? 'عنوان' : key;
+            return `${label}: ${Array.isArray(val) ? val.join(', ') : JSON.stringify(val)}`;
+          })
+          .join(' | ');
+      }
+      if (!errorMsg) {
+        errorMsg = resData?.detail || resData?.message || `خطای سرور (${res.status})`;
+      }
       throw new Error(errorMsg);
     }
   } catch (err: any) {
@@ -1979,10 +1987,40 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
   const allCategories = djangoDatabaseStore.getBlogCategories();
   const matchedCat = allCategories.find(c =>
     String(c.id) === String(post.category) ||
-    c.name === post.category ||
-    c.slug === post.category
+    (c.name && post.category && c.name.trim().toLowerCase() === post.category.trim().toLowerCase()) ||
+    (c.slug && post.category && c.slug.trim().toLowerCase() === post.category.trim().toLowerCase())
   );
-  const categoryPk = matchedCat && !isNaN(Number(matchedCat.id)) ? Number(matchedCat.id) : null;
+  
+  let categoryPk: number | null = null;
+  if (matchedCat && !isNaN(Number(matchedCat.id)) && Number(matchedCat.id) > 0) {
+    categoryPk = Number(matchedCat.id);
+  } else if (post.category && !isNaN(Number(post.category)) && Number(post.category) > 0) {
+    categoryPk = Number(post.category);
+  } else if (post.category && typeof post.category === 'string' && post.category.trim() && !post.category.startsWith('cat_')) {
+    try {
+      const newCat = await djangoCreateBlogCategory({ name: post.category }, config);
+      if (newCat && newCat.id && !isNaN(Number(newCat.id)) && Number(newCat.id) > 0) {
+        categoryPk = Number(newCat.id);
+      }
+    } catch (e) {
+      console.warn('Failed to auto-create category on Django:', e);
+    }
+  }
+
+  // Fallback if null, NaN or non-positive
+  if (categoryPk === null || isNaN(categoryPk) || categoryPk <= 0) {
+    const validNumericCat = (allCategories || []).find(c => !isNaN(Number(c.id)) && Number(c.id) > 0);
+    if (validNumericCat) {
+      categoryPk = Number(validNumericCat.id);
+    } else {
+      try {
+        const defaultCat = await djangoCreateBlogCategory({ name: 'عمومی' }, config);
+        if (defaultCat && defaultCat.id && !isNaN(Number(defaultCat.id)) && Number(defaultCat.id) > 0) {
+          categoryPk = Number(defaultCat.id);
+        }
+      } catch {}
+    }
+  }
 
   const postExcerpt = (post.excerpt || '').slice(0, 500);
   const imageValue = post.image || '';
@@ -2096,7 +2134,19 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
 
     if (!res.ok) {
       const errData = await res.json().catch(() => null);
-      throw new Error(errData?.detail || errData?.message || `خطا در ویرایش مقاله (${res.status})`);
+      let errorMsg = '';
+      if (errData && typeof errData === 'object') {
+        errorMsg = Object.entries(errData)
+          .map(([key, val]) => {
+            const label = key === 'category' ? 'دسته‌بندی' : key === 'slug' ? 'اسلاگ' : key === 'title' ? 'عنوان' : key;
+            return `${label}: ${Array.isArray(val) ? val.join(', ') : JSON.stringify(val)}`;
+          })
+          .join(' | ');
+      }
+      if (!errorMsg) {
+        errorMsg = errData?.detail || errData?.message || `خطا در ویرایش مقاله (${res.status})`;
+      }
+      throw new Error(errorMsg);
     }
   } catch (err: any) {
     console.error('Django Blog Update error:', err);

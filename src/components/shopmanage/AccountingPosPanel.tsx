@@ -343,6 +343,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   });
 
   const [showSessionSecurityModal, setShowSessionSecurityModal] = useState<boolean>(false);
+  const [showExtendNotice, setShowExtendNotice] = useState<boolean>(false);
 
   const [loginPhone, setLoginPhone] = useState(AUTHORIZED_PHONE);
   const [loginPass, setLoginPass] = useState('');
@@ -990,6 +991,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
     // ۵. پخش هشدار صوتی
     playAlertTone();
+
+    // خروج خودکار به صفحه کاتالوگ/اصلی فروشگاه جهت هدایت بهینه کاربر
+    if (onReturnToStore) {
+      onReturnToStore();
+    }
   };
 
   // پایش بی‌وقفه زمان اعتبار توکن و خروج خودکار به محض اتمام زمان
@@ -1008,8 +1014,15 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       const rem = getRemainingSessionSeconds();
       setSessionRemainingSeconds(rem);
 
+      if (rem <= 60 && rem > 0) {
+        setShowExtendNotice(true);
+      } else {
+        setShowExtendNotice(false);
+      }
+
       if (rem <= 0) {
         clearInterval(intervalId);
+        setShowExtendNotice(false);
         handleAutoLogoutDueToExpiration('token_expired');
       }
     }, 1000);
@@ -1108,6 +1121,16 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     invalidatePosTokenAndSession('manual_logout');
     setSessionExpiredNotice('');
     setIsLoggingOut(false);
+    if (onReturnToStore) {
+      onReturnToStore();
+    }
+  };
+
+  const handleExtendSession = () => {
+    const minutes = 30; // Extend by 30 minutes
+    extendPosSession(minutes);
+    setSessionRemainingSeconds(getRemainingSessionSeconds());
+    setShowExtendNotice(false);
   };
 
   // Add Product to POS Cart by Product Object
@@ -2156,6 +2179,37 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             <div className="space-y-1.5">
               <h3 className="font-black text-white text-base">در حال خروج از صندوق...</h3>
               <p className="text-xs text-slate-400">نشست صندوق‌داری شما در حال بسته‌شدن امن است.</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showExtendNotice && (
+        <div className="fixed bottom-6 right-6 z-[9999] max-w-md w-full bg-slate-950 text-white rounded-2xl border border-slate-800 shadow-2xl p-5 animate-in slide-in-from-bottom duration-300">
+          <div className="flex gap-4 items-start">
+            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+              <AlertTriangle className="w-6 h-6 animate-pulse" />
+            </div>
+            <div className="flex-1 space-y-1">
+              <h4 className="font-black text-sm text-white">هشدار امنیتی انقضای نشست صندوق</h4>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                اعتبار نشست صندوق‌داری شما تا <span className="font-black text-amber-400 font-mono">{sessionRemainingSeconds} ثانیه دیگر</span> به پایان می‌رسد. جهت جلوگیری از خروج خودکار، مایلید نشست خود را تمدید کنید؟
+              </p>
+              <div className="flex items-center gap-2 pt-3">
+                <button
+                  onClick={handleExtendSession}
+                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-lg transition-colors flex items-center gap-1 shadow-md shadow-indigo-600/10"
+                >
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>تمدید ۳۰ دقیقه‌ای نشست</span>
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors"
+                >
+                  <span>خروج امن هم‌اکنون</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
