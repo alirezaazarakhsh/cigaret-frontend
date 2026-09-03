@@ -182,7 +182,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
                   <span className="text-base lg:text-lg font-black tracking-tight text-slate-900 group-hover:text-blue-600 transition-colors truncate">
-                    {companyTitle ? `پخش عمده ${companyTitle}` : 'دخانیات عمده سوین'}
+                    {companyTitle ? `پخش عمده ${companyTitle}` : 'دخانیات عمده دخانیات سرو'}
                   </span>
                   <span className="text-[10px] font-black bg-blue-50 text-blue-800 border border-blue-200 px-2 py-0.5 rounded-lg shrink-0">
                     کارتن و باکس
@@ -343,14 +343,14 @@ export const Header: React.FC<HeaderProps> = ({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1 min-w-0">
                     <span className="text-xs font-black text-slate-900 truncate">
-                      {companyTitle ? `پخش عمده ${companyTitle}` : 'دخانیات سوین'}
+                      {companyTitle ? `پخش عمده ${companyTitle}` : 'دخانیات دخانیات سرو'}
                     </span>
                     <span className="text-[8px] font-black bg-blue-50 text-blue-700 border border-blue-200 px-1 py-0.2 rounded-md shrink-0 whitespace-nowrap">
                       کارتن / باکس
                     </span>
                   </div>
                   <p className="text-[9.5px] text-slate-500 font-medium truncate leading-tight">
-                    {warehouseAddress ? warehouseAddress : 'پخش مستقیم انبار سوین'}
+                    {warehouseAddress ? warehouseAddress : 'پخش مستقیم انبار دخانیات سرو'}
                   </p>
                 </div>
               </div>

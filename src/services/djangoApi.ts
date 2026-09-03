@@ -247,17 +247,17 @@ class DjangoDatabaseStore {
       id: post.id || (existing ? existing.id : `post_${Date.now()}`),
       slug: post.slug || (existing ? existing.slug : (post.title ? post.title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-آ-ی]/g, '') : `post-${Date.now()}`)),
       title: post.title || (existing ? existing.title : 'بدون عنوان'),
-      metaTitle: (post.metaTitle && post.metaTitle.trim()) ? post.metaTitle : (existing?.metaTitle || post.title || 'مقاله وبلاگ سوین'),
+      metaTitle: (post.metaTitle && post.metaTitle.trim()) ? post.metaTitle : (existing?.metaTitle || post.title || 'مقاله وبلاگ دخانیات سرو'),
       metaDescription: (post.metaDescription && post.metaDescription.trim()) ? post.metaDescription : (existing?.metaDescription || post.excerpt || ''),
       canonicalUrl: post.canonicalUrl || existing?.canonicalUrl || `https://sevin-tobacco.ir/blog/${post.slug || 'post'}`,
-      keywords: (post.keywords && post.keywords.length > 0) ? post.keywords : (existing?.keywords || ['سوین', 'دخانیات', 'عمده فروشی']),
+      keywords: (post.keywords && post.keywords.length > 0) ? post.keywords : (existing?.keywords || ['دخانیات سرو', 'دخانیات', 'عمده فروشی']),
       category: post.category || existing?.category || 'تحلیل بازار و ارز',
       categorySlug: post.categorySlug || existing?.categorySlug || 'market-analysis',
       readTimeMinutes: Number(post.readTimeMinutes) || existing?.readTimeMinutes || Math.max(1, Math.ceil(((post.content || existing?.content)?.length || 500) / 400)),
       publishedDate: existing?.publishedDate || post.publishedDate || autoPublishedDate,
       author: post.author || existing?.author || {
         name: 'مهندس حسینی (مدیریت)',
-        role: 'ارشد توزیع و بنکداری سوین',
+        role: 'ارشد توزیع و بنکداری دخانیات سرو',
         avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
       },
       image: post.image || existing?.image || 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?auto=format&fit=crop&w=800&q=80',
@@ -265,7 +265,7 @@ class DjangoDatabaseStore {
       keyTakeaways: (post.keyTakeaways && post.keyTakeaways.length > 0) ? post.keyTakeaways : (existing?.keyTakeaways || []),
       content: (post.content && post.content.trim()) ? post.content : (existing?.content || ''),
       faqs: (post.faqs && post.faqs.length > 0) ? post.faqs : (existing?.faqs || []),
-      tags: (post.tags && post.tags.length > 0) ? post.tags : (existing?.tags || ['سوین', 'مقالات']),
+      tags: (post.tags && post.tags.length > 0) ? post.tags : (existing?.tags || ['دخانیات سرو', 'مقالات']),
       viewsCount: post.viewsCount !== undefined ? post.viewsCount : (existing?.viewsCount || 1),
       isPublished: post.isPublished !== undefined ? post.isPublished : (existing?.isPublished !== undefined ? existing.isPublished : true),
       focusKeyword: post.focusKeyword || existing?.focusKeyword || ''
@@ -384,7 +384,7 @@ class DjangoDatabaseStore {
     is_active: boolean;
     debug_mode: boolean;
   } = {
-    name: 'سامانه پیامک هوشمند سوین (Kavenegar Gateway)',
+    name: 'سامانه پیامک هوشمند دخانیات سرو (Kavenegar Gateway)',
     api_token: '366E417A5478474274416738367963385250466453673D3D',
     is_active: true,
     debug_mode: false,
@@ -413,7 +413,7 @@ class DjangoDatabaseStore {
       recipient_phone: '09120759419',
       pattern: 'welcome',
       pattern_code: 'welcome_template',
-      tokens_sent: { receptor: '09120759419', token: 'مهندس_حسینی', token2: 'صندوق_فروشگاهی_سوین' },
+      tokens_sent: { receptor: '09120759419', token: 'مهندس_حسینی', token2: 'صندوق_فروشگاهی_دخانیات سرو' },
       kavenegar_message_id: '887263541',
       status: 'delivered',
       cost_rial: 240,
@@ -1599,13 +1599,13 @@ function mapDjangoBlogPost(item: any, config?: DjangoCrmConfig): BlogPost {
     metaTitle: item.meta_title || item.metaTitle || item.title || '',
     metaDescription: item.meta_description || item.metaDescription || item.excerpt || '',
     canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
-    keywords: tags.length ? tags : ['سوین', 'دخانیات'],
+    keywords: tags.length ? tags : ['دخانیات سرو', 'دخانیات'],
     category: item.category_name || (typeof item.category === 'object' && item.category?.name ? item.category.name : 'عمومی'),
     categorySlug: typeof item.category === 'number' ? String(item.category) : (typeof item.category === 'object' ? item.category?.slug : undefined),
     readTimeMinutes: Number(item.reading_time_minutes ?? 5),
     publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : ''),
     author: {
-      name: item.author_name || (typeof item.author === 'object' && item.author?.name ? item.author.name : 'تیم تحریریه سوین'),
+      name: item.author_name || (typeof item.author === 'object' && item.author?.name ? item.author.name : 'تیم تحریریه دخانیات سرو'),
       role: 'کارشناس ارشد بازار',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
     },

@@ -31,25 +31,25 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
-          companyName: 'سوین',
+          companyName: 'دخانیات سرو',
           bankCard1: '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲',
           bankShiba1: 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲',
-          bankHolder1: 'امور مالی شرکت سوین',
+          bankHolder1: 'امور مالی شرکت دخانیات سرو',
           bankCard2: '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰',
           bankShiba2: 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸',
-          bankHolder2: 'حساب ترابری و تدارکات سوین',
+          bankHolder2: 'حساب ترابری و تدارکات دخانیات سرو',
           ...parsed
         };
       }
     } catch (e) {}
     return {
-      companyName: 'سوین',
+      companyName: 'دخانیات سرو',
       bankCard1: '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲',
       bankShiba1: 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲',
-      bankHolder1: 'امور مالی شرکت سوین',
+      bankHolder1: 'امور مالی شرکت دخانیات سرو',
       bankCard2: '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰',
       bankShiba2: 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸',
-      bankHolder2: 'حساب ترابری و تدارکات سوین',
+      bankHolder2: 'حساب ترابری و تدارکات دخانیات سرو',
     };
   })();
 

@@ -74,7 +74,7 @@ const INITIAL_MESSAGES: Record<string, ChatMessage[]> = {
       id: 'm-2',
       ticketId: 't-101',
       sender: 'system',
-      senderName: 'سیستم هوشمند سوین',
+      senderName: 'سیستم هوشمند دخانیات سرو',
       text: 'تیکت شما با شماره TCK-8821 به واحد فروش عمده ارجاع داده شد. اپراتور آنلاین به زودی پاسخ می‌دهد.',
       timestamp: '۱۰:۱۶',
     },
@@ -82,8 +82,8 @@ const INITIAL_MESSAGES: Record<string, ChatMessage[]> = {
       id: 'm-3',
       ticketId: 't-101',
       sender: 'support_admin',
-      senderName: 'مدیریت فروش سوین (مهندس رادمنش)',
-      text: 'سلام و احترام جناب گودرزی عزیز. بله موجودی انبار شورآباد تکمیل هست. برای ۱۰۰ کارتن ۵ درصد تخفیف نقدی اعمال شد و ارسال با نیسان اختصاصی سوین قبل از ظهر انجام می‌شه.',
+      senderName: 'مدیریت فروش دخانیات سرو (مهندس رادمنش)',
+      text: 'سلام و احترام جناب گودرزی عزیز. بله موجودی انبار شورآباد تکمیل هست. برای ۱۰۰ کارتن ۵ درصد تخفیف نقدی اعمال شد و ارسال با نیسان اختصاصی دخانیات سرو قبل از ظهر انجام می‌شه.',
       timestamp: '۱۰:۲۸',
     }
   ],
@@ -100,7 +100,7 @@ const INITIAL_MESSAGES: Record<string, ChatMessage[]> = {
       id: 'm-202',
       ticketId: 't-102',
       sender: 'support_admin',
-      senderName: 'واحد ترابری و لجستیک سوین',
+      senderName: 'واحد ترابری و لجستیک دخانیات سرو',
       text: 'سلام جناب حسینی. بیجک بارنامه صادر شد: VTN-8849201. فردا صبح در شعبه احمدآباد تخلیه خواهد شد.',
       timestamp: '۰۸:۳۰',
     }
@@ -153,7 +153,7 @@ export const ChatSupport: React.FC = () => {
       id: 'msg-' + Date.now(),
       ticketId: activeTicketId,
       sender: operatorMode === 'admin' ? 'support_admin' : 'customer',
-      senderName: operatorMode === 'admin' ? 'مدیریت پشتیبانی سوین' : (activeTicket.customerName || 'کاربر'),
+      senderName: operatorMode === 'admin' ? 'مدیریت پشتیبانی دخانیات سرو' : (activeTicket.customerName || 'کاربر'),
       text: messageInput.trim(),
       timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
     };
@@ -186,7 +186,7 @@ export const ChatSupport: React.FC = () => {
           id: 'msg-' + (Date.now() + 1),
           ticketId: activeTicketId,
           sender: 'support_admin',
-          senderName: 'پشتیبانی آنلاین سوین (پاسخ آنی)',
+          senderName: 'پشتیبانی آنلاین دخانیات سرو (پاسخ آنی)',
           text: getSmartAutoReply(newMsg.text),
           timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
         };
@@ -203,12 +203,12 @@ export const ChatSupport: React.FC = () => {
       return 'همکار گرامی، نرخ‌های عمده به صورت لحظه‌ای با نوسان دلار آزاد در تب "تابلوی قیمت لحظه‌ای" آپدیت می‌شود. برای استعلام تیراژ بالای ۵۰ کارتن تخفیف ویژه نقدی اعمال می‌گردد.';
     }
     if (text.includes('ارسال') || text.includes('باربری') || text.includes('بیجک') || text.includes('وانت')) {
-      return 'سفارشات تهران و البرز در همان روز با ناوگان وانت اختصاصی سوین و سفارشات شهرستان با باربری‌های معتبر (وطن/پیشتاز) با صدور بیجک رسمی بیمه‌دار ارسال می‌شوند.';
+      return 'سفارشات تهران و البرز در همان روز با ناوگان وانت اختصاصی دخانیات سرو و سفارشات شهرستان با باربری‌های معتبر (وطن/پیشتاز) با صدور بیجک رسمی بیمه‌دار ارسال می‌شوند.';
     }
     if (text.includes('شبا') || text.includes('حساب') || text.includes('واریز')) {
-      return 'شماره حساب و شبای رسمی پخش عمده سوین (بانک ملی / ملت) در پیش‌فاکتور درج شده است. لطفاً پس از واریز، تصویر فیش را در همین چت ارسال نمایید.';
+      return 'شماره حساب و شبای رسمی پخش عمده دخانیات سرو (بانک ملی / ملت) در پیش‌فاکتور درج شده است. لطفاً پس از واریز، تصویر فیش را در همین چت ارسال نمایید.';
     }
-    return 'پیام شما توسط واحد مربوطه در سامانه پخش سوین دریافت شد. کارشناس مربوطه در حال بررسی و پاسخگویی آنلاین می‌باشد.';
+    return 'پیام شما توسط واحد مربوطه در سامانه پخش دخانیات سرو دریافت شد. کارشناس مربوطه در حال بررسی و پاسخگویی آنلاین می‌باشد.';
   };
 
   const handleCreateTicket = (e: React.FormEvent) => {
@@ -246,8 +246,8 @@ export const ChatSupport: React.FC = () => {
         id: 'msg-init-2',
         ticketId: newTicketId,
         sender: 'system',
-        senderName: 'وب‌سوکت مرکزی سوین',
-        text: `تیکت ${newTicketNumber} با موفقیت در صف پشتیبانی باز شد. کارشناسان سوین متصل هستند.`,
+        senderName: 'وب‌سوکت مرکزی دخانیات سرو',
+        text: `تیکت ${newTicketNumber} با موفقیت در صف پشتیبانی باز شد. کارشناسان دخانیات سرو متصل هستند.`,
         timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
       }
     ];
@@ -284,7 +284,7 @@ export const ChatSupport: React.FC = () => {
                 </span>
               </div>
               <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
-                مرکز چت آنلاین، تیکتینگ و پشتیبانی سوین
+                مرکز چت آنلاین، تیکتینگ و پشتیبانی دخانیات سرو
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 mt-1">
                 ارسال فوری تیکت استعلام قیمت تیراژ، هماهنگی باربری اختصاصی، پیگیری تراکنش مالی و پشتیبانی ۲۴ ساعته.
@@ -316,7 +316,7 @@ export const ChatSupport: React.FC = () => {
                     operatorMode === 'admin' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600'
                   }`}
                 >
-                  حالت اپراتور سوین
+                  حالت اپراتور دخانیات سرو
                 </button>
               </div>
 
@@ -472,7 +472,7 @@ export const ChatSupport: React.FC = () => {
               {isOperatorTyping && (
                 <div className="flex items-center gap-2 text-xs text-slate-500 bg-white p-3 rounded-2xl border border-slate-200 w-fit">
                   <Sparkles className="w-4 h-4 text-blue-600 animate-spin" />
-                  <span>اپراتور سوین در حال نوشتن پاسخ...</span>
+                  <span>اپراتور دخانیات سرو در حال نوشتن پاسخ...</span>
                 </div>
               )}
 
@@ -498,7 +498,7 @@ export const ChatSupport: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setMessageInput('آیا بار با ناوگان اختصاصی وانت سوین ارسال می‌شود یا باربری وطن؟')}
+                onClick={() => setMessageInput('آیا بار با ناوگان اختصاصی وانت دخانیات سرو ارسال می‌شود یا باربری وطن؟')}
                 className="bg-slate-100 hover:bg-blue-50 hover:text-blue-700 px-2.5 py-1 rounded-xl shrink-0 whitespace-nowrap text-slate-700 transition-colors border border-slate-200"
               >
                 نحوه ارسال باربری / وانت
@@ -511,7 +511,7 @@ export const ChatSupport: React.FC = () => {
                 type="text"
                 placeholder={
                   operatorMode === 'admin'
-                    ? 'پاسخ به عنوان اپراتور و مدیریت سوین...'
+                    ? 'پاسخ به عنوان اپراتور و مدیریت دخانیات سرو...'
                     : 'پیام خود را تایپ نمایید (ارسال فوری از طریق وب‌سوکت)...'
                 }
                 value={messageInput}

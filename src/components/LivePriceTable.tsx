@@ -93,7 +93,7 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
               <div className="flex items-center gap-2 mb-1.5 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 text-xs font-black px-2.5 py-1 rounded-lg border border-blue-200 ">
                   <Clock className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
-                  تابلوی نرخ لحظه‌ای پخش عمده سوین
+                  تابلوی نرخ لحظه‌ای پخش عمده دخانیات سرو
                 </span>
                 <span className="text-xs text-slate-500 font-medium">
                   عرضه دست اول کارتن و باکس پلمپ انبار جنت‌آباد
@@ -116,7 +116,7 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
                 className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl sm:rounded-2xl text-xs font-black shadow-md shadow-blue-600/20 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50"
               >
                 <Download className="w-4 h-4 text-white" />
-                <span>{isDownloadingPdf ? 'در حال ایجاد فایل PDF...' : 'دانلود PDF نرخ‌نامه سوین'}</span>
+                <span>{isDownloadingPdf ? 'در حال ایجاد فایل PDF...' : 'دانلود PDF نرخ‌نامه دخانیات سرو'}</span>
               </button>
             </div>
           </div>

@@ -49,18 +49,18 @@ class CustomerProfileViewSet(viewsets.ModelViewSet):
             'profile': serializer.data,
             'warehouse_bank_accounts': [
                 {
-                    'bank': 'بانک سامان (حساب اصلی پخش سوین)',
+                    'bank': 'بانک سامان (حساب اصلی پخش دخانیات سرو)',
                     'account_number': '849-810-1234567-1',
                     'card_number': '6219-8610-9988-7766',
                     'iban': 'IR120560084981001234567001',
-                    'owner': 'پخش دخانیات سوین - حسینی'
+                    'owner': 'پخش دخانیات دخانیات سرو - حسینی'
                 },
                 {
                     'bank': 'بانک ملت (حساب جاری بازرگانی)',
                     'account_number': '5412987654',
                     'card_number': '6104-3378-1122-3344',
                     'iban': 'IR980120000000005412987654',
-                    'owner': 'بازرگانی دخانیات سوین'
+                    'owner': 'بازرگانی دخانیات دخانیات سرو'
                 }
             ]
         })

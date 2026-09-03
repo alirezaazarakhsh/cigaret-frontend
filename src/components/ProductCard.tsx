@@ -19,12 +19,16 @@ interface ProductCardProps {
   product: CigaretteProduct;
   onAddToCart: (product: CigaretteProduct, unit: 'carton' | 'box', quantity: number) => void;
   onOpenDetails: (product: CigaretteProduct) => void;
+  isSelected?: boolean;
+  onToggleSelect?: (productId: string) => void;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   onAddToCart,
   onOpenDetails,
+  isSelected,
+  onToggleSelect,
 }) => {
   const [cartonQty, setCartonQty] = useState<number>(product.moq || 1);
   const [boxQty, setBoxQty] = useState<number>(0);
@@ -78,15 +82,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div 
-      className={`bg-white border rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-200 group relative ${
-        stockInfo.isAvailable ? 'border-slate-200 hover:border-blue-500 hover:shadow-xl' : 'border-slate-200 opacity-80'
+      className={`bg-white border rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-300 group relative ${
+        stockInfo.isAvailable ? 'border-slate-200 hover:border-blue-500 hover:shadow-lg hover:scale-[1.02]' : 'border-slate-200 opacity-80'
       }`}
       id={`product-card-${product.id}`}
     >
       {/* Top badges & Brand */}
       <div>
         <div className="flex items-center justify-between gap-2 mb-2.5">
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-2">
+            {onToggleSelect && (
+              <label className="flex items-center gap-1.5 cursor-pointer bg-slate-50 hover:bg-slate-100 px-2.5 py-1 rounded-xl border border-slate-200 transition-colors">
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => onToggleSelect(product.id)}
+                  className="w-4 h-4 text-blue-600 rounded-sm border-slate-300 focus:ring-blue-500 cursor-pointer"
+                />
+                <span className="text-[11px] font-bold text-slate-700">مقایسه</span>
+              </label>
+            )}
             {product.badge && (
               <span className="text-[10px] font-black px-2 py-0.5 rounded-lg bg-blue-50 text-blue-800 border border-blue-200">
                 {product.badge}
@@ -115,9 +130,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Hologram badge */}
           {product.hologram && product.hologram !== 'بدون هولوگرام' && product.hologram !== 'ندارد' && (
-            <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-xs border border-slate-200 text-slate-800 text-[10px] px-2 py-0.5 rounded-lg flex items-center gap-1 font-bold shadow-xs">
+            <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-xs border border-slate-200 text-slate-800 text-[10px] px-2 py-0.5 rounded-lg flex items-center gap-1 font-bold shadow-xs z-10">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
               {product.hologram}
+            </div>
+          )}
+
+          {/* Special Tier Discount Animated Badge */}
+          {((product.tierDiscounts && product.tierDiscounts.length > 0) || (product.badge && (product.badge.includes('تخفیف') || product.badge.includes('ویژه') || product.badge.includes('حراج') || product.badge.includes('پیشنهاد')))) && (
+            <div className="absolute top-2 left-2 bg-gradient-to-r from-red-600 via-orange-600 to-amber-600 text-white text-[10px] px-3 py-1 rounded-xl flex items-center gap-1.5 font-black shadow-lg animate-pulse z-10 border border-white/30">
+              <Tag className="w-3.5 h-3.5 text-amber-200 animate-bounce" />
+              تخفیف ویژه
             </div>
           )}
 

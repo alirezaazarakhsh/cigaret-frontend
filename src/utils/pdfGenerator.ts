@@ -8,13 +8,13 @@ import { formatToman, formatNumberFa } from './formatters';
  */
 function getDjangoConfig() {
   const defaults = {
-    companyName: 'سوین',
+    companyName: 'دخانیات سرو',
     bankCard1: '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲',
     bankShiba1: 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲',
-    bankHolder1: 'امور مالی شرکت سوین',
+    bankHolder1: 'امور مالی شرکت دخانیات سرو',
     bankCard2: '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰',
     bankShiba2: 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸',
-    bankHolder2: 'حساب ترابری و تدارکات سوین',
+    bankHolder2: 'حساب ترابری و تدارکات دخانیات سرو',
     transportPhoneCompany: '۰۹۱۲۰۷۵۹۴۱۹',
     nationalIdCompany: '۱۰۱۰۳۸۵۲۹۱۰',
     economicCodeCompany: '۴۱۱۴۹۸۷۵۳۱۱۹',
@@ -669,7 +669,7 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
       <!-- Receipt Header -->
       <div style="border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px; text-align: center;">
         <div style="font-size: 18px; font-weight: 900; color: #0f172a; margin-bottom: 4px; letter-spacing: -0.5px;">
-          ${config.companyName ? `فروشگاه و بنکداری ${config.companyName}` : 'فروشگاه و پخش سراسری سوین'}
+          ${config.companyName ? `فروشگاه و بنکداری ${config.companyName}` : 'فروشگاه و پخش سراسری دخانیات سرو'}
         </div>
         <div style="display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 800; color: #1e293b; background: #f1f5f9; padding: 3px 14px; border-radius: 6px; margin-bottom: 4px; border: 1px solid #cbd5e1;">
           فاکتور رسمی فروش و تحویل کالا
@@ -787,7 +787,7 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
           ${receipt.receiptNumber}
         </div>
         <div style="font-size: 8.5px; color: #94a3b8; margin-top: 5px;">
-          سند معتبر الکترونیکی فروشگاه و بنکداری سوین
+          سند معتبر الکترونیکی فروشگاه و بنکداری دخانیات سرو
         </div>
       </div>
 

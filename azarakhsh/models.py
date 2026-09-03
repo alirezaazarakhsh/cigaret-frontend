@@ -12,7 +12,7 @@ class CustomerTier(models.Model):
         ('silver', _('کارت نقره‌ای - استاندارد')),
         ('gold', _('کارت طلایی - VIP')),
         ('platinum', _('کارت پلاتینیوم - بنکداری')),
-        ('diamond_black', _('کارت بلک دایموند - انحصاری سوین')),
+        ('diamond_black', _('کارت بلک دایموند - انحصاری دخانیات سرو')),
     ]
 
     tier_key = models.CharField(_('شناسه سطح کارت'), max_length=30, choices=TIER_CHOICES, unique=True)
@@ -119,7 +119,7 @@ class BankDepositSlip(models.Model):
     amount = models.BigIntegerField(_('مبلغ واریزی (تومان)'), validators=[MinValueValidator(1000)])
     tracking_number = models.CharField(_('شماره پیگیری / شماره ارجاع فیش'), max_length=100, db_index=True)
     
-    bank_name = models.CharField(_('نام بانک مقصد'), max_length=100, default='بانک ملت / سامان (حساب پخش سوین)')
+    bank_name = models.CharField(_('نام بانک مقصد'), max_length=100, default='بانک ملت / سامان (حساب پخش دخانیات سرو)')
     destination_card_number = models.CharField(_('شماره کارت یا شبای مقصد'), max_length=50, blank=True)
     sender_card_last4 = models.CharField(_('۴ رقم آخر کارت واریزکننده'), max_length=4, blank=True)
     sender_account_name = models.CharField(_('نام صاحب حساب واریزکننده'), max_length=150, blank=True)

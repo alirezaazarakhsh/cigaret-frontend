@@ -680,7 +680,7 @@ export const CustomerBankDepositSlipModal: React.FC<CustomerBankDepositSlipModal
             {/* Official Sevin Bank Account Info */}
             <div className="bg-slate-950 text-white rounded-2xl p-4 space-y-2 border border-slate-800">
               <div className="flex justify-between items-center text-[10px] text-amber-400 font-bold">
-                <span>حساب رسمی واریز شرکت پخش دخانیات سوین:</span>
+                <span>حساب رسمی واریز شرکت پخش دخانیات دخانیات سرو:</span>
                 <span className="bg-amber-500/20 px-2 py-0.5 rounded-full text-amber-300">بانک ملی ایران</span>
               </div>
               <div className="flex items-center justify-between bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
@@ -691,7 +691,7 @@ export const CustomerBankDepositSlipModal: React.FC<CustomerBankDepositSlipModal
                     type="button"
                     onClick={() => {
                       navigator.clipboard?.writeText('6037997975311982');
-                      showToast('شماره کارت سوین کپی شد.');
+                      showToast('شماره کارت دخانیات سرو کپی شد.');
                     }}
                     className="p-1 text-slate-400 hover:text-white"
                   >
@@ -700,7 +700,7 @@ export const CustomerBankDepositSlipModal: React.FC<CustomerBankDepositSlipModal
                 </div>
               </div>
               <div className="text-[10px] text-slate-400 flex justify-between px-1">
-                <span>صاحب حساب: شرکت پخش سراسری دخانیات سوین</span>
+                <span>صاحب حساب: شرکت پخش سراسری دخانیات دخانیات سرو</span>
                 <span>شبا: <span className="font-mono text-slate-300" dir="ltr">IR720170000000123456789012</span></span>
               </div>
             </div>
@@ -911,7 +911,7 @@ export const CustomerDigitalPassModal: React.FC<CustomerDigitalPassModalProps> =
                 SV
               </div>
               <div>
-                <span className="text-xs font-black text-white block">سامانه پخش سوین</span>
+                <span className="text-xs font-black text-white block">سامانه پخش دخانیات سرو</span>
                 <span className="text-[9px] text-slate-300">شبکه توزیع دخانیات و انبار مرکزی</span>
               </div>
             </div>

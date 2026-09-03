@@ -132,8 +132,8 @@ export const InPersonPickupModal: React.FC<InPersonPickupModalProps> = ({
         shopPhone: customerPhone,
         city: 'تهران',
         province: 'تهران',
-        address: 'دریافت حضوری در باجه انبار مرکزی سوین (جنت‌آباد)',
-        shippingMethod: 'تحویل حضوری در باجه انبار مرکزی سوین (۰ تومان)',
+        address: 'دریافت حضوری در باجه انبار مرکزی دخانیات سرو (جنت‌آباد)',
+        shippingMethod: 'تحویل حضوری در باجه انبار مرکزی دخانیات سرو (۰ تومان)',
         shippingCost: 0,
         notes: `نوبت باجه: ${randomQueue} | وسیله نقلیه: ${vehicleType} | پلاک: ${vehiclePlate || 'نامشخص'} | یادداشت: ${notes}`,
       },
@@ -172,7 +172,7 @@ export const InPersonPickupModal: React.FC<InPersonPickupModalProps> = ({
             </div>
             <div>
               <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-                <span>ثبت سفارش و تحویل حضوری در باجه انبار مرکزی سوین</span>
+                <span>ثبت سفارش و تحویل حضوری در باجه انبار مرکزی دخانیات سرو</span>
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
                 آماده‌سازی فوری کالاها در سوله مرکزی و بارگیری مستقیم روی خودرو یا تحویل دست‌به‌دست
@@ -198,7 +198,7 @@ export const InPersonPickupModal: React.FC<InPersonPickupModalProps> = ({
                 <div className="flex items-center gap-2 font-black text-amber-950">
                   <MapPin className="w-4 h-4 text-amber-700 shrink-0" />
                   <span>آدرس باجه تحویل انبار:</span>
-                  <span className="text-slate-800">تهران، جنت‌آباد شمالی، خیابان بهارستان، سوله پخش دخانیات سوین</span>
+                  <span className="text-slate-800">تهران، جنت‌آباد شمالی، خیابان بهارستان، سوله پخش دخانیات دخانیات سرو</span>
                 </div>
                 <div className="flex items-center gap-2 text-slate-600">
                   <Clock className="w-3.5 h-3.5 text-slate-400" />
@@ -512,7 +512,7 @@ export const InPersonPickupModal: React.FC<InPersonPickupModalProps> = ({
                   </div>
                   <div>
                     <h4 className="text-sm sm:text-base font-black text-amber-400">
-                      حواله رسمی تحویل باجه انبار مرکزی سوین
+                      حواله رسمی تحویل باجه انبار مرکزی دخانیات سرو
                     </h4>
                     <span className="text-[11px] text-slate-300 font-mono">
                       تهران - انبار مرکزی جنت‌آباد شمالی
@@ -593,7 +593,7 @@ export const InPersonPickupModal: React.FC<InPersonPickupModalProps> = ({
               <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 text-xs pt-2 border-t border-slate-700/80">
                 <div className="flex items-center gap-2 text-slate-300">
                   <MapPin className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span>تهران، جنت‌آباد شمالی، خیابان بهارستان، سوله پخش دخانیات سوین</span>
+                  <span>تهران، جنت‌آباد شمالی، خیابان بهارستان، سوله پخش دخانیات دخانیات سرو</span>
                 </div>
 
                 <a

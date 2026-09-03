@@ -52,7 +52,7 @@ export const KavenegarSmsDocs: React.FC = () => {
         status: "success",
         data: {
           id: 1,
-          name: "سامانه پیامک هوشمند سوین و آذرخش",
+          name: "سامانه پیامک هوشمند دخانیات سرو و آذرخش",
           api_token: "6A3961347847424C655845...",
           is_active: true,
           debug_mode: false

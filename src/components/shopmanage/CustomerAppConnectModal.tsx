@@ -691,7 +691,7 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
                       S
                     </div>
                     <div>
-                      <div className="font-black text-xs text-white leading-tight">پخش عمده سوین (شعبه انبار)</div>
+                      <div className="font-black text-xs text-white leading-tight">پخش عمده دخانیات سرو (شعبه انبار)</div>
                       <div className="text-[10px] text-slate-400 font-medium">اپلیکیشن همراه مشتریان حضوری</div>
                     </div>
                   </div>
@@ -1289,7 +1289,7 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
                         </div>
 
                         <p className="text-[11px] text-slate-400 leading-relaxed">
-                          تهران، بزرگراه شهید همت، جنت‌آباد مرکزی، انبار مرکزی توزیع و پخش عمده سوین
+                          تهران، بزرگراه شهید همت، جنت‌آباد مرکزی، انبار مرکزی توزیع و پخش عمده دخانیات سرو
                         </p>
 
                         <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
@@ -1319,7 +1319,7 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
                       
                       <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                         <div className="text-right">
-                          <div className="font-black text-xs text-slate-900">پخش عمده دخانیات سوین</div>
+                          <div className="font-black text-xs text-slate-900">پخش عمده دخانیات دخانیات سرو</div>
                           <div className="text-[9px] text-slate-500">فیش تحویل و فروش صندوق</div>
                         </div>
                         <button
@@ -1383,7 +1383,7 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
                         <div className="h-7 bg-slate-900 rounded mx-6 flex items-center justify-center text-[9px] font-mono text-white tracking-widest">
                           |||||| ||| | ||||| ||||||| ||
                         </div>
-                        <span className="text-[8px] font-mono text-slate-400 block mt-1">با تشکر از خرید و اعتماد شما - انبار سوین</span>
+                        <span className="text-[8px] font-mono text-slate-400 block mt-1">با تشکر از خرید و اعتماد شما - انبار دخانیات سرو</span>
                       </div>
 
                       <button
@@ -1442,7 +1442,7 @@ export const CustomerAppConnectModal: React.FC<CustomerAppConnectModalProps> = (
                 </div>
                 <div>
                   <h4 className="font-black text-sm text-slate-900">{currentActiveTitle}</h4>
-                  <span className="text-[10px] text-slate-500 block">انبار پخش عمده دخانیات سوین</span>
+                  <span className="text-[10px] text-slate-500 block">انبار پخش عمده دخانیات دخانیات سرو</span>
                 </div>
               </div>
               <button

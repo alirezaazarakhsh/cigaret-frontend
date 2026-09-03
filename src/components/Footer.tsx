@@ -26,14 +26,14 @@ export const Footer: React.FC<FooterProps> = ({ footerData, djangoConfig, onNavi
     return null;
   }
 
-  const companyTitle = footerData?.company_title || djangoConfig.companyName || 'سوین';
+  const companyTitle = footerData?.company_title || djangoConfig.companyName || 'دخانیات سرو';
   const shortDesc = footerData?.short_description || 'مرکز تخصصی پخش محصولات سیگار و تنباکو با ارسال فوری و تضمین اصالت کالا به سراسر کشور.';
   const addressText = footerData?.address_text || 'تهران، انبار مرکزی توزیع دخانیات';
   const phoneNumber = footerData?.phone_number || djangoConfig.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹';
   const emergencyPhone = footerData?.emergency_phone;
   const workingHours = footerData?.working_hours;
   const copyrightText = footerData?.copyright_text || `© کلیه حقوق مادی و معنوی برای پخش عمده ${companyTitle} محفوظ است.`;
-  const developerCredit = footerData?.developer_credit || 'طراحی و توسعه توسط سوین تیم و میزبانی وب سایت بر خط سرور های قدرتمند سوین هاست';
+  const developerCredit = footerData?.developer_credit || 'طراحی و توسعه توسط دخانیات سرو تیم و میزبانی وب سایت بر خط سرور های قدرتمند دخانیات سرو هاست';
 
   const columns = footerData?.columns && footerData.columns.length > 0 ? footerData.columns : null;
   const socials = footerData?.socials && footerData.socials.length > 0 ? footerData.socials : null;

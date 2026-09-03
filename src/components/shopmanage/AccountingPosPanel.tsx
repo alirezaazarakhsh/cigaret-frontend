@@ -121,7 +121,7 @@ const DEFAULT_STAFF_MEMBERS: WarehouseStaffUser[] = [
     phone: '09120759419',
     pinCode: 'sasha9419',
     role: 'super_admin',
-    roleTitleFa: 'مدیریت ارشد بنکداری سوین',
+    roleTitleFa: 'مدیریت ارشد بنکداری دخانیات سرو',
     permissions: [
       'manage_pos',
       'manage_inventory',
@@ -205,7 +205,7 @@ const SAMPLE_INITIAL_RECEIPTS: PosReceiptInvoice[] = [
     finalTotal: 5800000,
     paymentMethod: 'pos_terminal',
     terminalRefNumber: '98471203',
-    cashier: 'صندوق‌دار مرکزی انبار سوین'
+    cashier: 'صندوق‌دار مرکزی انبار دخانیات سرو'
   },
   {
     id: 'rcpt_today_2',
@@ -226,7 +226,7 @@ const SAMPLE_INITIAL_RECEIPTS: PosReceiptInvoice[] = [
     finalTotal: 88500000,
     paymentMethod: 'ledger',
     notes: 'تحویل ویزیتور - ثبت بدهکاری در حساب دفتری',
-    cashier: 'صندوق‌دار مرکزی انبار سوین'
+    cashier: 'صندوق‌دار مرکزی انبار دخانیات سرو'
   },
   {
     id: 'rcpt_yesterday_1',
@@ -254,7 +254,7 @@ const SAMPLE_INITIAL_RECEIPTS: PosReceiptInvoice[] = [
     finalTotal: 24000000,
     paymentMethod: 'pos_terminal',
     terminalRefNumber: '88726194',
-    cashier: 'صندوق‌دار مرکزی انبار سوین'
+    cashier: 'صندوق‌دار مرکزی انبار دخانیات سرو'
   },
   {
     id: 'rcpt_yesterday_2',
@@ -274,7 +274,7 @@ const SAMPLE_INITIAL_RECEIPTS: PosReceiptInvoice[] = [
     discountAmount: 0,
     finalTotal: 8400000,
     paymentMethod: 'cash',
-    cashier: 'صندوق‌دار مرکزی انبار سوین'
+    cashier: 'صندوق‌دار مرکزی انبار دخانیات سرو'
   },
   {
     id: 'rcpt_last_month_1',
@@ -295,7 +295,7 @@ const SAMPLE_INITIAL_RECEIPTS: PosReceiptInvoice[] = [
     finalTotal: 95000000,
     paymentMethod: 'pos_terminal',
     terminalRefNumber: '77615243',
-    cashier: 'صندوق‌دار مرکزی انبار سوین'
+    cashier: 'صندوق‌دار مرکزی انبار دخانیات سرو'
   }
 ];
 
@@ -687,7 +687,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     is_active: boolean;
     debug_mode: boolean;
   }>({
-    name: 'سامانه پیامک هوشمند سوین (Kavenegar Gateway)',
+    name: 'سامانه پیامک هوشمند دخانیات سرو (Kavenegar Gateway)',
     api_token: '366E417A5478474274416738367963385250466453673D3D',
     is_active: true,
     debug_mode: false,
@@ -1188,7 +1188,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       } : undefined,
       terminalRefNumber: terminalRef.trim() || undefined,
       notes: orderNotes.trim() || undefined,
-      cashier: 'صندوق‌دار مرکزی انبار سوین',
+      cashier: 'صندوق‌دار مرکزی انبار دخانیات سرو',
     };
 
     // Deduct stock from products cleanly
@@ -1546,7 +1546,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       id: `prod_${Date.now()}`,
       nameFa: newProdNameFa.trim(),
       nameEn: newProdNameEn.trim() || newProdNameFa.trim(),
-      brand: newProdBrand.trim() || 'سوین',
+      brand: newProdBrand.trim() || 'دخانیات سرو',
       category: newProdCategory,
       origin: 'تولید/تأمین داخلی',
       tar: '۰',
@@ -1929,7 +1929,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               <Building2 className="w-8 h-8" />
             </div>
             <h1 className="text-2xl font-black text-white tracking-tight">
-              سامانه حسابداری و صندوق فروشگاهی سوین
+              سامانه حسابداری و صندوق فروشگاهی دخانیات سرو
             </h1>
             <p className="text-xs text-slate-400 mt-2">
               کنترل یکپارچه موجودی انبار، صندوق بارکدخوان POS و ثبت فاکتورهای فروش حضوری
@@ -2004,7 +2004,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors"
             >
               <ArrowRight className="w-4 h-4" />
-              <span>بازگشت به کاتالوگ فروشگاه آنلاین سوین</span>
+              <span>بازگشت به کاتالوگ فروشگاه آنلاین دخانیات سرو</span>
             </button>
           </div>
         </div>
@@ -2040,7 +2040,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 <div>
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <h1 className="text-xs sm:text-base font-black text-slate-900 tracking-tight whitespace-nowrap">
-                      سامانه هوشمند سوین (POS)
+                      سامانه هوشمند دخانیات سرو (POS)
                     </h1>
                     <span className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-[8px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
                       آنلاین
@@ -4249,7 +4249,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                               value={kavenegarConfig.name}
                               onChange={(e) => setKavenegarConfig(prev => ({ ...prev, name: e.target.value }))}
                               className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                              placeholder="مثال: سامانه پیامک هوشمند سوین"
+                              placeholder="مثال: سامانه پیامک هوشمند دخانیات سرو"
                             />
                           </div>
 
@@ -5496,7 +5496,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               }}
             >
               <div className="text-center border-b-2 border-slate-900 pb-3 mb-3">
-                <div className="font-black text-lg text-slate-900 mb-1">فروشگاه و پخش سوین</div>
+                <div className="font-black text-lg text-slate-900 mb-1">فروشگاه و پخش دخانیات سرو</div>
                 <div className="inline-block whitespace-nowrap text-[11px] text-slate-800 font-bold bg-slate-100 px-3 py-0.5 rounded border border-slate-300">
                   فاکتور رسمی فروش و تحویل کالا
                 </div>
@@ -5966,7 +5966,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-3xl">
                 <h4 className="text-sm font-black text-indigo-900 mb-2 flex items-center gap-2">
                   <Sparkles className="w-4 h-4" />
-                  تحلیل هوشمند سوین
+                  تحلیل هوشمند دخانیات سرو
                 </h4>
                 <p className="text-xs text-indigo-800 leading-relaxed font-medium">
                   با توجه به روند فروش در ۳ ماه گذشته، این محصول در دسته <strong className="text-indigo-900 underline decoration-indigo-300">«محصولات پرتقاضا»</strong> قرار دارد. 
@@ -6026,7 +6026,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    لیست حساب‌های فعال همزمان در سیستم حسابداری سوین ({
+                    لیست حساب‌های فعال همزمان در سیستم حسابداری دخانیات سرو ({
                       Array.from(new Map(onlineSessions.map(s => [String(s.phone || s.id).replace(/\D/g, ''), s])).values()).length
                     } کاربر آنلاین)
                   </p>

@@ -60,7 +60,7 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
     publishedDate: new Date().toLocaleDateString('fa-IR'),
     isPublished: true,
     keyTakeaways: ['تحلیل لحظه‌ای قیمت بازار', 'اصالت تضمینی هولوگرام'],
-    tags: ['دخانیات', 'سوین', 'عمده فروشی']
+    tags: ['دخانیات', 'دخانیات سرو', 'عمده فروشی']
   });
 
   const handleAddTakeaway = (e?: React.KeyboardEvent | React.MouseEvent) => {
@@ -144,8 +144,8 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
       readTimeMinutes: 5,
       publishedDate: new Date().toLocaleDateString('fa-IR'),
       isPublished: true,
-      keyTakeaways: ['تحلیل اختصاصی بازار سوین'],
-      tags: ['دخانیات', 'سوین']
+      keyTakeaways: ['تحلیل اختصاصی بازار دخانیات سرو'],
+      tags: ['دخانیات', 'دخانیات سرو']
     });
     setShowForm(true);
   };

@@ -159,7 +159,7 @@ export const ProductsMegaMenu: React.FC<ProductsMegaMenuProps> = ({
               </div>
               <div>
                 <h2 className="text-base sm:text-lg font-black text-white flex items-center gap-2">
-                  <span>منوی جامع محصولات و دسته‌بندی‌های دخانیات سوین</span>
+                  <span>منوی جامع محصولات و دسته‌بندی‌های دخانیات دخانیات سرو</span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
                   مرجع استعلام نرخ روز کارتن، باکس، سیگارهای اصل و ثبت تحویل حضوری در باجه
@@ -201,7 +201,7 @@ export const ProductsMegaMenu: React.FC<ProductsMegaMenuProps> = ({
         <div className="bg-gradient-to-r from-amber-50 via-amber-100/70 to-blue-50 border-b border-amber-200/80 px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-2 shrink-0 text-xs">
           <div className="flex items-center gap-2 text-amber-950 font-black">
             <MapPin className="w-4 h-4 text-amber-700 shrink-0" />
-            <span>امکان ثبت سفارش حضوری از اپلیکیشن و تحویل فوری در باجه انبار سوین (جنت‌آباد)</span>
+            <span>امکان ثبت سفارش حضوری از اپلیکیشن و تحویل فوری در باجه انبار دخانیات سرو (جنت‌آباد)</span>
           </div>
           <button
             onClick={() => {

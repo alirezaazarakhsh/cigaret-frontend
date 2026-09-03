@@ -139,7 +139,7 @@ export const ShippingSection: React.FC = () => {
               </div>
               <div>
                 <h3 className="text-sm font-black text-slate-900 ">
-                  انبار مرکزی و بارگیری پخش سوین (شورآباد)
+                  انبار مرکزی و بارگیری پخش دخانیات سرو (شورآباد)
                 </h3>
                 <span className="text-[11px] text-slate-500">مرکز اصلی انبارداری، پلمپ و بارگیری شهرستان‌ها</span>
               </div>
@@ -152,7 +152,7 @@ export const ShippingSection: React.FC = () => {
           <div className="space-y-2 text-xs text-slate-600 leading-relaxed">
             <p className="flex items-start gap-1.5">
               <MapPin className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-              <span><strong>آدرس دقیق انبار:</strong> تهران، جاده قدیم قم، کهریزک، ۶۰ متری شورآباد، شهرک باربری و انبارهای دخانیات، سوله اختصاصی پخش سوین</span>
+              <span><strong>آدرس دقیق انبار:</strong> تهران، جاده قدیم قم، کهریزک، ۶۰ متری شورآباد، شهرک باربری و انبارهای دخانیات، سوله اختصاصی پخش دخانیات سرو</span>
             </p>
             <p className="flex items-center gap-1.5">
               <PhoneCall className="w-4 h-4 text-amber-500 shrink-0" />

@@ -158,7 +158,7 @@ export const CurrencyImpactCalculator: React.FC<CurrencyImpactCalculatorProps> =
                 : 'text-slate-600 hover:text-slate-900'
             }`}
           >
-            نرخ پایه ثابت انبار سوین
+            نرخ پایه ثابت انبار دخانیات سرو
           </button>
         </div>
       </div>

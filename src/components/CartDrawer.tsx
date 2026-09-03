@@ -335,7 +335,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
               <div>
                 <h2 className="text-base font-black text-slate-900 ">
-                  {activeStep === 'cart' ? 'پیش‌فاکتور رسمی پخش سوین' : 'واریز وجه و ثبت فیش پرداخت'}
+                  {activeStep === 'cart' ? 'پیش‌فاکتور رسمی پخش دخانیات سرو' : 'واریز وجه و ثبت فیش پرداخت'}
                 </h2>
                 <p className="text-xs text-slate-500 font-medium">
                   {cartItems.length > 0 
@@ -670,7 +670,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                   <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
                     <div className="flex items-center gap-2">
                       <CreditCard className="w-5 h-5 text-blue-400" />
-                      <span className="text-xs font-bold text-blue-300">حساب‌های رسمی جهت واریز حواله سوین:</span>
+                      <span className="text-xs font-bold text-blue-300">حساب‌های رسمی جهت واریز حواله دخانیات سرو:</span>
                     </div>
                     <span className="text-[11px] text-slate-400">بانک ملی و تجارت</span>
                   </div>
@@ -680,7 +680,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div className="space-y-2 border-b border-slate-700/50 pb-3">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] text-blue-300 font-bold">۱) حساب اصلی شرکت (بانک ملی)</span>
-                        <span className="text-[10px] text-slate-400">{djangoConfig?.bankHolder1 || 'امور مالی شرکت سوین'}</span>
+                        <span className="text-[10px] text-slate-400">{djangoConfig?.bankHolder1 || 'امور مالی شرکت دخانیات سرو'}</span>
                       </div>
                       
                       {/* Card 1 */}
@@ -724,7 +724,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] text-blue-300 font-bold">۲) حساب ترابری و تدارکات (بانک تجارت)</span>
-                        <span className="text-[10px] text-slate-400">{djangoConfig?.bankHolder2 || 'حساب ترابری و تدارکات سوین'}</span>
+                        <span className="text-[10px] text-slate-400">{djangoConfig?.bankHolder2 || 'حساب ترابری و تدارکات دخانیات سرو'}</span>
                       </div>
 
                       {/* Card 2 */}
@@ -965,7 +965,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             </div>
             
             <h3 className="text-lg font-black text-slate-900 ">
-              پیش‌فاکتور شما در پخش سوین با موفقیت ثبت شد
+              پیش‌فاکتور شما در پخش دخانیات سرو با موفقیت ثبت شد
             </h3>
 
             <p className="text-xs text-slate-600 leading-relaxed">

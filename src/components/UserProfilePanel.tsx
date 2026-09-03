@@ -227,7 +227,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
               city: 'تهران',
               province: 'تهران',
               address: 'خیابان مولوی، سرای دخانیات، پلاک ۱۸',
-              shippingMethod: 'ناوگان اختصاصی سوین (تحویل فوری تهران)',
+              shippingMethod: 'ناوگان اختصاصی دخانیات سرو (تحویل فوری تهران)',
               shippingCost: 350000,
               notes: 'تحویل بارنامه و بیجک پلمپ شده',
             },
@@ -360,9 +360,8 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
 
         // Use backend role if provided, otherwise fallback to UI selection
         const backendRole = dUser.role || dUser.user_type;
-        let finalRole = (backendRole === 'visitor' || dUser.is_visitor) ? 'visitor' 
-                      : (backendRole === 'customer') ? 'customer'
-                      : (backendRole === 'admin' || dUser.is_superuser || dUser.is_staff) ? 'admin'
+        // Prioritize admin check, then user selection
+        let finalRole = (backendRole === 'admin' || dUser.is_superuser || dUser.is_staff) ? 'admin'
                       : selectedLoginRole;
 
         if (finalRole === 'admin') {
@@ -620,7 +619,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
               <Building2 className="w-8 h-8" />
             </div>
             <span className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 ">
-              سامانه پخش عمده دخانیات سوین
+              سامانه پخش عمده دخانیات دخانیات سرو
             </span>
             <h2 className="text-2xl font-black text-slate-900 mt-2">
               ورود سریع با شماره موبایل
@@ -780,7 +779,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
           )}
 
           <div className="mt-8 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
-            انبار مرکزی سوین: تهران، جنت‌آباد | تلفن پشتیبانی سفارشات: <strong dir="ltr">۰۹۱۲۰۷۵۹۴۱۹</strong>
+            انبار مرکزی دخانیات سرو: تهران، جنت‌آباد | تلفن پشتیبانی سفارشات: <strong dir="ltr">۰۹۱۲۰۷۵۹۴۱۹</strong>
           </div>
         </div>
       </section>
@@ -1882,12 +1881,12 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                         قرارداد آنلاین همکاری ویزیتوری
                       </h3>
                       <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-xs text-slate-600 h-32 overflow-y-auto leading-relaxed whitespace-pre-line text-justify" dir="rtl">
-                        {djangoConfig?.visitorContractText || `بسمه تعالی - قرارداد همکاری ویزیتوری سامانه سوین
+                        {djangoConfig?.visitorContractText || `بسمه تعالی - قرارداد همکاری ویزیتوری سامانه دخانیات سرو
 
 ۱. ویزیتور متعهد می‌گردد کلیه قوانین و مقررات فروش سامانه را رعایت نموده و از فروش خارج از شبکه خودداری نماید.
 ۲. پورسانت فروش بر اساس تعرفه‌های مصوب (در حال حاضر ۲.۵ درصد) به حساب کاربری ویزیتور منظور و پس از تسویه نهایی خریدار، قابل برداشت خواهد بود.
 ۳. ویزیتور موظف است مشخصات و نشانی مغازه‌ها و خریداران را به طور دقیق در سامانه ثبت نماید.
-۴. تأیید این قرارداد به منزله امضای دیجیتال و پذیرش کلیه شرایط همکاری با سامانه پخش دخانیات سوین است.`}
+۴. تأیید این قرارداد به منزله امضای دیجیتال و پذیرش کلیه شرایط همکاری با سامانه پخش دخانیات دخانیات سرو است.`}
                       </div>
                       <label className="flex items-center gap-3 cursor-pointer">
                         <input 

@@ -504,7 +504,7 @@ export const accountsApi = {
           id: 1,
           phone: '09120759419',
           full_name: 'علیرضا آذرخش (مدیر ارشد و مالک)',
-          business_name: 'پخش عمده دخانیات سوین',
+          business_name: 'پخش عمده دخانیات دخانیات سرو',
           role: 'admin',
           is_superuser: true,
           is_staff: true,
@@ -555,7 +555,7 @@ export const accountsApi = {
         id: Date.now(),
         phone: cleanPhone,
         full_name: normPhone === '09120759419' ? 'علیرضا آذرخش (مدیر ارشد و مالک)' : 'کاربر ثبت‌شده دیتابیس',
-        business_name: 'فروشگاه / پخش سوین',
+        business_name: 'فروشگاه / پخش دخانیات سرو',
         role: normPhone === '09120759419' ? 'admin' : 'customer',
         is_superuser: normPhone === '09120759419',
         is_staff: normPhone === '09120759419',
@@ -628,7 +628,7 @@ export const accountsApi = {
         phone: '09120759419',
         pinCode: customSuperPin,
         role: 'super_admin',
-        roleTitleFa: 'مدیریت ارشد بنکداری سوین',
+        roleTitleFa: 'مدیریت ارشد بنکداری دخانیات سرو',
         permissions: [
           'manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger',
           'view_reports', 'monthly_comparison', 'manage_staff', 'customer_app_connect',
@@ -1084,7 +1084,7 @@ function parseUnifiedOrFooterData(raw: any): FooterSettingsData | null {
   // Case 1: Direct footer settings object (from footer_settings Django app)
   if (data.company_title || data.phone_number || data.columns || data.address_text || data.short_description) {
     return {
-      company_title: data.company_title || data.brand_name || 'سوین',
+      company_title: data.company_title || data.brand_name || 'دخانیات سرو',
       short_description: data.short_description || data.description_text || data.about_text || '',
       address_text: data.address_text || data.address || '',
       phone_number: data.phone_number || data.phone || '',
@@ -1125,14 +1125,14 @@ function parseUnifiedOrFooterData(raw: any): FooterSettingsData | null {
     }
 
     return {
-      company_title: branding.site_title || branding.site_title_fa || branding.brand_short_name || 'سوین',
+      company_title: branding.site_title || branding.site_title_fa || branding.brand_short_name || 'دخانیات سرو',
       short_description: footer.about_text || branding.tagline || '',
       address_text: contact.central_warehouse_address || contact.sales_office_address || '',
       phone_number: contact.primary_phone || branding.header_phone || contact.sales_phone || '',
       emergency_phone: contact.emergency_phone || contact.mobile_support || '',
       working_hours: contact.working_hours_text || branding.header_support_hours || '',
       copyright_text: footer.copyright_text || '',
-      developer_credit: footer.developer_credit || 'طراحی و توسعه توسط سوین تیم و میزبانی وب سایت بر خط سرور های قدرتمند سوین هاست',
+      developer_credit: footer.developer_credit || 'طراحی و توسعه توسط دخانیات سرو تیم و میزبانی وب سایت بر خط سرور های قدرتمند دخانیات سرو هاست',
       is_active: true,
       enamad_code: footer.enamad_code_html || '',
       samandehi_code: footer.samandehi_code_html || '',
@@ -1473,12 +1473,12 @@ function mapBlogPostApiItem(item: any): BlogPost {
     metaTitle: item.meta_title || item.metaTitle || item.title || '',
     metaDescription: item.meta_description || item.metaDescription || item.excerpt || '',
     canonicalUrl: item.canonical_url || `https://sevin-tobacco.ir/blog/${item.slug}`,
-    keywords: tags.length ? tags : ['سوین', 'دخانیات'],
+    keywords: tags.length ? tags : ['دخانیات سرو', 'دخانیات'],
     category: item.category_name || (typeof item.category === 'object' && item.category?.name ? item.category.name : 'عمومی'),
     readTimeMinutes: Number(item.reading_time_minutes ?? 5),
     publishedDate: item.created_at_jalali || (item.created_at ? new Date(item.created_at).toLocaleDateString('fa-IR') : new Date().toLocaleDateString('fa-IR')),
     author: {
-      name: item.author_name || (typeof item.author === 'object' && item.author?.name ? item.author.name : 'تیم تحریریه سوین'),
+      name: item.author_name || (typeof item.author === 'object' && item.author?.name ? item.author.name : 'تیم تحریریه دخانیات سرو'),
       role: 'کارشناس ارشد بازار',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80'
     },

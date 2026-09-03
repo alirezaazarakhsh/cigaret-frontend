@@ -24,7 +24,7 @@ export const DEFAULT_SHIPPING_OPTIONS: ShippingOption[] = [
   },
   {
     id: 'warehouse-self-pickup',
-    title: 'تحویل حضوری درب انبار مرکزی سوین (تهران - جنت‌آباد)',
+    title: 'تحویل حضوری درب انبار مرکزی دخانیات سرو (تهران - جنت‌آباد)',
     cost: 0,
     description: 'بدون هیچ‌گونه هزینه باربری؛ بارگیری مستقیم روی خودرو یا وانت خریدار با هماهنگی قبلی.',
     estimatedDelivery: 'تحویل فوری پس از تسویه فاکتور',
@@ -41,7 +41,7 @@ export const DEFAULT_SHIPPING_OPTIONS: ShippingOption[] = [
 
 export const MOCK_BANK_ACCOUNT = {
   bankName: 'بانک ملت',
-  accountHolder: 'علیرضا آذرخش (پخش عمده دخانیات سوین)',
+  accountHolder: 'علیرضا آذرخش (پخش عمده دخانیات دخانیات سرو)',
   cardNumber: '6104-3378-9012-3456',
   shabaNumber: 'IR680120000000001234567890',
   accountNumber: '4892019482',

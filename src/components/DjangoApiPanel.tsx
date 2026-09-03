@@ -200,7 +200,7 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
       ...newProduct,
       id: `custom-${Date.now()}`,
       barcode: `626010${Math.floor(100000 + Math.random() * 900000)}`,
-      badge: 'بار تازه سوین',
+      badge: 'بار تازه دخانیات سرو',
       priceTrend: 'stable',
       lastPriceUpdate: 'هم‌اکنون',
       hologram: 'اورجینال اروپایی',
@@ -262,7 +262,7 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
                 </span>
               </div>
               <h1 className="text-xl sm:text-2xl font-black text-slate-900 mt-1.5">
-                پنل مدیریت یکپارچه جنگو، دیتابیس و کدهای ماژولار سوین
+                پنل مدیریت یکپارچه جنگو، دیتابیس و کدهای ماژولار دخانیات سرو
               </h1>
               <p className="text-xs text-slate-500 mt-1 max-w-2xl leading-relaxed">
                 تمامی موجودیت‌ها (کاربران، بنکداران، کاتالوگ، سفارشات، تیکت‌ها و باربری) دارای مدل، پنل ادمین اختصاصی با اکشن‌های عملیاتی، سریالایزر و ویوهای REST API هستند.
@@ -892,7 +892,7 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
                     value={bankHolder1Input}
                     onChange={(e) => setBankHolder1Input(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-hidden"
-                    placeholder="امور مالی شرکت سوین"
+                    placeholder="امور مالی شرکت دخانیات سرو"
                   />
                 </div>
               </div>
@@ -902,7 +902,7 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
             <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
               <h3 className="text-xs font-black text-slate-900 flex items-center gap-2 border-b border-slate-200 pb-2">
                 <CreditCard className="w-4 h-4 text-emerald-500" />
-                حساب بانکی دوم (حساب ترابری و تدارکات سوین)
+                حساب بانکی دوم (حساب ترابری و تدارکات دخانیات سرو)
               </h3>
 
               <div className="space-y-3">
@@ -937,7 +937,7 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
                     value={bankHolder2Input}
                     onChange={(e) => setBankHolder2Input(e.target.value)}
                     className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-hidden"
-                    placeholder="حساب ترابری و تدارکات سوین"
+                    placeholder="حساب ترابری و تدارکات دخانیات سرو"
                   />
                 </div>
               </div>
@@ -1086,7 +1086,7 @@ export const DjangoApiPanel: React.FC<DjangoApiPanelProps> = ({
                   value={siteHeroTitleInput}
                   onChange={(e) => setSiteHeroTitleInput(e.target.value)}
                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-hidden"
-                  placeholder="سامانه پخش عمده دخانیات سوین با نرخ روز کارتن و باکس"
+                  placeholder="سامانه پخش عمده دخانیات دخانیات سرو با نرخ روز کارتن و باکس"
                 />
               </div>
 

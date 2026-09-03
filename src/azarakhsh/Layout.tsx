@@ -641,3 +641,12 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
     </div>
   );
 };
+
+export const DocLayout: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => {
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl font-black text-slate-900">{title}</h1>
+      {children}
+    </div>
+  );
+};

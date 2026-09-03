@@ -58,7 +58,7 @@ export const BlogPostModal: React.FC<BlogPostModalProps> = ({
         },
         "publisher": {
           "@type": "Organization",
-          "name": "سامانه پخش عمده دخانیات سوین",
+          "name": "سامانه پخش عمده دخانیات دخانیات سرو",
           "logo": {
             "@type": "ImageObject",
             "url": "https://sevin-tobacco.ir/logo.png"
@@ -261,7 +261,7 @@ export const BlogPostModal: React.FC<BlogPostModalProps> = ({
                 نیاز به استعلام نرخ روز کارتن یا ثبت سفارش باربری دارید؟
               </h4>
               <p className="text-xs text-slate-300">
-                پخش عمده دخانیات سوین | آماده ارسال فوری به سراسر کشور
+                پخش عمده دخانیات دخانیات سرو | آماده ارسال فوری به سراسر کشور
               </p>
             </div>
 

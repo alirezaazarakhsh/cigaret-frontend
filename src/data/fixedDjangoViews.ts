@@ -130,7 +130,7 @@ class VerifyOTPView(APIView):
         
         # حالت کد پیشفرض تستی یا کد ساخته شده معتبر
         if not otp_record or not otp_record.is_valid():
-            if otp_code != '1111':  # کد مستر تستی سوین
+            if otp_code != '1111':  # کد مستر تستی دخانیات سرو
                 return Response({
                     "status": "error",
                     "message": "کد تأیید نامعتبر یا منقضی شده است."

@@ -60,25 +60,25 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
       if (saved) {
         const parsed = JSON.parse(saved);
         return {
-          companyName: 'سوین',
+          companyName: 'دخانیات سرو',
           bankCard1: '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲',
           bankShiba1: 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲',
-          bankHolder1: 'امور مالی شرکت سوین',
+          bankHolder1: 'امور مالی شرکت دخانیات سرو',
           bankCard2: '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰',
           bankShiba2: 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸',
-          bankHolder2: 'حساب ترابری و تدارکات سوین',
+          bankHolder2: 'حساب ترابری و تدارکات دخانیات سرو',
           ...parsed
         };
       }
     } catch (e) {}
     return {
-      companyName: 'سوین',
+      companyName: 'دخانیات سرو',
       bankCard1: '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲',
       bankShiba1: 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲',
-      bankHolder1: 'امور مالی شرکت سوین',
+      bankHolder1: 'امور مالی شرکت دخانیات سرو',
       bankCard2: '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰',
       bankShiba2: 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸',
-      bankHolder2: 'حساب ترابری و تدارکات سوین',
+      bankHolder2: 'حساب ترابری و تدارکات دخانیات سرو',
     };
   })();
 
@@ -295,7 +295,7 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
             <CheckCircle2 className="w-10 h-10" />
           </div>
           <h2 className="text-lg sm:text-2xl font-black text-slate-900 mb-3">
-            پیش‌فاکتور با موفقیت در انبار مرکزی سوین ثبت و تأیید شد!
+            پیش‌فاکتور با موفقیت در انبار مرکزی دخانیات سرو ثبت و تأیید شد!
           </h2>
           <p className="text-slate-600 text-sm max-w-lg mx-auto mb-6">
             شماره رهگیری پیش‌فاکتور شما <span className="font-mono font-black text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg">{invoiceNumber}</span> می‌باشد. حواله خروج کالا و بارگیری در انبار شورآباد صادر گردید.
@@ -368,7 +368,7 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                 </span>
               </div>
               <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
-                پیش‌فاکتور و سفارش‌گذاری رسمی سوین
+                پیش‌فاکتور و سفارش‌گذاری رسمی دخانیات سرو
               </h1>
               <p className="text-xs sm:text-sm text-slate-600 mt-1">
                 تفکیک دقیق کارتن و باکس، اعمال خودکار تخفیف‌های تیراژ، محاسبه کرایه باربری و بارگذاری فیش واریزی بانکی.

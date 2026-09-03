@@ -76,7 +76,7 @@ export const AuthUsersDocs: React.FC = () => {
       method: 'POST',
       path: '/api/v1/accounts/pos-login/',
       auth: 'AllowAny',
-      description: 'ورود پرسنل و مدیران به صندوق هوشمند POS سوین (صدور JWT و واکشی فوری پرمیژن‌های دسترسی)',
+      description: 'ورود پرسنل و مدیران به صندوق هوشمند POS دخانیات سرو (صدور JWT و واکشی فوری پرمیژن‌های دسترسی)',
       requestBody: JSON.stringify({
         phone: "09120759419",
         password: "alirezazzz9419@S"

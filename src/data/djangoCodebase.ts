@@ -611,7 +611,7 @@ class VerifyOTPView(APIView):
         otp_record = PhoneOTP.objects.filter(phone=phone, code=otp_code, is_used=False).first()
         
         if not otp_record or not otp_record.is_valid():
-            if otp_code != '1111':  # کد مستر تستی سوین
+            if otp_code != '1111':  # کد مستر تستی دخانیات سرو
                 return Response({
                     "status": "error",
                     "message": "کد تأیید نامعتبر یا منقضی شده است."
@@ -643,7 +643,7 @@ class VerifyOTPView(APIView):
 
 class POSLoginAPIView(APIView):
     """
-    API اختصاصی ورود به صندوق فروشگاهی POS هوشمند سوین
+    API اختصاصی ورود به صندوق فروشگاهی POS هوشمند دخانیات سرو
     آدرس: POST /api/v1/accounts/pos-login/ (یا /api/v1/accounts/pos/login/)
     """
     permission_classes = [permissions.AllowAny]
@@ -3935,7 +3935,7 @@ INSTALLED_APPS = [
     'drf_spectacular',  # Swagger OpenAPI 3
     'tinymce',          # ادیتور متنی پیشرفته TinyMCE
 
-    # اپ‌های ماژولار سامانه سوین
+    # اپ‌های ماژولار سامانه دخانیات سرو
     'accounts.apps.AccountsConfig',
     'catalog.apps.CatalogConfig',
     'orders.apps.OrdersConfig',
@@ -4083,7 +4083,7 @@ if settings.DEBUG:
 `,
 
   requirements: `# requirements.txt
-# وابستگی‌های رسمی سامانه پخش عمده سوین (Django 5 + DRF)
+# وابستگی‌های رسمی سامانه پخش عمده دخانیات سرو (Django 5 + DRF)
 
 Django>=5.0,<5.2
 djangorestframework>=3.15.0
@@ -4131,10 +4131,10 @@ KAVENEGAR_API_KEY=your_kavenegar_sms_api_key_here
 
   setupScript: `#!/bin/bash
 # ==============================================================================
-# اسکریپت راه‌اندازی خودکار پروژه بک‌اند ماژولار جنگو (سوین)
+# اسکریپت راه‌اندازی خودکار پروژه بک‌اند ماژولار جنگو (دخانیات سرو)
 # ==============================================================================
 
-echo "🚀 شروع راه‌اندازی ساختار ماژولار پروژه جنگو سوین..."
+echo "🚀 شروع راه‌اندازی ساختار ماژولار پروژه جنگو دخانیات سرو..."
 
 # 1. ساخت محیط مجازی پایتون
 python3 -m venv venv

@@ -72,7 +72,7 @@ export const FooterDocs: React.FC = () => {
       responseBody: `{
   "status": "success",
   "data": {
-    "company_title": "پخش عمده دخانیات آذرخش (سوین)",
+    "company_title": "پخش عمده دخانیات آذرخش (دخانیات سرو)",
     "short_description": "مرکز تخصصی توزیع بنکداری سیگار، تنباکو و تجهیزات آیکاس با ارسال فوری سراسری.",
     "address_text": "تهران، منطقه ۵، جنت‌آباد شمالی، انبار مرکزی آذرخش",
     "phone_number": "021-44000000",
@@ -80,7 +80,7 @@ export const FooterDocs: React.FC = () => {
     "working_hours": "شنبه تا چهارشنبه: ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها: ۸:۰۰ الی ۱۴:۰۰",
     "shipping_companies": "باربری وطن، جهانگیر، پیام‌شمس، پیشتاز و ناوگان اختصاصی تهران",
     "copyright_text": "کلیه حقوق مادی و معنوی متعلق به سامانه پخش عمده آذرخش می‌باشد.",
-    "developer_credit": "توسعه‌یافته توسط تیم فنی سوین • میزبانی زیرساخت سوین‌هاست",
+    "developer_credit": "توسعه‌یافته توسط تیم فنی دخانیات سرو • میزبانی زیرساخت دخانیات سرو‌هاست",
     "columns": [
       {
         "id": 1,
@@ -190,7 +190,7 @@ class FooterSetting(models.Model):
     )
     developer_credit = models.CharField(
         max_length=200, 
-        default="توسعه‌یافته توسط تیم فنی سوین • میزبانی زیرساخت سوین‌هاست", 
+        default="توسعه‌یافته توسط تیم فنی دخانیات سرو • میزبانی زیرساخت دخانیات سرو‌هاست", 
         verbose_name=_("متن توسعه‌دهنده و میزبانی")
     )
     is_active = models.BooleanField(default=True, verbose_name=_("وضعیت نمایش فوتر"))

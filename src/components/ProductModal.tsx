@@ -107,7 +107,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         <div className="mb-5 space-y-1.5">
           <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 ">
             <Sparkles className="w-4 h-4 text-blue-600 " />
-            معرفی و مشخصات تخصصی کالا در پخش سوین:
+            معرفی و مشخصات تخصصی کالا در پخش دخانیات سرو:
           </div>
           <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-justify font-normal">
             {product.description}

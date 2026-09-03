@@ -292,7 +292,7 @@ export interface CigaretteProduct {
   image: string;
   barcode: string;
   flavor?: string;
-  badge?: 'پرفروش' | 'بار تازه' | 'وارداتی اصل' | 'تخفیف تیراژ' | 'موجودی محدود' | 'بار تازه سوین' | 'جدید' | string;
+  badge?: 'پرفروش' | 'بار تازه' | 'وارداتی اصل' | 'تخفیف تیراژ' | 'موجودی محدود' | 'بار تازه دخانیات سرو' | 'جدید' | string;
   priceTrend?: 'stable' | 'up' | 'down'; // نوسان قیمت لحظه‌ای
   lastPriceUpdate: string; // آخرین زمان بروزرسانی نرخ
   hologram?: 'شرکتی اصل' | 'سفارش دبی' | 'اورجینال اروپایی' | 'تولید داخل' | 'اورجینال' | 'بدون هولوگرام' | string;
@@ -508,7 +508,7 @@ export interface DjangoCrmConfig {
   totalSyncedProducts: number;
   
   // تنظیمات پویا که از بک‌اند خوانده/نوشته می‌شوند
-  companyName?: string; // مثلاً "سوین"
+  companyName?: string; // مثلاً "دخانیات سرو"
   bankCard1?: string;   // شماره کارت حساب اول
   bankShiba1?: string;  // شماره شبای حساب اول
   bankHolder1?: string; // صاحب حساب اول

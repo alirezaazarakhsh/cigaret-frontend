@@ -489,7 +489,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     readTimeMinutes: 5,
     isPublished: true,
     keyTakeaways: ['تحلیل اختصاصی بازار و توزیع بنکداری'],
-    tags: ['دخانیات', 'سوین', 'عمده فروشی']
+    tags: ['دخانیات', 'دخانیات سرو', 'عمده فروشی']
   });
 
   // Image Upload State
@@ -649,7 +649,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       metaTitle: '',
       metaDescription: '',
       keyTakeaways: ['تحلیل چسبندگی قیمت بازار به نرخ ارز'],
-      tags: ['دخانیات', 'سوین'],
+      tags: ['دخانیات', 'دخانیات سرو'],
       faqs: []
     });
     setActiveTab('editor');

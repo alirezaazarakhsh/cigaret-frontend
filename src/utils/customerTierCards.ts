@@ -69,7 +69,7 @@ export const CUSTOMER_TIERS_CONFIG: Record<CustomerTierId, CustomerTierConfig> =
     id: 'diamond_black',
     nameFa: 'بلک کارت الماس (شریک تجاری VIP انحصاری)',
     badgeTitle: 'BLACK DIAMOND VIP',
-    cardTitle: 'بلک کارت انحصاری سوین',
+    cardTitle: 'بلک کارت انحصاری دخانیات سرو',
     themeColor: '#eab308',
     cardGradient: 'from-black via-zinc-950 to-neutral-900',
     cardBorder: 'border-amber-400 shadow-[0_0_30px_rgba(234,179,8,0.3)] ring-1 ring-amber-400/50',

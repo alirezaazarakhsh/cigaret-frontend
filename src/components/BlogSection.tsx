@@ -26,7 +26,26 @@ import {
   PlusCircle,
   ChevronDown
 } from 'lucide-react';
-// ... (rest of imports)
+import { BlogPost, BlogCategoryItem } from '../types';
+import { blogApi } from '../services/api';
+import { djangoDatabaseStore } from '../services/djangoApi';
+import { formatNumberFa } from '../utils/formatters';
+
+import { LucideIcon } from 'lucide-react';
+
+interface CategorySpec {
+  id: string;
+  label: string;
+  icon: any;
+  bgColor: string;
+  color: string;
+  borderColor: string;
+  description: string;
+}
+
+interface BlogSectionProps {
+  onSelectProductTag?: (tag: string) => void;
+}
 
 // ...
 
@@ -48,14 +67,14 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
       if (window.location.pathname !== newUrl) {
         window.history.pushState(null, '', newUrl);
       }
-      document.title = `${selectedPost.title} - سوین دخانیات`;
+      document.title = `${selectedPost.title} - دخانیات سرو دخانیات`;
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) metaDesc.setAttribute('content', selectedPost.metaDescription || selectedPost.excerpt);
     } else {
       if (window.location.pathname !== '/blog') {
         window.history.pushState(null, '', '/blog');
       }
-      document.title = "مجله مقالات - سامانه پخش عمده دخانیات سوین";
+      document.title = "مجله مقالات - سامانه پخش عمده دخانیات دخانیات سرو";
     }
   }, [selectedPost]);
 
@@ -223,11 +242,11 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "Blog",
-            "name": "صفحه مقالات خواندنی و مجله تخصصی دخانیات سوین",
+            "name": "صفحه مقالات خواندنی و مجله تخصصی دخانیات دخانیات سرو",
             "description": "تحلیل قیمت کارتن و باکس سیگار، تأثیر دلار آزاد، اصالت هولوگرام و راهنمای بنکداری",
             "publisher": {
               "@type": "Organization",
-              "name": "سامانه پخش عمده دخانیات سوین",
+              "name": "سامانه پخش عمده دخانیات دخانیات سرو",
               "logo": {
                 "@type": "ImageObject",
                 "url": "https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80"
@@ -249,7 +268,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
           {/* Breadcrumb & Badge */}
           <div className="flex items-center justify-between flex-wrap gap-3 border-b border-slate-800/80 pb-4">
             <div className="flex items-center gap-2 text-xs text-slate-300 font-medium">
-              <span className="text-blue-400 font-bold">سامانه پخش سوین</span>
+              <span className="text-blue-400 font-bold">سامانه پخش دخانیات سرو</span>
               <span>/</span>
               <span className="text-white font-black">صفحه مجزای مقالات خواندنی و اخبار بازار</span>
             </div>
@@ -474,7 +493,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
           </div>
 
           {/* Key Takeaways */}
-          {selectedPost.keyTakeaways && selectedPost.keyTakeaways.length > 0 && (
+          {selectedPost?.keyTakeaways && selectedPost.keyTakeaways.length > 0 && (
             <div className="bg-gradient-to-r from-blue-50 via-indigo-50/50 to-blue-50 border border-blue-200 rounded-2xl p-5 space-y-3">
               <div className="text-xs font-black text-blue-900 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-blue-600" />
@@ -490,7 +509,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
 
           {/* Article HTML/Text Content (Responsive & PWA Optimized) */}
           <div className="text-xs sm:text-sm text-slate-800 leading-loose space-y-4 font-normal">
-            {selectedPost.content ? (
+            {selectedPost?.content ? (
               selectedPost.content.includes('<') && selectedPost.content.includes('>') ? (
                 <div 
                   className="prose prose-slate max-w-none prose-p:leading-relaxed prose-headings:font-black prose-headings:text-slate-900 prose-img:rounded-2xl break-words"
@@ -501,7 +520,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
                   {selectedPost.content}
                 </div>
               )
-            ) : selectedPost.excerpt ? (
+            ) : selectedPost?.excerpt ? (
               <div className="whitespace-pre-line leading-relaxed text-justify break-words text-slate-600">
                 {selectedPost.excerpt}
               </div>
@@ -513,14 +532,14 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
           </div>
 
           {/* FAQs section */}
-          {selectedPost.faqs && selectedPost.faqs.length > 0 && (
+          {selectedPost?.faqs && selectedPost.faqs.length > 0 && (
             <div className="pt-6 border-t border-slate-200 space-y-3">
               <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
                 <Info className="w-4 h-4 text-blue-600" />
                 <span>پرسش‌های متداول خریداران عمده درباره این موضوع:</span>
               </h3>
               <div className="space-y-2.5">
-                {selectedPost.faqs.map((faq, idx) => (
+                {selectedPost.faqs.map((faq: any, idx: number) => (
                   <div key={idx} className="bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
                     <button
                       onClick={() => setOpenFaq(openFaq === idx ? null : idx)}

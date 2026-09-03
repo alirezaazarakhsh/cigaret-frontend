@@ -132,7 +132,7 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
                 <Smartphone className="w-5 h-5 text-blue-200" />
               </div>
               <div className="space-y-0.5">
-                <div className="text-[13px] font-black tracking-wide">نصب وب‌اپلیکیشن پخش سوین</div>
+                <div className="text-[13px] font-black tracking-wide">نصب وب‌اپلیکیشن پخش دخانیات سرو</div>
                 <div className="text-[10px] text-blue-100 font-bold">دسترسی سریع‌تر، بدون فیلتر و آفلاین روی گوشی شما</div>
               </div>
             </div>
@@ -171,7 +171,7 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
                   <h3 className="text-xs font-black text-slate-900 ">
                     راهنمای راه‌اندازی و نصب وب‌اپلیکیشن (PWA)
                   </h3>
-                  <p className="text-[9px] text-slate-500 mt-0.5">پخش عمده دخانیات سوین روی صفحه موبایل شما</p>
+                  <p className="text-[9px] text-slate-500 mt-0.5">پخش عمده دخانیات دخانیات سرو روی صفحه موبایل شما</p>
                 </div>
               </div>
 
@@ -225,7 +225,7 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2"
                   >
                     <Download className="w-4 h-4" />
-                    <span>نصب مستقیم وب‌اپلیکیشن سوین</span>
+                    <span>نصب مستقیم وب‌اپلیکیشن دخانیات سرو</span>
                   </button>
                 </div>
               )}

@@ -121,7 +121,7 @@ const INITIAL_DEMO_TICKETS: TicketItem[] = [
       },
       {
         id: 'm-4',
-        senderName: 'پشتیبانی پخش سوین',
+        senderName: 'پشتیبانی پخش دخانیات سرو',
         senderRole: 'staff',
         message: 'با سلام، آدرس جدید شما در سیستم صادرکننده بارنامه به‌روزرسانی شد. بار شما امروز عصر با پیک اختصاصی تحویل می‌گردد.',
         timestamp: '۱۷:۰۵ - ۱۴۰۳/۰۶/۰۹'
@@ -662,7 +662,7 @@ export const TicketManagementPanel: React.FC<TicketManagementPanelProps> = ({ cr
                     rows={2}
                     value={replyText}
                     onChange={(e) => setReplyText(e.target.value)}
-                    placeholder="پاسخ مدیریت بنکداری سوین به این تیکت..."
+                    placeholder="پاسخ مدیریت بنکداری دخانیات سرو به این تیکت..."
                     className="flex-1 bg-white border border-slate-200 rounded-xl p-3 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-indigo-500 resize-none font-medium shadow-xs"
                   />
 

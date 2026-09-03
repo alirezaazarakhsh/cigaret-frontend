@@ -438,7 +438,7 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
           {/* Staff Cards List */}
           <div className="space-y-3">
             <h4 className="text-xs font-black text-slate-700 flex items-center justify-between">
-              <span>لیست پرسنل و مدیران انبار سوین ({staffList.length} کاربر)</span>
+              <span>لیست پرسنل و مدیران انبار دخانیات سرو ({staffList.length} کاربر)</span>
               <span className="text-[11px] text-slate-400 font-normal">برای تغییر کاربر جاری روی دکمه «سوییچ به این کاربر» کلیک کنید</span>
             </h4>
 

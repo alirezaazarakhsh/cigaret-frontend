@@ -58,7 +58,7 @@ export const QuickAddProductModal: React.FC<QuickAddProductModalProps> = ({
 
   const [nameFa, setNameFa] = useState('');
   const [nameEn, setNameEn] = useState('');
-  const [brand, setBrand] = useState('سوین');
+  const [brand, setBrand] = useState('دخانیات سرو');
   const [category, setCategory] = useState<CigaretteCategory>('cigarettes');
   
   // Custom Category & Hologram Inputs
@@ -195,7 +195,7 @@ export const QuickAddProductModal: React.FC<QuickAddProductModalProps> = ({
       id: `prod_${Date.now()}`,
       nameFa: nameFa.trim(),
       nameEn: nameEn.trim() || nameFa.trim(),
-      brand: brand.trim() || 'سوین',
+      brand: brand.trim() || 'دخانیات سرو',
       category,
       origin: origin || 'اصلی',
       tar: '0',
@@ -224,7 +224,7 @@ export const QuickAddProductModal: React.FC<QuickAddProductModalProps> = ({
       lastPriceUpdate: new Date().toLocaleDateString('fa-IR'),
       hologram: hologram === 'بدون هولوگرام' ? '' : hologram,
       tierDiscounts: [],
-      description: `ثبت اختصاصی دیتابیس صندوق بنکداری سوین در تاریخ ${new Date().toLocaleDateString('fa-IR')}`,
+      description: `ثبت اختصاصی دیتابیس صندوق بنکداری دخانیات سرو در تاریخ ${new Date().toLocaleDateString('fa-IR')}`,
       isAvailable: true,
       isPosOnly,
     };

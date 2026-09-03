@@ -39,10 +39,10 @@ export const INITIAL_TRACKING_ORDERS: OrderTrackingInfo[] = [
     totalBoxes: 50,
     finalTotal: 412500000,
     status: 'dispatched_fleet',
-    statusFa: 'در مسیر تحویل با ناوگان اختصاصی سوین',
+    statusFa: 'در مسیر تحویل با ناوگان اختصاصی دخانیات سرو',
     dispatchType: 'sevin_dedicated_fleet',
-    dispatchTypeFa: 'ناوگان اختصاصی وانت/نیسان پخش سوین (تهران و حومه)',
-    driverName: 'آقا بهروز نادری (راننده امین پخش سوین)',
+    dispatchTypeFa: 'ناوگان اختصاصی وانت/نیسان پخش دخانیات سرو (تهران و حومه)',
+    driverName: 'آقا بهروز نادری (راننده امین پخش دخانیات سرو)',
     driverPhone: '09198887766',
     vehiclePlate: 'ایران ۱۱ - ۷۸۹ ج ۶۵',
     fleetLocation: 'بزرگراه آزادگان به سمت میدان شوش - فاصله تا مقصد: حدود ۲۰ دقیقه',
@@ -68,8 +68,8 @@ export const INITIAL_TRACKING_ORDERS: OrderTrackingInfo[] = [
       },
       {
         step: 3,
-        title: 'بسته‌بندی و بارگیری ناوگان سوین',
-        description: 'کارتن‌ها پلمپ و در نیسان وانت اختصاصی سوین بارگیری شد.',
+        title: 'بسته‌بندی و بارگیری ناوگان دخانیات سرو',
+        description: 'کارتن‌ها پلمپ و در نیسان وانت اختصاصی دخانیات سرو بارگیری شد.',
         time: '۱۱:۰۰',
         isCompleted: true,
         isCurrent: false,
@@ -135,7 +135,7 @@ export const INITIAL_TRACKING_ORDERS: OrderTrackingInfo[] = [
       {
         step: 3,
         title: 'تخلیه در باربری وطن شورآباد',
-        description: 'ارسال با خودروی رابط انبار سوین به ترمینال باربری وطن',
+        description: 'ارسال با خودروی رابط انبار دخانیات سرو به ترمینال باربری وطن',
         time: '۱۹:۰۰',
         isCompleted: true,
         isCurrent: false,
@@ -173,7 +173,7 @@ export const INITIAL_TRACKING_ORDERS: OrderTrackingInfo[] = [
     status: 'delivered',
     statusFa: 'تحویل موفق به مشتری با رسید رسمی',
     dispatchType: 'sevin_dedicated_fleet',
-    dispatchTypeFa: 'ناوگان اختصاصی وانت/نیسان پخش سوین (تهران و البرز)',
+    dispatchTypeFa: 'ناوگان اختصاصی وانت/نیسان پخش دخانیات سرو (تهران و البرز)',
     driverName: 'آقا کامران رستمی',
     driverPhone: '09127776655',
     vehiclePlate: 'ایران ۶۸ - ۲۱۴ د ۳۳',
@@ -184,7 +184,7 @@ export const INITIAL_TRACKING_ORDERS: OrderTrackingInfo[] = [
       {
         step: 1,
         title: 'ثبت سفارش',
-        description: 'ثبت در سیستم سوین',
+        description: 'ثبت در سیستم دخانیات سرو',
         time: '۱۱:۰۰',
         isCompleted: true,
         isCurrent: false,
@@ -199,7 +199,7 @@ export const INITIAL_TRACKING_ORDERS: OrderTrackingInfo[] = [
       },
       {
         step: 3,
-        title: 'بارگیری در وانت سوین',
+        title: 'بارگیری در وانت دخانیات سرو',
         description: 'خروج از انبار کهریزک شورآباد',
         time: '۱۳:۱۵',
         isCompleted: true,
@@ -277,7 +277,7 @@ export const OrderTracking: React.FC<OrderTrackingProps> = ({ orders: customOrde
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-800 text-xs font-black px-3 py-1 rounded-xl border border-blue-200">
                   <Truck className="w-4 h-4 text-blue-600 animate-pulse" />
-                  رهگیری زنده مرسولات و ناوگان توزیع سوین
+                  رهگیری زنده مرسولات و ناوگان توزیع دخانیات سرو
                 </span>
               </div>
               <h1 className="text-lg sm:text-2xl font-black text-slate-900 tracking-tight">
@@ -385,7 +385,7 @@ export const OrderTracking: React.FC<OrderTrackingProps> = ({ orders: customOrde
                       {selectedOrder.dispatchType === 'sevin_dedicated_fleet' && (
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 mt-3 border-t border-blue-200/80 text-xs">
                           <div>
-                            <span className="text-slate-500 block text-[11px]">راننده ناوگان سوین:</span>
+                            <span className="text-slate-500 block text-[11px]">راننده ناوگان دخانیات سرو:</span>
                             <span className="font-black text-slate-900">{selectedOrder.driverName}</span>
                           </div>
                           <div>
@@ -574,7 +574,7 @@ export const OrderTracking: React.FC<OrderTrackingProps> = ({ orders: customOrde
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-300 leading-relaxed">
-                  در صورت نیاز به تغییر زمان تحویل یا هماهنگی تخلیه با دفتر ترابری سوین تماس حاصل فرمایید.
+                  در صورت نیاز به تغییر زمان تحویل یا هماهنگی تخلیه با دفتر ترابری دخانیات سرو تماس حاصل فرمایید.
                 </p>
                 <a
                   href="tel:09120759419"
@@ -593,7 +593,7 @@ export const OrderTracking: React.FC<OrderTrackingProps> = ({ orders: customOrde
             <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
             <h3 className="text-base font-black text-slate-900 mb-2">بارنامه‌ای با این مشخصات یافت نشد</h3>
             <p className="text-xs text-slate-600 leading-relaxed mb-6">
-              لطفاً شماره پیگیری را با دقت وارد فرمایید (مثال: SVN-90214) یا برای پیگیری با واحد فروش سوین تماس حاصل نمایید.
+              لطفاً شماره پیگیری را با دقت وارد فرمایید (مثال: SVN-90214) یا برای پیگیری با واحد فروش دخانیات سرو تماس حاصل نمایید.
             </p>
             <button
               onClick={() => {

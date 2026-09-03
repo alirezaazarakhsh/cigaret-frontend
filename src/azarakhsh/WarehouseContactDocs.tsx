@@ -25,7 +25,7 @@ export const WarehouseContactDocs: React.FC = () => {
       method: 'POST',
       path: '/api/v1/warehouse-contact/send-message/',
       auth: 'AllowAny',
-      description: 'ارسال پیام جدید یا استعلام عمده به انبار مرکزی سوین توسط کاربر وب‌سایت',
+      description: 'ارسال پیام جدید یا استعلام عمده به انبار مرکزی دخانیات سرو توسط کاربر وب‌سایت',
       requestBody: JSON.stringify({
         full_name: "رضا کریمی",
         phone: "09123456789",

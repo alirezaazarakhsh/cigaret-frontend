@@ -46,6 +46,8 @@ import { INITIAL_RETAIL_SHOPS } from './data/retailShops';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { ProductCard } from './components/ProductCard';
+import { PriceRangeSlider } from './components/PriceRangeSlider';
+import { ProductComparisonModal } from './components/ProductComparisonModal';
 import { ProductModal } from './components/ProductModal';
 import { ProformaInvoicePage } from './components/ProformaInvoicePage';
 import { CartDrawer } from './components/CartDrawer';
@@ -212,14 +214,14 @@ export default function App() {
 
   // Django CRM Configuration
   const [djangoConfig, setDjangoConfig] = useState<DjangoCrmConfig>(() => {
-    const defaultContract = `بسمه تعالی - قرارداد همکاری ویزیتوری سامانه سوین
+    const defaultContract = `بسمه تعالی - قرارداد همکاری ویزیتوری سامانه دخانیات سرو
 
 ۱. ویزیتور متعهد می‌گردد کلیه قوانین و مقررات فروش سامانه را رعایت نموده و از فروش خارج از شبکه خودداری نماید.
 ۲. پورسانت فروش بر اساس تعرفه‌های مصوب (در حال حاضر ۲.۵ درصد) به حساب کاربری ویزیتور منظور و پس از تسویه نهایی خریدار، قابل برداشت خواهد بود.
 ۳. ویزیتور موظف است مشخصات و نشانی مغازه‌ها و خریداران را به طور دقیق در سامانه ثبت نماید.
-۴. تأیید این قرارداد به منزله امضای دیجیتال و پذیرش کلیه شرایط همکاری با سامانه پخش دخانیات سوین است.`;
+۴. تأیید این قرارداد به منزله امضای دیجیتال و پذیرش کلیه شرایط همکاری با سامانه پخش دخانیات دخانیات سرو است.`;
 
-    const defaultHeroTitle = 'سامانه پخش عمده دخانیات سوین با نرخ روز کارتن و باکس';
+    const defaultHeroTitle = 'سامانه پخش عمده دخانیات دخانیات سرو با نرخ روز کارتن و باکس';
     const defaultHeroDesc = 'عرضه دست‌اول و مستقیم انواع سیگارهای اصل سوئیس، اروپا، شرکتی و دستگاه‌های IQOS با هولوگرام معتبر، صدور مستقیم پیش‌فاکتور رسمی با هزینه باربری، واریز فیش بانکی و پنل اختصاصی بنکداری.';
 
     const saved = localStorage.getItem('django_crm_config');
@@ -227,13 +229,13 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         return {
-          companyName: 'سوین',
+          companyName: 'دخانیات سرو',
           bankCard1: '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲',
           bankShiba1: 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲',
-          bankHolder1: 'امور مالی شرکت سوین',
+          bankHolder1: 'امور مالی شرکت دخانیات سرو',
           bankCard2: '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰',
           bankShiba2: 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸',
-          bankHolder2: 'حساب ترابری و تدارکات سوین',
+          bankHolder2: 'حساب ترابری و تدارکات دخانیات سرو',
           visitorContractText: defaultContract,
           siteHeroTitle: defaultHeroTitle,
           siteHeroDesc: defaultHeroDesc,
@@ -259,13 +261,13 @@ export default function App() {
       lastSyncTime: new Date().toLocaleTimeString('fa-IR'),
       status: 'idle',
       totalSyncedProducts: CIGARETTE_PRODUCTS.length,
-      companyName: 'سوین',
+      companyName: 'دخانیات سرو',
       bankCard1: '۶۰3۷-۹۹۷۹-۷۵۳۱-۱۹۸۲',
       bankShiba1: 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲',
-      bankHolder1: 'امور مالی شرکت سوین',
+      bankHolder1: 'امور مالی شرکت دخانیات سرو',
       bankCard2: '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰',
       bankShiba2: 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸',
-      bankHolder2: 'حساب ترابری و تدارکات سوین',
+      bankHolder2: 'حساب ترابری و تدارکات دخانیات سرو',
       visitorContractText: defaultContract,
       siteHeroTitle: defaultHeroTitle,
       siteHeroDesc: defaultHeroDesc,
@@ -317,6 +319,7 @@ export default function App() {
 
   const [selectedCategory, setSelectedCategory] = useState<CigaretteCategory>('all');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 200000000]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'stock'>('featured');
   
@@ -337,6 +340,23 @@ export default function App() {
   const [isInPersonPickupOpen, setIsInPersonPickupOpen] = useState<boolean>(false);
   const [isPwaModalOpen, setIsPwaModalOpen] = useState<boolean>(false);
   const [isBackendModalOpen, setIsBackendModalOpen] = useState<boolean>(false);
+
+  // Product Comparison state
+  const [comparedProductIds, setComparedProductIds] = useState<string[]>([]);
+  const [isComparisonModalOpen, setIsComparisonModalOpen] = useState<boolean>(false);
+
+  const handleToggleCompareProduct = (productId: string) => {
+    setComparedProductIds(prev => {
+      if (prev.includes(productId)) {
+        return prev.filter(id => id !== productId);
+      }
+      if (prev.length >= 4) {
+        showToast('حداکثر می‌توانید ۴ محصول را هم‌زمان مقایسه کنید.');
+        return prev;
+      }
+      return [...prev, productId];
+    });
+  };
 
   // Dynamic Footer Settings from Django backend
   const [footerSettings, setFooterSettings] = useState<FooterSettingsData | null>(() => {
@@ -533,7 +553,7 @@ export default function App() {
       brand: partial.brand || 'Marlboro',
       category: partial.category || 'cigarettes',
       barcode: partial.barcode || '6260000000000',
-      badge: partial.badge || 'بار تازه سوین',
+      badge: partial.badge || 'بار تازه دخانیات سرو',
       origin: partial.origin || 'وارداتی اصل',
       hologram: partial.hologram || 'اورجینال اروپایی',
       cartonPrice: partial.cartonPrice || 80000000,
@@ -580,6 +600,7 @@ export default function App() {
 
       const matchCat = selectedCategory === 'all' || product.category === selectedCategory;
       const matchBrand = selectedBrand === 'all' || product.brand === selectedBrand;
+      const matchPrice = product.cartonPrice >= priceRange[0] && product.cartonPrice <= priceRange[1];
       const matchQuery = 
         product.nameFa.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.nameEn.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -587,14 +608,14 @@ export default function App() {
         product.origin.toLowerCase().includes(searchQuery.toLowerCase()) ||
         product.barcode.includes(searchQuery);
 
-      return matchCat && matchBrand && matchQuery;
+      return matchCat && matchBrand && matchPrice && matchQuery;
     }).sort((a, b) => {
       if (sortBy === 'price-asc') return a.cartonPrice - b.cartonPrice;
       if (sortBy === 'price-desc') return b.cartonPrice - a.cartonPrice;
       if (sortBy === 'stock') return b.stockCartons - a.stockCartons;
       return 0;
     });
-  }, [products, selectedCategory, selectedBrand, searchQuery, sortBy]);
+  }, [products, selectedCategory, selectedBrand, priceRange, searchQuery, sortBy]);
 
   // Cart operations
   const handleAddToCart = (product: CigaretteProduct, unit: 'carton' | 'box', quantity: number) => {
@@ -828,6 +849,16 @@ export default function App() {
                   </div>
                 </div>
               </div>
+              <div className="pt-2">
+                <span className="text-xs text-slate-500 font-bold block mb-2">محدوده قیمت کارتن:</span>
+                <PriceRangeSlider
+                  min={0}
+                  max={200000000}
+                  currentMin={priceRange[0]}
+                  currentMax={priceRange[1]}
+                  onChange={(min, max) => setPriceRange([min, max])}
+                />
+              </div>
 
               {/* Category Pills */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 no-scrollbar">
@@ -886,6 +917,8 @@ export default function App() {
                       product={product}
                       onAddToCart={handleAddToCart}
                       onOpenDetails={(p) => setActiveProductModal(p)}
+                      isSelected={comparedProductIds.includes(product.id)}
+                      onToggleSelect={handleToggleCompareProduct}
                     />
                   ))}
                 </div>
@@ -894,6 +927,41 @@ export default function App() {
 
           </div>
         )}
+
+        {/* Floating Comparison Bar */}
+        {comparedProductIds.length > 0 && activeTab === 'catalog' && (
+          <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 text-white px-6 py-3.5 rounded-2xl shadow-2xl backdrop-blur-md flex items-center gap-4 border border-slate-700 animate-in slide-in-from-bottom-6 duration-300">
+            <div className="flex items-center gap-2">
+              <span className="w-7 h-7 rounded-xl bg-blue-600 text-white font-black text-xs flex items-center justify-center">
+                {comparedProductIds.length}
+              </span>
+              <span className="text-xs font-bold">محصول انتخاب شده برای مقایسه</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsComparisonModalOpen(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl transition-colors cursor-pointer shadow-xs"
+              >
+                مشاهده پنجره مقایسه
+              </button>
+              <button
+                onClick={() => setComparedProductIds([])}
+                className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                پاک کردن
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Product Comparison Modal */}
+        <ProductComparisonModal
+          isOpen={isComparisonModalOpen}
+          onClose={() => setIsComparisonModalOpen(false)}
+          selectedProducts={products.filter(p => comparedProductIds.includes(p.id))}
+          onRemoveProduct={handleToggleCompareProduct}
+          onAddToCart={handleAddToCart}
+        />
 
         {/* TAB 2: Live Price List */}
         {activeTab === 'live-prices' && (

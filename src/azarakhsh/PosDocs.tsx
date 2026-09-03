@@ -99,7 +99,7 @@ export const PosDocs: React.FC = () => {
   "sale_id": 1042,
   "final_amount": 40040000,
   "thermal_payload": {
-    "store_title": "پخش عمده دخانیات سوین - انبار مرکزی جنت‌آباد",
+    "store_title": "پخش عمده دخانیات دخانیات سرو - انبار مرکزی جنت‌آباد",
     "receipt_no": "POS-1403-8821",
     "date": "۱۴۰۳/۰۶/۰۴ - ۱۶:۴۵",
     "cashier": "علی احمدی",
@@ -575,7 +575,7 @@ class PosCheckoutAPIView(APIView):
                 'sale_id': sale.id,
                 'final_amount': sale.final_amount,
                 'thermal_payload': {
-                    'store_title': "پخش عمده دخانیات سوین - انبار مرکزی جنت‌آباد",
+                    'store_title': "پخش عمده دخانیات دخانیات سرو - انبار مرکزی جنت‌آباد",
                     'receipt_no': sale.receipt_number,
                     'date': sale.created_at.strftime('%Y/%m/%d %H:%M'),
                     'cashier': sale.cashier.full_name if hasattr(sale.cashier, 'full_name') else sale.cashier.username,

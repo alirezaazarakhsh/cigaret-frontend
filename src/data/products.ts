@@ -55,7 +55,7 @@ export const CIGARETTE_PRODUCTS: CigaretteProduct[] = [
     djangoId: 901,
     nameFa: 'قهوه اسپرسو دوبل عربیکا (سرو حضوری)',
     nameEn: 'Double Shot Espresso Coffee',
-    brand: 'سوین کافه',
+    brand: 'دخانیات سرو کافه',
     category: 'drinks_coffee',
     origin: 'دان قهوه تازه برزیل / روبوستا ۷۰-۳۰',
     tar: '۰',
@@ -601,7 +601,7 @@ export const CIGARETTE_PRODUCTS: CigaretteProduct[] = [
 
 export const WHOLESALE_BENEFITS = [
   {
-    title: 'تضمین اصالت بار و هولوگرام سوین',
+    title: 'تضمین اصالت بار و هولوگرام دخانیات سرو',
     desc: 'کلیه کارتن‌ها با بارکد اصالت کارخانه و بسته‌بندی پلمپ وکیوم از انبار مرکزی جنت‌آباد تحویل می‌گردند.',
     icon: 'shield-tick',
     badge: 'اصالت SVN'

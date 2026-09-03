@@ -54,10 +54,10 @@ export const ContactAndSupport: React.FC<ContactAndSupportProps> = ({
     };
   }, []);
 
-  const companyTitle = footerData?.company_title || djangoConfig?.companyName || 'سوین';
+  const companyTitle = footerData?.company_title || djangoConfig?.companyName || 'دخانیات سرو';
   const phoneNumber = footerData?.phone_number || djangoConfig?.transportPhoneCompany || '۰۹۱۲۰۷۵۹۴۱۹';
   const emergencyPhone = footerData?.emergency_phone || '۰۹۳۵۱۱۱۲۲۳۳';
-  const addressText = footerData?.address_text || 'تهران، منطقه ۵، بزرگراه شهید آبشناسان، جنت‌آباد (انبار مرکزی پخش دخانیات سوین)';
+  const addressText = footerData?.address_text || 'تهران، منطقه ۵، بزرگراه شهید آبشناسان، جنت‌آباد (انبار مرکزی پخش دخانیات دخانیات سرو)';
   const workingHours = footerData?.working_hours || 'شنبه تا چهارشنبه: ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها: ۸:۰۰ الی ۱۴:۰۰';
   const companyDesc = footerData?.description_text || footerData?.short_description || 'مرکز دپو، پلمپ و بارگیری مستقیم انواع سیگار اورجینال، تنباکو و تجهیزات IQOS در سراسر کشور.';
   const shippingCompanies = footerData?.shipping_companies || footerData?.barbari_text;

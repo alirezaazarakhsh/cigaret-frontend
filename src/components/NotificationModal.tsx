@@ -139,7 +139,7 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
                 </span>
               </div>
               <p className="text-[11px] text-slate-300 mt-0.5">
-                پیام‌های رسمی انبار سوین، تغییرات قیمت و اخبار باربری
+                پیام‌های رسمی انبار دخانیات سرو، تغییرات قیمت و اخبار باربری
               </p>
             </div>
           </div>
