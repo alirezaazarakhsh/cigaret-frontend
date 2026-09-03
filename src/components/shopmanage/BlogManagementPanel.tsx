@@ -884,18 +884,39 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     try {
       if (isEditing && editingPostId) {
         await djangoUpdateBlogPost(editingPostId, submissionData, crmConfig);
-        showNotification('مقاله با موفقیت در دیتابیس و اندپوینت جنگو بروزرسانی شد.');
+        showNotification('مقاله با موفقیت در دیتابیس جنگو بروزرسانی شد.');
       } else {
         await djangoCreateBlogPost(submissionData, crmConfig);
-        showNotification('مقاله جدید با موفقیت در دیتابیس و اندپوینت جنگو ثبت گردید.');
+        showNotification('مقاله جدید با موفقیت در دیتابیس جنگو ثبت گردید.');
       }
+      setFormData({
+        title: '',
+        slug: '',
+        excerpt: '',
+        content: '',
+        image: '',
+        category: '',
+        readTimeMinutes: 5,
+        isPublished: true,
+        tags: [],
+        keyTakeaways: [],
+        faqs: [],
+        metaTitle: '',
+        metaDescription: '',
+        focusKeyword: '',
+        isReportage: false,
+        reportageSponsor: '',
+        reportageBanner: '',
+        reportageLink: ''
+      });
+      setIsEditing(false);
+      setEditingPostId(null);
       await loadData();
       setActiveTab('posts');
-    } catch (err) {
-      console.warn('API sync failed but post is preserved locally:', err);
-      showNotification('مقاله به‌صورت محلی (Local) ذخیره شد، اما ثبت در سرور با خطا مواجه گردید. لطفاً از دکمه همگام‌سازی استفاده کنید.', 'error');
-      await loadData();
-      setActiveTab('posts');
+    } catch (err: any) {
+      console.error('API submission failed:', err);
+      const errMsg = err instanceof Error ? err.message : String(err);
+      showNotification(`خطا در ثبت اطلاعات در دیتابیس جنگو: ${errMsg}`, 'error');
     } finally {
       setIsSubmittingArticle(false);
     }

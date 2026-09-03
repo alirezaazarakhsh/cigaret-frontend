@@ -348,6 +348,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [loginPass, setLoginPass] = useState('');
   const [loginError, setLoginError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // Helper to check staff permissions safely
   const hasStaffPerm = (perm: StaffPermission): boolean => {
@@ -1033,6 +1034,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     e.preventDefault();
     setIsLoggingIn(true);
     try {
+      // Elegant 750ms delay for smooth loading transition
+      await new Promise(resolve => setTimeout(resolve, 750));
       const res = await api.accounts.posLogin(loginPhone, loginPass);
       if (res.success) {
         setIsAuthenticated(true);
@@ -1092,6 +1095,9 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   };
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
+    // Simulating an elegant 1-second logout animation/cleanup phase
+    await new Promise(resolve => setTimeout(resolve, 1000));
     try {
       await api.accounts.posLogout();
     } catch (err) {
@@ -1101,6 +1107,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     setIsAuthenticated(false);
     invalidatePosTokenAndSession('manual_logout');
     setSessionExpiredNotice('');
+    setIsLoggingOut(false);
   };
 
   // Add Product to POS Cart by Product Object
@@ -2140,6 +2147,19 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   // Authenticated Main POS View
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-600 selection:text-white print:hidden" dir="rtl">
+      {isLoggingOut && (
+        <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[9999] flex flex-col items-center justify-center text-white animate-in fade-in duration-300">
+          <div className="p-8 rounded-3xl bg-slate-800 border border-slate-700 shadow-2xl flex flex-col items-center gap-4 max-w-xs text-center">
+            <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center justify-center text-rose-500">
+              <RefreshCw className="w-8 h-8 animate-spin" />
+            </div>
+            <div className="space-y-1.5">
+              <h3 className="font-black text-white text-base">در حال خروج از صندوق...</h3>
+              <p className="text-xs text-slate-400">نشست صندوق‌داری شما در حال بسته‌شدن امن است.</p>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Header Section */}
       <header className="bg-white/95 print:hidden backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[100] px-3 sm:px-6 py-2.5 shadow-md w-full transition-all duration-300">

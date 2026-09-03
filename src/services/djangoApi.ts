@@ -1773,9 +1773,35 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
     (c.slug && post.category && c.slug.trim().toLowerCase() === post.category.trim().toLowerCase())
   );
   
-  const categoryPk = matchedCat && !isNaN(Number(matchedCat.id)) 
-    ? Number(matchedCat.id) 
-    : (!isNaN(Number(post.category)) && Number(post.category) > 0 ? Number(post.category) : null);
+  let categoryPk: number | null = null;
+  if (matchedCat && !isNaN(Number(matchedCat.id))) {
+    categoryPk = Number(matchedCat.id);
+  } else if (!isNaN(Number(post.category)) && Number(post.category) > 0) {
+    categoryPk = Number(post.category);
+  } else if (post.category && typeof post.category === 'string' && post.category.trim()) {
+    try {
+      const newCat = await djangoCreateBlogCategory({ name: post.category }, config);
+      if (newCat && newCat.id && !isNaN(Number(newCat.id))) {
+        categoryPk = Number(newCat.id);
+      }
+    } catch (e) {
+      console.warn('Failed to auto-create category on Django:', e);
+    }
+  }
+
+  // If still null, try to use first available category, or fallback to creating 'عمومی'
+  if (categoryPk === null) {
+    if (allCategories && allCategories.length > 0) {
+      categoryPk = Number(allCategories[0].id);
+    } else {
+      try {
+        const defaultCat = await djangoCreateBlogCategory({ name: 'عمومی' }, config);
+        if (defaultCat && defaultCat.id) {
+          categoryPk = Number(defaultCat.id);
+        }
+      } catch {}
+    }
+  }
 
   const postTitle = (post.title || '').trim();
   let postSlug = post.slug?.trim() || (postTitle ? postTitle.toLowerCase().replace(/\s+/g, '-').replace(/[^\w\u0600-\u06FF-]/g, '') : `post-${Date.now()}`);
@@ -1784,15 +1810,6 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
 
   const imageValue = post.image || '';
   const isBase64Image = isBase64ImageData(imageValue);
-
-  // همیشه ابتدا در استور لوکال ثبت کن تا داده کاربر هرگز از دست نرود
-  const localSaved = djangoDatabaseStore.saveBlogPost({
-    ...post,
-    title: postTitle,
-    slug: postSlug,
-    excerpt: postExcerpt,
-    category: matchedCat?.name || post.category || 'عمومی'
-  });
 
   const sendRequest = async (slugToUse: string): Promise<Response> => {
     let currentToken = await ensureValidDjangoAdminToken(config);
@@ -1927,11 +1944,14 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
       }
 
       const finalSaved = djangoDatabaseStore.saveBlogPost({
-        ...localSaved,
+        ...post,
         id: createdId,
+        title: postTitle,
         slug: created.slug || postSlug,
-        image: created.image || localSaved.image,
-        publishedDate: created.created_at_jalali || localSaved.publishedDate,
+        excerpt: postExcerpt,
+        category: matchedCat?.name || post.category || 'عمومی',
+        image: created.image || imageValue,
+        publishedDate: created.created_at_jalali || new Date().toLocaleDateString('fa-IR'),
         isPublished: created.is_published !== undefined ? created.is_published : true
       });
       return finalSaved;
