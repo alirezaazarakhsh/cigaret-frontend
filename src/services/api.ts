@@ -742,13 +742,9 @@ export const accountsApi = {
     }
 
     // First attempt authentication via backend API
-    let res = await httpClient.post<any>('/posuser/login/', loginPayload);
-    if (!res.success && (res.status === 404 || res.status === 400 || res.status === 401)) {
-      const res2 = await httpClient.post<any>('/api/v1/posuser/login/', loginPayload);
-      if (res2.success) {
-        res = res2;
-      }
-    }
+    let res = await httpClient.post<any>('/posuser/login/', loginPayload, {
+      headers: API_CACHE_CONTROL_HEADERS
+    });
 
     if (res.success && res.data?.tokens?.access) {
       setApiToken(res.data.tokens.access);
@@ -854,17 +850,15 @@ export const accountsApi = {
    * POS staff logout via POST /api/v1/posuser/logout/
    */
   async posLogout(): Promise<any> {
-    let res = await httpClient.post<any>('/posuser/logout/', {});
-    if (!res.success && res.status === 404) {
-      res = await httpClient.post<any>('/api/v1/posuser/logout/', {});
-    }
+    const res = await httpClient.post<any>('/posuser/logout/', {}, {
+      headers: API_CACHE_CONTROL_HEADERS
+    });
     invalidatePosTokenAndSession('manual_logout');
     return res;
   },
 
   /**
-   * Create a new user (staff, visitor, customer) via POST /api/v1/accounts/create/
-   * Endpoint might be /api/v1/accounts/create-user/ or /accounts/register/
+   * Create a new user (staff) via POST /api/v1/posuser/create-staff/
    */
   async createUser(payload: {
     phone: string;
@@ -874,53 +868,40 @@ export const accountsApi = {
     pin_code?: string;
     [key: string]: any;
   }): Promise<{ success: boolean; data?: any; message?: string }> {
-    // Primary custom route requested by user
-    let res = await httpClient.post<any>('/posuser/create-staff/', payload);
-    
-    // Fallback to /api/v1 prefix
-    if (!res.success && res.status === 404) {
-      res = await httpClient.post<any>('/api/v1/posuser/create-staff/', payload);
-    }
-    // Fallback to older possible endpoints
-    if (!res.success && res.status === 404) {
-      res = await httpClient.post<any>('/accounts/create-user/', payload);
-    }
-    if (!res.success && res.status === 404) {
-      res = await httpClient.post<any>('/api/v1/accounts/create-user/', payload);
-    }
+    const res = await httpClient.post<any>('/posuser/create-staff/', payload, {
+      headers: API_CACHE_CONTROL_HEADERS
+    });
 
     if (res.success && res.data) {
-      return { success: true, data: res.data, message: res.data.message || 'کاربر با موفقیت ایجاد شد.' };
+      return { success: true, data: res.data, message: res.data.message || 'کاربر با موفقیت در دیتابیس ثبت شد.' };
     }
     
-    return { success: false, message: res.data?.message || res.error || 'خطا در ایجاد کاربر. لطفاً اتصال بک‌اند را بررسی کنید.' };
+    return { success: false, message: res.data?.message || res.error || 'خطا در ایجاد کاربر در دیتابیس جنگو. لطفاً اتصال بک‌اند را بررسی کنید.' };
   },
 
   /**
    * Get POS staff list from GET /api/v1/posuser/staff-list/
    */
   async getStaffList(): Promise<{ success: boolean; data?: any[]; message?: string }> {
-    let res = await httpClient.get<any>('/posuser/staff-list/');
-    if (!res.success && res.status === 404) {
-      res = await httpClient.get<any>('/api/v1/posuser/staff-list/');
-    }
+    const res = await httpClient.get<any>('/posuser/staff-list/', {
+      headers: API_CACHE_CONTROL_HEADERS
+    });
     if (res.success && res.data) {
       const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
       return { success: true, data: list };
     }
-    return { success: false, message: res.error || 'خطا در دریافت لیست پرسنل.' };
+    return { success: false, message: res.error || 'خطا در دریافت لیست پرسنل از دیتابیس.' };
   },
 
   /**
    * Update POS staff member via PUT /api/v1/posuser/staff/<id>/
    */
   async updateStaff(staffId: string | number, payload: any): Promise<{ success: boolean; data?: any; message?: string }> {
-    let res = await httpClient.put<any>(`/posuser/staff/${staffId}/`, payload);
-    if (!res.success && res.status === 404) {
-      res = await httpClient.put<any>(`/api/v1/posuser/staff/${staffId}/`, payload);
-    }
+    const res = await httpClient.put<any>(`/posuser/staff/${staffId}/`, payload, {
+      headers: API_CACHE_CONTROL_HEADERS
+    });
     if (res.success) {
-      return { success: true, data: res.data, message: res.data?.message || 'ویرایش پرسنل با موفقیت انجام شد.' };
+      return { success: true, data: res.data, message: res.data?.message || 'ویرایش پرسنل با موفقیت در دیتابیس ثبت شد.' };
     }
     return { success: false, message: res.data?.message || res.error || 'خطا در ویرایش پرسنل.' };
   },
@@ -929,12 +910,11 @@ export const accountsApi = {
    * Delete POS staff member via DELETE /api/v1/posuser/staff/<id>/
    */
   async deleteStaff(staffId: string | number): Promise<{ success: boolean; message?: string }> {
-    let res = await httpClient.delete<any>(`/posuser/staff/${staffId}/`);
-    if (!res.success && res.status === 404) {
-      res = await httpClient.delete<any>(`/api/v1/posuser/staff/${staffId}/`);
-    }
+    const res = await httpClient.delete<any>(`/posuser/staff/${staffId}/`, {
+      headers: API_CACHE_CONTROL_HEADERS
+    });
     if (res.success) {
-      return { success: true, message: res.data?.message || 'پرسنل با موفقیت حذف شد.' };
+      return { success: true, message: res.data?.message || 'پرسنل با موفقیت از دیتابیس حذف شد.' };
     }
     return { success: false, message: res.data?.message || res.error || 'خطا در حذف پرسنل.' };
   },
@@ -943,16 +923,15 @@ export const accountsApi = {
    * Toggle staff lock / active status in Django DB via POST /api/v1/posuser/staff/<id>/toggle-lock/
    */
   async toggleStaffLock(staffId: string | number): Promise<{ success: boolean; is_active?: boolean; status?: string; message?: string }> {
-    let res = await httpClient.post<any>(`/posuser/staff/${staffId}/toggle-lock/`, {});
-    if (!res.success && res.status === 404) {
-      res = await httpClient.post<any>(`/api/v1/posuser/staff/${staffId}/toggle-lock/`, {});
-    }
+    const res = await httpClient.post<any>(`/posuser/staff/${staffId}/toggle-lock/`, {}, {
+      headers: API_CACHE_CONTROL_HEADERS
+    });
     if (res.success) {
       return {
         success: true,
         is_active: res.data?.is_active,
         status: res.data?.status || (res.data?.is_active ? 'active' : 'suspended'),
-        message: res.data?.message || 'وضعیت قفل/فعالیت کاربر به‌روزرسانی شد.',
+        message: res.data?.message || 'وضعیت قفل/فعالیت کاربر در دیتابیس به‌روزرسانی شد.',
       };
     }
     return { success: false, message: res.data?.message || res.error || 'خطا در تغییر وضعیت قفل کاربر.' };

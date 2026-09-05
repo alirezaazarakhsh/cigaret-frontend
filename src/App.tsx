@@ -788,7 +788,7 @@ export default function App() {
       />
 
       {/* POS Sub-Header - Version B */}
-      {activeTab === 'accounting-pos' && (
+      {(activeTab as string) === 'accounting-pos' && (
         <div className="bg-slate-800 text-white px-3 sm:px-6 py-2 shadow-inner border-t border-slate-700">
            <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4 text-xs font-bold">
               <span>مدیریت صندوق و حسابداری</span>

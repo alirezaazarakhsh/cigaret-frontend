@@ -2220,12 +2220,200 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         </div>
       )}
       
-      {/* Header Section */}
-      <div className="bg-white/95 print:hidden backdrop-blur-xl border-b border-slate-200 sticky top-0 z-[100] px-3 py-1.5 shadow-sm w-full transition-all duration-300 isolate">
+      {/* Sticky Header Container */}
+      <div className="sticky top-0 z-[100] w-full bg-white shadow-sm border-b border-slate-200 print:hidden">
+        {/* Main Header Section */}
+        <div className="bg-white/95 backdrop-blur-xl px-3 py-1.5 w-full transition-all duration-300 isolate">
         <div className="max-w-[1750px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2">
           
+          {/* Quick Tools & Actions (Moved to Visual Left Side) */}
+          <div className="flex items-center justify-start gap-2 relative shrink-0 order-last md:order-last w-full md:w-auto">
+            
+            {/* Tools & Settings Dropdown */}
+            <div className="relative" ref={toolsRef}>
+              <button
+                onClick={() => setShowToolsDropdown(!showToolsDropdown)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all active:scale-95"
+                title="ابزارها و تنظیمات صندوق"
+              >
+                <Settings className="w-4 h-4 text-indigo-600" />
+                <span>ابزارها</span>
+                <ChevronDown className="w-3 h-3 text-slate-500" />
+              </button>
+
+              {showToolsDropdown && (
+                <div 
+                  className="header-dropdown-overlay absolute top-full mt-2 right-0 w-64 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-[99999] space-y-1 animate-in fade-in zoom-in-95 duration-200"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowToolsDropdown(false);
+                  }}
+                >
+                  <button
+                    onClick={() => { setShowSessionSecurityModal(true); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right"
+                  >
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                      <span>امنیت و زمان توکن صندوق</span>
+                    </div>
+                    <span className="text-[10px] font-mono bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-md font-bold">
+                      {formatRemainingTime(sessionRemainingSeconds)}
+                    </span>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100"></div>
+                  {currentStaff.role === 'super_admin' && (
+                    <button
+                      onClick={() => { setShowBackendModal(true); setShowToolsDropdown(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/90 rounded-xl transition-colors text-right"
+                    >
+                      <Server className="w-4 h-4 text-blue-600" />
+                      <span>اتصال API و وب‌سرویس جنگو</span>
+                    </button>
+                  )}
+                  
+                  {(currentStaff.role === 'super_admin' || hasStaffPerm('view_reports')) && (
+                    <button
+                      onClick={() => { setShowCurrencyRateModal(true); setShowToolsDropdown(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <Coins className="w-4 h-4 text-blue-600" />
+                      <span>تنظیم نرخ ارز (دلار/یورو)</span>
+                    </button>
+                  )}
+
+                  {hasStaffPerm('customer_app_connect') && (
+                    <button
+                      onClick={() => { setShowCustomerAppModal(true); setShowToolsDropdown(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <Smartphone className="w-4 h-4 text-indigo-600" />
+                      <span>اتصال اپلیکیشن مشتریان</span>
+                    </button>
+                  )}
+
+                  <button
+                    onClick={() => { setActiveSubTab('blog'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl transition-colors text-right"
+                  >
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-blue-600" />
+                      <span>مدیریت مقالات و وبلاگ</span>
+                    </div>
+                    <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100"></div>
+
+                  {hasStaffPerm('manage_staff') && (
+                    <button
+                      onClick={() => { setActiveSubTab('staff_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <UserPlus className="w-4 h-4 text-emerald-600" />
+                        <span>افزودن پرسنل جدید (صفحه مجزا)</span>
+                      </div>
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md font-bold">جدید</span>
+                    </button>
+                  )}
+
+                  {hasStaffPerm('manage_tickets') && (
+                    <button
+                      onClick={() => { setActiveSubTab('tickets'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Headphones className="w-4 h-4 text-indigo-600" />
+                        <span>پشتیبانی تیکت‌ها</span>
+                      </div>
+                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                    </button>
+                  )}
+
+                  {hasStaffPerm('send_sms') && (
+                    <button
+                      onClick={() => { setActiveSubTab('sms_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-indigo-600" />
+                        <span>سامانه پیامکی کاوه‌نگار</span>
+                      </div>
+                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                    </button>
+                  )}
+
+                  {hasStaffPerm('manage_notifications') && (
+                    <button
+                      onClick={() => { setActiveSubTab('notifications'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-purple-600" />
+                        <span>اعلانات و نوتیفیکیشن‌ها</span>
+                      </div>
+                      <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Live Token Expiration Security Badge */}
+            <button
+              onClick={() => setShowSessionSecurityModal(true)}
+              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 whitespace-nowrap shadow-2xs ${
+                sessionRemainingSeconds <= 60
+                  ? 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-700 animate-pulse'
+                  : sessionRemainingSeconds <= 300
+                    ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-700'
+                    : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
+              }`}
+              title="زمان باقی‌مانده از اعتبار توکن امنیتی صندوق (کلیک برای مشاهده وضعیت امنیت، تمدید یا تنظیم خروج خودکار)"
+            >
+              <Clock className={`w-3.5 h-3.5 shrink-0 ${
+                sessionRemainingSeconds <= 60 ? 'text-rose-600' : sessionRemainingSeconds <= 300 ? 'text-amber-600' : 'text-emerald-600'
+              }`} />
+              <span className="hidden xl:inline text-[11px] text-slate-500 font-normal">اعتبار توکن:</span>
+              <span className="font-mono font-black text-xs dir-ltr">{formatRemainingTime(sessionRemainingSeconds)}</span>
+            </button>
+
+            {/* Sound Toggle */}
+            <button
+              onClick={() => setSoundEnabled(!soundEnabled)}
+              title={soundEnabled ? 'صدا فعال است' : 'صدا قطع است'}
+              className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-200 transition-colors"
+            >
+              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
+            </button>
+
+            {/* Catalog Button */}
+            <button
+              onClick={onReturnToStore}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-200 transition-colors whitespace-nowrap"
+            >
+              <ArrowRight className="w-4 h-4" />
+              <span>کاتالوگ</span>
+            </button>
+
+            {/* Logout Button */}
+            <button
+              onClick={handleLogout}
+              title="خروج از پنل حسابداری"
+              className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+
+
+          </div>
+          
           {/* Logo & Staff Info */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between w-full md:w-auto shrink-0 gap-1.5 md:gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between w-full md:w-auto shrink-0 gap-1.5 md:gap-4 order-first md:order-first">
+            
+            {/* Logo/Name/MobileMenu */}
             <div className="flex items-center justify-between w-full md:w-auto gap-2.5 sm:gap-3">
               <div className="flex items-center gap-2 sm:gap-2.5">
                 {/* Mobile Menu Toggle Button (Positioned at RTL Start - Right Side) */}
@@ -2290,8 +2478,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         </div>
       </div>
 
-      {/* Navigation Tabs - Moved out of header */}
-      <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center md:justify-start gap-1.5 bg-slate-50 md:bg-white p-2 md:p-2 border-b border-slate-200 w-full overflow-x-auto shadow-sm min-w-0`}>
+      {/* Navigation Tabs Bar */}
+      <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center md:justify-start gap-1.5 bg-slate-50 md:bg-white p-2 md:p-2 border-t border-slate-200 w-full overflow-x-auto min-w-0`}>
         <div className="max-w-[1750px] mx-auto flex flex-col md:flex-row items-stretch md:items-center gap-1.5 w-full">
             {hasStaffPerm('manage_pos') && (
               <button
@@ -2434,195 +2622,18 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 </button>
               </div>
             </div>
-
           </div>
+        </div>
+      </div>
 
-            {/* Quick Tools & Actions */}
-            <div className="flex items-center justify-center md:justify-end gap-2 relative shrink-0">
-              
-              {/* Tools & Settings Dropdown */}
-              <div className="relative" ref={toolsRef}>
-                <button
-                  onClick={() => setShowToolsDropdown(!showToolsDropdown)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all active:scale-95"
-                  title="ابزارها و تنظیمات صندوق"
-                >
-                  <Settings className="w-4 h-4 text-indigo-600" />
-                  <span>ابزارها</span>
-                  <ChevronDown className="w-3 h-3 text-slate-500" />
-                </button>
-
-                {showToolsDropdown && (
-                  <div 
-                    className="header-dropdown-overlay fixed top-[64px] right-4 md:right-auto md:top-[64px] w-64 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-[99999] space-y-1 animate-in fade-in zoom-in-95 duration-200"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setShowToolsDropdown(false);
-                    }}
-                  >
-                    <button
-                      onClick={() => { setShowSessionSecurityModal(true); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right"
-                    >
-                      <div className="flex items-center gap-2">
-                        <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                        <span>امنیت و زمان توکن صندوق</span>
-                      </div>
-                      <span className="text-[10px] font-mono bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-md font-bold">
-                        {formatRemainingTime(sessionRemainingSeconds)}
-                      </span>
-                    </button>
-
-                    <div className="my-1 border-t border-slate-100"></div>
-                    {currentStaff.role === 'super_admin' && (
-                      <button
-                        onClick={() => { setShowBackendModal(true); setShowToolsDropdown(false); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/90 rounded-xl transition-colors text-right"
-                      >
-                        <Server className="w-4 h-4 text-blue-600" />
-                        <span>اتصال API و وب‌سرویس جنگو</span>
-                      </button>
-                    )}
-                    
-                    {(currentStaff.role === 'super_admin' || hasStaffPerm('view_reports')) && (
-                      <button
-                        onClick={() => { setShowCurrencyRateModal(true); setShowToolsDropdown(false); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                      >
-                        <Coins className="w-4 h-4 text-blue-600" />
-                        <span>تنظیم نرخ ارز (دلار/یورو)</span>
-                      </button>
-                    )}
-
-                    {hasStaffPerm('customer_app_connect') && (
-                      <button
-                        onClick={() => { setShowCustomerAppModal(true); setShowToolsDropdown(false); }}
-                        className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                      >
-                        <Smartphone className="w-4 h-4 text-indigo-600" />
-                        <span>اتصال اپلیکیشن مشتریان</span>
-                      </button>
-                    )}
-
-                    <button
-                      onClick={() => { setActiveSubTab('blog'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl transition-colors text-right"
-                    >
-                      <div className="flex items-center gap-2">
-                        <BookOpen className="w-4 h-4 text-blue-600" />
-                        <span>مدیریت مقالات و وبلاگ</span>
-                      </div>
-                      <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
-                    </button>
-
-                    <div className="my-1 border-t border-slate-100"></div>
-
-                    {hasStaffPerm('manage_staff') && (
-                      <button
-                        onClick={() => { setActiveSubTab('staff_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl transition-colors text-right"
-                      >
-                        <div className="flex items-center gap-2">
-                          <UserPlus className="w-4 h-4 text-emerald-600" />
-                          <span>افزودن پرسنل جدید (صفحه مجزا)</span>
-                        </div>
-                        <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md font-bold">جدید</span>
-                      </button>
-                    )}
-
-                    {hasStaffPerm('manage_tickets') && (
-                      <button
-                        onClick={() => { setActiveSubTab('tickets'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Headphones className="w-4 h-4 text-indigo-600" />
-                          <span>پشتیبانی تیکت‌ها</span>
-                        </div>
-                        <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
-                      </button>
-                    )}
-
-                    {hasStaffPerm('send_sms') && (
-                      <button
-                        onClick={() => { setActiveSubTab('sms_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Smartphone className="w-4 h-4 text-indigo-600" />
-                          <span>سامانه پیامکی کاوه‌نگار</span>
-                        </div>
-                        <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
-                      </button>
-                    )}
-
-                    {hasStaffPerm('manage_notifications') && (
-                      <button
-                        onClick={() => { setActiveSubTab('notifications'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
-                      >
-                        <div className="flex items-center gap-2">
-                          <Bell className="w-4 h-4 text-purple-600" />
-                          <span>اعلانات و نوتیفیکیشن‌ها</span>
-                        </div>
-                        <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
-                      </button>
-                    )}
-                  </div>
-                )}
+      <div>
+            {successBanner && (
+              <div className="bg-emerald-600 text-white px-4 py-2 text-center text-xs font-black shadow-md flex items-center justify-center gap-2 animate-bounce">
+                <CheckCircle2 className="w-4 h-4" />
+                <span>{successBanner}</span>
               </div>
-
-            {/* Live Token Expiration Security Badge */}
-            <button
-              onClick={() => setShowSessionSecurityModal(true)}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 whitespace-nowrap shadow-2xs ${
-                sessionRemainingSeconds <= 60
-                  ? 'bg-rose-50 hover:bg-rose-100 border-rose-300 text-rose-700 animate-pulse'
-                  : sessionRemainingSeconds <= 300
-                    ? 'bg-amber-50 hover:bg-amber-100 border-amber-300 text-amber-700'
-                    : 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200 text-emerald-800'
-              }`}
-              title="زمان باقی‌مانده از اعتبار توکن امنیتی صندوق (کلیک برای مشاهده وضعیت امنیت، تمدید یا تنظیم خروج خودکار)"
-            >
-              <Clock className={`w-3.5 h-3.5 shrink-0 ${
-                sessionRemainingSeconds <= 60 ? 'text-rose-600' : sessionRemainingSeconds <= 300 ? 'text-amber-600' : 'text-emerald-600'
-              }`} />
-              <span className="hidden xl:inline text-[11px] text-slate-500 font-normal">اعتبار توکن:</span>
-              <span className="font-mono font-black text-xs dir-ltr">{formatRemainingTime(sessionRemainingSeconds)}</span>
-            </button>
-
-            <button
-              onClick={() => setSoundEnabled(!soundEnabled)}
-              title={soundEnabled ? 'صدا فعال است' : 'صدا قطع است'}
-              className="p-2 rounded-xl bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-200 transition-colors"
-            >
-              {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
-            </button>
-
-            <button
-              onClick={onReturnToStore}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-200 transition-colors whitespace-nowrap"
-            >
-              <ArrowRight className="w-4 h-4" />
-              <span>کاتالوگ</span>
-            </button>
-
-            <button
-              onClick={handleLogout}
-              title="خروج از پنل حسابداری"
-              className="p-2 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            )}
           </div>
-
-        </div>
-      {successBanner && (
-        <div className="bg-emerald-600 text-white px-4 py-2 text-center text-xs font-black shadow-md flex items-center justify-center gap-2 animate-bounce">
-          <CheckCircle2 className="w-4 h-4" />
-          <span>{successBanner}</span>
-        </div>
-      )}
 
       {/* Main Content Area */}
       <main className="flex-1 print:hidden w-full mx-auto p-3 sm:p-5 lg:p-6">
