@@ -38,13 +38,19 @@ export const UserManagementPanel: React.FC<UserManagementPanelProps> = ({ crmCon
           djangoFetchCustomers(crmConfig),
           djangoFetchVisitors(crmConfig)
         ]);
+
+        console.log("Raw Customers Data:", customers);
+        console.log("Raw Visitors Data:", visitors);
+
         const mapped = [
-          ...customers.map((c: any) => ({ ...c, type: 'customer' })),
-          ...visitors.map((v: any) => ({ ...v, type: 'visitor' }))
+          ...customers.map((c: any) => ({ ...c, type: 'customer', full_name: c.full_name || c.name || c.shop_name || 'نامشخص' })),
+          ...visitors.map((v: any) => ({ ...v, type: 'visitor', full_name: v.full_name || v.user?.username || 'نامشخص' }))
         ];
+        
+        console.log("Mapped Data:", mapped);
         setUsers(mapped);
       } catch (e) {
-        console.error(e);
+        console.error("Fetch error:", e);
       } finally {
         setIsLoading(false);
       }
@@ -83,8 +89,8 @@ export const UserManagementPanel: React.FC<UserManagementPanelProps> = ({ crmCon
                 className={`p-4 mb-2 bg-white rounded-2xl cursor-pointer border ${selectedUser?.id === u.id ? 'border-indigo-500 shadow-sm' : 'border-slate-200 hover:border-slate-300'}`} 
                 onClick={() => setSelectedUser(u)}
               >
-                <div className="font-black text-sm">{u.full_name}</div>
-                <div className="text-xs text-slate-500 mt-1">{u.phone} - {u.type === 'customer' ? '🛒 مشتری' : '👔 ویزیتور'}</div>
+                <div className="font-black text-sm truncate">{u.full_name}</div>
+                <div className="text-xs text-slate-500 mt-1 truncate">{u.phone} - {u.type === 'customer' ? '🛒 مشتری' : '👔 ویزیتور'}</div>
               </div>
             ))
           )}
