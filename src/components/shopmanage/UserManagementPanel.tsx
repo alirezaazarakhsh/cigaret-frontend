@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, Users, Search, ChevronRight, Building2, Phone, CreditCard, ShieldCheck, Mail, MapPin } from 'lucide-react';
 import { DjangoCrmConfig } from '../../types';
-import { djangoFetchCustomers, djangoFetchVisitors } from '../../services/djangoApi';
+import { djangoFetchCustomers, djangoFetchVisitors, updateProfile, updateShop } from '../../services/djangoApi';
 
 interface UserManagementPanelProps {
   crmConfig?: DjangoCrmConfig;
@@ -12,6 +12,23 @@ export const UserManagementPanel: React.FC<UserManagementPanelProps> = ({ crmCon
   const [isLoading, setIsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState<any>({});
+
+  const handleSave = async () => {
+    try {
+      if (selectedUser.type === 'visitor') {
+        await updateProfile(editForm);
+      } else {
+        await updateShop(selectedUser.id, editForm);
+      }
+      setIsEditing(false);
+      alert('اطلاعات با موفقیت ذخیره شد');
+    } catch (e) {
+      console.error(e);
+      alert('خطا در ذخیره اطلاعات');
+    }
+  };
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -77,19 +94,38 @@ export const UserManagementPanel: React.FC<UserManagementPanelProps> = ({ crmCon
         <div className="col-span-8 bg-slate-50 p-6 rounded-2xl border border-slate-100">
           {selectedUser ? (
             <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-2xl">
-                  {selectedUser.full_name?.slice(0, 1)}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-16 h-16 rounded-full bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-2xl">
+                    {selectedUser.full_name?.slice(0, 1)}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black">{selectedUser.full_name}</h3>
+                    <p className="text-sm text-slate-500">{selectedUser.type === 'customer' ? 'مشتری' : 'ویزیتور'}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-xl font-black">{selectedUser.full_name}</h3>
-                  <p className="text-sm text-slate-500">{selectedUser.type === 'customer' ? 'مشتری' : 'ویزیتور'}</p>
-                </div>
+                {!isEditing ? (
+                  <button onClick={() => { setIsEditing(true); setEditForm(selectedUser); }} className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold">ویرایش</button>
+                ) : (
+                  <div className="flex gap-2">
+                    <button onClick={handleSave} className="px-4 py-2 bg-green-600 text-white rounded-xl text-sm font-bold">ذخیره</button>
+                    <button onClick={() => setIsEditing(false)} className="px-4 py-2 bg-slate-200 text-slate-700 rounded-xl text-sm font-bold">انصراف</button>
+                  </div>
+                )}
               </div>
               
               <div className="grid grid-cols-2 gap-4 text-sm font-medium">
-                <div className="flex items-center gap-2 bg-white p-3 rounded-xl border"><Phone className="w-4 h-4 text-indigo-500" /> {selectedUser.phone}</div>
-                <div className="flex items-center gap-2 bg-white p-3 rounded-xl border"><MapPin className="w-4 h-4 text-indigo-500" /> {selectedUser.city || 'نامشخص'}</div>
+                {isEditing ? (
+                  <>
+                    <input className="p-3 rounded-xl border" value={editForm.phone || ''} onChange={e => setEditForm({...editForm, phone: e.target.value})} placeholder="تلفن" />
+                    <input className="p-3 rounded-xl border" value={editForm.city || ''} onChange={e => setEditForm({...editForm, city: e.target.value})} placeholder="شهر" />
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2 bg-white p-3 rounded-xl border"><Phone className="w-4 h-4 text-indigo-500" /> {selectedUser.phone}</div>
+                    <div className="flex items-center gap-2 bg-white p-3 rounded-xl border"><MapPin className="w-4 h-4 text-indigo-500" /> {selectedUser.city || 'نامشخص'}</div>
+                  </>
+                )}
               </div>
             </div>
           ) : (

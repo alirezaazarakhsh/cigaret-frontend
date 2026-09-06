@@ -2784,3 +2784,72 @@ export async function djangoReplyTicket(id: string | number, payload: {
     throw err;
   }
 }
+
+// --- POS & Account Features ---
+
+export async function posLogin(data: any): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/accounts/pos-login/', 'POST', data);
+  return res.data;
+}
+
+export async function getProfile(): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/accounts/profile/', 'GET', undefined, { token: getApiToken() });
+  return res.data;
+}
+
+export async function updateProfile(data: any): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/accounts/profile/', 'PATCH', data, { token: getApiToken() });
+  return res.data;
+}
+
+export async function sendOtp(data: any): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/accounts/send-otp/', 'POST', data);
+  return res.data;
+}
+
+export async function verifyOtp(data: any): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/accounts/verify-otp/', 'POST', data);
+  return res.data;
+}
+
+export async function refreshToken(data: any): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/accounts/token/refresh/', 'POST', data);
+  return res.data;
+}
+
+// --- Visitor Features ---
+
+export async function getVisitorDashboard(): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/visitors/dashboard/', 'GET', undefined, { token: getApiToken() });
+  return res.data;
+}
+
+export async function getVisitorProfile(): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/visitors/profile/', 'GET', undefined, { token: getApiToken() });
+  return res.data;
+}
+
+export async function createShop(data: any): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/visitors/shops/create/', 'POST', data, { token: getApiToken() });
+  return res.data;
+}
+
+export async function listShops(): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/visitors/shops/list/', 'GET', undefined, { token: getApiToken() });
+  return res.data;
+}
+
+export async function getShop(id: string | number): Promise<any> {
+  const res = await executeDjangoAxiosRequest(`/api/v1/visitors/shops/${id}/`, 'GET', undefined, { token: getApiToken() });
+  return res.data;
+}
+
+export async function updateShop(id: string | number, data: any): Promise<any> {
+  const res = await executeDjangoAxiosRequest(`/api/v1/visitors/shops/${id}/update/`, 'PUT', data, { token: getApiToken() });
+  return res.data;
+}
+
+export async function deleteShop(id: string | number): Promise<any> {
+  const res = await executeDjangoAxiosRequest(`/api/v1/visitors/shops/${id}/delete/`, 'DELETE', undefined, { token: getApiToken() });
+  return res.data;
+}
