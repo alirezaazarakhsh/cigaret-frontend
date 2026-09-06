@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { UserManagementPanel } from './UserManagementPanel';
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Barcode, 
@@ -4417,6 +4418,18 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               ) : (
                 <TicketManagementPanel crmConfig={crmConfig} />
               )}
+            </motion.div>
+          )}
+
+          {/* TAB: User Management */}
+          {activeSubTab === 'user_management' && (
+            <motion.div
+              key="user-management-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <UserManagementPanel crmConfig={crmConfig} />
             </motion.div>
           )}
 

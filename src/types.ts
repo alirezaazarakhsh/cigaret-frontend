@@ -58,8 +58,7 @@ export type NavigationTab =
   | 'django-docs'
   | 'accounting-pos'
   | 'invoice'
-  | 'chat-support'
-  | 'user-management';
+  | 'chat-support';
 
 export type CustomerTierId = 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond_black';
 
