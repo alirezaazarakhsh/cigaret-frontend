@@ -196,6 +196,8 @@ PATTERN_SECTIONS = [
 class KavenegarSMSSetting(models.Model):
     name = models.CharField(max_length=100, verbose_name="نام سامانه")
     api_token = models.TextField(max_length=500, verbose_name="API Token")
+    is_active = models.BooleanField(default=True, verbose_name="فعال بودن درگاه")
+    debug_mode = models.BooleanField(default=False, verbose_name="حالت شبیه‌ساز (بدون کسر شارژ)")
 
     class Meta:
         verbose_name = "تنظیمات سامانه پیامکی کاوهنگار"
@@ -473,9 +475,13 @@ class KavenegarSMSSettingAPIView(APIView):
     def post(self, request):
         name = request.data.get('name', 'سامانه پیامک کاوه‌نگار')
         api_token = request.data.get('api_token', '').strip()
+        is_active = request.data.get('is_active', True)
+        debug_mode = request.data.get('debug_mode', False)
 
         setting, _ = KavenegarSMSSetting.objects.get_or_create(id=1)
         setting.name = name
+        setting.is_active = is_active
+        setting.debug_mode = debug_mode
         if api_token:
             setting.api_token = api_token
         setting.save()

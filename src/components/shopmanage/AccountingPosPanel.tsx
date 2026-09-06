@@ -4577,10 +4577,13 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                                 if (res) {
                                   setSmsSuccessMessage('تنظیمات درگاه کاوه‌نگار با موفقیت در پایگاه‌داده جنگو ذخیره شد.');
                                   setTimeout(() => setSmsSuccessMessage(''), 4000);
+                                } else {
+                                  setSmsErrorMessage('خطا: ارتباط با سرور جنگو برقرار شد اما تنظیمات ذخیره نگردید. وضعیت توکن یا دسترسی را بررسی کنید.');
+                                  setTimeout(() => setSmsErrorMessage(''), 5000);
                                 }
-                              } catch {
-                                setSmsErrorMessage('خطا در ذخیره‌سازی تنظیمات درگاه.');
-                                setTimeout(() => setSmsErrorMessage(''), 4000);
+                              } catch (err) {
+                                setSmsErrorMessage('خطای سیستمی در ذخیره‌سازی تنظیمات: ' + (err instanceof Error ? err.message : 'نامشخص'));
+                                setTimeout(() => setSmsErrorMessage(''), 5000);
                               } finally {
                                 setIsSmsLoading(false);
                               }
