@@ -165,7 +165,8 @@ class LoginStaffAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="ورود پرسنل صندوق",
-        request_body=LoginSerializer
+        request_body=LoginSerializer,
+        tags=['posuser']
     )
     def post(self, request):
         phone = request.data.get('phone')
@@ -249,7 +250,8 @@ class LogoutStaffAPIView(APIView):
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
-        operation_summary="خروج پرسنل صندوق و حذف نشست"
+        operation_summary="خروج پرسنل صندوق و حذف نشست",
+        tags=['posuser']
     )
     def post(self, request):
         response = Response({"success": True, "message": "خروج موفقیت‌آمیز بود."}, status=status.HTTP_200_OK)
@@ -266,7 +268,8 @@ class ActiveStaffSessionsAPIView(APIView):
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
-        operation_summary="لیست صندوق‌دارهای آنلاین همزمان"
+        operation_summary="لیست صندوق‌دارهای آنلاین همزمان",
+        tags=['posuser']
     )
     def get(self, request):
         active_staff = PosStaff.objects.filter(is_active=True).select_related('user')
@@ -298,7 +301,8 @@ class CreateStaffAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="ایجاد پرسنل صندوق جدید",
-        request_body=PosStaffCreateSerializer
+        request_body=PosStaffCreateSerializer,
+        tags=['posuser']
     )
     def post(self, request):
         phone = request.data.get('phone')
@@ -388,6 +392,10 @@ class ListStaffAPIView(APIView):
     """
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست پرسنل صندوق و انبار",
+        tags=['posuser']
+    )
     def get(self, request):
         staff_qs = PosStaff.objects.select_related('user').all()
         data = []
@@ -432,6 +440,10 @@ class StaffDetailAPIView(APIView):
     """
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="ویرایش اطلاعات پرسنل صندوق",
+        tags=['posuser']
+    )
     def put(self, request, pk):
         try:
             staff = PosStaff.objects.get(pk=pk)
@@ -477,6 +489,10 @@ class StaffDetailAPIView(APIView):
 
         return Response({"success": True, "message": "اطلاعات پرسنل با موفقیت به روز شد."}, status=status.HTTP_200_OK)
 
+    @swagger_auto_schema(
+        operation_summary="حذف پرسنل صندوق",
+        tags=['posuser']
+    )
     def delete(self, request, pk):
         try:
             staff = PosStaff.objects.get(pk=pk)
@@ -495,6 +511,10 @@ class ToggleLockStaffAPIView(APIView):
     """
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="تغییر وضعیت قفل / تعلیق پرسنل",
+        tags=['posuser']
+    )
     def post(self, request, pk):
         try:
             staff = PosStaff.objects.get(pk=pk)
@@ -567,7 +587,63 @@ urlpatterns = [
   const endpoints: ApiEndpointMeta[] = [
     {
       method: 'POST',
-      path: '/api/v1/posuser/create-staff/',
+      path: '/api/v1/posuserlogin/',
+      auth: 'AllowAny',
+      description: 'ورود پرسنل صندوق و انبار و دریافت توکن‌های JWT و ست شدن کوکی',
+      requestBody: JSON.stringify({
+        phone: "09120759419",
+        password: "your_password"
+      }, null, 2),
+      responseBody: JSON.stringify({
+        success: true,
+        message: "ورود موفقیت‌آمیز بود.",
+        data: {
+          user: { id: 1, phone: "09120759419", fullName: "مدیر ارشد", role: "super_admin", roleTitleFa: "مدیر ارشد سامانه", permissions: ["manage_pos", "manage_inventory"], status: "active" },
+          tokens: { access: "...", refresh: "..." }
+        }
+      }, null, 2),
+      curlExample: `curl -X POST https://cigar.sevinhost.ir/api/v1/posuserlogin/ \\
+  -H "Content-Type: application/json" \\
+  -d '{"phone":"09120759419","password":"your_password"}'`
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/posuserlogout/',
+      auth: 'AllowAny',
+      description: 'خروج پرسنل صندوق و پاکسازی کوکی‌های توکن',
+      responseBody: JSON.stringify({
+        success: true,
+        message: "خروج موفقیت‌آمیز بود."
+      }, null, 2),
+      curlExample: `curl -X POST https://cigar.sevinhost.ir/api/v1/posuserlogout/`
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/posuserstaff-list/',
+      auth: 'AllowAny',
+      description: 'دریافت لیست کامل پرسنل صندوق و انبار همراه با وضعیت فعالیت و دسترسی‌ها',
+      responseBody: JSON.stringify({
+        success: true,
+        data: [
+          {
+            id: 1,
+            user_id: 1,
+            phone: "09120759419",
+            fullName: "مهندس احمد کاظمی",
+            role: "warehouse_manager",
+            roleTitleFa: "مدیر انبار",
+            is_active: true,
+            status: "active",
+            permissions: ["manage_pos", "manage_inventory"],
+            created_at: "1403/06/15"
+          }
+        ]
+      }, null, 2),
+      curlExample: `curl -X GET https://cigar.sevinhost.ir/api/v1/posuserstaff-list/`
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/posusercreate-staff/',
       auth: 'AllowAny (csrf_exempt)',
       description: 'ایجاد پرسنل جدید همراه با ثبت دقیق نقش و لیست دسترسی‌ها',
       requestBody: JSON.stringify({
@@ -586,9 +662,53 @@ urlpatterns = [
         success: true,
         message: "پرسنل صندوق با موفقیت در دیتابیس ثبت شد."
       }, null, 2),
-      curlExample: `curl -X POST http://localhost:8000/api/v1/posuser/create-staff/ \\
+      curlExample: `curl -X POST https://cigar.sevinhost.ir/api/v1/posusercreate-staff/ \\
   -H "Content-Type: application/json" \\
   -d '{"phone":"09120759419","full_name":"مهندس احمد کاظمی","password":"1234","role":"warehouse_manager","roleTitleFa":"مدیر انبار","permissions":["manage_pos","manage_inventory","quick_add_product"]}'`
+    },
+    {
+      method: 'PUT',
+      path: '/api/v1/posuserstaff/{id}/',
+      auth: 'AllowAny',
+      description: 'ویرایش اطلاعات، رمز عبور، نقش و دسترسی‌های پرسنل با شناسه',
+      requestBody: JSON.stringify({
+        full_name: "احمد کاظمی (ویرایش)",
+        phone: "09120759419",
+        role: "cashier",
+        roleTitleFa: "صندوق‌دار",
+        permissions: ["manage_pos"]
+      }, null, 2),
+      responseBody: JSON.stringify({
+        success: true,
+        message: "اطلاعات پرسنل با موفقیت به روز شد."
+      }, null, 2),
+      curlExample: `curl -X PUT https://cigar.sevinhost.ir/api/v1/posuserstaff/1/ \\
+  -H "Content-Type: application/json" \\
+  -d '{"full_name":"احمد کاظمی","phone":"09120759419","role":"cashier","roleTitleFa":"صندوق‌دار","permissions":["manage_pos"]}'`
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v1/posuserstaff/{id}/',
+      auth: 'AllowAny',
+      description: 'حذف کامل پرسنل و حساب کاربری متصل به آن با شناسه',
+      responseBody: JSON.stringify({
+        success: true,
+        message: "پرسنل با موفقیت حذف شد."
+      }, null, 2),
+      curlExample: `curl -X DELETE https://cigar.sevinhost.ir/api/v1/posuserstaff/1/`
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/posuserstaff/{id}/toggle-lock/',
+      auth: 'AllowAny',
+      description: 'قفل کردن یا فعال‌سازی مجدد پرسنل (تغییر وضعیت فعال/تعلیق)',
+      responseBody: JSON.stringify({
+        success: true,
+        is_active: false,
+        status: "suspended",
+        message: "کاربر با موفقیت قفل / تعلیق شد."
+      }, null, 2),
+      curlExample: `curl -X POST https://cigar.sevinhost.ir/api/v1/posuserstaff/1/toggle-lock/`
     }
   ];
 
