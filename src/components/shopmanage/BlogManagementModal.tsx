@@ -60,7 +60,11 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
     publishedDate: new Date().toLocaleDateString('fa-IR'),
     isPublished: true,
     keyTakeaways: ['تحلیل لحظه‌ای قیمت بازار', 'اصالت تضمینی هولوگرام'],
-    tags: ['دخانیات', 'دخانیات سرو', 'عمده فروشی']
+    tags: ['دخانیات', 'دخانیات سرو', 'عمده فروشی'],
+    isReportage: false,
+    reportageSponsor: '',
+    reportageBanner: '',
+    reportageLink: ''
   });
 
   const handleAddTakeaway = (e?: React.KeyboardEvent | React.MouseEvent) => {
@@ -551,6 +555,65 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
                     </span>
                   ))}
                 </div>
+              </div>
+
+              {/* Published Switch */}
+              <div className="bg-purple-50 p-4 rounded-xl border border-purple-100 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-600 flex items-center justify-center">
+                      <Sparkles className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="text-xs font-black text-purple-900">تنظیمات ریپورتاژ آگهی</div>
+                      <div className="text-[10px] text-purple-600">فعال‌سازی بنر و حامی مالی در مقاله</div>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(formData.isReportage)}
+                      onChange={(e) => setFormData({ ...formData, isReportage: e.target.checked })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+
+                {Boolean(formData.isReportage) && (
+                  <div className="space-y-4 animate-in fade-in duration-200">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">نام اسپانسر:</label>
+                      <input
+                        type="text"
+                        placeholder="مثلاً: بازرگانی کاظمی"
+                        value={formData.reportageSponsor || ''}
+                        onChange={(e) => setFormData({ ...formData, reportageSponsor: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">لینک بنر ۱۲۰×۲۴۰ (عکس یا گیف):</label>
+                      <input
+                        type="text"
+                        placeholder="https://.../banner.gif"
+                        value={formData.reportageBanner || ''}
+                        onChange={(e) => setFormData({ ...formData, reportageBanner: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700 dir-ltr text-left focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">لینک مقصد کلیک (URL):</label>
+                      <input
+                        type="text"
+                        placeholder="https://destination.com"
+                        value={formData.reportageLink || ''}
+                        onChange={(e) => setFormData({ ...formData, reportageLink: e.target.value })}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700 dir-ltr text-left focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Published Switch */}

@@ -144,7 +144,11 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
         }
 
         const [fullList, fetchedCats] = await Promise.all([
-          blogApi.getPosts({ category: selectedCategory, search: searchQuery }),
+          blogApi.getPosts({ 
+            category: selectedCategory === 'reportage' ? undefined : selectedCategory, 
+            search: searchQuery,
+            isReportage: selectedCategory === 'reportage' ? true : undefined
+          }),
           blogApi.getCategories()
         ]);
 
@@ -191,6 +195,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
 
   const getCategoryCount = (catId: string) => {
     if (catId === 'all') return allPosts.length;
+    if (catId === 'reportage') return allPosts.filter(p => p.isReportage).length;
     return allPosts.filter(p => p.category === catId).length;
   };
 
@@ -241,6 +246,15 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
           bgColor: 'bg-blue-50',
           borderColor: 'border-blue-200',
           description: 'نمایش تمام مقالات آموزشی، تحلیل بازار و اخبار تخصصی بنکداری'
+        },
+        {
+          id: 'reportage',
+          label: 'ریپورتاژ آگهی',
+          icon: Sparkles,
+          color: 'text-purple-600',
+          bgColor: 'bg-purple-50',
+          borderColor: 'border-purple-200',
+          description: 'مشاهده مقالات معرفی محصولات و برندهای حامی مالی'
         },
         ...mapped
       ];

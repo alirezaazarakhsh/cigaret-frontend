@@ -1523,7 +1523,11 @@ function mapBlogPostApiItem(item: any): BlogPost {
     faqs,
     viewsCount: Number(item.views_count ?? 0),
     isPublished: item.is_published !== undefined ? Boolean(item.is_published) : true,
-    focusKeyword: item.focus_keyword || item.focusKeyword || ''
+    focusKeyword: item.focus_keyword || item.focusKeyword || '',
+    isReportage: Boolean(item.is_reportage ?? item.isReportage ?? false),
+    reportageSponsor: item.reportage_sponsor || item.reportageSponsor || '',
+    reportageBanner: item.reportage_banner || item.reportageBanner || '',
+    reportageLink: item.reportage_link || item.reportageLink || ''
   };
 }
 
@@ -1531,13 +1535,16 @@ export const blogApi = {
   /**
    * دریافت فهرست مقالات منتشر شده — GET /api/v1/blog/list/ (BlogPostListAPIView)
    */
-  async getPosts(params?: { category?: string; search?: string }): Promise<BlogPost[]> {
+  async getPosts(params?: { category?: string; search?: string; isReportage?: boolean }): Promise<BlogPost[]> {
     const query = new URLSearchParams();
     if (params?.category && params.category !== 'all' && params.category !== 'همه مقالات و مطالب') {
       query.append('category', params.category);
     }
     if (params?.search && params.search.trim()) {
       query.append('search', params.search.trim());
+    }
+    if (params?.isReportage !== undefined) {
+      query.append('is_reportage', params.isReportage ? 'true' : 'false');
     }
     const queryString = query.toString() ? `?${query.toString()}` : '';
 
