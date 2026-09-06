@@ -39,7 +39,7 @@ import {
   CustomerDigitalPassModal, 
   CustomerPriceAlertsModal 
 } from './CustomerHubFeatures';
-import { accountsApi, visitorsApi } from '../services/api';
+import { accountsApi, visitorsApi, ticketsApi } from '../services/api';
 
 interface UserProfilePanelProps {
   currentUser: UserProfile | null;
@@ -110,75 +110,81 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
   const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
 
   // Tickets State
-  const [tickets, setTickets] = useState<SupportTicket[]>([
-    {
-      id: 't-1',
-      ticketNumber: 'TK-84910',
-      title: 'استعلام بارگیری کارتن وینستون آبی از انبار جنت‌آباد',
-      department: 'warehouse',
-      priority: 'high',
-      status: 'answered',
-      customerName: currentUser?.fullName || 'خریدار محترم',
-      customerPhone: currentUser?.phone || '09120759419',
-      orderTrackingCode: 'SVN-89412',
-      createdAt: '۱۴۰۳/۰۵/۱۴ - ۱۰:۳۰',
-      updatedAt: '۱۴۰۳/۰۵/۱۴ - ۱۱:۱۵',
-      lastMessage: 'بار شما پلمپ شده و به باربری وطن تحویل داده شد. شماره بیجک در سیستم ثبت گردید.',
-      unreadAdminCount: 0,
-      unreadUserCount: 0,
-      messages: [
-        {
-          id: 'm-1',
-          ticketId: 't-1',
-          sender: 'customer',
-          senderName: currentUser?.fullName || 'خریدار محترم',
-          text: 'سلام و وقت بخیر، سفارش ۲ کارتن وینستون آبی و ۱ کارتن مارلبرو گلد تاچ ثبت شد. لطفاً اعلام بفرمایید امروز به باربری تحویل می‌شود؟',
-          timestamp: '۱۴۰۳/۰۵/۱۴ - ۱۰:۳۰'
-        },
-        {
-          id: 'm-2',
-          ticketId: 't-1',
-          sender: 'support_admin',
-          senderName: 'کارشناس ترابری انبار جنت‌آباد',
-          text: 'درود، بار شما با هولوگرام اصالت و پلمپ وکیوم بسته‌بندی شد و ساعت ۱۱ به ناوگان باربری وطن تحویل گردید. بیجک شماره VT-981245 صادر شده است.',
-          timestamp: '۱۴۰۳/۰۵/۱۴ - ۱۱:۱۵'
+  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+
+  // Load tickets from Django DB
+  useEffect(() => {
+    if (currentUser) {
+      const fetchTickets = async () => {
+        setIsLoadingTickets(true);
+        try {
+          const data = await ticketsApi.getAll();
+          if (data) {
+            const mapped: SupportTicket[] = data.map((t: any) => ({
+              id: String(t.id),
+              ticketNumber: t.ticket_number || `TK-${t.id}`,
+              title: t.title || 'بدون عنوان',
+              department: t.department || 'general',
+              priority: t.priority || 'medium',
+              status: t.status || 'open',
+              customerName: t.user_full_name || currentUser.fullName,
+              customerPhone: t.user_phone || currentUser.phone,
+              orderTrackingCode: t.order_tracking_code,
+              createdAt: t.created_at_jalali || t.created_at || 'نامشخص',
+              updatedAt: t.updated_at_jalali || t.updated_at || 'نامشخص',
+              lastMessage: t.last_message || '',
+              unreadUserCount: t.unread_user_count || 0,
+              messages: (t.messages || []).map((m: any) => ({
+                id: String(m.id),
+                ticketId: String(t.id),
+                sender: m.sender === 'support_admin' ? 'support_admin' : 'customer',
+                senderName: m.sender_name || (m.sender === 'support_admin' ? 'پشتیبانی' : currentUser.fullName),
+                text: m.message || m.text || '',
+                timestamp: m.created_at_jalali || m.created_at || ''
+              }))
+            }));
+            setTickets(mapped);
+          }
+        } catch (err) {
+          console.error('Error fetching user tickets:', err);
+        } finally {
+          setIsLoadingTickets(false);
         }
-      ]
-    },
-    {
-      id: 't-2',
-      ticketNumber: 'TK-92401',
-      title: 'استعلام تیراژ و تخفیف پلکانی استیک تیریا و دستگاه ایکاس',
-      department: 'sales',
-      priority: 'medium',
-      status: 'in_progress',
-      customerName: currentUser?.fullName || 'خریدار محترم',
-      customerPhone: currentUser?.phone || '09120759419',
-      createdAt: '۱۴۰۳/۰۵/۱۶ - ۰۹:۰۰',
-      updatedAt: '۱۴۰۳/۰۵/۱۶ - ۰۹:۴۰',
-      lastMessage: 'پیش‌فاکتور با درصد تخفیف تجاری برای خرید بالای ۵ کارتن تنظیم گردید.',
-      unreadAdminCount: 0,
-      unreadUserCount: 1,
-      messages: [
-        {
-          id: 'm-21',
-          ticketId: 't-2',
-          sender: 'customer',
-          senderName: currentUser?.fullName || 'خریدار محترم',
-          text: 'برای سفارش عمده ۱۰ کارتن تیریا سیلور و ۴ دستگاه ایکاس ایلوما پرایم درصد تخفیف نهایی چقدر محاسبه می‌شود؟',
-          timestamp: '۱۴۰۳/۰۵/۱۶ - ۰۹:۰۰'
-        },
-        {
-          id: 'm-22',
-          ticketId: 't-2',
-          sender: 'support_admin',
-          senderName: 'مدیر فروش عمده',
-          text: 'برای ۱۰ کارتن تیریا تخفیف حداکثری ۴.۵٪ و برای دستگاه‌ها ۶٪ لحاظ شد و پیش‌فاکتور رسمی در پنل شما قرار گرفت.',
-          timestamp: '۱۴۰۳/۰۵/۱۶ - ۰۹:۴۰'
-        }
-      ]
+      };
+      fetchTickets();
     }
-  ]);
+  }, [currentUser]);
+
+  // Sync details when a ticket is selected
+  useEffect(() => {
+    if (selectedTicketId && selectedTicketId.length < 10) {
+      const fetchDetail = async () => {
+        try {
+          const detail = await ticketsApi.getById(selectedTicketId);
+          if (detail && detail.messages) {
+            const updatedMessages: ChatMessage[] = detail.messages.map((m: any) => ({
+              id: String(m.id),
+              ticketId: String(detail.id),
+              sender: m.sender === 'support_admin' ? 'support_admin' : 'customer',
+              senderName: m.sender_name || (m.sender === 'support_admin' ? 'پشتیبانی' : currentUser?.fullName || 'کاربر'),
+              text: m.message || m.text || '',
+              timestamp: m.created_at_jalali || m.created_at || ''
+            }));
+            
+            setTickets(prev => prev.map(t => t.id === String(detail.id) ? { 
+              ...t, 
+              messages: updatedMessages,
+              status: detail.status || t.status 
+            } : t));
+          }
+        } catch (e) {
+          console.warn('Error fetching user ticket detail:', e);
+        }
+      };
+      fetchDetail();
+    }
+  }, [selectedTicketId]);
 
   // New Ticket Form
   const [newTicketData, setNewTicketData] = useState({
@@ -521,89 +527,98 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
   };
 
   // Handle Create Ticket
-  const handleCreateTicket = (e: React.FormEvent) => {
+  const handleCreateTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTicketData.title || !newTicketData.message) {
       showToast('لطفاً عنوان و متن پیام تیکت را بنویسید.');
       return;
     }
 
-    const timestamp = `${new Date().toLocaleDateString('fa-IR')} - ${new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`;
-    const newId = `t-${Date.now()}`;
-    const newTicket: SupportTicket = {
-      id: newId,
-      ticketNumber: `TK-${Math.floor(10000 + Math.random() * 90000)}`,
-      title: newTicketData.title,
-      department: newTicketData.department,
-      priority: newTicketData.priority,
-      status: 'open',
-      customerName: currentUser?.fullName || 'کاربر محترم',
-      customerPhone: currentUser?.phone || '09120759419',
-      orderTrackingCode: newTicketData.orderTrackingCode || undefined,
-      createdAt: timestamp,
-      updatedAt: 'هم‌اکنون',
-      lastMessage: newTicketData.message,
-      messages: [
-        {
-          id: `msg-${Date.now()}`,
-          ticketId: newId,
-          sender: 'customer',
-          senderName: currentUser?.fullName || 'شما',
-          text: newTicketData.message,
-          timestamp: timestamp,
-        }
-      ]
-    };
+    try {
+      const createdRemote = await ticketsApi.create({
+        title: newTicketData.title,
+        department: newTicketData.department,
+        priority: newTicketData.priority,
+        message: newTicketData.message,
+        order_tracking_code: newTicketData.orderTrackingCode || undefined,
+      });
 
-    setTickets([newTicket, ...tickets]);
-    setNewTicketData({
-      title: '',
-      department: 'sales',
-      priority: 'medium',
-      orderTrackingCode: '',
-      message: '',
-    });
-    setActiveSubTab('tickets');
-    setSelectedTicketId(newId);
-    showToast('تیکت شما ثبت شد و صفحه گفت‌وگو باز گردید.');
+      const timestamp = createdRemote.created_at_jalali || 'هم‌اکنون';
+      const newId = String(createdRemote.id);
+      
+      const newTicket: SupportTicket = {
+        id: newId,
+        ticketNumber: createdRemote.ticket_number || `TK-${createdRemote.id}`,
+        title: newTicketData.title,
+        department: newTicketData.department,
+        priority: newTicketData.priority,
+        status: 'open',
+        customerName: currentUser?.fullName || 'کاربر محترم',
+        customerPhone: currentUser?.phone || '09120759419',
+        orderTrackingCode: newTicketData.orderTrackingCode || undefined,
+        createdAt: timestamp,
+        updatedAt: 'هم‌اکنون',
+        lastMessage: newTicketData.message,
+        messages: [
+          {
+            id: `msg-${Date.now()}`,
+            ticketId: newId,
+            sender: 'customer',
+            senderName: currentUser?.fullName || 'شما',
+            text: newTicketData.message,
+            timestamp: timestamp,
+          }
+        ]
+      };
+
+      setTickets([newTicket, ...tickets]);
+      setNewTicketData({
+        title: '',
+        department: 'sales',
+        priority: 'medium',
+        orderTrackingCode: '',
+        message: '',
+      });
+      setActiveSubTab('tickets');
+      setSelectedTicketId(newId);
+      showToast('تیکت شما با موفقیت در دیتابیس ثبت شد و صفحه گفت‌وگو باز گردید.');
+    } catch (err: any) {
+      showToast(`خطا در ثبت تیکت: ${err.message || 'خطای ناشناخته'}`);
+    }
   };
 
   // Handle send reply inside ticket
-  const handleSendTicketReply = (ticketId: string, replyText: string) => {
-    const timestamp = `${new Date().toLocaleDateString('fa-IR')} - ${new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`;
-    
-    setTickets(prevTickets => 
-      prevTickets.map(t => {
-        if (t.id !== ticketId) return t;
-        const currentMsgs = t.messages || [
-          {
-            id: `msg-init-${t.id}`,
+  const handleSendTicketReply = async (ticketId: string, replyText: string) => {
+    try {
+      const response = await ticketsApi.reply(ticketId, { message: replyText });
+      const timestamp = response.created_at_jalali || 'هم‌اکنون';
+      
+      setTickets(prevTickets => 
+        prevTickets.map(t => {
+          if (t.id !== ticketId) return t;
+          const currentMsgs = t.messages || [];
+          const newMsg: ChatMessage = {
+            id: String(response.id || Date.now()),
             ticketId: t.id,
             sender: 'customer',
-            senderName: t.customerName,
-            text: t.lastMessage,
-            timestamp: t.createdAt
-          }
-        ];
-        const newMsg: ChatMessage = {
-          id: `msg-${Date.now()}`,
-          ticketId: t.id,
-          sender: 'customer',
-          senderName: currentUser?.fullName || 'شما',
-          text: replyText,
-          timestamp: timestamp,
-        };
-        return {
-          ...t,
-          status: 'open',
-          lastMessage: replyText,
-          updatedAt: 'هم‌اکنون',
-          messages: [...currentMsgs, newMsg]
-        };
-      })
-    );
+            senderName: currentUser?.fullName || 'شما',
+            text: replyText,
+            timestamp: timestamp,
+          };
+          return {
+            ...t,
+            status: 'open',
+            lastMessage: replyText,
+            updatedAt: 'هم‌اکنون',
+            messages: [...currentMsgs, newMsg]
+          };
+        })
+      );
 
-    showToast('پاسخ شما در تیکت ثبت شد.');
+      showToast('پاسخ شما در تیکت ثبت شد.');
+    } catch (err: any) {
+      showToast(`خطا در ارسال پاسخ: ${err.message || 'خطای ناشناخته'}`);
+    }
   };
 
   // ==========================================
@@ -1426,7 +1441,24 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
               </div>
 
               <div className="grid grid-cols-1 gap-3">
-                {tickets.map(t => (
+                {isLoadingTickets ? (
+                  <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center space-y-4">
+                    <RefreshCw className="w-8 h-8 text-blue-600 animate-spin mx-auto" />
+                    <p className="text-sm font-bold text-slate-600">در حال دریافت تیکت‌های شما از دیتابیس...</p>
+                  </div>
+                ) : tickets.length === 0 ? (
+                  <div className="bg-white border border-slate-200 rounded-3xl p-10 text-center space-y-4">
+                    <MessageSquare className="w-8 h-8 text-slate-300 mx-auto" />
+                    <p className="text-sm font-bold text-slate-600">هنوز تیکتی ثبت نکرده‌اید.</p>
+                    <button
+                      onClick={() => setActiveSubTab('new_ticket')}
+                      className="px-6 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black shadow-lg shadow-blue-600/20"
+                    >
+                      ثبت اولین تیکت پشتیبانی
+                    </button>
+                  </div>
+                ) : (
+                  tickets.map(t => (
                   <div
                     key={t.id}
                     onClick={() => setSelectedTicketId(t.id)}
@@ -1472,7 +1504,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                       </span>
                     </div>
                   </div>
-                ))}
+                )))}
               </div>
             </div>
           )}

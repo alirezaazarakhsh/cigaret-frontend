@@ -26,7 +26,6 @@ import { PosProductsDocs } from './PosProductsDocs';
 import { WarehouseStockDocs } from './WarehouseStockDocs';
 import { LedgerDocs } from './LedgerDocs';
 import { ReportsDocs } from './ReportsDocs';
-import { RolesPermissionsDocs } from './RolesPermissionsDocs';
 import { KavenegarSmsDocs } from './KavenegarSmsDocs';
 import { SwaggerRedocDocs } from './SwaggerRedocDocs';
 import { AuthUsersDocs } from './AuthUsersDocs';
@@ -36,7 +35,6 @@ import { OrdersDocs } from './OrdersDocs';
 import { ShippingDocs } from './ShippingDocs';
 import { BlogTinyMceDocs } from './BlogTinyMceDocs';
 import { TicketsSupportDocs } from './TicketsSupportDocs';
-import { VisitorTicketsDocs } from './VisitorTicketsDocs';
 import { VisitorsDocs } from './VisitorsDocs';
 import { WarehouseContactDocs } from './WarehouseContactDocs';
 import { RegularCustomersDocs } from './RegularCustomersDocs';
@@ -206,8 +204,6 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
         return <BlogTinyMceDocs />;
       case 'tickets-support':
         return <TicketsSupportDocs />;
-      case 'visitor-tickets':
-        return <VisitorTicketsDocs />;
       case 'visitors':
         return <VisitorsDocs />;
       case 'pos':
@@ -226,8 +222,6 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
         return <LedgerDocs />;
       case 'reports':
         return <ReportsDocs />;
-      case 'roles-permissions':
-        return <RolesPermissionsDocs />;
       case 'kavenegar_sms':
         return <KavenegarSmsDocs />;
       case 'warehouse-contact':

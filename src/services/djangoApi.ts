@@ -656,6 +656,34 @@ class DjangoDatabaseStore {
     const list = this.getNotifications();
     return list.filter(n => !n.is_read && !n.isRead).length;
   }
+
+  // ==========================================
+  // Support Tickets Store
+  // ==========================================
+  private tickets: any[] = [];
+
+  getTickets() {
+    return [...this.tickets];
+  }
+
+  saveTickets(tickets: any[]) {
+    this.tickets = tickets;
+    return this.tickets;
+  }
+
+  addTicket(ticket: any) {
+    this.tickets.unshift(ticket);
+    return ticket;
+  }
+
+  updateTicket(id: string | number, updates: any) {
+    const idx = this.tickets.findIndex(t => String(t.id) === String(id));
+    if (idx >= 0) {
+      this.tickets[idx] = { ...this.tickets[idx], ...updates };
+      return this.tickets[idx];
+    }
+    return null;
+  }
 }
 
 export const djangoDatabaseStore = new DjangoDatabaseStore();
@@ -2550,4 +2578,209 @@ export async function djangoDeleteBlogCategory(id: string, config?: DjangoCrmCon
   }
 
   return true;
+}
+
+// ==========================================
+// Support Tickets API Endpoints
+// ==========================================
+
+/**
+ * دریافت لیست تیکت‌های پشتیبانی — GET /api/v1/tickets/list/
+ */
+export async function djangoFetchTickets(config?: DjangoCrmConfig, userId?: string | number, role?: string): Promise<any[]> {
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+
+  const queryParams = new URLSearchParams();
+  if (userId) queryParams.append('user_id', String(userId));
+  if (role) queryParams.append('role', role);
+  
+  const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+
+  try {
+    const response = await fetch(`${baseUrl}/tickets/list/${queryString}`, { method: 'GET', headers });
+    if (response.ok) {
+      const data = await response.json();
+      const results = Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
+      djangoDatabaseStore.saveTickets(results);
+      return results;
+    }
+  } catch (err) {
+    console.warn('Django Fetch Tickets API error:', err);
+  }
+  return djangoDatabaseStore.getTickets();
+}
+
+/**
+ * دریافت لیست ویزیتورها برای مدیریت ادمین — GET /api/v1/visitors/admin/list/
+ */
+export async function djangoFetchVisitors(config?: DjangoCrmConfig): Promise<any[]> {
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+
+  try {
+    const response = await fetch(`${baseUrl}/visitors/admin/list/`, { method: 'GET', headers });
+    if (response.ok) {
+      const data = await response.json();
+      return Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
+    }
+  } catch (err) {
+    console.warn('Django Fetch Visitors error:', err);
+  }
+  return [];
+}
+
+/**
+ * دریافت لیست مشتریان برای مدیریت ادمین — GET /api/v1/accounts/admin/customers/
+ */
+export async function djangoFetchCustomers(config?: DjangoCrmConfig): Promise<any[]> {
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+
+  try {
+    const response = await fetch(`${baseUrl}/accounts/admin/customers/`, { method: 'GET', headers });
+    if (response.ok) {
+      const data = await response.json();
+      return Array.isArray(data?.results) ? data.results : (Array.isArray(data) ? data : []);
+    }
+  } catch (err) {
+    console.warn('Django Fetch Customers error:', err);
+  }
+  return [];
+}
+
+/**
+ * مشاهده جزئیات تیکت و پیام‌ها — GET /api/v1/tickets/{id}/
+ */
+export async function djangoFetchTicketDetail(id: string | number, config?: DjangoCrmConfig): Promise<any> {
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+
+  try {
+    const response = await fetch(`${baseUrl}/tickets/${id}/`, { method: 'GET', headers });
+    if (response.ok) {
+      const data = await response.json();
+      const ticket = data?.data || data;
+      djangoDatabaseStore.updateTicket(id, ticket);
+      return ticket;
+    }
+  } catch (err) {
+    console.warn('Django Fetch Ticket Detail API error:', err);
+  }
+  return null;
+}
+
+/**
+ * ایجاد تیکت پشتیبانی جدید — POST /api/v1/tickets/create/
+ */
+export async function djangoCreateTicket(payload: {
+  title: string;
+  department: string;
+  priority: string;
+  message: string;
+  order_tracking_code?: string;
+  attachment?: string | File | Blob;
+  user_id?: string | number;
+  visitor_id?: string | number;
+  ticket_type?: 'customer' | 'visitor';
+}, config?: DjangoCrmConfig): Promise<any> {
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+  const adminToken = await ensureValidDjangoAdminToken(config);
+
+  try {
+    let res: Response;
+    const isFile = payload.attachment instanceof File || payload.attachment instanceof Blob || (typeof payload.attachment === 'string' && payload.attachment.startsWith('data:'));
+
+    if (isFile) {
+      const form = new FormData();
+      form.append('title', payload.title);
+      form.append('department', payload.department);
+      form.append('priority', payload.priority);
+      form.append('message', payload.message);
+      if (payload.order_tracking_code) form.append('order_tracking_code', payload.order_tracking_code);
+      if (payload.user_id) form.append('user_id', String(payload.user_id));
+      if (payload.visitor_id) form.append('visitor_id', String(payload.visitor_id));
+      if (payload.ticket_type) form.append('ticket_type', payload.ticket_type);
+      
+      if (typeof payload.attachment === 'string' && payload.attachment.startsWith('data:')) {
+        form.append('attachment', base64ImageToBlob(payload.attachment), 'attachment.jpg');
+      } else if (payload.attachment) {
+        form.append('attachment', payload.attachment as any);
+      }
+
+      res = await fetch(`${baseUrl}/tickets/create/`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${adminToken}`, 'Accept': 'application/json' },
+        body: form
+      });
+    } else {
+      res = await fetch(`${baseUrl}/tickets/create/`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      const created = data?.data || data;
+      djangoDatabaseStore.addTicket(created);
+      return created;
+    }
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData?.detail || errData?.message || 'خطا در ایجاد تیکت');
+  } catch (err: any) {
+    console.error('Django Create Ticket error:', err);
+    throw err;
+  }
+}
+
+/**
+ * ارسال پاسخ جدید برای تیکت — POST /api/v1/tickets/{id}/reply/
+ */
+export async function djangoReplyTicket(id: string | number, payload: {
+  message: string;
+  attachment?: string | File | Blob;
+}, config?: DjangoCrmConfig): Promise<any> {
+  const baseUrl = getBlogApiBaseUrl(config);
+  const headers = getBlogApiHeaders(config);
+  const adminToken = await ensureValidDjangoAdminToken(config);
+
+  try {
+    let res: Response;
+    const isFile = payload.attachment instanceof File || payload.attachment instanceof Blob || (typeof payload.attachment === 'string' && payload.attachment.startsWith('data:'));
+
+    if (isFile) {
+      const form = new FormData();
+      form.append('message', payload.message);
+      if (typeof payload.attachment === 'string' && payload.attachment.startsWith('data:')) {
+        form.append('attachment', base64ImageToBlob(payload.attachment), 'reply_attachment.jpg');
+      } else if (payload.attachment) {
+        form.append('attachment', payload.attachment as any);
+      }
+
+      res = await fetch(`${baseUrl}/tickets/${id}/reply/`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${adminToken}`, 'Accept': 'application/json' },
+        body: form
+      });
+    } else {
+      res = await fetch(`${baseUrl}/tickets/${id}/reply/`, {
+        method: 'POST',
+        headers: { ...headers, 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+
+    if (res.ok) {
+      const data = await res.json();
+      return data?.data || data;
+    }
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData?.detail || errData?.message || 'خطا در ارسال پاسخ');
+  } catch (err: any) {
+    console.error('Django Reply Ticket error:', err);
+    throw err;
+  }
 }

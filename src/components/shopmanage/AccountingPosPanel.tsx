@@ -1,3 +1,4 @@
+import { UserCheck } from 'lucide-react';
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -357,7 +358,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     return currentStaff.permissions?.includes(perm) ?? false;
   };
 
-  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog';
+  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'user_management' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog';
 
   const getSubTabFromPath = (pathname: string): PosSubTab => {
     const p = pathname.toLowerCase();
@@ -365,6 +366,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     if (p.includes('/shopmanage/anbar') || p.includes('/shopmanage/inventory')) return 'inventory';
     if (p.includes('/shopmanage/hesabdari') || p.includes('/shopmanage/ledger')) return 'ledger';
     if (p.includes('/shopmanage/customers') || p.includes('/shopmanage/moshtarian')) return 'customers';
+    if (p.includes('/shopmanage/users')) return 'user_management';
     if (p.includes('/shopmanage/reports') || p.includes('/shopmanage/gozareshat')) return 'reports';
     if (p.includes('/shopmanage/monthly') || p.includes('/shopmanage/compare')) return 'monthly_compare';
     if (p.includes('/shopmanage/staff')) return 'staff_management';
@@ -382,6 +384,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       pos: '/shopmanage/sandogh',
       inventory: '/shopmanage/anbar',
       customers: '/shopmanage/customers',
+      user_management: '/shopmanage/users',
       reports: '/shopmanage/reports',
       monthly_compare: '/shopmanage/monthly',
       ledger: '/shopmanage/hesabdari',
@@ -2503,6 +2506,22 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     {posCart.length}
                   </span>
                 )}
+              </button>
+            )}
+
+            {hasStaffPerm('manage_ledger') && (
+              <button
+                onClick={() => { setActiveSubTab('user_management'); setIsMenuOpen(false); }}
+                className={`flex items-center justify-between md:justify-start gap-2 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
+                  activeSubTab === 'user_management'
+                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}
+              >
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <UserCheck className="w-4 h-4 shrink-0" />
+                  <span className="whitespace-nowrap">مدیریت کاربران</span>
+                </div>
               </button>
             )}
 

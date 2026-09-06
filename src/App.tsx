@@ -66,6 +66,7 @@ import { NotificationModal } from './components/NotificationModal';
 import { PwaInstallGuide } from './components/PwaInstallGuide';
 import { AppUpdateNotifier } from './components/AppUpdateNotifier';
 import { AccountingPosPanel } from './components/shopmanage/AccountingPosPanel';
+import { UserManagementPanel } from './components/shopmanage/UserManagementPanel';
 import { AzarakhshApiDocs } from './azarakhsh/AzarakhshApiDocs';
 import { HeroBannerSlider } from './components/HeroBannerSlider';
 import { ProductsMegaMenu } from './components/ProductsMegaMenu';
@@ -88,7 +89,8 @@ const CATEGORIES: { id: CigaretteCategory; label: string }[] = [
 
 function getTabFromPath(pathname: string): NavigationTab {
   const p = pathname.toLowerCase();
-  if (p.includes('/shopmanage') || p.includes('/sandogh') || p.includes('/pos')) return 'accounting-pos';
+  if (p.includes('/shopmanage/sandogh') || p.includes('/pos')) return 'accounting-pos';
+  if (p.includes('/shopmanage/users')) return 'user-management';
   if (p.includes('/azarakhsh') || p.includes('/api-docs') || p.includes('/django-docs')) return 'django-docs';
   if (p.includes('/contact-us') || p.includes('/contact') || p.includes('/tamas')) return 'contact';
   if (p.includes('/login') || p.includes('/user-panel') || p.includes('/profile') || p.includes('/hesab')) return 'user-panel';
@@ -114,6 +116,7 @@ function getPathForTab(tab: NavigationTab): string {
     case 'django-crm': return '/django-crm';
     case 'django-docs': return '/azarakhsh';
     case 'accounting-pos': return '/shopmanage/sandogh';
+    case 'user-management': return '/shopmanage/users';
     default: return '/';
   }
 }
@@ -745,6 +748,15 @@ export default function App() {
         onUpdateProductsStock={setProducts}
         onReturnToStore={() => setActiveTab('catalog')}
       />
+    );
+  }
+
+  if (activeTab === 'user-management') {
+    return (
+      <div className="p-6">
+        <button onClick={() => setActiveTab('catalog')} className="mb-4 px-4 py-2 bg-slate-200 rounded-xl font-bold text-xs">بازگشت</button>
+        <UserManagementPanel crmConfig={djangoConfig} />
+      </div>
     );
   }
 

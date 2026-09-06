@@ -15,15 +15,18 @@ export const TicketsSupportDocs: React.FC = () => {
   const erdTables: TableErdMeta[] = [
     {
       name: 'tickets_ticket',
-      verboseName: 'جدول تیکت‌های پشتیبانی مشتریان',
-      description: 'ثبت و پیگیری درخواست‌ها، واریز فیش، استعلام ترابری و مغایرت بار',
+      verboseName: 'جدول تیکت‌های پشتیبانی (مشتریان و ویزیتورها)',
+      description: 'ثبت درخواست‌های پشتیبانی، تسویه پورسانت، استعلام بارگیری و مغایرت بار',
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه تیکت' },
-        { name: 'user_id', type: 'ForeignKey(User)', isFk: true, fkTarget: 'accounts_user', verbose: 'مشتری' },
+        { name: 'user_id', type: 'ForeignKey(User)', isFk: true, fkTarget: 'accounts_user', verbose: 'کاربر (مشتری یا ویزیتور)' },
+        { name: 'visitor_id', type: 'ForeignKey', isFk: true, fkTarget: 'visitors_visitorprofile', verbose: 'ویزیتور مرتبط (اختیاری)' },
+        { name: 'ticket_type', type: 'CharField(choices)', verbose: 'نوع تیکت (customer, visitor)' },
         { name: 'subject', type: 'CharField(max_length=200)', verbose: 'موضوع تیکت' },
-        { name: 'department', type: 'CharField(choices)', verbose: 'دپارتمان (مالی، انبار، باربری، پشتیبانی)' },
+        { name: 'department', type: 'CharField(choices)', verbose: 'دپارتمان (مالی، انبار، فروش، پشتیبانی)' },
         { name: 'priority', type: 'CharField(choices)', verbose: 'اولویت (کم، متوسط، فوری)' },
-        { name: 'status', type: 'CharField(choices)', verbose: 'وضعیت (open, answered, closed)' },
+        { name: 'status', type: 'CharField(choices)', verbose: 'وضعیت (open, in_progress, answered, closed)' },
+        { name: 'order_tracking_code', type: 'CharField', verbose: 'کد سفارش مرتبط (اختیاری)' },
         { name: 'receipt_image', type: 'ImageField', verbose: 'پیوست فیش واریز / سند' },
         { name: 'created_at', type: 'DateTimeField', verbose: 'زمان ایجاد' },
       ]
@@ -31,7 +34,7 @@ export const TicketsSupportDocs: React.FC = () => {
     {
       name: 'tickets_ticketmessage',
       verboseName: 'پیام‌ها و پاسخ‌های تیکت',
-      description: 'گفتگوی دوطرفه مشتری و اپراتورهای انبار',
+      description: 'گفتگوی دوطرفه کاربر و تیم مدیریت آذرخش',
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه پیام' },
         { name: 'ticket_id', type: 'ForeignKey', isFk: true, fkTarget: 'tickets_ticket', verbose: 'تیکت مربوطه' },
@@ -48,152 +51,88 @@ export const TicketsSupportDocs: React.FC = () => {
       method: 'POST',
       path: '/api/v1/tickets/create/',
       auth: 'IsAuthenticated',
-      description: 'ارسال تیکت جدید به انبار مرکزی همراه با پیوست تصویر فیش بانکی',
+      description: 'ارسال تیکت جدید (مشتری یا ویزیتور). ادمین می‌تواند کاربر هدف را نیز انتخاب کند.',
       requestBody: JSON.stringify({
-        title: "تایید واریزی پیش‌فاکتور شماره INV-1403-1024",
+        title: "درخواست تسویه پورسانت ۳۸ مغازه - شهریور ۱۴۰۳",
         department: "finance",
         priority: "high",
-        initial_message: "سلام، مبلغ ۷۴,۸۰۰,۰۰۰ تومان به حساب شماره ۱ واریز شد. لطفا بار را بارگیری فرمایید.",
-        order_tracking_code: "ORD-1403-9982"
+        message: "سلام، درخواست تسویه پورسانت ۲.۵٪ برای فاکتورهای اخیر را دارم.",
+        ticket_type: "visitor",
+        visitor_id: 5
       }, null, 2)
     },
     {
       method: 'GET',
       path: '/api/v1/tickets/list/',
       auth: 'IsAuthenticated',
-      description: 'دریافت تاریخچه تمام تیکت‌ها و وضعیت پاسخگویی اپراتورها'
+      description: 'دریافت تاریخچه تمام تیکت‌ها با امکان فیلتر بر اساس user_id و نقش کاربر'
     },
     {
       method: 'GET',
       path: '/api/v1/tickets/{id}/',
       auth: 'IsAuthenticated',
-      description: 'دریافت جزئیات تیکت و تمامی پیام‌ها و پاسخ‌های گفتگو'
+      description: 'دریافت جزئیات کامل تیکت و چت‌های مربوطه'
     },
     {
       method: 'POST',
       path: '/api/v1/tickets/{id}/reply/',
       auth: 'IsAuthenticated',
-      description: 'ارسال پاسخ جدید یا پیوست فیش جدید برای یک تیکت باز'
+      description: 'ارسال پاسخ جدید در تیکت'
     }
   ];
 
-  const notesCode = `## 📌 راهنمای جامع و تکمیلی ساخت، پیکربندی و راه‌اندازی اپلیکیشن تیکت‌ها و پشتیبانی (tickets)
+  const notesCode = `## 📌 راهنمای جامع سامانه یکپارچه تیکتینگ و پشتیبانی (tickets)
 
-### 🛠️ ۱. ویژگی‌ها و مشخصات فنی سیستم پشتیبانی
-- **کلاس‌های صریح \`APIView\`**: کلیه اندپوینت‌ها از \`APIView\`‌های صریح و تفکیک‌شده استفاده می‌کنند تا مشکلاتی نظیر \`ImproperlyConfigured\` در \`urls.py\` کاملاً برطرف شود.
-- **تولید شماره تیکت خودکار**: کد پیگیری تیکت‌ها با فرمت استاندارد \`TCK-YYYYMMDD-ID\` تولید می‌گردد.
-- **ثبت فیش واریزی و سند**: امکان ارسال فایل‌های تصویر فیش بانکی جهت تایید پیش‌فاکتورها و تسویه نسیه انبار.
-- **تغییر خودکار وضعیت**: هنگام ثبت پاسخ جدید توسط اپراتور انبار وضعیت تیکت به \`answered\` و هنگام پاسخ مشتری به \`customer_reply\` تغییر می‌یابد.
-
----
-
-### 📂 ۲. ساختار فایل‌های پروژه جنگو در پوشه \`tickets/\`
-\`\`\`text
-tickets/
-├── __init__.py
-├── admin.py          # مدیریت تیکت‌ها و پیام‌ها در پنل ادمین جنگو
-├── apps.py           # تنظیمات اپ پیکربندی TicketsConfig
-├── models.py         # مدل‌های SupportTicket و TicketMessage
-├── serializers.py    # سریالایزرهای DRF با ref_name اختصاصی
-├── urls.py           # مسیرهای صریح URL با APIView
-└── views.py          # ویوهای APIView به همراه مستندات Swagger/ReDoc
-\`\`\`
+### 🛠️ ۱. ویژگی‌های سیستم تیکتینگ هوشمند
+- **ساختار واحد برای مشتری و ویزیتور**: تیکت‌ها اکنون در یک اپلیکیشن واحد مدیریت می‌شوند اما با فیلد \`ticket_type\` و شناسه‌های مرتبط تفکیک می‌گردند.
+- **انتخاب کاربر توسط ادمین**: در پنل مدیریت، ادمین امکان انتخاب کاربر هدف از لیست مشتریان یا ویزیتورها را دارد.
+- **ثبت فیش و اسناد**: قابلیت پیوست تصویر برای تایید واریزی‌های مشتری یا اسناد مغازه‌داران جدید توسط ویزیتور.
+- **همگام‌سازی با دیتابیس**: تمامی عملیات‌ها به صورت مستقیم با مدل‌های جنگو هماهنگ شده است.
 
 ---
 
-### 💻 ۳. کد کامل مسیرهای \`tickets/urls.py\`
-\`\`\`python
-"""
-tickets/urls.py
-مسیرهای صریح APIView جهت پشتیبانی و تیکت‌ها
-"""
-from django.urls import path
-from .views import (
-    TicketListAPIView,
-    TicketCreateAPIView,
-    TicketDetailAPIView,
-    TicketReplyAPIView,
-)
-
-app_name = 'tickets'
-
-urlpatterns = [
-    # ۱. دریافت لیست و ثبت تیکت جدید
-    path('list/', TicketListAPIView.as_view(), name='ticket-list'),
-    path('create/', TicketCreateAPIView.as_view(), name='ticket-create'),
-
-    # ۲. جزئیات تیکت و ارسال پاسخ
-    path('<int:pk>/', TicketDetailAPIView.as_view(), name='ticket-detail'),
-    path('<int:pk>/reply/', TicketReplyAPIView.as_view(), name='ticket-reply'),
-]
-\`\`\`
+### 📂 ۲. اندپوینت‌های کلیدی در دیتابیس جنگو
+- \`GET /api/v1/tickets/list/\`: لیست تیکت‌ها (قابل فیلتر با \`user_id\`).
+- \`POST /api/v1/tickets/create/\`: ایجاد تیکت جدید با پارامترهای اختصاصی نوع کاربر.
+- \`GET /api/v1/tickets/{id}/\`: مشاهده جزئیات و پیام‌ها.
+- \`POST /api/v1/tickets/{id}/reply/\`: ارسال پاسخ.
 
 ---
 
-### 🚀 ۴. نمونه کدهای اتصال فرانت‌اند React با Fetch / Axios
+### 🚀 ۳. نمونه کدهای اتصال فرانت‌اند React
 
-#### ثبت تیکت جدید به همراه پیام اولیه و شماره کد رهگیری سفارش:
+#### ایجاد تیکت توسط ادمین برای یک کاربر یا ویزیتور خاص:
 \`\`\`typescript
-const createSupportTicket = async (ticketData: {
-  title: string;
-  department: string;
-  priority: string;
-  initial_message: string;
-  order_tracking_code?: string;
+const adminCreateTicketForUser = async (payload: {
+  user_id: number;
+  ticket_type: 'customer' | 'visitor';
+  visitor_id?: number;
+  subject: string;
+  message: string;
 }) => {
   const response = await fetch('http://localhost:8000/api/v1/tickets/create/', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': \`Bearer \${token}\`
+      'Authorization': \`Bearer \${adminToken}\`
     },
-    body: JSON.stringify(ticketData)
-  });
-  const data = await response.json();
-  return data;
-};
-\`\`\`
-
-#### ارسال پاسخ جدید یا فیش واریز تسویه به تیکت:
-\`\`\`typescript
-const replyToTicket = async (ticketId: number, messageText: string, attachmentFile?: File) => {
-  const formData = new FormData();
-  formData.append('message', messageText);
-  if (attachmentFile) {
-    formData.append('attachment', attachmentFile);
-  }
-
-  const response = await fetch(\`http://localhost:8000/api/v1/tickets/\${ticketId}/reply/\`, {
-    method: 'POST',
-    headers: {
-      'Authorization': \`Bearer \${token}\`
-    },
-    body: formData
+    body: JSON.stringify(payload)
   });
   return await response.json();
 };
 \`\`\`
 
----
-
-### ⚙️ ۵. دستورات اجرا و مایگریشن در ترمینال مک / لینوکس:
-\`\`\`bash
-# ساخت مایگریشن‌ها و اعمال در پایگاه داده
-python manage.py makemigrations tickets
-python manage.py migrate
-
-# اجرای سرور توسعه جنگو
-python manage.py runserver 0.0.0.0:8000
-\`\`\`
+### 🚀 ۴. مدیریت تیکت‌ها در پنل مدیریت
+در بخش مدیریت (Shop Management)، امکان مدیریت متمرکز تیکت‌ها فراهم شده است که شامل مشاهده تمام گفتگوها، ارسال پاسخ ادمین و تغییر وضعیت تیکت می‌باشد.
 `;
 
   return (
     <AppDocTemplate
       appFolder="tickets"
-      title="۱۱. اپلیکیشن تیکت و پشتیبانی مشتریان معمولی"
-      titleEn="tickets / Regular Customer Ticket App"
-      badge="مشتری معمولی • ثبت فیش واریزی"
-      description="سامانه یکپارچه تیکتینگ پشتیبانی مغازه‌داران و مشتریان عمده معمولی، امکان ارسال مستقیم تصویر فیش واریز، رهگیری وضعیت سفارشات، استعلام ترابری شوش و پاسخگویی انباردار."
+      title="۱۱. سامانه جامع تیکتینگ و پشتیبانی (مشتریان و ویزیتورها)"
+      titleEn="tickets / Integrated Support & Ticket System"
+      badge="مشتری و ویزیتور • یکپارچه"
+      description="سامانه هوشمند و متمرکز پشتیبانی آذرخش جهت مدیریت درخواست‌های مشتریان عمده و ویزیتوران بازاریابی؛ شامل تسویه پورسانت، تایید فیش واریزی، استعلام ترابری و معرفی مغازه‌داران جدید."
       icon={<MessageSquare className="w-6 h-6" />}
       modelsCode={ticketsData.models}
       adminCode={ticketsData.admin}

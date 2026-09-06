@@ -1955,6 +1955,69 @@ export const notificationsApi = {
 };
 
 // ==========================================
+// 11. SUPPORT TICKETS API (/api/v1/tickets/)
+// ==========================================
+export const ticketsApi = {
+  /**
+   * دریافت لیست تیکت‌های پشتیبانی — GET /api/v1/tickets/list/
+   */
+  async getAll(): Promise<any[]> {
+    const response = await httpClient.get<any>('/tickets/list/', {
+      headers: API_CACHE_CONTROL_HEADERS,
+    });
+    if (response.success && response.data) {
+      return Array.isArray(response.data) ? response.data : (response.data.results || []);
+    }
+    return [];
+  },
+
+  /**
+   * مشاهده جزئیات تیکت و پیام‌ها — GET /api/v1/tickets/{id}/
+   */
+  async getById(id: string | number): Promise<any> {
+    const response = await httpClient.get<any>(`/tickets/${id}/`, {
+      headers: API_CACHE_CONTROL_HEADERS,
+    });
+    if (response.success && response.data) {
+      return response.data.data || response.data;
+    }
+    return null;
+  },
+
+  /**
+   * ایجاد تیکت پشتیبانی جدید — POST /api/v1/tickets/create/
+   */
+  async create(payload: {
+    title: string;
+    department: string;
+    priority: string;
+    message: string;
+    order_tracking_code?: string;
+    attachment?: any;
+  }): Promise<any> {
+    const response = await httpClient.post<any>('/tickets/create/', payload);
+    if (response.success && response.data) {
+      return response.data.data || response.data;
+    }
+    throw new Error(response.error || 'خطا در ایجاد تیکت');
+  },
+
+  /**
+   * ارسال پاسخ جدید برای تیکت — POST /api/v1/tickets/{id}/reply/
+   */
+  async reply(id: string | number, payload: {
+    message: string;
+    attachment?: any;
+  }): Promise<any> {
+    const response = await httpClient.post<any>(`/tickets/${id}/reply/`, payload);
+    if (response.success && response.data) {
+      return response.data.data || response.data;
+    }
+    throw new Error(response.error || 'خطا در ارسال پاسخ');
+  },
+};
+
+// ==========================================
 // UNIFIED MASTER API EXPORT
 // ==========================================
 export const api = {
@@ -1984,6 +2047,7 @@ export const api = {
   sliders: slidersApi,
   blog: blogApi,
   notifications: notificationsApi,
+  tickets: ticketsApi,
   contact: contactApi,
   client: httpClient,
   clearAllCaches: clearAllClientCaches,

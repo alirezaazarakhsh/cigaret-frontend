@@ -11,7 +11,6 @@ export type AzarakhshSectionId =
   | 'shipping'
   | 'blog-tinymce'
   | 'tickets-support'
-  | 'visitor-tickets'
   | 'visitors'
   | 'slider'
   | 'pos'
@@ -25,8 +24,7 @@ export type AzarakhshSectionId =
   | 'pos-products'
   | 'warehouse-stock'
   | 'ledger'
-  | 'reports'
-  | 'roles-permissions';
+  | 'reports';
 
 export type CodeTab = 'models' | 'admin' | 'serializers' | 'views' | 'urls' | 'notes' | 'services';
 

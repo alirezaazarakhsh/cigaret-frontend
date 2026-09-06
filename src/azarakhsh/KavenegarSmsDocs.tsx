@@ -284,6 +284,17 @@ class KavenegarSMSSettingAdmin(admin.ModelAdmin):
     list_display = ('name', 'api_token_preview')
     inlines = [SMSPatternInline]
 
+    def has_add_permission(self, request):
+        # جلوگیری از ایجاد بیش از یک رکورد تنظیمات در پنل ادمین
+        if self.model.objects.exists():
+            return False
+        return super().has_add_permission(request)
+
+    def has_delete_permission(self, request, obj=None):
+        # جلوگیری از حذف تنها رکورد موجود برای پایداری سیستم (اختیاری)
+        # return False
+        return super().has_delete_permission(request, obj)
+
     def api_token_preview(self, obj):
         if obj.api_token:
             return f"{obj.api_token[:30]}..."
@@ -478,7 +489,11 @@ class KavenegarSMSSettingAPIView(APIView):
         is_active = request.data.get('is_active', True)
         debug_mode = request.data.get('debug_mode', False)
 
-        setting, _ = KavenegarSMSSetting.objects.get_or_create(id=1)
+        # مدیریت سینگلتون (تک رکوردی): همیشه رکورد اول را بروزرسانی میکند
+        setting = KavenegarSMSSetting.objects.first()
+        if not setting:
+            setting = KavenegarSMSSetting.objects.create(id=1, name=name)
+        
         setting.name = name
         setting.is_active = is_active
         setting.debug_mode = debug_mode
@@ -998,13 +1013,10 @@ def send_account_blocked_alert_sms(phone_number, block_reason="تجاوز_از_�
     )
 `;
 
-  const notesCode = `## 📌 راهنمای پترن‌های پیامکی داینامیک
-
-### ⚙️ چرا سیستم داینامیک شد؟
-به جای هاردکد کردن اطلاعات پترن‌ها در سورس‌کد، از این پس می‌توانید مستقیماً از داخل پنل مدیریت جنگو:
-1. چند سامانه یا خط با توکن‌های مجزا تعریف کنید.
-2. پترن‌های دلخواه کاوه‌نگار مانند کد تایید (otp)، خوشآمدگویی (welcome) و خروج (logout) را به صورت رکورد ذخیره کرده و به سامانه نسبت دهید.
-3. متد ارسال پترن به صورت کاملاً پویا و با توجه به دیتابیس هوشمند عمل خواهد کرد.
+  const notesCode = `## 📌 راهنمای تنظیمات سامانه پیامکی
+1. **مدیریت تک‌رکوردی (Singleton)**: در کد جدید \`admin.py\` متد \`has_add_permission\` اضافه شده است که اجازه ایجاد بیش از یک رکورد تنظیمات را نمی‌دهد. این کار برای جلوگیری از سردرگمی و پایداری سیستم انجام شده است.
+2. **رفع مشکل رکوردهای تکراری**: اگر در حال حاضر دو یا چند رکورد تنظیمات در پنل ادمین دارید، لطفاً تمام آن‌ها را حذف کرده و فقط یک رکورد با اطلاعات صحیح ایجاد کنید.
+3. **ذخیره گروهی پترن‌ها**: با فشردن دکمه "ذخیره همه الگوها" در فرانت‌اند، تمامی ۱۳ پترن به صورت یکجا در دیتابیس بروزرسانی یا ایجاد می‌شوند.
 `;
 
   return (

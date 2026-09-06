@@ -24,7 +24,14 @@ import {
   Check
 } from 'lucide-react';
 import { DjangoCrmConfig } from '../../types';
-import { fetchDjangoTickets, replyToDjangoTicket } from '../../services/djangoApi';
+import { 
+  djangoFetchTickets, 
+  djangoReplyTicket, 
+  djangoCreateTicket, 
+  djangoFetchTicketDetail,
+  djangoFetchCustomers,
+  djangoFetchVisitors
+} from '../../services/djangoApi';
 
 export interface TicketMessage {
   id: string;
@@ -192,6 +199,51 @@ export const TicketManagementPanel: React.FC<TicketManagementPanelProps> = ({ cr
   const [newDepartment, setNewDepartment] = useState<'sales' | 'finance' | 'warehouse' | 'support' | 'commission'>('sales');
   const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high' | 'urgent'>('medium');
   const [newMessageText, setNewMessageText] = useState('');
+  const [selectedUserId, setSelectedUserId] = useState<string>('');
+  const [availableUsers, setAvailableUsers] = useState<{id: string, name: string, phone: string}[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
+  // Fetch users when type changes
+  useEffect(() => {
+    if (showNewTicketModal) {
+      const fetchUsers = async () => {
+        setIsLoadingUsers(true);
+        try {
+          if (newType === 'customer') {
+            const customers = await djangoFetchCustomers(crmConfig);
+            setAvailableUsers(customers.map((c: any) => ({
+              id: String(c.id),
+              name: c.full_name || c.shop_name || 'بدون نام',
+              phone: c.phone || ''
+            })));
+          } else {
+            const visitors = await djangoFetchVisitors(crmConfig);
+            setAvailableUsers(visitors.map((v: any) => ({
+              id: String(v.id),
+              name: v.full_name || 'بدون نام',
+              phone: v.phone || ''
+            })));
+          }
+        } catch (e) {
+          console.error('Error fetching users:', e);
+        } finally {
+          setIsLoadingUsers(false);
+        }
+      };
+      fetchUsers();
+    }
+  }, [newType, showNewTicketModal, crmConfig]);
+
+  // Update name/phone when user selected
+  useEffect(() => {
+    if (selectedUserId) {
+      const user = availableUsers.find(u => u.id === selectedUserId);
+      if (user) {
+        setNewCustomerName(user.name);
+        setNewCustomerPhone(user.phone);
+      }
+    }
+  }, [selectedUserId, availableUsers]);
 
   // Save to local storage whenever tickets state changes
   useEffect(() => {
@@ -204,34 +256,30 @@ export const TicketManagementPanel: React.FC<TicketManagementPanelProps> = ({ cr
 
   // Sync with Django if URL is configured
   const handleSyncDjangoTickets = async () => {
-    if (!crmConfig?.apiUrl) {
-      alert('آدرس وب‌سرویس API جنگو در بخش تنظیمات CRM وارد نشده است.');
-      return;
-    }
     setIsSyncing(true);
     try {
-      const remoteData = await fetchDjangoTickets(crmConfig);
+      const remoteData = await djangoFetchTickets(crmConfig);
       if (remoteData && remoteData.length > 0) {
         // map Django data
         const mappedRemote: TicketItem[] = remoteData.map((t: any) => ({
-          id: `django-${t.id}`,
+          id: String(t.id),
           ticketNumber: t.ticket_number || `TK-${t.id}`,
           type: t.ticket_type === 'visitor' ? 'visitor' : 'customer',
-          subject: t.subject || 'پشتیبانی عمومی',
+          subject: t.title || t.subject || 'پشتیبانی عمومی',
           customerName: t.user_full_name || t.user_name || 'مشتری وب‌سایت',
           customerPhone: t.user_phone || '۰۹۱۲۰۰۰۰۰۰۰',
           department: t.department || 'sales',
           priority: t.priority || 'medium',
           status: t.status || 'open',
-          createdAt: t.created_at || new Date().toLocaleDateString('fa-IR'),
-          updatedAt: t.updated_at || new Date().toLocaleDateString('fa-IR'),
-          trackingCode: t.tracking_code,
+          createdAt: t.created_at_jalali || t.created_at || new Date().toLocaleDateString('fa-IR'),
+          updatedAt: t.updated_at_jalali || t.updated_at || new Date().toLocaleDateString('fa-IR'),
+          trackingCode: t.order_tracking_code || t.tracking_code,
           messages: (t.messages || []).map((m: any, idx: number) => ({
-            id: `msg-${idx}`,
-            senderName: m.sender_name || 'کاربر',
-            senderRole: m.is_staff ? 'staff' : 'customer',
-            message: m.text || m.message || '',
-            timestamp: m.created_at || 'امروز'
+            id: String(m.id || `msg-${idx}`),
+            senderName: m.sender_name || (m.sender === 'support_admin' ? 'پشتیبانی' : 'کاربر'),
+            senderRole: m.sender === 'support_admin' ? 'staff' : (m.sender === 'customer' ? 'customer' : 'visitor'),
+            message: m.message || m.text || '',
+            timestamp: m.created_at_jalali || m.created_at || 'امروز'
           }))
         }));
         setTickets(mappedRemote);
@@ -245,6 +293,35 @@ export const TicketManagementPanel: React.FC<TicketManagementPanelProps> = ({ cr
 
   const selectedTicket = tickets.find(t => t.id === selectedTicketId) || tickets[0];
 
+  // Fetch full details when a ticket is selected
+  useEffect(() => {
+    if (selectedTicketId && selectedTicketId.length < 10) { // Simple check to see if it's likely a numeric Django ID
+      const fetchDetail = async () => {
+        try {
+          const detail = await djangoFetchTicketDetail(selectedTicketId, crmConfig);
+          if (detail && detail.messages) {
+             const updatedMessages = detail.messages.map((m: any, idx: number) => ({
+              id: String(m.id || `msg-${idx}`),
+              senderName: m.sender_name || (m.sender === 'support_admin' ? 'پشتیبانی' : 'کاربر'),
+              senderRole: m.sender === 'support_admin' ? 'staff' : (m.sender === 'customer' ? 'customer' : 'visitor'),
+              message: m.message || m.text || '',
+              timestamp: m.created_at_jalali || m.created_at || 'امروز'
+            }));
+            
+            setTickets(prev => prev.map(t => t.id === String(detail.id) ? { 
+              ...t, 
+              messages: updatedMessages,
+              status: detail.status || t.status 
+            } : t));
+          }
+        } catch (e) {
+          console.warn('Error fetching ticket detail:', e);
+        }
+      };
+      fetchDetail();
+    }
+  }, [selectedTicketId, crmConfig]);
+
   // Filtering tickets
   const filteredTickets = tickets.filter(t => {
     if (activeTypeTab !== 'all' && t.type !== activeTypeTab) return false;
@@ -253,11 +330,11 @@ export const TicketManagementPanel: React.FC<TicketManagementPanelProps> = ({ cr
     
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
-      const matchNum = t.ticketNumber.toLowerCase().includes(q);
-      const matchSub = t.subject.toLowerCase().includes(q);
-      const matchName = t.customerName.toLowerCase().includes(q);
-      const matchPhone = t.customerPhone.includes(q);
-      const matchCode = t.trackingCode?.toLowerCase().includes(q);
+      const matchNum = (t.ticketNumber || '').toLowerCase().includes(q);
+      const matchSub = (t.subject || '').toLowerCase().includes(q);
+      const matchName = (t.customerName || '').toLowerCase().includes(q);
+      const matchPhone = (t.customerPhone || '').includes(q);
+      const matchCode = (t.trackingCode || '').toLowerCase().includes(q);
       return matchNum || matchSub || matchName || matchPhone || matchCode;
     }
     return true;
@@ -266,32 +343,37 @@ export const TicketManagementPanel: React.FC<TicketManagementPanelProps> = ({ cr
   const handleSendReply = async () => {
     if (!replyText.trim() || !selectedTicket) return;
 
-    const newMsg: TicketMessage = {
-      id: `m_${Date.now()}`,
-      senderName: 'مدیریت و حسابداری صندوق',
-      senderRole: 'staff',
-      message: replyText.trim(),
-      timestamp: `${new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })} - ${new Date().toLocaleDateString('fa-IR')}`
-    };
-
-    const updatedTickets = tickets.map(t => {
-      if (t.id === selectedTicket.id) {
-        return {
-          ...t,
-          status: 'answered' as const,
-          updatedAt: new Date().toLocaleDateString('fa-IR'),
-          messages: [...t.messages, newMsg]
-        };
-      }
-      return t;
-    });
-
-    setTickets(updatedTickets);
+    const replyContent = replyText.trim();
     setReplyText('');
 
-    // Send to Django endpoint if available
-    if (crmConfig?.apiUrl) {
-      await replyToDjangoTicket(selectedTicket.id.replace('django-', ''), replyText.trim(), crmConfig);
+    try {
+      // Send to Django endpoint
+      const response = await djangoReplyTicket(selectedTicket.id, { message: replyContent }, crmConfig);
+      
+      const newMsg: TicketMessage = {
+        id: response?.id ? String(response.id) : `m_${Date.now()}`,
+        senderName: 'مدیریت و حسابداری صندوق',
+        senderRole: 'staff',
+        message: replyContent,
+        timestamp: response?.created_at_jalali || `${new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })} - ${new Date().toLocaleDateString('fa-IR')}`
+      };
+
+      const updatedTickets = tickets.map(t => {
+        if (t.id === selectedTicket.id) {
+          return {
+            ...t,
+            status: 'answered' as const,
+            updatedAt: new Date().toLocaleDateString('fa-IR'),
+            messages: [...t.messages, newMsg]
+          };
+        }
+        return t;
+      });
+
+      setTickets(updatedTickets);
+    } catch (e: any) {
+      alert(`خطا در ارسال پاسخ: ${e.message}`);
+      setReplyText(replyContent); // restore text if failed
     }
   };
 
@@ -300,43 +382,58 @@ export const TicketManagementPanel: React.FC<TicketManagementPanelProps> = ({ cr
     setTickets(tickets.map(t => t.id === selectedTicket.id ? { ...t, status: newStatus } : t));
   };
 
-  const handleCreateNewTicket = (e: React.FormEvent) => {
+  const handleCreateNewTicket = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newSubject.trim() || !newCustomerName.trim() || !newMessageText.trim()) {
       alert('لطفاً عنوان، نام مخاطب و متن تیکت را کامل وارد کنید.');
       return;
     }
 
-    const created: TicketItem = {
-      id: `t_${Date.now()}`,
-      ticketNumber: newType === 'visitor' ? `VT-${Math.floor(1000 + Math.random() * 9000)}` : `TK-${Math.floor(1000 + Math.random() * 9000)}`,
-      type: newType,
-      subject: newSubject.trim(),
-      customerName: newCustomerName.trim(),
-      customerPhone: newCustomerPhone.trim() || '09120000000',
-      department: newDepartment,
-      priority: newPriority,
-      status: 'open',
-      createdAt: new Date().toLocaleDateString('fa-IR'),
-      updatedAt: new Date().toLocaleDateString('fa-IR'),
-      messages: [
-        {
-          id: `m_${Date.now()}`,
-          senderName: newCustomerName.trim(),
-          senderRole: newType === 'visitor' ? 'visitor' : 'customer',
-          message: newMessageText.trim(),
-          timestamp: new Date().toLocaleDateString('fa-IR')
-        }
-      ]
-    };
+    try {
+      const createdRemote = await djangoCreateTicket({
+        title: newSubject.trim(),
+        department: newDepartment,
+        priority: newPriority,
+        message: newMessageText.trim(),
+        user_id: newType === 'customer' ? Number(selectedUserId) : undefined,
+        visitor_id: newType === 'visitor' ? Number(selectedUserId) : undefined,
+        ticket_type: newType
+      }, crmConfig);
 
-    setTickets([created, ...tickets]);
-    setSelectedTicketId(created.id);
-    setShowNewTicketModal(false);
-    setNewSubject('');
-    setNewCustomerName('');
-    setNewCustomerPhone('');
-    setNewMessageText('');
+      const created: TicketItem = {
+        id: String(createdRemote.id),
+        ticketNumber: createdRemote.ticket_number || (newType === 'visitor' ? `VT-${Math.floor(1000 + Math.random() * 9000)}` : `TK-${Math.floor(1000 + Math.random() * 9000)}`),
+        type: newType,
+        subject: newSubject.trim(),
+        customerName: newCustomerName.trim(),
+        customerPhone: newCustomerPhone.trim() || '09120000000',
+        department: newDepartment,
+        priority: newPriority,
+        status: 'open',
+        createdAt: createdRemote.created_at_jalali || new Date().toLocaleDateString('fa-IR'),
+        updatedAt: createdRemote.created_at_jalali || new Date().toLocaleDateString('fa-IR'),
+        messages: [
+          {
+            id: `m_${Date.now()}`,
+            senderName: newCustomerName.trim(),
+            senderRole: newType === 'visitor' ? 'visitor' : 'customer',
+            message: newMessageText.trim(),
+            timestamp: createdRemote.created_at_jalali || new Date().toLocaleDateString('fa-IR')
+          }
+        ]
+      };
+
+      setTickets([created, ...tickets]);
+      setSelectedTicketId(created.id);
+      setShowNewTicketModal(false);
+      setNewSubject('');
+      setNewCustomerName('');
+      setNewCustomerPhone('');
+      setNewMessageText('');
+      setSelectedUserId('');
+    } catch (e: any) {
+      alert(`خطا در ایجاد تیکت: ${e.message}`);
+    }
   };
 
   // Quick reply snippets
@@ -754,6 +851,21 @@ export const TicketManagementPanel: React.FC<TicketManagementPanelProps> = ({ cr
               </div>
 
               <div className="grid grid-cols-2 gap-3">
+                <div className="col-span-2">
+                  <label className="block text-slate-600 font-bold mb-1">انتخاب کاربر از لیست {newType === 'customer' ? 'مشتریان' : 'ویزیتورها'}:</label>
+                  <select
+                    value={selectedUserId}
+                    onChange={(e) => setSelectedUserId(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-slate-900 font-bold focus:outline-none focus:border-indigo-500"
+                    disabled={isLoadingUsers}
+                  >
+                    <option value="">{isLoadingUsers ? 'در حال بارگذاری...' : '--- انتخاب کاربر ---'}</option>
+                    {availableUsers.map(u => (
+                      <option key={u.id} value={u.id}>{u.name} ({u.phone})</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div>
                   <label className="block text-slate-600 font-bold mb-1">نام مخاطب / فروشگاه:</label>
                   <input

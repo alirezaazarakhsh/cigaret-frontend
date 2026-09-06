@@ -245,17 +245,6 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'فروش، مالی و لجستیک'
   },
   {
-    id: 'roles-permissions',
-    title: 'مدیریت نقش‌ها و دسترسی‌ها',
-    titleEn: 'roles / RBAC Auth',
-    description: 'تعریف ادمین انبار و صندوق‌دار',
-    badge: 'دسترسی',
-    iconName: 'ShieldAlert',
-    appFolder: 'roles',
-    group: 'auth',
-    groupTitle: 'احراز هویت و دسترسی'
-  },
-  {
     id: 'kavenegar_sms',
     title: 'سرویس پیامک کاوه‌نگار',
     titleEn: 'kavenegar_sms / Kavenegar',
@@ -323,23 +312,12 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'tickets-support',
-    title: '۱۱. اپلیکیشن تیکت پشتیبانی مشتریان معمولی',
-    titleEn: 'tickets / Customer Ticket App',
-    description: 'ثبت تصویر فیش واریز، پیگیری ترابری، مرجوعی کالا و چت آنلاین پشتیبانی مشتریان',
-    badge: 'تیکت مشتری',
+    title: '۱۱. سامانه جامع تیکتینگ و پشتیبانی (مشتریان و ویزیتورها)',
+    titleEn: 'tickets / Integrated Support & Ticket System',
+    description: 'مدیریت متمرکز تیکت‌های پشتیبانی، تسویه پورسانت ویزیتور و تایید فیش واریزی مشتریان',
+    badge: 'تیکت هوشمند',
     iconName: 'MessageSquare',
     appFolder: 'tickets',
-    group: 'support',
-    groupTitle: 'محتوا و پشتیبانی'
-  },
-  {
-    id: 'visitor-tickets',
-    title: '۱۲. اپلیکیشن تیکتینگ ویزیتوران و تسویه پورسانت',
-    titleEn: 'visitor_tickets / Visitor Tickets & Commission Payout App',
-    description: 'درخواست تسویه پورسانت ۲.۵٪ سود، ثبت مغازه‌دار جدید در باشگاه و مغایرت فاکتور ویزیتوری',
-    badge: 'تیکت ویزیتور',
-    iconName: 'BadgeDollarSign',
-    appFolder: 'visitor_tickets',
     group: 'support',
     groupTitle: 'محتوا و پشتیبانی'
   },
