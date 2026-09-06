@@ -19,7 +19,8 @@ import {
   Bell, 
   Smartphone, 
   Search,
-  Sparkles
+  Sparkles,
+  UserCheck
 } from 'lucide-react';
 import { formatNumberFa } from '../utils/formatters';
 import { NavigationTab, UserProfile } from '../types';

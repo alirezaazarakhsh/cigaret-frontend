@@ -1,4 +1,3 @@
-import { UserCheck } from 'lucide-react';
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
