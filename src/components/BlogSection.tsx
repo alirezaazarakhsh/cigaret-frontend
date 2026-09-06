@@ -32,6 +32,7 @@ import { blogApi } from '../services/api';
 import { djangoDatabaseStore } from '../services/djangoApi';
 import { formatNumberFa } from '../utils/formatters';
 import { ReportageBannerBox } from './ReportageBannerBox';
+import { getReportageTheme } from '../utils/reportageThemes';
 
 import { LucideIcon } from 'lucide-react';
 
@@ -503,15 +504,18 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
               <span className="inline-block bg-blue-600 text-white text-xs font-black px-3 py-1 rounded-xl shadow-xs">
                 {selectedPost.category}
               </span>
-              {selectedPost.isReportage && (
-                <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black px-3 py-1 rounded-xl shadow-xs">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>ریپورتاژ آگهی</span>
-                  {selectedPost.reportageSponsor && (
-                    <span className="text-purple-200">| {selectedPost.reportageSponsor}</span>
-                  )}
-                </span>
-              )}
+              {selectedPost.isReportage && (() => {
+                const th = getReportageTheme(selectedPost.reportageBgColor, selectedPost.reportageBgColor, selectedPost.reportageRingColor);
+                return (
+                  <span className={`inline-flex items-center gap-1.5 ${th.badgeBg} ${th.badgeText} text-xs font-black px-3 py-1 rounded-xl shadow-xs`}>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>ریپورتاژ آگهی</span>
+                    {selectedPost.reportageSponsor && (
+                      <span className="opacity-90">| {selectedPost.reportageSponsor}</span>
+                    )}
+                  </span>
+                );
+              })()}
               <span className="text-xs text-slate-400 font-bold">
                 کد مقاله: #{selectedPost.id.slice(0, 8)}
               </span>
@@ -778,73 +782,76 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-              {posts.map((post) => (
-                <div
-                  key={post.id}
-                  onClick={() => {
-                    openPost(post);
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }}
-                  className={`bg-white rounded-3xl overflow-hidden shadow-xs hover:shadow-lg transition-all cursor-pointer flex flex-col group ${
-                    post.isReportage 
-                      ? 'border-2 border-purple-300/80 hover:border-purple-500 hover:ring-2 hover:ring-purple-400/40' 
-                      : 'border border-slate-200 hover:border-blue-400'
-                  }`}
-                >
-                  {/* Cover Image */}
-                  <div className="relative h-48 overflow-hidden bg-slate-100">
-                    <img
-                      src={post.image}
-                      alt={post.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                    <div className="absolute top-3 right-3 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-700/50">
-                      {post.category}
+              {posts.map((post) => {
+                const th = post.isReportage ? getReportageTheme(post.reportageBgColor, post.reportageBgColor, post.reportageRingColor) : null;
+                return (
+                  <div
+                    key={post.id}
+                    onClick={() => {
+                      openPost(post);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`bg-white rounded-3xl overflow-hidden shadow-xs hover:shadow-lg transition-all cursor-pointer flex flex-col group ${
+                      post.isReportage && th
+                        ? `border-2 ${th.borderColor} hover:border-opacity-100 hover:ring-2` 
+                        : 'border border-slate-200 hover:border-blue-400'
+                    }`}
+                  >
+                    {/* Cover Image */}
+                    <div className="relative h-48 overflow-hidden bg-slate-100">
+                      <img
+                        src={post.image}
+                        alt={post.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute top-3 right-3 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-700/50">
+                        {post.category}
+                      </div>
+                      {post.isReportage && th && (
+                        <div className={`absolute top-3 left-3 ${th.badgeBg} ${th.badgeText} text-[10px] font-black px-2.5 py-1 rounded-lg border border-white/40 flex items-center gap-1.5 shadow-md animate-pulse`}>
+                          <Sparkles className="w-3 h-3 text-amber-300" />
+                          <span>ریپورتاژ آگهی</span>
+                          {post.reportageSponsor && <span className="opacity-90">| {post.reportageSponsor}</span>}
+                        </div>
+                      )}
                     </div>
-                    {post.isReportage && (
-                      <div className="absolute top-3 left-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-[10px] font-black px-2.5 py-1 rounded-lg border border-purple-300/50 flex items-center gap-1.5 shadow-md animate-pulse">
-                        <Sparkles className="w-3 h-3 text-amber-300" />
-                        <span>ریپورتاژ آگهی</span>
-                        {post.reportageSponsor && <span className="opacity-90">| {post.reportageSponsor}</span>}
-                      </div>
-                    )}
-                  </div>
 
-                  {/* Card Body */}
-                  <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                        <span className="flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {post.publishedDate}
-                        </span>
-                        <span>•</span>
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {formatNumberFa(post.readTimeMinutes)} دقیقه
-                        </span>
+                    {/* Card Body */}
+                    <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                          <span className="flex items-center gap-1">
+                            <Calendar className="w-3 h-3" />
+                            {post.publishedDate}
+                          </span>
+                          <span>•</span>
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatNumberFa(post.readTimeMinutes)} دقیقه
+                          </span>
+                        </div>
+
+                        <h3 className={`text-xs sm:text-sm font-black transition-colors line-clamp-2 leading-snug ${
+                          post.isReportage && th ? th.titleColor : 'text-slate-900 group-hover:text-blue-700'
+                        }`}>
+                          {post.title}
+                        </h3>
+
+                        <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed font-medium">
+                          {post.excerpt}
+                        </p>
                       </div>
 
-                      <h3 className={`text-xs sm:text-sm font-black transition-colors line-clamp-2 leading-snug ${
-                        post.isReportage ? 'text-purple-950 group-hover:text-purple-700' : 'text-slate-900 group-hover:text-blue-700'
+                      <div className={`pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-black ${
+                        post.isReportage && th ? th.accentIconColor : 'text-blue-600'
                       }`}>
-                        {post.title}
-                      </h3>
-
-                      <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed font-medium">
-                        {post.excerpt}
-                      </p>
-                    </div>
-
-                    <div className={`pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-black ${
-                      post.isReportage ? 'text-purple-600' : 'text-blue-600'
-                    }`}>
-                      <span>{post.isReportage ? 'مشاهده ریپورتاژ و آگهی حامی' : 'مطالعه کامل مقاله'}</span>
-                      <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                        <span>{post.isReportage ? 'مشاهده ریپورتاژ و آگهی حامی' : 'مطالعه کامل مقاله'}</span>
+                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 

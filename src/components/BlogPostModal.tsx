@@ -20,6 +20,7 @@ import { BlogPost } from '../types';
 import { formatNumberFa } from '../utils/formatters';
 import { getWebAppBaseUrl } from '../services/apiConfig';
 import { ReportageBannerBox } from './ReportageBannerBox';
+import { getReportageTheme } from '../utils/reportageThemes';
 
 interface BlogPostModalProps {
   post: BlogPost | null;
@@ -104,13 +105,16 @@ export const BlogPostModal: React.FC<BlogPostModalProps> = ({
             <span className="bg-blue-100 text-blue-800 text-xs font-black px-3 py-1 rounded-full border border-blue-200">
               {post.category}
             </span>
-            {post.isReportage && (
-              <span className="inline-flex items-center gap-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-xs font-black px-3 py-1 rounded-full shadow-xs">
-                <Sparkles className="w-3 h-3" />
-                <span>ریپورتاژ آگهی</span>
-                {post.reportageSponsor && <span className="text-purple-200 opacity-80">| {post.reportageSponsor}</span>}
-              </span>
-            )}
+            {post.isReportage && (() => {
+              const th = getReportageTheme(post.reportageBgColor, post.reportageBgColor, post.reportageRingColor);
+              return (
+                <span className={`inline-flex items-center gap-1.5 ${th.badgeBg} ${th.badgeText} text-xs font-black px-3 py-1 rounded-full shadow-xs`}>
+                  <Sparkles className="w-3 h-3" />
+                  <span>ریپورتاژ آگهی</span>
+                  {post.reportageSponsor && <span className="opacity-95">| {post.reportageSponsor}</span>}
+                </span>
+              );
+            })()}
             <span className="flex items-center gap-1 text-xs text-slate-500 font-medium">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
               زمان مطالعه: {formatNumberFa(post.readTimeMinutes)} دقیقه
