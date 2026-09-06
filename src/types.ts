@@ -602,6 +602,8 @@ export interface BlogPost {
   reportageSponsor?: string;
   reportageBanner?: string;
   reportageLink?: string;
+  reportageBgColor?: string;
+  reportageRingColor?: string;
 }
 
 export interface NotificationItem {

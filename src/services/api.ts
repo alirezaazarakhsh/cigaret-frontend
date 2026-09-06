@@ -1527,7 +1527,9 @@ function mapBlogPostApiItem(item: any): BlogPost {
     isReportage: Boolean(item.is_reportage ?? item.isReportage ?? false),
     reportageSponsor: item.reportage_sponsor || item.reportageSponsor || '',
     reportageBanner: item.reportage_banner || item.reportageBanner || '',
-    reportageLink: item.reportage_link || item.reportageLink || ''
+    reportageLink: item.reportage_link || item.reportageLink || '',
+    reportageBgColor: item.reportage_bg_color || item.reportageBgColor || '',
+    reportageRingColor: item.reportage_ring_color || item.reportageRingColor || ''
   };
 }
 

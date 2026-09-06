@@ -53,6 +53,8 @@ import {
 } from '../../services/djangoApi';
 import { formatNumberFa } from '../../utils/formatters';
 import { TinyMceEditor } from '../common/TinyMceEditor';
+import { REPORTAGE_THEMES, getReportageTheme } from '../../utils/reportageThemes';
+import { ReportageBannerBox } from '../ReportageBannerBox';
 import { getFrontendDomain, getWebAppBaseUrl } from '../../services/apiConfig';
 
 export interface SeoCheckItem {
@@ -766,7 +768,9 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
       isReportage: false,
       reportageSponsor: '',
       reportageBanner: '',
-      reportageLink: ''
+      reportageLink: '',
+      reportageBgColor: 'purple',
+      reportageRingColor: 'purple'
     });
     setActiveTab('editor');
   };
@@ -2448,7 +2452,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                   </div>
 
                   {Boolean(formData.isReportage) && (
-                    <div className="space-y-4 pt-2 border-t border-purple-100">
+                    <div className="space-y-5 pt-3 border-t border-purple-100">
                       {/* Sponsor Brand Name */}
                       <div>
                         <label className="block text-[11px] font-bold text-slate-700 mb-1">
@@ -2459,29 +2463,68 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                           value={formData.reportageSponsor || ''}
                           onChange={(e) => setFormData(prev => ({ ...prev, reportageSponsor: e.target.value }))}
                           placeholder="مثلاً: شرکت بازرگانی سرو / آکادمی تخصصی..."
-                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-purple-500 focus:bg-white transition-all"
+                          className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 focus:outline-none focus:border-purple-500 focus:bg-white transition-all font-bold"
                         />
                       </div>
 
-                      {/* BANNER FILE UPLOAD (ALL FORMATS + GIF, 120x240) */}
+                      {/* REPORTAGE THEME & BACKGROUND RING SELECTION */}
+                      <div className="space-y-2 bg-slate-50/80 p-3.5 rounded-2xl border border-purple-200/80">
+                        <div className="flex items-center justify-between">
+                          <label className="block text-[11px] font-black text-slate-800">
+                            رنگ رینگ دور و استایل پس‌زمینه ریپورتاژ (ذخیره در دیتابیس):
+                          </label>
+                          <span className="text-[10px] font-bold text-purple-700">
+                            جلوه بصری اختصاصی
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                          {Object.values(REPORTAGE_THEMES).map((th) => {
+                            const isSelected = (formData.reportageBgColor || 'purple') === th.id;
+                            return (
+                              <button
+                                key={th.id}
+                                type="button"
+                                onClick={() => setFormData(prev => ({
+                                  ...prev,
+                                  reportageBgColor: th.id,
+                                  reportageRingColor: th.id
+                                }))}
+                                className={`p-2.5 rounded-xl border-2 text-right transition-all flex items-center justify-between gap-2 ${
+                                  isSelected
+                                    ? `${th.borderColor} bg-white shadow-sm ring-2 ring-purple-500`
+                                    : 'border-slate-200 bg-white/70 hover:border-slate-300'
+                                }`}
+                              >
+                                <div className="space-y-0.5">
+                                  <div className="text-[11px] font-black text-slate-900">{th.name}</div>
+                                  <div className="text-[9px] text-slate-400 font-medium">رینگ و پس‌زمینه هماهنگ</div>
+                                </div>
+                                <div className={`w-5 h-5 rounded-full ${th.badgeBg} shrink-0 border border-white shadow-xs`} />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* BANNER FILE UPLOAD (ALL FORMATS + GIF, 468x60) */}
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <label className="block text-[11px] font-bold text-slate-800">
                             بنر تبلیغاتی ریپورتاژ (آپلود عکس یا گیف):
                           </label>
-                          <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-                            ابعاد ۱۲۰ × ۲۴۰ پیکسل
+                          <span className="text-[10px] font-black px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
+                            ابعاد استاندارد: ۴۶۸ × ۶۰ پیکسل
                           </span>
                         </div>
 
                         {(bannerPreview || formData.reportageBanner) ? (
                           <div className="space-y-3 bg-slate-50/70 p-3.5 rounded-2xl border border-purple-200">
-                            <div className="flex flex-col sm:flex-row items-center gap-4 justify-center py-2">
-                              {/* Exact 120x240 Frame Preview */}
-                              <div className="relative w-[120px] h-[240px] rounded-xl overflow-hidden border-2 border-purple-400/80 shadow-md bg-slate-900 shrink-0 flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-3 justify-center py-2">
+                              {/* Exact 468x60 Frame Preview */}
+                              <div className="relative w-full max-w-[468px] h-[60px] rounded-xl overflow-hidden border-2 border-purple-400/80 shadow-md bg-slate-900 shrink-0 flex items-center justify-center">
                                 <img
                                   src={bannerPreview || formData.reportageBanner}
-                                  alt="Reportage Banner Preview"
+                                  alt="Reportage Banner 468x60 Preview"
                                   className="w-full h-full object-cover"
                                 />
                                 <button
@@ -2493,29 +2536,24 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
                                 <div className="absolute bottom-1 right-1 bg-black/70 text-white text-[9px] font-mono px-1.5 py-0.5 rounded">
-                                  120×240
+                                  468×60
                                 </div>
                               </div>
 
                               {/* Details & Action */}
-                              <div className="flex-1 space-y-2 text-right w-full sm:w-auto">
-                                <div className="p-2.5 rounded-xl bg-white border border-slate-200 text-[11px] text-slate-700 space-y-1">
-                                  <div className="font-bold text-slate-900 truncate">
-                                    {bannerFileName || 'فایل بنر تبلیغاتی'}
-                                  </div>
-                                  <div className="text-[10px] text-slate-400 flex items-center justify-between">
-                                    <span>پشتیبانی از انواع فرمت و GIF</span>
-                                    {bannerFileSize && <span className="font-mono">{bannerFileSize}</span>}
-                                  </div>
+                              <div className="flex flex-col sm:flex-row items-center justify-between gap-2 w-full max-w-[468px]">
+                                <div className="text-[11px] text-slate-600 font-bold truncate">
+                                  {bannerFileName || 'فایل بنر ۴۶۸ در ۶۰'}
+                                  {bannerFileSize && <span className="text-slate-400 text-[10px] mr-2">({bannerFileSize})</span>}
                                 </div>
 
                                 <button
                                   type="button"
                                   onClick={() => bannerFileInputRef.current?.click()}
-                                  className="w-full py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 border border-purple-200"
+                                  className="py-1.5 px-3 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 text-xs font-bold transition-colors flex items-center gap-1.5 border border-purple-200"
                                 >
                                   <UploadCloud className="w-4 h-4 text-purple-600" />
-                                  <span>انتخاب یا تعویض فایل بنر</span>
+                                  <span>تعویض فایل بنر</span>
                                 </button>
                               </div>
                             </div>
@@ -2536,13 +2574,13 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                               <UploadCloud className="w-5 h-5" />
                             </div>
                             <div className="text-xs font-black text-purple-950">
-                              کلیک یا کشیدن و رها کردن فایل بنر
+                              کلیک یا کشیدن و رها کردن فایل بنر ۴۶۸ در ۶۰
                             </div>
                             <p className="text-[11px] text-slate-500 mt-1">
                               پشتیبانی از تمامی فرمت‌ها: <strong className="text-purple-700">GIF متحرک</strong>، PNG، JPG، WebP و SVG
                             </p>
                             <div className="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[10px] font-bold text-purple-800">
-                              <span>ابعاد پیشنهادی بنر عمودی: ۱۲۰ × ۲۴۰ پیکسل</span>
+                              <span>ابعاد استاندارد: ۴۶۸ × ۶۰ پیکسل</span>
                             </div>
                           </div>
                         )}
@@ -2575,7 +2613,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                                 setBannerFileName('بنر از آدرس اینترنتی');
                               }
                             }}
-                            placeholder="https://example.com/banner.gif"
+                            placeholder="https://example.com/banner-468x60.gif"
                             dir="ltr"
                             className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 font-mono focus:outline-none focus:border-purple-500"
                           />
@@ -2611,6 +2649,34 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                         <p className="text-[10px] text-slate-400 mt-1">
                           هنگامی که کاربر روی بنر کلیک کند، در تب جدید به این آدرس هدایت خواهد شد (rel=sponsored).
                         </p>
+                      </div>
+
+                      {/* LIVE PREVIEW BOX IN ADMIN */}
+                      <div className="pt-2">
+                        <label className="block text-[11px] font-black text-slate-800 mb-2">
+                          پیش‌نمایش زنده جایگاه ریپورتاژ و بنر ۴۶۸ در ۶۰:
+                        </label>
+                        <ReportageBannerBox
+                          post={{
+                            id: 'preview',
+                            title: formData.title || 'عنوان نمونه مقاله',
+                            slug: formData.slug || 'sample-post',
+                            category: formData.category || 'عمومی',
+                            publishedDate: 'امروز',
+                            author: { name: 'دخانیات سرو', role: 'تحریریه', avatar: '' },
+                            readTimeMinutes: formData.readTimeMinutes || 5,
+                            excerpt: formData.excerpt || '',
+                            content: formData.content || '',
+                            image: formData.image || '',
+                            tags: formData.tags || [],
+                            isReportage: true,
+                            reportageSponsor: formData.reportageSponsor,
+                            reportageBanner: bannerPreview || formData.reportageBanner,
+                            reportageLink: formData.reportageLink,
+                            reportageBgColor: formData.reportageBgColor,
+                            reportageRingColor: formData.reportageRingColor
+                          }}
+                        />
                       </div>
                     </div>
                   )}

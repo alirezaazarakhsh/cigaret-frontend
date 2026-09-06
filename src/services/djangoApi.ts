@@ -1946,7 +1946,9 @@ function mapDjangoBlogPost(item: any, config?: DjangoCrmConfig): BlogPost {
     reportageBanner: (item.reportage_banner && typeof item.reportage_banner === 'string' && item.reportage_banner.startsWith('/') && !item.reportage_banner.startsWith('//'))
       ? `${backendOrigin}${item.reportage_banner}`
       : (item.reportage_banner || item.reportageBanner || ''),
-    reportageLink: item.reportage_link || item.reportageLink || ''
+    reportageLink: item.reportage_link || item.reportageLink || '',
+    reportageBgColor: item.reportage_bg_color || item.reportageBgColor || '',
+    reportageRingColor: item.reportage_ring_color || item.reportageRingColor || ''
   };
 }
 
@@ -2088,6 +2090,8 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
       form.append('is_reportage', String(Boolean(post.isReportage)));
       form.append('reportage_sponsor', post.reportageSponsor || '');
       form.append('reportage_link', sanitizeReportageUrl(post.reportageLink));
+      form.append('reportage_bg_color', post.reportageBgColor || '');
+      form.append('reportage_ring_color', post.reportageRingColor || '');
       if (categoryPk !== null) form.append('category', String(categoryPk));
       form.append('featured_image', base64ImageToBlob(imageValue), 'featured-image.jpg');
 
@@ -2131,6 +2135,8 @@ export async function djangoCreateBlogPost(post: Partial<BlogPost>, config?: Dja
         reportage_sponsor: post.reportageSponsor || '',
         reportage_banner_url: sanitizeReportageUrl(post.reportageBanner),
         reportage_link: sanitizeReportageUrl(post.reportageLink),
+        reportage_bg_color: post.reportageBgColor || '',
+        reportage_ring_color: post.reportageRingColor || '',
         key_takeaways: post.keyTakeaways || [],
         tags: post.tags || [],
         faqs: post.faqs || [],
@@ -2304,6 +2310,8 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
       form.append('is_reportage', String(Boolean(savedPost.isReportage)));
       form.append('reportage_sponsor', savedPost.reportageSponsor || '');
       form.append('reportage_link', sanitizeReportageUrl(savedPost.reportageLink));
+      form.append('reportage_bg_color', savedPost.reportageBgColor || '');
+      form.append('reportage_ring_color', savedPost.reportageRingColor || '');
       if (categoryPk !== null) form.append('category', String(categoryPk));
       form.append('featured_image', base64ImageToBlob(imageValue), 'featured-image.jpg');
 
@@ -2369,6 +2377,8 @@ export async function djangoUpdateBlogPost(id: string | number, post: Partial<Bl
         reportage_sponsor: savedPost.reportageSponsor || '',
         reportage_banner_url: sanitizeReportageUrl(savedPost.reportageBanner),
         reportage_link: sanitizeReportageUrl(savedPost.reportageLink),
+        reportage_bg_color: savedPost.reportageBgColor || '',
+        reportage_ring_color: savedPost.reportageRingColor || '',
         key_takeaways: savedPost.keyTakeaways || [],
         tags: savedPost.tags || [],
         faqs: savedPost.faqs || [],

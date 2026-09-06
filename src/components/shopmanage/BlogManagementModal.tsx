@@ -28,6 +28,8 @@ import {
   djangoFetchBlogCategories
 } from '../../services/djangoApi';
 import { formatNumberFa } from '../../utils/formatters';
+import { REPORTAGE_THEMES } from '../../utils/reportageThemes';
+import { ReportageBannerBox } from '../ReportageBannerBox';
 
 interface BlogManagementModalProps {
   isOpen: boolean;
@@ -583,33 +585,92 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
                 {Boolean(formData.isReportage) && (
                   <div className="space-y-4 animate-in fade-in duration-200">
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">نام اسپانسر:</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">نام برند یا اسپانسر:</label>
                       <input
                         type="text"
-                        placeholder="مثلاً: بازرگانی کاظمی"
+                        placeholder="مثلاً: بازرگانی سرو / آکادمی تخصصی..."
                         value={formData.reportageSponsor || ''}
                         onChange={(e) => setFormData({ ...formData, reportageSponsor: e.target.value })}
-                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-purple-500"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-purple-500 font-bold"
                       />
                     </div>
+
+                    {/* Theme & Background Ring Preset Selection */}
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">لینک بنر ۱۲۰×۲۴۰ (عکس یا گیف):</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1.5">رنگ رینگ دور و استایل پس‌زمینه:</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {Object.values(REPORTAGE_THEMES).map((th) => {
+                          const isSelected = (formData.reportageBgColor || 'purple') === th.id;
+                          return (
+                            <button
+                              key={th.id}
+                              type="button"
+                              onClick={() => setFormData(prev => ({
+                                ...prev,
+                                reportageBgColor: th.id,
+                                reportageRingColor: th.id
+                              }))}
+                              className={`p-2 rounded-xl border text-right transition-all flex items-center justify-between gap-1.5 ${
+                                isSelected ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-400' : 'border-slate-200 bg-white hover:border-slate-300'
+                              }`}
+                            >
+                              <span className="text-[10px] font-bold text-slate-800">{th.name}</span>
+                              <span className={`w-3.5 h-3.5 rounded-full ${th.badgeBg} shrink-0`} />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="block text-[11px] font-bold text-slate-700">لینک بنر تبلیغاتی (عکس یا گیف):</label>
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                          ابعاد ۴۶۸ × ۶۰ پیکسل
+                        </span>
+                      </div>
                       <input
                         type="text"
-                        placeholder="https://.../banner.gif"
+                        placeholder="https://.../banner-468x60.gif"
                         value={formData.reportageBanner || ''}
                         onChange={(e) => setFormData({ ...formData, reportageBanner: e.target.value })}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700 dir-ltr text-left focus:outline-none focus:border-purple-500"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] font-bold text-slate-700 mb-1">لینک مقصد کلیک (URL):</label>
+                      <label className="block text-[11px] font-bold text-slate-700 mb-1">لینک مقصد کلیک (URL وبسایت حامی):</label>
                       <input
                         type="text"
-                        placeholder="https://destination.com"
+                        placeholder="https://sponsor-website.com"
                         value={formData.reportageLink || ''}
                         onChange={(e) => setFormData({ ...formData, reportageLink: e.target.value })}
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700 dir-ltr text-left focus:outline-none focus:border-purple-500"
+                      />
+                    </div>
+
+                    {/* Live Preview */}
+                    <div className="pt-1">
+                      <div className="text-[10px] font-bold text-slate-500 mb-1">پیش‌نمایش جایگاه بنر ۴۶۸ در ۶۰:</div>
+                      <ReportageBannerBox
+                        post={{
+                          id: 'modal-preview',
+                          title: formData.title || 'عنوان نمونه',
+                          slug: formData.slug || 'slug',
+                          category: formData.category || 'عمومی',
+                          publishedDate: 'امروز',
+                          author: { name: 'دخانیات سرو', role: 'تحریریه', avatar: '' },
+                          readTimeMinutes: formData.readTimeMinutes || 5,
+                          excerpt: formData.excerpt || '',
+                          content: formData.content || '',
+                          image: formData.image || '',
+                          tags: formData.tags || [],
+                          isReportage: true,
+                          reportageSponsor: formData.reportageSponsor,
+                          reportageBanner: formData.reportageBanner,
+                          reportageLink: formData.reportageLink,
+                          reportageBgColor: formData.reportageBgColor,
+                          reportageRingColor: formData.reportageRingColor
+                        }}
                       />
                     </div>
                   </div>

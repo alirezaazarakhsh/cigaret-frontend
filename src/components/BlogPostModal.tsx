@@ -19,6 +19,7 @@ import {
 import { BlogPost } from '../types';
 import { formatNumberFa } from '../utils/formatters';
 import { getWebAppBaseUrl } from '../services/apiConfig';
+import { ReportageBannerBox } from './ReportageBannerBox';
 
 interface BlogPostModalProps {
   post: BlogPost | null;
@@ -198,60 +199,8 @@ export const BlogPostModal: React.FC<BlogPostModalProps> = ({
             </ul>
           </div>
 
-          {/* Reportage & Advertising Banner Section (Standard 120x240 Banner Ad) */}
-          {(post.isReportage || post.reportageBanner) && (
-            <div className="bg-gradient-to-r from-purple-50/70 via-indigo-50/40 to-purple-50/70 border-2 border-purple-200/90 rounded-3xl p-5 shadow-xs">
-              <div className="flex flex-col sm:flex-row items-center justify-between gap-5">
-                <div className="flex-1 space-y-2.5 text-right w-full sm:w-auto">
-                  <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-100 text-purple-800 text-[11px] font-black border border-purple-200">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                    <span>ریپورتاژ آگهی و تبلیغات تجاری</span>
-                  </div>
-                  <h4 className="text-sm sm:text-base font-black text-slate-900">
-                    {post.reportageSponsor ? `معرفی رسمی: ${post.reportageSponsor}` : 'حامی تبلیغاتی مقاله'}
-                  </h4>
-                  <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
-                    این محتوا توسط حامی تجاری تهیه شده است. برای کسب اطلاعات بیشتر، مشاهده محصولات یا دسترسی به خدمات، روی بنر یا دکمه زیر کلیک نمایید.
-                  </p>
-                  {post.reportageLink && (
-                    <div className="pt-1">
-                      <a
-                        href={post.reportageLink}
-                        target="_blank"
-                        rel="noopener noreferrer sponsored"
-                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-[11px] font-black shadow-xs hover:shadow transition-all"
-                      >
-                        <span>مشاهده وبسایت {post.reportageSponsor || 'اسپانسر'}</span>
-                        <ExternalLink className="w-3.5 h-3.5" />
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                {/* Standard 120x240 Banner Preview in Modal */}
-                {post.reportageBanner && (
-                  <div className="shrink-0">
-                    <a 
-                      href={post.reportageLink || '#'} 
-                      target={post.reportageLink ? "_blank" : "_self"}
-                      rel="noopener noreferrer sponsored"
-                      className="block relative w-[120px] h-[240px] rounded-2xl overflow-hidden border-2 border-white shadow-lg bg-slate-100 group transition-transform active:scale-95"
-                    >
-                      <img 
-                        src={post.reportageBanner} 
-                        alt={post.reportageSponsor || 'Reportage Banner'} 
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
-                    </a>
-                    <div className="text-[9px] text-center text-slate-400 mt-1.5 font-bold uppercase tracking-widest">
-                      Advertisement
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          {/* Reportage & Advertising Banner Section (Standard 468x60 Banner Ad) */}
+          <ReportageBannerBox post={post} />
 
           {/* Article Main Text Content */}
           <div className="text-xs sm:text-sm text-slate-800 leading-loose space-y-4 pt-2 font-normal">
