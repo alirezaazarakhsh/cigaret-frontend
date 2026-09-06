@@ -858,7 +858,7 @@ export const accountsApi = {
   },
 
   /**
-   * Create a new user (staff) via POST /api/v1/posuser/create-staff/
+   * Create a new user (staff) via POST /posuser/create-staff/
    */
   async createUser(payload: {
     phone: string;
@@ -868,14 +868,9 @@ export const accountsApi = {
     pin_code?: string;
     [key: string]: any;
   }): Promise<{ success: boolean; data?: any; message?: string }> {
-    let res = await httpClient.post<any>('/posuser/create-staff/', payload, {
+    const res = await httpClient.post<any>('/posuser/create-staff/', payload, {
       headers: API_CACHE_CONTROL_HEADERS
     });
-    if (!res.success && res.status === 404) {
-      res = await httpClient.post<any>('/api/v1/posuser/create-staff/', payload, {
-        headers: API_CACHE_CONTROL_HEADERS
-      });
-    }
 
     if (res.success && res.data) {
       return { success: true, data: res.data, message: res.data.message || 'کاربر با موفقیت در دیتابیس ثبت شد.' };
@@ -883,22 +878,17 @@ export const accountsApi = {
     
     return { 
       success: false, 
-      message: res.data?.message || res.data?.detail || res.error || 'خطا در ثبت کاربر در دیتابیس جنگو (پاسخ نامعتبر از سرور).' 
+      message: res.data?.message || res.data?.detail || res.error || 'خطا در ثبت کاربر در دیتابیس جنگو.' 
     };
   },
 
   /**
-   * Get POS staff list from GET /api/v1/posuser/staff-list/
+   * Get POS staff list from GET /posuser/staff-list/
    */
   async getStaffList(): Promise<{ success: boolean; data?: any[]; message?: string }> {
-    let res = await httpClient.get<any>('/posuser/staff-list/', {
+    const res = await httpClient.get<any>('/posuser/staff-list/', {
       headers: API_CACHE_CONTROL_HEADERS
     });
-    if (!res.success && res.status === 404) {
-      res = await httpClient.get<any>('/api/v1/posuser/staff-list/', {
-        headers: API_CACHE_CONTROL_HEADERS
-      });
-    }
     if (res.success && res.data) {
       const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.results || []);
       return { success: true, data: list };
