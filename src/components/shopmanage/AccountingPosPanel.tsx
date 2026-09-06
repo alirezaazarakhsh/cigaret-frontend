@@ -738,27 +738,31 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [savedPatternKey, setSavedPatternKey] = useState<Record<string, boolean>>({});
   const [isSavingAllPatterns, setIsSavingAllPatterns] = useState(false);
 
+  const [lastSmsSync, setLastSmsSync] = useState<Date | null>(null);
+
   // Sync / Load SMS Data
-  useEffect(() => {
-    const loadSmsData = async () => {
-      try {
-        setIsSmsLoading(true);
-        const [logs, patterns, settings] = await Promise.all([
-          djangoFetchSmsLogs(crmConfig),
-          djangoFetchSmsPatterns(crmConfig),
-          djangoFetchKavenegarSettings(crmConfig)
-        ]);
-        setSmsLogs(logs);
-        setSmsPatterns(patterns);
-        if (settings) {
-          setKavenegarConfig(settings);
-        }
-      } catch (e) {
-        console.warn('Error fetching live SMS data:', e);
-      } finally {
-        setIsSmsLoading(false);
+  const loadSmsData = async () => {
+    try {
+      setIsSmsLoading(true);
+      const [logs, patterns, settings] = await Promise.all([
+        djangoFetchSmsLogs(crmConfig),
+        djangoFetchSmsPatterns(crmConfig),
+        djangoFetchKavenegarSettings(crmConfig)
+      ]);
+      setSmsLogs(logs);
+      setSmsPatterns(patterns);
+      if (settings) {
+        setKavenegarConfig(settings);
       }
-    };
+      setLastSmsSync(new Date());
+    } catch (e) {
+      console.warn('Error fetching live SMS data:', e);
+    } finally {
+      setIsSmsLoading(false);
+    }
+  };
+
+  useEffect(() => {
     if (activeSubTab === 'sms_management') {
       loadSmsData();
     }
@@ -4482,8 +4486,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2 text-xs text-slate-500 font-bold px-3 py-1">
-                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                      <span>سرویس کاوه‌نگار: متصل به دیتابیس جنگو</span>
+                      <span className={`w-2 h-2 rounded-full ${lastSmsSync ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
+                      <span>سرویس کاوه‌نگار: {lastSmsSync ? `متصل به دیتابیس جنگو (آخرین بروزرسانی: ${lastSmsSync.toLocaleTimeString('fa-IR')})` : 'در حال بررسی اتصال...'}</span>
                     </div>
                   </div>
 
@@ -4576,6 +4580,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                                 const res = await djangoSaveKavenegarSettings(kavenegarConfig, crmConfig);
                                 if (res) {
                                   setSmsSuccessMessage('تنظیمات درگاه کاوه‌نگار با موفقیت در پایگاه‌داده جنگو ذخیره شد.');
+                                  await loadSmsData(); // Refresh from server
                                   setTimeout(() => setSmsSuccessMessage(''), 4000);
                                 } else {
                                   setSmsErrorMessage('خطا: ارتباط با سرور جنگو برقرار شد اما تنظیمات ذخیره نگردید. وضعیت توکن یا دسترسی را بررسی کنید.');
@@ -4621,6 +4626,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                                   const res = await djangoSaveAllSmsPatterns(smsPatterns, crmConfig);
                                   if (res) {
                                     setSmsSuccessMessage('تمامی کدهای پترن با موفقیت در پایگاه‌داده جنگو ذخیره و فعال شدند.');
+                                    await loadSmsData(); // Refresh from server
                                     setTimeout(() => setSmsSuccessMessage(''), 4000);
                                   } else {
                                     setSmsErrorMessage('خطا در ذخیره‌سازی گروهی پترن‌ها.');
