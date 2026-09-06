@@ -2477,7 +2477,7 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
                             جلوه بصری اختصاصی
                           </span>
                         </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                        <div className="flex flex-col gap-2 pt-1">
                           {Object.values(REPORTAGE_THEMES).map((th) => {
                             const isSelected = (formData.reportageBgColor || 'purple') === th.id;
                             return (

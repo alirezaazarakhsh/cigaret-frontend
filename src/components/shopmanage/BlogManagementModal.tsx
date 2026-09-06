@@ -598,7 +598,7 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
                     {/* Theme & Background Ring Preset Selection */}
                     <div>
                       <label className="block text-[11px] font-bold text-slate-700 mb-1.5">رنگ رینگ دور و استایل پس‌زمینه:</label>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="flex flex-col gap-2">
                         {Object.values(REPORTAGE_THEMES).map((th) => {
                           const isSelected = (formData.reportageBgColor || 'purple') === th.id;
                           return (
@@ -610,12 +610,12 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
                                 reportageBgColor: th.id,
                                 reportageRingColor: th.id
                               }))}
-                              className={`p-2 rounded-xl border text-right transition-all flex items-center justify-between gap-1.5 ${
+                              className={`p-2.5 rounded-xl border text-right transition-all flex items-center justify-between gap-1.5 ${
                                 isSelected ? 'border-purple-500 bg-purple-50 ring-2 ring-purple-400' : 'border-slate-200 bg-white hover:border-slate-300'
                               }`}
                             >
-                              <span className="text-[10px] font-bold text-slate-800">{th.name}</span>
-                              <span className={`w-3.5 h-3.5 rounded-full ${th.badgeBg} shrink-0`} />
+                              <span className="text-[11px] font-bold text-slate-800">{th.name}</span>
+                              <span className={`w-4 h-4 rounded-full ${th.badgeBg} shrink-0`} />
                             </button>
                           );
                         })}

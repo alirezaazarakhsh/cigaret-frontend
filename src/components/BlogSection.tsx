@@ -153,11 +153,9 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
           blogApi.getCategories()
         ]);
 
-        if (fullList && fullList.length > 0) {
-          setPosts(fullList);
-          if (selectedCategory === 'all' && !searchQuery) {
-            setAllPosts(fullList);
-          }
+        setPosts(fullList || []);
+        if (selectedCategory === 'all' && !searchQuery && fullList && fullList.length > 0) {
+          setAllPosts(fullList);
         }
 
         if (fetchedCats && fetchedCats.length > 0) {
@@ -197,7 +195,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
   const getCategoryCount = (catId: string) => {
     if (catId === 'all') return allPosts.length;
     if (catId === 'reportage') return allPosts.filter(p => p.isReportage).length;
-    return allPosts.filter(p => p.category === catId).length;
+    return allPosts.filter(p => p.category === catId || p.categorySlug === catId).length;
   };
 
   const categorySpecs: CategorySpec[] = useMemo(() => {
