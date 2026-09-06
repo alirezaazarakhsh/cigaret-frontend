@@ -911,7 +911,9 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
         isReportage: false,
         reportageSponsor: '',
         reportageBanner: '',
-        reportageLink: ''
+        reportageLink: '',
+        reportageBgColor: 'purple',
+        reportageRingColor: 'purple'
       });
       setIsEditing(false);
       setEditingPostId(null);

@@ -368,9 +368,11 @@ class DjangoDatabaseStore {
       isPublished: post.isPublished !== undefined ? post.isPublished : (existing?.isPublished !== undefined ? existing.isPublished : true),
       focusKeyword: post.focusKeyword || existing?.focusKeyword || '',
       isReportage: post.isReportage !== undefined ? post.isReportage : (existing?.isReportage || false),
-      reportageSponsor: post.reportageSponsor || existing?.reportageSponsor || '',
-      reportageBanner: post.reportageBanner || existing?.reportageBanner || '',
-      reportageLink: post.reportageLink || existing?.reportageLink || ''
+      reportageSponsor: post.reportageSponsor !== undefined ? post.reportageSponsor : (existing?.reportageSponsor || ''),
+      reportageBanner: post.reportageBanner !== undefined ? post.reportageBanner : (existing?.reportageBanner || ''),
+      reportageLink: post.reportageLink !== undefined ? post.reportageLink : (existing?.reportageLink || ''),
+      reportageBgColor: post.reportageBgColor !== undefined ? post.reportageBgColor : (existing?.reportageBgColor || ''),
+      reportageRingColor: post.reportageRingColor !== undefined ? post.reportageRingColor : (existing?.reportageRingColor || '')
     };
 
     if (existingIdx >= 0) {

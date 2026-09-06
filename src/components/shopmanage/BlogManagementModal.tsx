@@ -66,7 +66,9 @@ export const BlogManagementModal: React.FC<BlogManagementModalProps> = ({ isOpen
     isReportage: false,
     reportageSponsor: '',
     reportageBanner: '',
-    reportageLink: ''
+    reportageLink: '',
+    reportageBgColor: 'purple',
+    reportageRingColor: 'purple'
   });
 
   const handleAddTakeaway = (e?: React.KeyboardEvent | React.MouseEvent) => {
