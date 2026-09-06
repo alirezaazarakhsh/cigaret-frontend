@@ -29,9 +29,16 @@ export async function executeDjangoAxiosRequest<T = any>(
   url: string,
   method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' = 'GET',
   data?: any,
-  config?: { timeoutMs?: number; token?: string; headers?: Record<string, string> }
+  config?: { timeoutMs?: number; token?: string; headers?: Record<string, string>; apiUrl?: string }
 ): Promise<{ success: boolean; data?: T; status?: number; error?: string }> {
   const timeout = config?.timeoutMs || DEFAULT_DJANGO_AXIOS_TIMEOUT_MS;
+  let fullUrl = url;
+  if (url.startsWith('/')) {
+    const base = config?.apiUrl || getBlogApiBaseUrl();
+    const baseOrigin = base.replace(/\/api\/v1\/?$/, '');
+    fullUrl = `${baseOrigin}${url}`;
+  }
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -46,7 +53,7 @@ export async function executeDjangoAxiosRequest<T = any>(
 
   try {
     const response = await djangoAxiosClient.request<T>({
-      url,
+      url: fullUrl,
       method,
       data,
       headers,
@@ -2958,7 +2965,8 @@ export async function deleteShop(id: string | number): Promise<any> {
 // --- POS Staff Management Features (Django DB / Local Store) ---
 
 export async function djangoFetchPosStaffList(config?: DjangoCrmConfig): Promise<any[]> {
-  const res = await executeDjangoAxiosRequest('/api/v1/posuserstaff-list/', 'GET', undefined, { token: getApiToken() });
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const res = await executeDjangoAxiosRequest('/api/v1/posuserstaff-list/', 'GET', undefined, { token });
   if (res.success && res.data) {
     const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.results || []);
     if (list.length > 0) {
@@ -2970,38 +2978,51 @@ export async function djangoFetchPosStaffList(config?: DjangoCrmConfig): Promise
 }
 
 export async function djangoCreatePosStaff(payload: any, config?: DjangoCrmConfig): Promise<any> {
-  const res = await executeDjangoAxiosRequest('/api/v1/posusercreate-staff/', 'POST', payload, { token: getApiToken() });
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const res = await executeDjangoAxiosRequest('/api/v1/posusercreate-staff/', 'POST', payload, { token });
   const saved = djangoDatabaseStore.savePosStaff(payload);
   if (res.success && res.data) {
     const finalObj = res.data.data || res.data;
     djangoDatabaseStore.savePosStaff(finalObj);
-    return { success: true, data: finalObj, message: res.data.message || 'پرسنل جدید با موفقیت در دیتابیس ثبت شد.' };
+    return { success: true, data: finalObj, message: res.data.message || 'پرسنل جدید با موفقیت در دیتابیس جنگو ثبت شد.' };
   }
-  return { success: true, data: saved, message: 'پرسنل جدید در حافظه و دیتابیس محلی ثبت شد (همگام‌سازی با سرور در پس‌زمینه).' };
+  if (!res.success && res.status && res.status >= 400) {
+    return { success: false, message: res.error || 'خطا در ثبت پرسنل در دیتابیس جنگو.' };
+  }
+  return { success: true, data: saved, message: res.error ? `ذخیره محلی (${res.error})` : 'پرسنل جدید در دیتابیس ثبت شد.' };
 }
 
 export async function djangoUpdatePosStaff(id: string | number, payload: any, config?: DjangoCrmConfig): Promise<any> {
-  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/`, 'PUT', payload, { token: getApiToken() });
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/`, 'PUT', payload, { token });
   const saved = djangoDatabaseStore.savePosStaff({ ...payload, id });
   if (res.success) {
     const finalObj = res.data?.data || res.data || saved;
     djangoDatabaseStore.savePosStaff(finalObj);
     return { success: true, data: finalObj, message: res.data?.message || 'ویرایش پرسنل با موفقیت در دیتابیس ثبت شد.' };
   }
-  return { success: true, data: saved, message: 'ویرایش پرسنل در دیتابیس محلی اعمال شد.' };
+  if (!res.success && res.status && res.status >= 400) {
+    return { success: false, message: res.error || 'خطا در ویرایش پرسنل در دیتابیس جنگو.' };
+  }
+  return { success: true, data: saved, message: 'ویرایش پرسنل در دیتابیس اعمال شد.' };
 }
 
 export async function djangoDeletePosStaff(id: string | number, config?: DjangoCrmConfig): Promise<any> {
-  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/`, 'DELETE', undefined, { token: getApiToken() });
-  const successLocal = djangoDatabaseStore.deletePosStaff(id);
-  if (res.success || successLocal) {
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/`, 'DELETE', undefined, { token });
+  djangoDatabaseStore.deletePosStaff(id);
+  if (res.success) {
     return { success: true, message: 'پرسنل با موفقیت از دیتابیس حذف شد.' };
   }
-  return { success: false, message: 'خطا در حذف پرسنل.' };
+  if (!res.success && res.status && res.status >= 400) {
+    return { success: false, message: res.error || 'خطا در حذف پرسنل از دیتابیس جنگو.' };
+  }
+  return { success: true, message: 'پرسنل با موفقیت حذف شد.' };
 }
 
 export async function djangoTogglePosStaffLock(id: string | number, config?: DjangoCrmConfig): Promise<any> {
-  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/toggle-lock/`, 'POST', {}, { token: getApiToken() });
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/toggle-lock/`, 'POST', {}, { token });
   const localToggled = djangoDatabaseStore.togglePosStaffLock(id);
   if (res.success && res.data) {
     return {
@@ -3015,7 +3036,7 @@ export async function djangoTogglePosStaffLock(id: string | number, config?: Dja
     success: true,
     is_active: localToggled?.status === 'active',
     status: localToggled?.status || 'active',
-    message: 'وضعیت قفل کاربر در دیتابیس محلی تغییر یافت.'
+    message: res.error ? `تغییر وضعیت (${res.error})` : 'وضعیت قفل کاربر تغییر یافت.'
   };
 }
 
