@@ -951,8 +951,9 @@ export async function djangoFetchSmsPatterns(config?: DjangoCrmConfig): Promise<
     }
 
     if (resp.ok) {
-      const data = await resp.json();
-      return Array.isArray(data) ? data : data.results || [];
+      const result = await resp.json();
+      const data = result.data || result;
+      return Array.isArray(data) ? data : (data.results || []);
     }
   } catch (e) {
     console.warn('Django Fetch Patterns API fallback to local DB store:', e);
@@ -969,7 +970,7 @@ export async function djangoSaveSmsPattern(name_fa: string, pattern_code: string
   let headers = getBlogApiHeaders(config);
 
   try {
-    let resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/save/`, {
+    let resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/`, {
       method: 'POST',
       headers: {
         ...headers,
@@ -982,7 +983,7 @@ export async function djangoSaveSmsPattern(name_fa: string, pattern_code: string
       cachedAdminJwtToken = '';
       const freshToken = await ensureValidDjangoAdminToken(config);
       headers['Authorization'] = `Bearer ${freshToken}`;
-      resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/save/`, {
+      resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/`, {
         method: 'POST',
         headers: {
           ...headers,
@@ -1008,7 +1009,7 @@ export async function djangoSaveAllSmsPatterns(patternsList: any[], config?: Dja
   let headers = getBlogApiHeaders(config);
 
   try {
-    let resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/save/`, {
+    let resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/`, {
       method: 'POST',
       headers: {
         ...headers,
@@ -1021,7 +1022,7 @@ export async function djangoSaveAllSmsPatterns(patternsList: any[], config?: Dja
       cachedAdminJwtToken = '';
       const freshToken = await ensureValidDjangoAdminToken(config);
       headers['Authorization'] = `Bearer ${freshToken}`;
-      resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/save/`, {
+      resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/`, {
         method: 'POST',
         headers: {
           ...headers,

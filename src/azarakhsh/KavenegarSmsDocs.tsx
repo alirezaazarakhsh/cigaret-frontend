@@ -548,19 +548,38 @@ class SMSPatternListSaveAPIView(APIView):
     @extend_schema(
         tags=['پنل پیامک کاوه‌نگار'],
         summary="ذخیره کد پترن انگلیسی",
-        description="تخصیص یا ویرایش کد پترن (Template Name) دریافت شده از پنل کاوه‌نگار برای یک بخش مشخص در دیتابیس آذرخش",
+        description="تخصیص یا ویرایش کد پترن (Template Name) دریافت شده از پنل کاوه‌نگار برای یک یا چند بخش در دیتابیس آذرخش",
         responses={200: SMSPatternSerializer}
     )
     def post(self, request):
+        patterns_data = request.data.get('patterns')
+        
+        setting = KavenegarSMSSetting.objects.first()
+        if not setting:
+            setting = KavenegarSMSSetting.objects.create(name="سامانه پیامک هوشمند آذرخش")
+
+        if patterns_data and isinstance(patterns_data, list):
+            # حالت ذخیره گروهی (Bulk Save)
+            for p_item in patterns_data:
+                name_fa = p_item.get('name_fa')
+                pattern_code = p_item.get('pattern_code', '').strip()
+                if name_fa:
+                    SMSPattern.objects.update_or_create(
+                        sms_setting=setting, 
+                        name_fa=name_fa, 
+                        defaults={'pattern_code': pattern_code}
+                    )
+            return Response({
+                'status': 'success',
+                'message': 'تمامی پترن‌ها با موفقیت به‌روزرسانی شدند.'
+            }, status=status.HTTP_200_OK)
+
+        # حالت ذخیره تک موردی
         name_fa = request.data.get('name_fa')
         pattern_code = request.data.get('pattern_code', '').strip()
 
         if not name_fa:
             return Response({'status': 'error', 'message': 'نام بخش پترن الزامی است.'}, status=status.HTTP_400_BAD_REQUEST)
-
-        setting = KavenegarSMSSetting.objects.first()
-        if not setting:
-            setting = KavenegarSMSSetting.objects.create(name="سامانه پیامک هوشمند آذرخش")
 
         pattern_obj, _ = SMSPattern.objects.get_or_create(sms_setting=setting, name_fa=name_fa)
         pattern_obj.pattern_code = pattern_code
