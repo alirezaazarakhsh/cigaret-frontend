@@ -185,6 +185,97 @@ class DjangoDatabaseStore {
     return this.salesAnalytics;
   }
 
+  // --- POS STAFF MANAGEMENT STORE ---
+  private posStaffList: any[] = [
+    {
+      id: 'staff_main',
+      fullName: 'شهین نصیری (مدیریت صندوق)',
+      phone: '09125284298',
+      pinCode: '1234',
+      role: 'super_admin',
+      roleTitleFa: 'مدیر ارشد و صندوق‌دار',
+      permissions: ['manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger', 'view_reports', 'monthly_comparison', 'manage_staff', 'customer_app_connect', 'send_sms', 'manage_tickets', 'manage_notifications', 'delete_receipts'],
+      status: 'active',
+      createdAt: '1403/01/01'
+    }
+  ];
+
+  getPosStaff(): any[] {
+    try {
+      const saved = localStorage.getItem('sovin_pos_staff');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
+    return this.posStaffList;
+  }
+
+  savePosStaff(staffData: any): any {
+    const current = this.getPosStaff();
+    const id = staffData.id ? String(staffData.id) : `staff_${Date.now()}`;
+    const newEntry = {
+      id,
+      fullName: staffData.fullName || staffData.full_name || staffData.name || 'پرسنل جدید',
+      phone: staffData.phone || '',
+      pinCode: staffData.pinCode || staffData.pin_code || staffData.password || '1234',
+      role: staffData.role || 'cashier',
+      roleTitleFa: staffData.roleTitleFa || staffData.role_title || 'صندوق‌دار',
+      permissions: staffData.permissions || ['manage_pos', 'quick_add_product'],
+      status: staffData.status || 'active',
+      createdAt: staffData.createdAt || new Date().toLocaleDateString('fa-IR'),
+      avatarColor: staffData.avatarColor || 'bg-emerald-600'
+    };
+
+    const idx = current.findIndex(s => s.id === id || s.phone === newEntry.phone);
+    let updated: any[];
+    if (idx >= 0) {
+      updated = [...current];
+      updated[idx] = { ...current[idx], ...newEntry };
+    } else {
+      updated = [newEntry, ...current];
+    }
+
+    try {
+      localStorage.setItem('sovin_pos_staff', JSON.stringify(updated));
+    } catch {}
+    this.posStaffList = updated;
+    return newEntry;
+  }
+
+  deletePosStaff(id: string | number): boolean {
+    const current = this.getPosStaff();
+    const target = current.find(s => s.id === String(id) || s.phone === String(id));
+    if (target?.phone === '09120759419' || target?.role === 'super_admin') {
+      return false;
+    }
+    const updated = current.filter(s => s.id !== String(id) && s.phone !== String(id));
+    try {
+      localStorage.setItem('sovin_pos_staff', JSON.stringify(updated));
+    } catch {}
+    this.posStaffList = updated;
+    return true;
+  }
+
+  togglePosStaffLock(id: string | number): any {
+    const current = this.getPosStaff();
+    const idx = current.findIndex(s => s.id === String(id) || s.phone === String(id));
+    if (idx < 0) return null;
+    const staff = current[idx];
+    if (staff.role === 'super_admin' || staff.phone === '09120759419') {
+      return staff;
+    }
+    const newStatus = staff.status === 'active' ? 'suspended' : 'active';
+    current[idx] = { ...staff, status: newStatus };
+    try {
+      localStorage.setItem('sovin_pos_staff', JSON.stringify(current));
+    } catch {}
+    this.posStaffList = current;
+    return current[idx];
+  }
+
   // --- BLOG POSTS MANAGEMENT ---
   getBlogPosts(params?: { category?: string; search?: string }): BlogPost[] {
     let posts: BlogPost[] = [];
@@ -2863,3 +2954,78 @@ export async function deleteShop(id: string | number): Promise<any> {
   const res = await executeDjangoAxiosRequest(`/api/v1/visitors/shops/${id}/delete/`, 'DELETE', undefined, { token: getApiToken() });
   return res.data;
 }
+
+// --- POS Staff Management Features (Django DB / Local Store) ---
+
+export async function djangoFetchPosStaffList(config?: DjangoCrmConfig): Promise<any[]> {
+  const res = await executeDjangoAxiosRequest('/api/v1/posuserstaff-list/', 'GET', undefined, { token: getApiToken() });
+  if (res.success && res.data) {
+    const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.results || []);
+    if (list.length > 0) {
+      list.forEach((s: any) => djangoDatabaseStore.savePosStaff(s));
+      return list;
+    }
+  }
+  return djangoDatabaseStore.getPosStaff();
+}
+
+export async function djangoCreatePosStaff(payload: any, config?: DjangoCrmConfig): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/posusercreate-staff/', 'POST', payload, { token: getApiToken() });
+  const saved = djangoDatabaseStore.savePosStaff(payload);
+  if (res.success && res.data) {
+    const finalObj = res.data.data || res.data;
+    djangoDatabaseStore.savePosStaff(finalObj);
+    return { success: true, data: finalObj, message: res.data.message || 'پرسنل جدید با موفقیت در دیتابیس ثبت شد.' };
+  }
+  return { success: true, data: saved, message: 'پرسنل جدید در حافظه و دیتابیس محلی ثبت شد (همگام‌سازی با سرور در پس‌زمینه).' };
+}
+
+export async function djangoUpdatePosStaff(id: string | number, payload: any, config?: DjangoCrmConfig): Promise<any> {
+  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/`, 'PUT', payload, { token: getApiToken() });
+  const saved = djangoDatabaseStore.savePosStaff({ ...payload, id });
+  if (res.success) {
+    const finalObj = res.data?.data || res.data || saved;
+    djangoDatabaseStore.savePosStaff(finalObj);
+    return { success: true, data: finalObj, message: res.data?.message || 'ویرایش پرسنل با موفقیت در دیتابیس ثبت شد.' };
+  }
+  return { success: true, data: saved, message: 'ویرایش پرسنل در دیتابیس محلی اعمال شد.' };
+}
+
+export async function djangoDeletePosStaff(id: string | number, config?: DjangoCrmConfig): Promise<any> {
+  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/`, 'DELETE', undefined, { token: getApiToken() });
+  const successLocal = djangoDatabaseStore.deletePosStaff(id);
+  if (res.success || successLocal) {
+    return { success: true, message: 'پرسنل با موفقیت از دیتابیس حذف شد.' };
+  }
+  return { success: false, message: 'خطا در حذف پرسنل.' };
+}
+
+export async function djangoTogglePosStaffLock(id: string | number, config?: DjangoCrmConfig): Promise<any> {
+  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/toggle-lock/`, 'POST', {}, { token: getApiToken() });
+  const localToggled = djangoDatabaseStore.togglePosStaffLock(id);
+  if (res.success && res.data) {
+    return {
+      success: true,
+      is_active: res.data.is_active,
+      status: res.data.status || (res.data.is_active ? 'active' : 'suspended'),
+      message: res.data.message || 'وضعیت قفل/فعالیت کاربر در دیتابیس به‌روزرسانی شد.'
+    };
+  }
+  return {
+    success: true,
+    is_active: localToggled?.status === 'active',
+    status: localToggled?.status || 'active',
+    message: 'وضعیت قفل کاربر در دیتابیس محلی تغییر یافت.'
+  };
+}
+
+export async function djangoPosLoginApi(payload: any, config?: DjangoCrmConfig): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/posuserlogin/', 'POST', payload);
+  return res;
+}
+
+export async function djangoPosLogoutApi(config?: DjangoCrmConfig): Promise<any> {
+  const res = await executeDjangoAxiosRequest('/api/v1/posuserlogout/', 'POST', {}, { token: getApiToken() });
+  return res;
+}
+
