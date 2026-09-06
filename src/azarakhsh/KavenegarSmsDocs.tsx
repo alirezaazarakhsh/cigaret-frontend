@@ -45,7 +45,7 @@ export const KavenegarSmsDocs: React.FC = () => {
   const endpoints: ApiEndpointMeta[] = [
     {
       method: 'GET',
-      path: '/api/v1/sms/settings/',
+      path: '/api/v1/kavenegar-sms/settings/',
       auth: 'IsAdminUser / HasSMSPermission',
       description: 'دریافت تنظیمات فعلی درگاه وب‌سرویس کاوه‌نگار از جدول KavenegarSMSSetting در دیتابیس جنگو',
       responseBody: JSON.stringify({
@@ -61,7 +61,7 @@ export const KavenegarSmsDocs: React.FC = () => {
     },
     {
       method: 'POST',
-      path: '/api/v1/sms/settings/',
+      path: '/api/v1/kavenegar-sms/settings/',
       auth: 'IsAdminUser',
       description: 'ذخیره و به‌روزرسانی تنظیمات و کلید API درگاه کاوه‌نگار در پایگاه‌داده جنگو',
       requestBody: JSON.stringify({
@@ -77,7 +77,7 @@ export const KavenegarSmsDocs: React.FC = () => {
     },
     {
       method: 'GET',
-      path: '/api/v1/sms/patterns/',
+      path: '/api/v1/kavenegar-sms/patterns/',
       auth: 'IsAdminUser',
       description: 'دریافت لیست تمام ۱۳ پترن خدماتی تعریف‌شده در دیتابیس به همراه کدهای پترن انگلیسی تنظیم‌شده',
       responseBody: JSON.stringify({
@@ -104,7 +104,7 @@ export const KavenegarSmsDocs: React.FC = () => {
     },
     {
       method: 'POST',
-      path: '/api/v1/sms/patterns/save/',
+      path: '/api/v1/kavenegar-sms/patterns/save/',
       auth: 'IsAdminUser',
       description: 'ثبت و اختصاص کد پترن انگلیسی کاوه‌نگار برای هر بخش در جدول SMSPattern',
       requestBody: JSON.stringify({
@@ -118,7 +118,7 @@ export const KavenegarSmsDocs: React.FC = () => {
     },
     {
       method: 'GET',
-      path: '/api/v1/sms/logs/',
+      path: '/api/v1/kavenegar-sms/logs/',
       auth: 'IsAdminUser',
       description: 'دریافت تاریخچه و وضعیت دلیوری (تحویل) کل پیامک‌های صادر شده از سیستم جهت پایش هزینه‌ها و تطابق با پنل ادمین',
       responseBody: JSON.stringify([
@@ -142,7 +142,7 @@ export const KavenegarSmsDocs: React.FC = () => {
     },
     {
       method: 'POST',
-      path: '/api/v1/sms/send-pattern/',
+      path: '/api/v1/kavenegar-sms/send-pattern/',
       auth: 'IsAuthenticated',
       description: 'ارسال پیامک با قالب‌های وب‌سرویس پترن و ذخیره خودکار لاگ در جدول SmsLog',
       requestBody: JSON.stringify({
@@ -155,6 +155,20 @@ export const KavenegarSmsDocs: React.FC = () => {
       responseBody: JSON.stringify({
         status: "success",
         message: "پیامک با قالب وب‌سرویس با موفقیت ارسال و در دیتابیس ذخیره شد."
+      }, null, 2)
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/kavenegar-sms/send-otp/',
+      auth: 'AllowAny',
+      description: 'ارسال کد تایید ورود دو مرحله‌ای (OTP) برای کاربران آذرخش',
+      requestBody: JSON.stringify({
+        phone: "09121112233"
+      }, null, 2),
+      responseBody: JSON.stringify({
+        status: "success",
+        message: "کد تایید با موفقیت پیامک گردید.",
+        expires_in_seconds: 120
       }, null, 2)
     }
   ];
@@ -357,6 +371,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from drf_spectacular.utils import extend_schema, OpenApiParameter
 from django.shortcuts import get_object_or_404
 import requests
 import logging
@@ -394,7 +409,7 @@ class KavenegarService:
         if token3:
             params['token3'] = token3
 
-        # ایجاد لاگ اولیه به صورت پیش‌فرض در صف
+        # ایجاد لاگ اولیه به صورت پیش‌فرض در صف در دیتابیس
         log_record = SmsLog.objects.create(
             recipient_phone=receptor,
             pattern=pattern,
@@ -425,10 +440,16 @@ class KavenegarService:
 
 class KavenegarSMSSettingAPIView(APIView):
     """
-    دریافت و ذخیره‌سازی تنظیمات درگاه کاوه‌نگار در دیتابیس
+    دریافت و ذخیره‌سازی تنظیمات درگاه کاوه‌نگار در دیتابیس آذرخش
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="دریافت تنظیمات درگاه پیامک",
+        description="بازیابی تنظیمات فعلی شامل نام سامانه و API Token از پایگاه‌داده برای نمایش در پنل مدیریت صندوق",
+        responses={200: KavenegarSMSSettingSerializer}
+    )
     def get(self, request):
         setting = KavenegarSMSSetting.objects.first()
         if not setting:
@@ -442,6 +463,13 @@ class KavenegarSMSSettingAPIView(APIView):
             'data': serializer.data
         }, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="ذخیره تنظیمات درگاه پیامک",
+        description="بروزرسانی کلید API و نام نمایشی سامانه پیامک کاوه‌نگار در جدول تنظیمات",
+        request=KavenegarSMSSettingSerializer,
+        responses={200: KavenegarSMSSettingSerializer}
+    )
     def post(self, request):
         name = request.data.get('name', 'سامانه پیامک کاوه‌نگار')
         api_token = request.data.get('api_token', '').strip()
@@ -460,16 +488,22 @@ class KavenegarSMSSettingAPIView(APIView):
 
 class SMSPatternListSaveAPIView(APIView):
     """
-    دریافت لیست الگوها و ثبت کد پترن انگلیسی برای هر بخش
+    دریافت لیست الگوها و ثبت کد پترن انگلیسی برای هر بخش از سامانه
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="لیست پترن‌های ۱۳گانه سامانه",
+        description="دریافت فهرست تمام ۱۳ بخش پیامکی (مانند ورود، خوشآمدگویی، رسید و ...) به همراه کدهای انگلیسی ثبت شده و راهنمای توکن‌ها",
+        responses={200: SMSPatternSerializer(many=True)}
+    )
     def get(self, request):
         setting = KavenegarSMSSetting.objects.first()
         if not setting:
             setting = KavenegarSMSSetting.objects.create(name="سامانه پیامک هوشمند آذرخش")
 
-        # همگام‌سازی و اطمینان از وجود تمام ۱۳ بخش پترن
+        # همگام‌سازی و اطمینان از وجود تمام ۱۳ بخش پترن در دیتابیس
         existing = {p.name_fa: p for p in SMSPattern.objects.filter(sms_setting=setting)}
         patterns_data = []
 
@@ -505,6 +539,12 @@ class SMSPatternListSaveAPIView(APIView):
 
         return Response({'status': 'success', 'data': patterns_data}, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="ذخیره کد پترن انگلیسی",
+        description="تخصیص یا ویرایش کد پترن (Template Name) دریافت شده از پنل کاوه‌نگار برای یک بخش مشخص در دیتابیس آذرخش",
+        responses={200: SMSPatternSerializer}
+    )
     def post(self, request):
         name_fa = request.data.get('name_fa')
         pattern_code = request.data.get('pattern_code', '').strip()
@@ -528,10 +568,16 @@ class SMSPatternListSaveAPIView(APIView):
 
 class SMSLogsAPIView(APIView):
     """
-    دریافت لاگ و تاریخچه پیامک‌های ثبت‌شده در دیتابیس برای پنل مدیریت
+    دریافت لاگ و تاریخچه پیامک‌های ثبت‌شده در دیتابیس برای پنل پایش پیامک آذرخش
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="گزارش پیامک‌های ارسالی",
+        description="لیست ۱۰۰ پیامک اخیر ارسال شده به همراه وضعیت دلیوری، هزینه و توکن‌های استفاده شده",
+        responses={200: SmsLogSerializer(many=True)}
+    )
     def get(self, request):
         logs = SmsLog.objects.select_related('pattern').order_by('-created_at')[:100]
         serializer = SmsLogSerializer(logs, many=True)
@@ -540,10 +586,16 @@ class SMSLogsAPIView(APIView):
 
 class SendPatternSMSAPIView(APIView):
     """
-    ارسال پیامک پترن داینامیک از سمت فرانت‌اند یا ماژول‌های حسابداری
+    ارسال پیامک پترن داینامیک از سمت فرانت‌اند یا ماژول‌های فروش و انبار
     """
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="ارسال دستی/سیستمی پیامک پترن",
+        description="ارسال پیامک با استفاده از پترن‌های خدماتی از هر نقطه سامانه و ثبت خودکار در جدول لاگ دیتابیس",
+        responses={200: SmsLogSerializer}
+    )
     def post(self, request):
         recipient = request.data.get('recipient_phone') or request.data.get('phone')
         pattern_name = request.data.get('pattern_name') or request.data.get('template')
@@ -572,8 +624,17 @@ class SendPatternSMSAPIView(APIView):
 
 
 class SendOtpAPIView(APIView):
+    """
+    ارسال کد تایید ورود دو مرحله‌ای (OTP) برای کاربران آذرخش
+    """
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="ارسال کد تایید (OTP)",
+        description="تولید کد ۵ رقمی تصادفی و ارسال به شماره همراه کاربر از طریق درگاه وب‌سرویس پترن کاوه‌نگار",
+        responses={200: SmsLogSerializer}
+    )
     def post(self, request):
         phone = request.data.get('phone', '').strip()
         if not phone or len(phone) < 11:

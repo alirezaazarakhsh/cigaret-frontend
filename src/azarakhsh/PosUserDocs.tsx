@@ -166,7 +166,7 @@ class LoginStaffAPIView(APIView):
     @swagger_auto_schema(
         operation_summary="ورود پرسنل صندوق",
         request_body=LoginSerializer,
-        tags=['posuser']
+        tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request):
         phone = request.data.get('phone')
@@ -251,7 +251,7 @@ class LogoutStaffAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="خروج پرسنل صندوق و حذف نشست",
-        tags=['posuser']
+        tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request):
         response = Response({"success": True, "message": "خروج موفقیت‌آمیز بود."}, status=status.HTTP_200_OK)
@@ -269,7 +269,7 @@ class ActiveStaffSessionsAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="لیست صندوق‌دارهای آنلاین همزمان",
-        tags=['posuser']
+        tags=['مدیریت پرسنل صندوق']
     )
     def get(self, request):
         active_staff = PosStaff.objects.filter(is_active=True).select_related('user')
@@ -302,7 +302,7 @@ class CreateStaffAPIView(APIView):
     @swagger_auto_schema(
         operation_summary="ایجاد پرسنل صندوق جدید",
         request_body=PosStaffCreateSerializer,
-        tags=['posuser']
+        tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request):
         phone = request.data.get('phone')
@@ -394,7 +394,7 @@ class ListStaffAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="دریافت لیست پرسنل صندوق و انبار",
-        tags=['posuser']
+        tags=['مدیریت پرسنل صندوق']
     )
     def get(self, request):
         staff_qs = PosStaff.objects.select_related('user').all()
@@ -442,7 +442,7 @@ class StaffDetailAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="ویرایش اطلاعات پرسنل صندوق",
-        tags=['posuser']
+        tags=['مدیریت پرسنل صندوق']
     )
     def put(self, request, pk):
         try:
@@ -491,7 +491,7 @@ class StaffDetailAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="حذف پرسنل صندوق",
-        tags=['posuser']
+        tags=['مدیریت پرسنل صندوق']
     )
     def delete(self, request, pk):
         try:
@@ -513,7 +513,7 @@ class ToggleLockStaffAPIView(APIView):
 
     @swagger_auto_schema(
         operation_summary="تغییر وضعیت قفل / تعلیق پرسنل",
-        tags=['posuser']
+        tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request, pk):
         try:

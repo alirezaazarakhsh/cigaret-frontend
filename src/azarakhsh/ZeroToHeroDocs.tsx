@@ -69,8 +69,8 @@ pip install django==5.1.4 djangorestframework==3.15.2 djangorestframework-simple
       command: `# ۱. ساخت پروژه پایه جنگو
 django-admin startproject azarakhsh_project .
 
-# ۲. اسکریپت ساخت خودکار ۱۸ اپ زیرمجموعه به همراه serializers.py و urls.py
-for app in accounts roles regular_customers categories products orders pos_system ledger wallet shipping blog tickets visitors site_settings footer_settings sliders kavenegar_sms notifications; do
+# ۲. اسکریپت ساخت خودکار اپ‌های اصلی به همراه serializers.py و urls.py
+for app in accounts site_settings categories products orders shipping blog tickets kavenegar_sms; do
     python manage.py startapp $app
     touch $app/serializers.py
     touch $app/urls.py
@@ -84,7 +84,7 @@ done`
       number: '۵',
       title: 'اجرای مایگریشن‌ها و ایجاد سوپریوزر',
       desc: 'اعمال جداول دیتابیس PostgreSQL و ساخت حساب کاربری مدیر ارشد سامانه',
-      command: `python manage.py makemigrations accounts roles regular_customers categories products orders pos_system ledger wallet shipping blog tickets visitors site_settings footer_settings sliders kavenegar_sms notifications
+      command: `python manage.py makemigrations accounts site_settings categories products orders shipping blog tickets kavenegar_sms
 python manage.py migrate
 python manage.py createsuperuser --username=admin --email=admin@sevin.ir`
     },

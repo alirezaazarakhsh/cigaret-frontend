@@ -229,7 +229,8 @@ class UserProfileViewSet(ModelViewSet):
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 `,
-    serializersCode: `# accounts/serializers.py - ✅ ref_name اختصاصی، عناوین و راهنماهای فارسی کامل
+    serializersCode: `"""
+# accounts/serializers.py - ✅ ref_name اختصاصی، عناوین و راهنماهای فارسی کامل
 from rest_framework import serializers
 
 class UserProfileSerializer(serializers.Serializer):
@@ -271,7 +272,8 @@ class TokenRefreshInputSerializer(serializers.Serializer):
     id: 'site_settings',
     name: 'تولید و تنظیمات عمومی سایت (site_settings)',
     path: 'site_settings/',
-    viewsCode: `# site_settings/views.py - ✅ عنوان فارسی برای ReDoc
+    viewsCode: `"""
+# site_settings/views.py - ✅ عنوان فارسی برای ReDoc
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -302,7 +304,8 @@ class SiteSettingViewSet(viewsets.ModelViewSet):
         serializer = UnifiedPublicConfigSerializer(config)
         return Response(serializer.data)
 `,
-    serializersCode: `# site_settings/serializers.py - ✅ دارای ref_name بدون تداخل
+    serializersCode: `"""
+# site_settings/serializers.py - ✅ دارای ref_name بدون تداخل
 from rest_framework import serializers
 from .models import SiteSetting
 
@@ -327,7 +330,8 @@ class UnifiedPublicConfigSerializer(serializers.Serializer):
     id: 'footer_settings',
     name: 'تنظیمات فوتر سایت (footer_settings)',
     path: 'footer_settings/',
-    viewsCode: `# footer_settings/views.py - ✅ عنوان فارسی برای ReDoc
+    viewsCode: `"""
+# footer_settings/views.py - ✅ عنوان فارسی برای ReDoc
 from rest_framework import viewsets, permissions
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -353,7 +357,8 @@ class FooterSettingViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 `,
-    serializersCode: `# footer_settings/serializers.py - ✅ دارای ref_name مستقل
+    serializersCode: `"""
+# footer_settings/serializers.py - ✅ دارای ref_name مستقل
 from rest_framework import serializers
 from .models import FooterSetting
 
@@ -368,7 +373,8 @@ class FooterSettingSerializer(serializers.ModelSerializer):
     id: 'visitors',
     name: 'ویزیتوران و بازاریابان (visitors)',
     path: 'visitors/',
-    viewsCode: `# visitors/views.py - ✅ عناوین فارسی استاندارد ReDoc
+    viewsCode: `"""
+# visitors/views.py - ✅ عناوین فارسی استاندارد ReDoc
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -437,7 +443,8 @@ class RetailShopCustomerViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 `,
-    serializersCode: `# visitors/serializers.py - ✅ دارای ref_name اختصاصی
+    serializersCode: `"""
+# visitors/serializers.py - ✅ دارای ref_name اختصاصی
 from rest_framework import serializers
 from .models import VisitorProfile, RetailShopCustomer
 
@@ -458,7 +465,8 @@ class RetailShopCustomerSerializer(serializers.ModelSerializer):
     id: 'products',
     name: 'محصولات و سیگارها (products)',
     path: 'products/',
-    viewsCode: `# products/views.py - ✅ عنوان فارسی برای ReDoc
+    viewsCode: `"""
+# products/views.py - ✅ عنوان فارسی برای ReDoc
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -508,7 +516,8 @@ class ProductViewSet(viewsets.ModelViewSet):
         product.save()
         return Response({'status': 'success', 'new_stock': product.stock})
 `,
-    serializersCode: `# products/serializers.py - ✅ اختصاص ref_name
+    serializersCode: `"""
+# products/serializers.py - ✅ اختصاص ref_name
 from rest_framework import serializers
 from .models import Product
 
@@ -529,7 +538,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     id: 'finance',
     name: 'مدیریت مالی و حسابداری (finance)',
     path: 'finance/',
-    viewsCode: `# finance/views.py - ✅ عناوین فارسی ReDoc
+    viewsCode: `"""
+# finance/views.py - ✅ عناوین فارسی ReDoc
 from rest_framework import viewsets, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -573,7 +583,8 @@ class CustomerLedgerViewSet(viewsets.ModelViewSet):
     def summary(self, request):
         return Response({'total_debt': 450000000, 'total_credit': 120000000})
 `,
-    serializersCode: `# finance/serializers.py - ✅ اختصاص ref_name
+    serializersCode: `"""
+# finance/serializers.py - ✅ اختصاص ref_name
 from rest_framework import serializers
 from .models import CustomerLedger, LedgerTransaction, ChequeRecord
 
@@ -594,229 +605,6 @@ class ChequeRecordSerializer(serializers.ModelSerializer):
         model = ChequeRecord
         fields = '__all__'
         ref_name = "Finance_ChequeRecordSerializer"
-`
-  },
-  {
-    id: 'notifications',
-    name: 'اعلا‌ن‌ها و سیستم نوتیفیکیشن (notifications)',
-    path: 'notifications/',
-    viewsCode: `"""
-notifications/views.py
-ویوهای صریح APIView جهت دریافت، علامت‌گذاری و مدیریت اعلانات کاربران با مستندات فارسی Swagger/ReDoc
-"""
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status, permissions
-from drf_yasg import openapi
-from drf_yasg.utils import swagger_auto_schema
-from .models import UserNotification
-from .serializers import UserNotificationSerializer
-
-
-class NotificationListAPIView(APIView):
-    """
-    دریافت لیست اعلانات کاربر جاری یا مدیریت
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    @swagger_auto_schema(
-        operation_id="لیست_اعلانات_کاربر",
-        operation_summary="دریافت لیست اعلانات کاربر جاری",
-        operation_description="دریافت کلیه اعلانات و پیام‌های سیستم به همراه وضعیت خوانده شدن",
-        tags=["اعلان‌ها و سیستم نوتیفیکیشن (Notifications)"],
-        responses={
-            200: openapi.Response(description="لیست اعلانات با موفقیت دریافت شد", schema=UserNotificationSerializer(many=True)),
-            401: openapi.Response(description="عدم دسترسی / کاربر وارد نشده است")
-        }
-    )
-    def get(self, request):
-        if request.user.is_staff:
-            notifications = UserNotification.objects.all().select_related('user')
-        else:
-            notifications = UserNotification.objects.filter(user=request.user)
-        serializer = UserNotificationSerializer(notifications, many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class NotificationUnreadCountAPIView(APIView):
-    """
-    تعداد اعلانات خوانده‌نشده کاربر
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    @swagger_auto_schema(
-        operation_id="تعداد_اعلانات_خوانده_نشده",
-        operation_summary="دریافت تعداد اعلانات خوانده‌نشده کاربر",
-        operation_description="شمارش تعداد اعلانات با وضعیت is_read=False برای نمایش روی آیکون زنگوله",
-        tags=["اعلان‌ها و سیستم نوتیفیکیشن (Notifications)"],
-        responses={
-            200: openapi.Response(
-                description="تعداد اعلانات خوانده‌نشده برگردانده شد",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'unread_count': openapi.Schema(type=openapi.TYPE_INTEGER, example=3)
-                    }
-                )
-            )
-        }
-    )
-    def get(self, request):
-        count = UserNotification.objects.filter(user=request.user, is_read=False).count()
-        return Response({'unread_count': count}, status=status.HTTP_200_OK)
-
-
-class NotificationDetailAPIView(APIView):
-    """
-    مشاهده جزئیات یک اعلان مشخص
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    @swagger_auto_schema(
-        operation_id="جزئیات_اعلان",
-        operation_summary="مشاهده جزئیات اعلان",
-        operation_description="دریافت متن کامل و مشخصات یک اعلان بر اساس شناسه id",
-        tags=["اعلان‌ها و سیستم نوتیفیکیشن (Notifications)"],
-        responses={
-            200: openapi.Response(description="اطلاعات اعلان برگردانده شد", schema=UserNotificationSerializer),
-            404: openapi.Response(description="اعلان یافت نشد")
-        }
-    )
-    def get(self, request, pk):
-        try:
-            if request.user.is_staff:
-                noti = UserNotification.objects.get(pk=pk)
-            else:
-                noti = UserNotification.objects.get(pk=pk, user=request.user)
-        except UserNotification.DoesNotExist:
-            return Response({'error': 'اعلان یافت نشد.'}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = UserNotificationSerializer(noti)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-class NotificationMarkReadAPIView(APIView):
-    """
-    علامت‌گذاری یک اعلان مشخص به عنوان خوانده‌شده
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    @swagger_auto_schema(
-        operation_id="علامت_گذاری_اعلان_به_عنوان_خوانده_شده",
-        operation_summary="تغییر وضعیت یک اعلان به خوانده‌شده",
-        operation_description="تغییر is_read=True برای اعلان مشخص",
-        tags=["اعلان‌ها و سیستم نوتیفیکیشن (Notifications)"],
-        responses={
-            200: openapi.Response(description="اعلان خوانده‌شده ثبت شد"),
-            404: openapi.Response(description="اعلان یافت نشد")
-        }
-    )
-    def post(self, request, pk):
-        try:
-            noti = UserNotification.objects.get(pk=pk, user=request.user)
-        except UserNotification.DoesNotExist:
-            return Response({'error': 'اعلان یافت نشد.'}, status=status.HTTP_404_NOT_FOUND)
-
-        noti.is_read = True
-        noti.save()
-        return Response({'status': 'success', 'message': 'اعلان به عنوان خوانده‌شده علامت‌گذاری شد.'}, status=status.HTTP_200_OK)
-
-
-class NotificationMarkAllReadAPIView(APIView):
-    """
-    علامت‌گذاری کلیه اعلانات به عنوان خوانده‌شده
-    """
-    permission_classes = [permissions.IsAuthenticated]
-
-    @swagger_auto_schema(
-        operation_id="علامت_گذاری_همه_اعلانات_به_عنوان_خوانده_شده",
-        operation_summary="خوانده‌شدن یک‌باره تمام اعلانات کاربر",
-        operation_description="تغییر وضعیت تمام اعلانات خوانده‌نشده کاربر به خوانده‌شده",
-        tags=["اعلان‌ها و سیستم نوتیفیکیشن (Notifications)"],
-        responses={
-            200: openapi.Response(
-                description="عملیات موفقیت‌آمیز بود",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'status': openapi.Schema(type=openapi.TYPE_STRING, example='success'),
-                        'updated_count': openapi.Schema(type=openapi.TYPE_INTEGER, example=5)
-                    }
-                )
-            )
-        }
-    )
-    def post(self, request):
-        updated = UserNotification.objects.filter(user=request.user, is_read=False).update(is_read=True)
-        return Response({'status': 'success', 'updated_count': updated}, status=status.HTTP_200_OK)
-
-
-class NotificationCreateAPIView(APIView):
-    """
-    ارسال و ثبت اعلان جدید (ویژه مدیریت)
-    """
-    permission_classes = [permissions.IsAdminUser]
-
-    @swagger_auto_schema(
-        operation_id="ایجاد_اعلان_جدید",
-        operation_summary="ارسال اعلان جدید توسط مدیریت",
-        operation_description="ثبت اعلان برای یک کاربر مشخص یا تمامی کاربران",
-        tags=["اعلان‌ها و سیستم نوتیفیکیشن (Notifications)"],
-        request_body=UserNotificationSerializer,
-        responses={
-            201: openapi.Response(description="اعلان ایجاد شد", schema=UserNotificationSerializer),
-            400: openapi.Response(description="ورودی نامعتبر است")
-        }
-    )
-    def post(self, request):
-        serializer = UserNotificationSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-# ==========================================
-# notifications/urls.py
-# مسیرهای صریح APIView جهت دریافت، علامتگذاری و مدیریت اعلانات کاربران
-# ==========================================
-"""
-from django.urls import path
-from .views import (
-    NotificationListAPIView,
-    NotificationUnreadCountAPIView,
-    NotificationDetailAPIView,
-    NotificationMarkReadAPIView,
-    NotificationMarkAllReadAPIView,
-    NotificationCreateAPIView,
-)
-
-app_name = 'notifications'
-
-urlpatterns = [
-    # ۱. لیست و آمار اعلانات
-    path('list/', NotificationListAPIView.as_view(), name='notification-list'),
-    path('unread-count/', NotificationUnreadCountAPIView.as_view(), name='notification-unread-count'),
-    path('<int:pk>/', NotificationDetailAPIView.as_view(), name='notification-detail'),
-
-    # ۲. تغییر وضعیت خوانده‌شده
-    path('<int:pk>/mark-read/', NotificationMarkReadAPIView.as_view(), name='notification-mark-read'),
-    path('mark-all-read/', NotificationMarkAllReadAPIView.as_view(), name='notification-mark-all-read'),
-
-    # ۳. ثبت اعلان جدید (مدیریت)
-    path('create/', NotificationCreateAPIView.as_view(), name='notification-create'),
-]
-"""
-`,
-    serializersCode: `# notifications/serializers.py - ✅ ref_name اختصاصی
-from rest_framework import serializers
-from .models import UserNotification
-
-class UserNotificationSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = UserNotification
-        fields = '__all__'
-        ref_name = "Notifications_UserNotificationSerializer"
 `
   },
   {
@@ -1490,6 +1278,499 @@ class UserNotificationSerializer(serializers.ModelSerializer):
             except Exception:
                 pass
         return obj.created_at.strftime('%Y-%m-%d %H:%M')
+`
+  },
+  {
+    id: 'roles',
+    name: 'مدیریت نقش‌ها و دسترسی‌ها',
+    path: 'roles/',
+    serializersCode: `"""
+roles/serializers.py
+"""
+from rest_framework import serializers
+from .models import StaffProfile, SecurityAuditLog
+
+class StaffProfileSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='user.full_name', read_only=True)
+    phone = serializers.CharField(source='user.phone', read_only=True)
+    role_label = serializers.CharField(source='get_role_display', read_only=True)
+
+    class Meta:
+        model = StaffProfile
+        fields = [
+            'id', 'full_name', 'phone', 'staff_code', 'role', 
+            'role_label', 'can_apply_custom_discount', 'max_discount_percent',
+            'can_adjust_inventory', 'can_view_purchase_costs', 'is_active_staff'
+        ]
+
+class StaffPinAuthSerializer(serializers.Serializer):
+    staff_code = serializers.CharField(required=True)
+    pin = serializers.CharField(required=True, max_length=10)
+
+class SecurityAuditLogSerializer(serializers.ModelSerializer):
+    staff_name = serializers.CharField(source='staff.user.full_name', read_only=True)
+
+    class Meta:
+        model = SecurityAuditLog
+        fields = '__all__'
+`,
+    viewsCode: `"""
+roles/views.py
+"""
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from django.shortcuts import get_object_or_404
+from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema
+from .models import StaffProfile, SecurityAuditLog
+from .serializers import StaffProfileSerializer, StaffPinAuthSerializer, SecurityAuditLogSerializer
+
+class PosPinAuthAPIView(APIView):
+    """احراز هویت با پین کد صندوق"""
+    permission_classes = [AllowAny]
+
+    @extend_schema(tags=['مدیریت نقش‌ها'], request=StaffPinAuthSerializer)
+    def post(self, request):
+        serializer = StaffPinAuthSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        staff_code = serializer.validated_data['staff_code']
+        pin = serializer.validated_data['pin']
+
+        staff = StaffProfile.objects.filter(staff_code=staff_code, is_active_staff=True).first()
+        if not staff or not staff.verify_pin(pin):
+            return Response({'error': 'کد پرسنلی یا PIN اشتباه است.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        refresh = RefreshToken.for_user(staff.user)
+        return Response({
+            'access': str(refresh.access_token),
+            'staff': StaffProfileSerializer(staff).data
+        })
+
+class StaffPermissionsAPIView(APIView):
+    """دریافت دسترسی‌های کاربر جاری"""
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=['مدیریت نقش‌ها'])
+    def get(self, request):
+        staff = getattr(request.user, 'staff_profile', None)
+        if not staff:
+            return Response({'role': 'customer', 'permissions': {}})
+        
+        return Response({
+            'role': staff.role,
+            'permissions': {
+                'can_discount': staff.can_apply_custom_discount,
+                'max_discount': staff.max_discount_percent,
+                'can_adjust': staff.can_adjust_inventory
+            }
+        })
+`
+  },
+  {
+    id: 'posuser',
+    name: 'مدیریت پرسنل صندوق',
+    path: 'posuser/',
+    serializersCode: `"""
+posuser/serializers.py
+"""
+from rest_framework import serializers
+from .models import PosStaff
+
+class PosStaffSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PosStaff
+        fields = '__all__'
+`,
+    viewsCode: `"""
+posuser/views.py
+"""
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAdminUser
+from drf_spectacular.utils import extend_schema
+from .models import PosStaff
+from .serializers import PosStaffSerializer
+
+class PosStaffListAPIView(APIView):
+    permission_classes = [IsAdminUser]
+
+    @extend_schema(tags=['مدیریت پرسنل صندوق'])
+    def get(self, request):
+        staff = PosStaff.objects.all()
+        serializer = PosStaffSerializer(staff, many=True)
+        return Response(serializer.data)
+`
+  },
+  {
+    id: 'regular_customers',
+    name: 'مشتریان معمولی و عمده',
+    path: 'regular-customers/',
+    serializersCode: `"""
+regular_customers/serializers.py
+"""
+from rest_framework import serializers
+from .models import RegularCustomer
+
+class RegularCustomerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = RegularCustomer
+        fields = '__all__'
+`,
+    viewsCode: `"""
+regular_customers/views.py
+"""
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from drf_spectacular.utils import extend_schema
+from .models import RegularCustomer
+from .serializers import RegularCustomerSerializer
+
+class CustomerListAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(tags=['مشتریان ثابت'])
+    def get(self, request):
+        customers = RegularCustomer.objects.all()
+        serializer = RegularCustomerSerializer(customers, many=True)
+        return Response(serializer.data)
+`
+  },
+  {
+    id: 'kavenegar_sms',
+    name: 'پنل پیامک کاوه‌نگار',
+    path: 'kavenegar_sms/',
+    serializersCode: `"""
+kavenegar_sms/serializers.py
+"""
+from rest_framework import serializers
+from .models import KavenegarSMSSetting, SMSPattern, SmsLog
+
+
+class SMSPatternSerializer(serializers.ModelSerializer):
+    name_fa_display = serializers.CharField(source='get_name_fa_display', read_only=True)
+
+    class Meta:
+        model = SMSPattern
+        fields = '__all__'
+
+
+class KavenegarSMSSettingSerializer(serializers.ModelSerializer):
+    patterns = SMSPatternSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = KavenegarSMSSetting
+        fields = '__all__'
+
+
+class SmsLogSerializer(serializers.ModelSerializer):
+    pattern_name = serializers.CharField(source='pattern.get_name_fa_display', read_only=True)
+
+    class Meta:
+        model = SmsLog
+        fields = '__all__'
+`,
+    viewsCode: `"""
+kavenegar_sms/views.py
+"""
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
+from drf_spectacular.utils import extend_schema, OpenApiParameter
+from django.shortcuts import get_object_or_404
+import requests
+import logging
+import random
+from .models import KavenegarSMSSetting, SMSPattern, SmsLog, PATTERN_SECTIONS
+from .serializers import KavenegarSMSSettingSerializer, SMSPatternSerializer, SmsLogSerializer
+
+logger = logging.getLogger(__name__)
+
+
+class KavenegarService:
+    """
+    سرویس مرکزی ارتباط با وب‌سرویس پترن کاوه‌نگار بر اساس کلید داینامیک دیتابیس
+    """
+    @classmethod
+    def send_pattern_sms(cls, receptor: str, token: str, action_type: str, token2: str = None, token3: str = None):
+        setting = KavenegarSMSSetting.objects.first()
+        if not setting:
+            return False, "تنظیمات درگاه کاوه‌نگار در پایگاه‌داده یافت نشد."
+
+        pattern = SMSPattern.objects.filter(sms_setting=setting, name_fa=action_type).first()
+        if not pattern or not pattern.pattern_code:
+            return False, f"کد پترن برای بخش '{action_type}' در دیتابیس تعریف نشده است."
+
+        api_key = setting.api_token
+        url = f"https://api.kavenegar.com/v1/{api_key}/verify/lookup.json"
+
+        params = {
+            'receptor': receptor,
+            'token': token,
+            'template': pattern.pattern_code
+        }
+        if token2:
+            params['token2'] = token2
+        if token3:
+            params['token3'] = token3
+
+        # ایجاد لاگ اولیه به صورت پیش‌فرض در صف در دیتابیس
+        log_record = SmsLog.objects.create(
+            recipient_phone=receptor,
+            pattern=pattern,
+            tokens_sent=params,
+            status='queued'
+        )
+
+        try:
+            response = requests.post(url, data=params, timeout=8)
+            data = response.json()
+            if response.status_code == 200 and data.get('return', {}).get('status') == 200:
+                entry = data.get('entries', [{}])[0]
+                log_record.kavenegar_message_id = str(entry.get('messageid', ''))
+                log_record.cost_rial = entry.get('cost', 240)
+                log_record.status = 'delivered'
+                log_record.save()
+                return True, "پیامک با موفقیت ارسال شد."
+            else:
+                log_record.status = 'failed'
+                log_record.save()
+                return False, data.get('return', {}).get('message', 'خطای ارسال از سمت کاوه‌نگار')
+        except Exception as e:
+            logger.error(f"Kavenegar Send Error: {str(e)}")
+            log_record.status = 'failed'
+            log_record.save()
+            return False, str(e)
+
+
+class KavenegarSMSSettingAPIView(APIView):
+    """
+    دریافت و ذخیره‌سازی تنظیمات درگاه کاوه‌نگار در دیتابیس آذرخش
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="دریافت تنظیمات درگاه پیامک",
+        description="بازیابی تنظیمات فعلی شامل نام سامانه و API Token از پایگاه‌داده برای نمایش در پنل مدیریت صندوق",
+        responses={200: KavenegarSMSSettingSerializer}
+    )
+    def get(self, request):
+        setting = KavenegarSMSSetting.objects.first()
+        if not setting:
+            setting = KavenegarSMSSetting.objects.create(
+                name="سامانه پیامک هوشمند آذرخش",
+                api_token="",
+            )
+        serializer = KavenegarSMSSettingSerializer(setting)
+        return Response({
+            'status': 'success',
+            'data': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="ذخیره تنظیمات درگاه پیامک",
+        description="بروزرسانی کلید API و نام نمایشی سامانه پیامک کاوه‌نگار در جدول تنظیمات",
+        request=KavenegarSMSSettingSerializer,
+        responses={200: KavenegarSMSSettingSerializer}
+    )
+    def post(self, request):
+        name = request.data.get('name', 'سامانه پیامک کاوه‌نگار')
+        api_token = request.data.get('api_token', '').strip()
+
+        setting, _ = KavenegarSMSSetting.objects.get_or_create(id=1)
+        setting.name = name
+        if api_token:
+            setting.api_token = api_token
+        setting.save()
+
+        return Response({
+            'status': 'success',
+            'message': 'تنظیمات درگاه کاوه‌نگار با موفقیت ذخیره شد.'
+        }, status=status.HTTP_200_OK)
+
+
+class SMSPatternListSaveAPIView(APIView):
+    """
+    دریافت لیست الگوها و ثبت کد پترن انگلیسی برای هر بخش از سامانه
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="لیست پترن‌های ۱۳گانه سامانه",
+        description="دریافت فهرست تمام ۱۳ بخش پیامکی (مانند ورود، خوشآمدگویی، رسید و ...) به همراه کدهای انگلیسی ثبت شده و راهنمای توکن‌ها",
+        responses={200: SMSPatternSerializer(many=True)}
+    )
+    def get(self, request):
+        setting = KavenegarSMSSetting.objects.first()
+        if not setting:
+            setting = KavenegarSMSSetting.objects.create(name="سامانه پیامک هوشمند آذرخش")
+
+        # همگام‌سازی و اطمینان از وجود تمام ۱۳ بخش پترن در دیتابیس
+        existing = {p.name_fa: p for p in SMSPattern.objects.filter(sms_setting=setting)}
+        patterns_data = []
+
+        tokens_guide = {
+            'otp': 'token: کد تایید ۵ رقمی ورود',
+            'welcome': 'token: نام و نام خانوادگی مشتری',
+            'logout': 'token: نام مشتری',
+            'app_download_link': 'token: عنوان اپ | token20: لینک دانلود',
+            'pos_receipt': 'token: شماره فاکتور | token2: نام مشتری | token3: مبلغ کل',
+            'pos_partial_payment': 'token: شماره فاکتور | token2: نام مشتری | token3: باقیمانده',
+            'pos_refund_receipt': 'token: شماره مرجع | token2: نام مشتری | token3: مبلغ عودتی',
+            'pos_daily_report': 'token: تاریخ | token2: تعداد فاکتور | token3: جمع کل فروش',
+            'order_registered': 'token: شماره سفارش | token2: مبلغ کل فاکتور',
+            'order_shipped': 'token: شماره سفارش | token2: نام باربری | token3: کد رهگیری',
+            'cheque_due_reminder': 'token: شماره چک | token2: سررسید | token3: مبلغ چک',
+            'debt_overdue_alert': 'token: مبلغ بدهی | token2: تعداد روز تاخیر',
+            'account_blocked_alert': 'token: علت مسدودی حساب دفتری'
+        }
+
+        for sec_key, sec_title in PATTERN_SECTIONS:
+            pat = existing.get(sec_key)
+            if not pat:
+                pat = SMSPattern.objects.create(sms_setting=setting, name_fa=sec_key, pattern_code='')
+            
+            patterns_data.append({
+                'id': pat.id,
+                'name_fa': sec_key,
+                'title_fa': sec_title,
+                'pattern_code': pat.pattern_code,
+                'tokens_info': tokens_guide.get(sec_key, 'token, token2, token3'),
+                'is_active': bool(pat.pattern_code)
+            })
+
+        return Response({'status': 'success', 'data': patterns_data}, status=status.HTTP_200_OK)
+
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="ذخیره کد پترن انگلیسی",
+        description="تخصیص یا ویرایش کد پترن (Template Name) دریافت شده از پنل کاوه‌نگار برای یک بخش مشخص در دیتابیس آذرخش",
+        responses={200: SMSPatternSerializer}
+    )
+    def post(self, request):
+        name_fa = request.data.get('name_fa')
+        pattern_code = request.data.get('pattern_code', '').strip()
+
+        if not name_fa:
+            return Response({'status': 'error', 'message': 'نام بخش پترن الزامی است.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        setting = KavenegarSMSSetting.objects.first()
+        if not setting:
+            setting = KavenegarSMSSetting.objects.create(name="سامانه پیامک هوشمند آذرخش")
+
+        pattern_obj, _ = SMSPattern.objects.get_or_create(sms_setting=setting, name_fa=name_fa)
+        pattern_obj.pattern_code = pattern_code
+        pattern_obj.save()
+
+        return Response({
+            'status': 'success',
+            'message': f"کد پترن برای بخش '{name_fa}' با موفقیت ذخیره شد."
+        }, status=status.HTTP_200_OK)
+
+
+class SMSLogsAPIView(APIView):
+    """
+    دریافت لاگ و تاریخچه پیامک‌های ثبت‌شده در دیتابیس برای پنل پایش پیامک آذرخش
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="گزارش پیامک‌های ارسالی",
+        description="لیست ۱۰۰ پیامک اخیر ارسال شده به همراه وضعیت دلیوری، هزینه و توکن‌های استفاده شده",
+        responses={200: SmsLogSerializer(many=True)}
+    )
+    def get(self, request):
+        logs = SmsLog.objects.select_related('pattern').order_by('-created_at')[:100]
+        serializer = SmsLogSerializer(logs, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+class SendPatternSMSAPIView(APIView):
+    """
+    ارسال پیامک پترن داینامیک از سمت فرانت‌اند یا ماژول‌های فروش و انبار
+    """
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="ارسال دستی/سیستمی پیامک پترن",
+        description="ارسال پیامک با استفاده از پترن‌های خدماتی از هر نقطه سامانه و ثبت خودکار در جدول لاگ دیتابیس",
+        responses={200: SmsLogSerializer}
+    )
+    def post(self, request):
+        recipient = request.data.get('recipient_phone') or request.data.get('phone')
+        pattern_name = request.data.get('pattern_name') or request.data.get('template')
+        token = request.data.get('token')
+        token2 = request.data.get('token2')
+        token3 = request.data.get('token3')
+
+        if not recipient or not pattern_name or not token:
+            return Response({
+                'status': 'error',
+                'message': 'شماره گیرنده، نام الگو و متغیر توکن ۱ الزامی هستند.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        success, msg = KavenegarService.send_pattern_sms(
+            receptor=recipient,
+            token=token,
+            action_type=pattern_name,
+            token2=token2,
+            token3=token3
+        )
+
+        if success:
+            return Response({'status': 'success', 'message': msg}, status=status.HTTP_200_OK)
+        else:
+            return Response({'status': 'error', 'message': msg}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class SendOtpAPIView(APIView):
+    """
+    ارسال کد تایید ورود دو مرحله‌ای (OTP) برای کاربران آذرخش
+    """
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        tags=['پنل پیامک کاوه‌نگار'],
+        summary="ارسال کد تایید (OTP)",
+        description="تولید کد ۵ رقمی تصادفی و ارسال به شماره همراه کاربر از طریق درگاه وب‌سرویس پترن کاوه‌نگار",
+        responses={200: SmsLogSerializer}
+    )
+    def post(self, request):
+        phone = request.data.get('phone', '').strip()
+        if not phone or len(phone) < 11:
+            return Response({
+                'status': 'error',
+                'message': 'شماره موبایل وارد شده نامعتبر است.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        otp_code = str(random.randint(10000, 99999))
+        success, msg = KavenegarService.send_pattern_sms(
+            receptor=phone,
+            token=otp_code,
+            action_type='otp'
+        )
+
+        if success:
+            return Response({
+                'status': 'success',
+                'message': 'کد تایید با موفقیت پیامک گردید.',
+                'expires_in_seconds': 120
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response({
+                'status': 'error',
+                'message': msg
+            }, status=status.HTTP_400_BAD_REQUEST)
 `
   }
 ];

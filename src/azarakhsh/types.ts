@@ -1,5 +1,5 @@
 export type AzarakhshSectionId =
-  | 'sms' 
+  | 'kavenegar_sms' 
   | 'zero-to-hero'
   | 'django-config'
   | 'site-settings'

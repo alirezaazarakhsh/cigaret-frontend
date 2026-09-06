@@ -3978,12 +3978,16 @@ INSTALLED_APPS = [
     'drf_spectacular',  # Swagger OpenAPI 3
     'tinymce',          # ادیتور متنی پیشرفته TinyMCE
 
-    # اپ‌های ماژولار سامانه دخانیات سرو
+    # اپلیکیشن‌های اختصاصی سامانه (Local Apps)
     'accounts.apps.AccountsConfig',
-    'catalog.apps.CatalogConfig',
+    'categories.apps.CategoriesConfig',
+    'products.apps.ProductsConfig',
     'orders.apps.OrdersConfig',
-    'tickets.apps.TicketsConfig',
     'shipping.apps.ShippingConfig',
+    'blog.apps.BlogConfig',
+    'tickets.apps.TicketsConfig',
+    'kavenegar_sms.apps.KavenegarSmsConfig',
+    'site_settings.apps.SiteSettingsConfig',
 ]
 
 AUTH_USER_MODEL = 'accounts.User'
@@ -4053,6 +4057,40 @@ REST_FRAMEWORK = {
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
+# 🔐 OpenAPI 3.0 Spectacular Settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'سامانه جامع پخش عمده دخانیات آذرخش (سرو)',
+    'DESCRIPTION': 'مستندات رسمی REST API جهت مدیریت انبار، سفارشات، ویزیتوری و مالی',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SECURITY': [{'BearerAuth': []}],
+    'SECURITY_DEFINITIONS': {
+        'BearerAuth': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': 'Enter JWT token as: Bearer <your_token>'
+        }
+    },
+    'TAGS': [
+        {'name': 'پنل پیامک کاوه‌نگار', 'description': 'مدیریت تنظیمات، پترن‌ها و لاگ‌های ارسال پیامک'},
+        {'name': 'مدیریت سفارشات', 'description': 'ثبت و پیگیری فاکتورهای فروش و مرجوعی'},
+        {'name': 'محصولات', 'description': 'مدیریت کاتالوگ کارتن، باکس و موجودی'},
+        {'name': 'حساب‌های کاربری', 'description': 'احراز هویت و مدیریت پروفایل کاربران'},
+        {'name': 'تیکت‌ها و پشتیبانی', 'description': 'ارتباط با پشتیبانی و ارسال تیکت'},
+    ],
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': False,
+    },
+    'REDOC_UI_SETTINGS': {
+        'disableSearch': False,
+        'hideDownloadButton': True,
+    },
+}
+
 # 🔐 JWT Settings (SimpleJWT)
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
@@ -4115,10 +4153,14 @@ urlpatterns = [
 
     # روت‌های ماژولار وب‌سرویس REST API نسخه ۱
     path('api/v1/accounts/', include('accounts.urls')),
-    path('api/v1/catalog/', include('catalog.urls')),
+    path('api/v1/site-settings/', include('site_settings.urls')),
+    path('api/v1/categories/', include('categories.urls')),
+    path('api/v1/products/', include('products.urls')),
     path('api/v1/orders/', include('orders.urls')),
-    path('api/v1/tickets/', include('tickets.urls')),
     path('api/v1/shipping/', include('shipping.urls')),
+    path('api/v1/blog/', include('blog.urls')),
+    path('api/v1/tickets/', include('tickets.urls')),
+    path('api/v1/kavenegar-sms/', include('kavenegar_sms.urls')),
 ]
 
 if settings.DEBUG:
@@ -4188,10 +4230,10 @@ pip install --upgrade pip
 pip install Django djangorestframework djangorestframework-simplejwt django-cors-headers django-filter drf-spectacular Pillow
 
 # 3. ساخت دایرکتوری‌های اپ‌ها
-mkdir -p sevin_wholesale accounts catalog orders tickets shipping media staticfiles
+mkdir -p sevin_wholesale accounts site_settings categories products orders shipping blog tickets kavenegar_sms media staticfiles
 
 # 4. ایجاد فایل‌های خالی اپ‌ها در صورت نیاز
-for app in accounts catalog orders tickets shipping; do
+for app in accounts site_settings categories products orders shipping blog tickets kavenegar_sms; do
   mkdir -p $app/migrations
   touch $app/__init__.py
   touch $app/migrations/__init__.py
@@ -4199,7 +4241,7 @@ for app in accounts catalog orders tickets shipping; do
 done
 
 # 5. اجرای مایگریشن‌ها و ایجاد دیتابیس
-python manage.py makemigrations accounts catalog orders tickets shipping
+python manage.py makemigrations accounts site_settings categories products orders shipping blog tickets kavenegar_sms
 python manage.py migrate
 
 # 6. ساخت کاربر ارشد (Superuser) پیش‌فرض با شماره ۰۹۱۲۰۷۵۹۴۱۹

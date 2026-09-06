@@ -228,7 +228,7 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
         return <ReportsDocs />;
       case 'roles-permissions':
         return <RolesPermissionsDocs />;
-      case 'sms':
+      case 'kavenegar_sms':
         return <KavenegarSmsDocs />;
       case 'warehouse-contact':
         return <WarehouseContactDocs />;

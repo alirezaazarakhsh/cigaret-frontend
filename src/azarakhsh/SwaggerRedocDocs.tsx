@@ -63,6 +63,7 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
+    'DISPLAY_OPERATION_ID': False,  # اولویت بالا جهت نمایش عناوین فارسی (Summary) به جای نام توابع انگلیسی
     'SECURITY': [{'BearerAuth': []}],
     'SECURITY_DEFINITIONS': {
         'BearerAuth': {
@@ -72,11 +73,23 @@ SPECTACULAR_SETTINGS = {
             'description': 'توکن JWT را به این شکل وارد کنید: Bearer <Your_Access_Token>'
         }
     },
+    'TAGS': [
+        {'name': 'پنل پیامک کاوه‌نگار', 'description': 'مدیریت تنظیمات، پترن‌ها و لاگ‌های ارسال پیامک'},
+        {'name': 'مدیریت سفارشات', 'description': 'ثبت و پیگیری فاکتورهای فروش و مرجوعی'},
+        {'name': 'محصولات', 'description': 'مدیریت کاتالوگ کارتن، باکس و موجودی'},
+        {'name': 'حساب‌های کاربری', 'description': 'احراز هویت و مدیریت پروفایل کاربران'},
+        {'name': 'تیکت‌ها و پشتیبانی', 'description': 'ارتباط با پشتیبانی و ارسال تیکت'},
+        {'name': 'مدیریت نقش‌ها', 'description': 'مدیریت سطوح دسترسی و پرسنل'},
+    ],
     'SWAGGER_UI_SETTINGS': {
         'deepLinking': True,
         'persistAuthorization': True,
-        'displayOperationId': True,
+        'displayOperationId': False, # جهت نمایش عنوان فارسی به جای نام تابع انگلیسی
         'filter': True,
+    },
+    'REDOC_UI_SETTINGS': {
+        'disableSearch': False,
+        'hideDownloadButton': True,
     },
 }`;
 
@@ -104,16 +117,31 @@ urlpatterns = [
     # ۴. مستندات تمیز و کتابچه‌ای Redoc
     path('api/v1/schema/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
 
-    # ۵. اتصال اپلیکیشن‌های اختصاصی
+    # ۵. اتصال اپلیکیشن‌های اختصاصی (تمام ۲۴ اپلیکیشن سامانه)
     path('api/v1/accounts/', include('accounts.urls')),
-    path('api/v1/site-settings/', include('site_settings.urls')),
+    path('api/v1/roles/', include('roles.urls')),
+    path('api/v1/posuser/', include('posuser.urls')),
+    path('api/v1/regular-customers/', include('regular_customers.urls')),
     path('api/v1/categories/', include('categories.urls')),
     path('api/v1/products/', include('products.urls')),
     path('api/v1/orders/', include('orders.urls')),
+    path('api/v1/pos/', include('pos.urls')),
+    path('api/v1/ledger/', include('ledger.urls')),
+    path('api/v1/wallet/', include('wallet.urls')),
     path('api/v1/shipping/', include('shipping.urls')),
     path('api/v1/blog/', include('blog.urls')),
     path('api/v1/tickets/', include('tickets.urls')),
     path('api/v1/visitors/', include('visitors.urls')),
+    path('api/v1/site-settings/', include('site_settings.urls')),
+    path('api/v1/footer-settings/', include('footer_settings.urls')),
+    path('api/v1/sliders/', include('sliders.urls')),
+    path('api/v1/kavenegar-sms/', include('kavenegar_sms.urls')),
+    path('api/v1/notifications/', include('notifications.urls')),
+    path('api/v1/pos-products/', include('pos_products.urls')),
+    path('api/v1/finance/', include('finance.urls')),
+    path('api/v1/reports/', include('reports.urls')),
+    path('api/v1/warehouse-contact/', include('warehouse_contact.urls')),
+    path('api/v1/visitor-tickets/', include('visitor_tickets.urls')),
 ]`;
 
   return (
@@ -169,6 +197,9 @@ urlpatterns = [
           <div className="font-mono text-xs text-indigo-600 bg-indigo-50 p-2 rounded-xl border border-indigo-200/60" dir="ltr">
             /api/v1/schema/redoc/
           </div>
+          <p className="text-[10px] text-rose-600 font-bold mt-2">
+            ⚠️ نکته مهم: از آدرس بالا استفاده کنید. آدرس /redoc/ قدیمی است و تگ‌های فارسی را پشتیبانی نمی‌کند.
+          </p>
         </div>
 
         <div className="bg-white border border-slate-200 rounded-3xl p-5 shadow-xs space-y-2.5">

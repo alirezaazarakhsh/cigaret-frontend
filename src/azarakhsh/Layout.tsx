@@ -229,7 +229,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     description: 'مدیریت حساب مشتریان اعتباری و تسویه‌ها',
     badge: 'مالی',
     iconName: 'BookOpen',
-    appFolder: 'finance',
+    appFolder: 'ledger',
     group: 'commerce',
     groupTitle: 'فروش، مالی و لجستیک'
   },
@@ -251,18 +251,18 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     description: 'تعریف ادمین انبار و صندوق‌دار',
     badge: 'دسترسی',
     iconName: 'ShieldAlert',
-    appFolder: 'users',
+    appFolder: 'roles',
     group: 'auth',
     groupTitle: 'احراز هویت و دسترسی'
   },
   {
-    id: 'sms',
+    id: 'kavenegar_sms',
     title: 'سرویس پیامک کاوه‌نگار',
-    titleEn: 'sms / Kavenegar',
+    titleEn: 'kavenegar_sms / Kavenegar',
     description: 'سرویس احراز هویت پیامکی و اطلاع‌رسانی',
     badge: 'API',
     iconName: 'MessageSquare',
-    appFolder: 'sms',
+    appFolder: 'kavenegar_sms',
     group: 'setup',
     groupTitle: 'راه‌اندازی و زیرساخت'
   },

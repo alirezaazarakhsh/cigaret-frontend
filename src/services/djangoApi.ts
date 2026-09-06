@@ -771,7 +771,7 @@ export async function djangoPosLogin(
   if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
     try {
       const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      const loginUrl = `${baseUrl}/api/v1/sms/pos/login/`;
+      const loginUrl = `${baseUrl}/api/v1/kavenegar-sms/pos/login/`;
       const res = await executeDjangoAxiosRequest(loginUrl, 'POST', { phone, password: pin }, { timeoutMs: timeout });
 
       if (res.success && res.data) {
@@ -831,7 +831,7 @@ export async function djangoFetchKavenegarSettings(config?: DjangoCrmConfig): Pr
   if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
     try {
       const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      const resp = await fetch(`${baseUrl}/api/v1/sms/settings/`, {
+      const resp = await fetch(`${baseUrl}/api/v1/kavenegar-sms/settings/`, {
         headers: {
           'Accept': 'application/json',
           ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
@@ -857,7 +857,7 @@ export async function djangoSaveKavenegarSettings(settings: any, config?: Django
   if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
     try {
       const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      await fetch(`${baseUrl}/api/v1/sms/settings/`, {
+      await fetch(`${baseUrl}/api/v1/kavenegar-sms/settings/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -879,7 +879,7 @@ export async function djangoFetchSmsPatterns(config?: DjangoCrmConfig): Promise<
   if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
     try {
       const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      const resp = await fetch(`${baseUrl}/api/v1/sms/patterns/`, {
+      const resp = await fetch(`${baseUrl}/api/v1/kavenegar-sms/patterns/`, {
         headers: {
           'Accept': 'application/json',
           ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
@@ -905,7 +905,7 @@ export async function djangoSaveSmsPattern(name_fa: string, pattern_code: string
   if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
     try {
       const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      await fetch(`${baseUrl}/api/v1/sms/patterns/save/`, {
+      await fetch(`${baseUrl}/api/v1/kavenegar-sms/patterns/save/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -929,7 +929,7 @@ export async function djangoSaveAllSmsPatterns(patternsList: any[], config?: Dja
   if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
     try {
       const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      await fetch(`${baseUrl}/api/v1/sms/patterns/save-all/`, {
+      await fetch(`${baseUrl}/api/v1/kavenegar-sms/patterns/save/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -976,7 +976,7 @@ export async function djangoSendPatternSMS(
   if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
     try {
       const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      const resp = await fetch(`${baseUrl}/api/v1/sms/send-pattern/`, {
+      const resp = await fetch(`${baseUrl}/api/v1/kavenegar-sms/send-pattern/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1002,13 +1002,45 @@ export async function djangoSendPatternSMS(
 }
 
 /**
+ * Send OTP SMS via Django REST API
+ */
+export async function djangoSendOtpSMS(phone: string, config?: DjangoCrmConfig): Promise<{ success: boolean; message: string; expires_in_seconds?: number }> {
+  if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
+    try {
+      const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
+      const resp = await fetch(`${baseUrl}/api/v1/kavenegar-sms/send-otp/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
+        },
+        body: JSON.stringify({ phone })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        return { 
+          success: true, 
+          message: data.message || 'کد تایید با موفقیت پیامک گردید.',
+          expires_in_seconds: data.expires_in_seconds || 120
+        };
+      }
+    } catch (e) {
+      console.warn('Django Send OTP API failed:', e);
+    }
+  }
+  
+  // Simulation
+  return { success: true, message: 'کد تایید (شبیه‌سازی) با موفقیت پیامک گردید.', expires_in_seconds: 120 };
+}
+
+/**
  * Fetch SMS Logs from Django REST API
  */
 export async function djangoFetchSmsLogs(config?: DjangoCrmConfig): Promise<any[]> {
   if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
     try {
       const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      const resp = await fetch(`${baseUrl}/api/v1/sms/logs/`, {
+      const resp = await fetch(`${baseUrl}/api/v1/kavenegar-sms/logs/`, {
         headers: {
           'Accept': 'application/json',
           ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})

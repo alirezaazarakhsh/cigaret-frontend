@@ -197,6 +197,34 @@ SPECTACULAR_SETTINGS = {
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
+    'DISPLAY_OPERATION_ID': False,  # اولویت بالا جهت نمایش عناوین فارسی (Summary) به جای نام توابع انگلیسی
+    'SECURITY': [{'BearerAuth': []}],
+    'SECURITY_DEFINITIONS': {
+        'BearerAuth': {
+            'type': 'apiKey',
+            'in': 'header',
+            'name': 'Authorization',
+            'description': 'توکن JWT را به این شکل وارد کنید: Bearer <Your_Access_Token>'
+        }
+    },
+    'TAGS': [
+        {'name': 'پنل پیامک کاوه‌نگار', 'description': 'مدیریت تنظیمات، پترن‌ها و لاگ‌های ارسال پیامک'},
+        {'name': 'مدیریت سفارشات', 'description': 'ثبت و پیگیری فاکتورهای فروش و مرجوعی'},
+        {'name': 'محصولات', 'description': 'مدیریت کاتالوگ کارتن، باکس و موجودی'},
+        {'name': 'حساب‌های کاربری (Accounts)', 'description': 'احراز هویت و مدیریت پروفایل کاربران'},
+        {'name': 'تیکت‌ها و پشتیبانی (Tickets)', 'description': 'ارتباط با پشتیبانی و ارسال تیکت'},
+        {'name': 'مدیریت نقش‌ها', 'description': 'مدیریت سطوح دسترسی و پرسنل'},
+    ],
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': False,  # جهت نمایش عنوان فارسی به جای نام تابع انگلیسی
+        'filter': True,
+    },
+    'REDOC_UI_SETTINGS': {
+        'disableSearch': False,
+        'hideDownloadButton': True,
+    },
 }
 
 # --------------------------------------------------------------------------
@@ -466,7 +494,7 @@ urlpatterns = [
     path('api/v1/site-settings/', include('site_settings.urls')),
     path('api/v1/footer-settings/', include('footer_settings.urls')),
     path('api/v1/sliders/', include('sliders.urls')),
-    path('api/v1/sms/', include('kavenegar_sms.urls')),
+    path('api/v1/kavenegar-sms/', include('kavenegar_sms.urls')),
     path('api/v1/notifications/', include('notifications.urls')),
     path('api/v1/pos_products/', include('pos_products.urls')),
     path('api/v1/finance/', include('finance.urls')),

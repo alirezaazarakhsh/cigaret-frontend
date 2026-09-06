@@ -47,41 +47,31 @@ django-admin startproject azarakhsh_project .
 برای تفکیک تمیز کدهای بنکداری، حسابداری، انبار و وب‌سایت، هر ماژول را در قالب یک اپ مستقل جنگو با دستور `startapp` ایجاد می‌کنیم:
 
 ```bash
-# ایجاد اپ کاربران، سطوح مشتریان و احراز هویت پیامکی
+# ایجاد تمام اپلیکیشن‌های مورد نیاز سامانه آذرخش (۲۴ اپلیکیشن ماژولار)
 python manage.py startapp accounts
-
-# ایجاد اپ دسته‌بندی برندها و شرکت‌ها
+python manage.py startapp roles
+python manage.py startapp posuser
+python manage.py startapp regular_customers
 python manage.py startapp categories
-
-# ایجاد اپ انبار، محصولات و قیمت لحظه‌ای
 python manage.py startapp products
-
-# ایجاد اپ سبد خرید، سفارشات آنلاین و رزرو حواله
 python manage.py startapp orders
-
-# ایجاد اپ صندوق فروشگاهی، بارکدخوان و چاپ فیش حرارتی
-python manage.py startapp pos_system
-
-# ایجاد اپ حساب‌های دفتری، سقف اعتبار و تسویه نسیه
+python manage.py startapp pos
 python manage.py startapp ledger
-
-# ایجاد اپ کیف پول مشتری و ثبت فیش‌های واریز بانکی
 python manage.py startapp wallet
-
-# ایجاد اپ روش‌های ارسال، باربری و تحویل حضوری انبار
 python manage.py startapp shipping
-
-# ایجاد اپ وبلاگ، ادیتور TinyMCE و مقالات آموزشی
 python manage.py startapp blog
-
-# ایجاد اپ تیکت‌ها و پشتیبانی آنلاین
 python manage.py startapp tickets
-
-# ایجاد اپ آمار بازدیدکنندگان و لاگ درخواست‌ها
 python manage.py startapp visitors
-
-# ایجاد اپ تنظیمات عمومی، شماره کارت‌های بانکی و اسلایدرها
 python manage.py startapp site_settings
+python manage.py startapp footer_settings
+python manage.py startapp sliders
+python manage.py startapp kavenegar_sms
+python manage.py startapp notifications
+python manage.py startapp pos_products
+python manage.py startapp finance
+python manage.py startapp reports
+python manage.py startapp warehouse_contact
+python manage.py startapp visitor_tickets
 ```
 
 #### 💡 اسکریپت خودکار یک‌جا برای ساخت تمام اپ‌ها و فایل‌های `serializers.py` و `urls.py`:
@@ -89,8 +79,8 @@ python manage.py startapp site_settings
 می‌توانید تمام دستورات بالا را همراه با ایجاد فایل‌های مکمل در قالب یک اسکریپت bash سریع اجرا کنید:
 
 ```bash
-# ساخت همزمان تمام اپ‌ها و ایجاد فایل‌های serializers.py و urls.py درون هر اپ
-for app in accounts categories products orders pos_system ledger wallet shipping blog tickets visitors site_settings; do
+# ساخت همزمان تمام ۲۴ اپلیکیشن و ایجاد فایل‌های serializers.py و urls.py درون هر اپ
+for app in accounts roles posuser regular_customers categories products orders pos ledger wallet shipping blog tickets visitors site_settings footer_settings sliders kavenegar_sms notifications pos_products finance reports warehouse_contact visitor_tickets; do
     python manage.py startapp $app
     touch $app/serializers.py
     touch $app/urls.py
@@ -144,12 +134,15 @@ INSTALLED_APPS = [
     'tinymce',
     'django_filters',
 
-    # اپ‌های زیرمجموعه پروژه آذرخش (Local Apps)
+    # ۲۴ اپلیکیشن اختصاصی سامانه آذرخش (Local Apps)
     'accounts.apps.AccountsConfig',
+    'roles.apps.RolesConfig',
+    'posuser.apps.PosuserConfig',
+    'regular_customers.apps.RegularCustomersConfig',
     'categories.apps.CategoriesConfig',
     'products.apps.ProductsConfig',
     'orders.apps.OrdersConfig',
-    'pos_system.apps.PosSystemConfig',
+    'pos.apps.PosConfig',
     'ledger.apps.LedgerConfig',
     'wallet.apps.WalletConfig',
     'shipping.apps.ShippingConfig',
@@ -157,6 +150,15 @@ INSTALLED_APPS = [
     'tickets.apps.TicketsConfig',
     'visitors.apps.VisitorsConfig',
     'site_settings.apps.SiteSettingsConfig',
+    'footer_settings.apps.FooterSettingsConfig',
+    'sliders.apps.SlidersConfig',
+    'kavenegar_sms.apps.KavenegarSmsConfig',
+    'notifications.apps.NotificationsConfig',
+    'pos_products.apps.PosProductsConfig',
+    'finance.apps.FinanceConfig',
+    'reports.apps.ReportsConfig',
+    'warehouse_contact.apps.WarehouseContactConfig',
+    'visitor_tickets.apps.VisitorTicketsConfig',
 ]
 ```
 
@@ -191,18 +193,30 @@ urlpatterns = [
     path('tinymce/', include('tinymce.urls')),
 
     # وب‌سرویس‌های اپ‌های زیرمجموعه (Sub-Apps API Endpoints)
-    path('api/auth/', include('accounts.urls')),
-    path('api/categories/', include('categories.urls')),
-    path('api/products/', include('products.urls')),
-    path('api/orders/', include('orders.urls')),
-    path('api/pos/', include('pos_system.urls')),
-    path('api/ledger/', include('ledger.urls')),
-    path('api/wallet/', include('wallet.urls')),
-    path('api/shipping/', include('shipping.urls')),
-    path('api/blog/', include('blog.urls')),
-    path('api/tickets/', include('tickets.urls')),
-    path('api/visitors/', include('visitors.urls')),
-    path('api/site-settings/', include('site_settings.urls')),
+    path('api/v1/accounts/', include('accounts.urls')),
+    path('api/v1/roles/', include('roles.urls')),
+    path('api/v1/posuser/', include('posuser.urls')),
+    path('api/v1/regular-customers/', include('regular_customers.urls')),
+    path('api/v1/categories/', include('categories.urls')),
+    path('api/v1/products/', include('products.urls')),
+    path('api/v1/orders/', include('orders.urls')),
+    path('api/v1/pos/', include('pos.urls')),
+    path('api/v1/ledger/', include('ledger.urls')),
+    path('api/v1/wallet/', include('wallet.urls')),
+    path('api/v1/shipping/', include('shipping.urls')),
+    path('api/v1/blog/', include('blog.urls')),
+    path('api/v1/tickets/', include('tickets.urls')),
+    path('api/v1/visitors/', include('visitors.urls')),
+    path('api/v1/site-settings/', include('site_settings.urls')),
+    path('api/v1/footer-settings/', include('footer_settings.urls')),
+    path('api/v1/sliders/', include('sliders.urls')),
+    path('api/v1/sms/', include('kavenegar_sms.urls')),
+    path('api/v1/notifications/', include('notifications.urls')),
+    path('api/v1/pos-products/', include('pos_products.urls')),
+    path('api/v1/finance/', include('finance.urls')),
+    path('api/v1/reports/', include('reports.urls')),
+    path('api/v1/warehouse-contact/', include('warehouse_contact.urls')),
+    path('api/v1/visitor-tickets/', include('visitor_tickets.urls')),
 ]
 
 # سرو کردن فایل‌های مدیا و استاتیک در محیط توسعه
@@ -217,7 +231,7 @@ if settings.DEBUG:
 
 ```bash
 # ایجاد فایل‌های مایگریشن برای دیتابیس
-python manage.py makemigrations accounts categories products orders pos_system ledger wallet shipping blog tickets visitors site_settings
+python manage.py makemigrations accounts roles posuser regular_customers categories products orders pos ledger wallet shipping blog tickets visitors site_settings footer_settings sliders kavenegar_sms notifications pos_products finance reports warehouse_contact visitor_tickets
 
 # اعمال ساختار جداول به پایگاه داده PostgreSQL
 python manage.py migrate
