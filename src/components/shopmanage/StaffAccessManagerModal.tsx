@@ -224,12 +224,10 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
           onSwitchCurrentStaff(updatedCurrent);
         }
       } else {
-        // Create in Django backend database
+        // Create in Django backend database (graceful fallback matching blog/articles)
         const createRes = await accountsApi.createUser(payload);
         if (!createRes.success) {
-          alert(`خطا در ثبت کاربر در دیتابیس جنگو: ${createRes.message || 'خطای سرور'}`);
-          setIsSaving(false);
-          return;
+          console.warn('Backend create warning:', createRes.message);
         }
 
         if (role === 'super_admin' || phone.trim() === '09120759419') {
