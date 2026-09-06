@@ -858,7 +858,7 @@ export const accountsApi = {
   },
 
   /**
-   * Create a new user (staff) via POST /api/v1/posuser/create-staff/
+   * Create a new user (staff) via POST /posuser/create-staff/
    */
   async createUser(payload: {
     phone: string;
@@ -868,7 +868,7 @@ export const accountsApi = {
     pin_code?: string;
     [key: string]: any;
   }): Promise<{ success: boolean; data?: any; message?: string }> {
-    const res = await httpClient.post<any>('/api/v1/posuser/create-staff/', payload, {
+    const res = await httpClient.post<any>('/posuser/create-staff/', payload, {
       headers: API_CACHE_CONTROL_HEADERS
     });
 
@@ -883,10 +883,10 @@ export const accountsApi = {
   },
 
   /**
-   * Get POS staff list from GET /api/v1/posuser/staff-list/
+   * Get POS staff list from GET /posuser/staff-list/
    */
   async getStaffList(): Promise<{ success: boolean; data?: any[]; message?: string }> {
-    const res = await httpClient.get<any>('/api/v1/posuser/staff-list/', {
+    const res = await httpClient.get<any>('/posuser/staff-list/', {
       headers: API_CACHE_CONTROL_HEADERS
     });
     if (res.success && res.data) {
@@ -897,10 +897,10 @@ export const accountsApi = {
   },
 
   /**
-   * Update POS staff member via PUT /api/v1/posuser/staff/{id}/
+   * Update POS staff member via PUT /posuser/staff/{id}/
    */
   async updateStaff(staffId: string | number, payload: any): Promise<{ success: boolean; data?: any; message?: string }> {
-    const res = await httpClient.put<any>(`/api/v1/posuser/staff/${staffId}/`, payload, {
+    const res = await httpClient.put<any>(`/posuser/staff/${staffId}/`, payload, {
       headers: API_CACHE_CONTROL_HEADERS
     });
     if (res.success) {
@@ -910,10 +910,10 @@ export const accountsApi = {
   },
 
   /**
-   * Delete POS staff member via DELETE /api/v1/posuser/staff/{id}/
+   * Delete POS staff member via DELETE /posuser/staff/{id}/
    */
   async deleteStaff(staffId: string | number): Promise<{ success: boolean; message?: string }> {
-    const res = await httpClient.delete<any>(`/api/v1/posuser/staff/${staffId}/`, {
+    const res = await httpClient.delete<any>(`/posuser/staff/${staffId}/`, {
       headers: API_CACHE_CONTROL_HEADERS
     });
     if (res.success) {
@@ -923,10 +923,10 @@ export const accountsApi = {
   },
 
   /**
-   * Toggle staff lock / active status in Django DB via POST /api/v1/posuser/staff/{id}/toggle-lock/
+   * Toggle staff lock / active status in Django DB via POST /posuser/staff/{id}/toggle-lock/
    */
   async toggleStaffLock(staffId: string | number): Promise<{ success: boolean; is_active?: boolean; status?: string; message?: string }> {
-    const res = await httpClient.post<any>(`/api/v1/posuser/staff/${staffId}/toggle-lock/`, {}, {
+    const res = await httpClient.post<any>(`/posuser/staff/${staffId}/toggle-lock/`, {}, {
       headers: API_CACHE_CONTROL_HEADERS
     });
     if (res.success) {
