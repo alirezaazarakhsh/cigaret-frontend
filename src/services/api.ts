@@ -876,7 +876,7 @@ export const accountsApi = {
       return { success: true, data: res.data, message: res.data.message || 'کاربر با موفقیت در دیتابیس ثبت شد.' };
     }
     
-    return { success: false, message: res.data?.message || res.error || 'خطا در ایجاد کاربر در دیتابیس جنگو. لطفاً اتصال بک‌اند را بررسی کنید.' };
+    return { success: false, message: res.data?.message || res.error || 'خطا در ثبت کاربر در دیتابیس جنگو.' };
   },
 
   /**
@@ -887,7 +887,7 @@ export const accountsApi = {
       headers: API_CACHE_CONTROL_HEADERS
     });
     if (res.success && res.data) {
-      const list = Array.isArray(res.data) ? res.data : (res.data.data || []);
+      const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.results || []);
       return { success: true, data: list };
     }
     return { success: false, message: res.error || 'خطا در دریافت لیست پرسنل از دیتابیس.' };
