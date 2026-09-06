@@ -7,7 +7,7 @@ export const VisitorsDocs: React.FC = () => {
     {
       name: 'visitors_visitorprofile',
       verboseName: 'پروفایل تخصصی ویزیتوران',
-      description: 'کدهای بازاریابی ویزیتور، نرخ کمیسیون سود ۲.۵٪ و مجموع مبالغ فروش و پورسانت',
+      description: 'کدهای بازاریابی ویزیتور، نرخ کمیسیون سود ۲.۵٪ و مجموع مبالغ فروش و پورسانت. برای حل خطای AttributeError متد __str__ را اینگونه اصلاح کنید: `return self.user.get_full_name() if hasattr(self.user, \"get_full_name\") else str(self.user)`',
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
         { name: 'user_id', type: 'OneToOneField(User)', isFk: true, fkTarget: 'accounts_user', isUnique: true, verbose: 'حساب کاربری' },
@@ -174,8 +174,8 @@ class VisitorProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='visitor_profile', verbose_name=_("حساب کاربری"))
     visitor_code = models.CharField(_("کد اختصاصی ویزیتور"), max_length=50, unique=True)
     commission_rate = models.DecimalField(_("درصد کمیسیون سود (%)"), max_digits=5, decimal_places=2, default=2.50)
-    total_sales_amount = models.DecimalField(_("مجموع فروش ثبت‌شده (تومان)"), max_digits=14, decimal_places=0, default=0)
-    total_commission_earned = models.DecimalField(_("مجموع پورسانت کسب‌شده (تومان)"), max_digits=12, decimal_places=0, default=0)
+    total_sales_amount = models.DecimalField(_("مجموع فروش ثبتشده (تومان)"), max_digits=14, decimal_places=0, default=0)
+    total_commission_earned = models.DecimalField(_("مجموع پورسانت کسبشده (تومان)"), max_digits=12, decimal_places=0, default=0)
     is_active = models.BooleanField(_("ویزیتور فعال"), default=True)
     created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
 
@@ -185,12 +185,15 @@ class VisitorProfile(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.user.get_full_name() or self.user.username} ({self.visitor_code})"
+        # روش کاملاً ایمن: ابتدا متد get_full_name را چک کن، اگر نبود مستقیماً از خودِ user استفاده کن
+        if hasattr(self.user, 'get_full_name'):
+            return self.user.get_full_name()
+        return str(self.user)
 
 
 class RetailShopCustomer(models.Model):
     """
-    باشگاه مشتریان مغازه‌داران و سوپرمارکت‌های زیرمجموعه هر ویزیتور
+    باشگاه مشتریان مغازهداران و سوپرمارکتهای زیرمجموعه هر ویزیتور
     """
     visitor = models.ForeignKey(VisitorProfile, on_delete=models.CASCADE, related_name='shops', verbose_name=_("ویزیتور معرف"))
     shop_name = models.CharField(_("نام مغازه / سوپرمارکت"), max_length=200)
@@ -202,8 +205,8 @@ class RetailShopCustomer(models.Model):
     created_at = models.DateTimeField(_("تاریخ ثبت"), auto_now_add=True)
 
     class Meta:
-        verbose_name = _("مغازه‌دار (باشگاه مشتریان)")
-        verbose_name_plural = _("شبکه مغازه‌داران ویزیتوران")
+        verbose_name = _("مغازهدار (باشگاه مشتریان)")
+        verbose_name_plural = _("شبکه مغازهداران ویزیتوران")
         ordering = ['-created_at']
 
     def __str__(self):
