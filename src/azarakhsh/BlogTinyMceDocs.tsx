@@ -20,6 +20,8 @@ export const BlogTinyMceDocs: React.FC = () => {
         { name: 'reportage_banner', type: 'ImageField (120x240)', verbose: 'فایل بنر تبلیغاتی (آپلود عکس/گیف متحرک)' },
         { name: 'reportage_banner_url', type: 'URLField(max_length=500)', verbose: 'لینک مستقیم بنر (اختیاری)' },
         { name: 'reportage_link', type: 'URLField(max_length=500)', verbose: 'لینک هدایت کلیک بنر اسپانسر' },
+        { name: 'reportage_bg_color', type: 'CharField(max_length=50)', verbose: 'رنگ پس‌زمینه و تم ریپورتاژ' },
+        { name: 'reportage_ring_color', type: 'CharField(max_length=50)', verbose: 'رنگ رینگ دور ریپورتاژ' },
         { name: 'key_takeaways', type: 'JSONField', verbose: 'نکات کلیدی' },
         { name: 'is_published', type: 'BooleanField', verbose: 'وضعیت انتشار' },
         { name: 'created_at', type: 'DateTimeField', verbose: 'تاریخ انتشار' },
@@ -133,6 +135,20 @@ class BlogPost(models.Model):
         blank=True, 
         default="", 
         help_text=_("آدرس سایتی که کاربر با کلیک روی بنر به آن هدایت می‌شود (با رعایت سئو rel=sponsored)")
+    )
+    reportage_bg_color = models.CharField(
+        _("رنگ پس‌زمینه تم ریپورتاژ"),
+        max_length=50,
+        blank=True,
+        default="purple",
+        help_text=_("کلید رنگ تم ریپورتاژ (purple, gold, emerald, blue, rose, dark)")
+    )
+    reportage_ring_color = models.CharField(
+        _("رنگ رینگ دور ریپورتاژ"),
+        max_length=50,
+        blank=True,
+        default="purple",
+        help_text=_("رنگ رینگ و حاشیه متناسب با تم")
     )
 
     # نکات کلیدی و چکیده محتوا (Key Takeaways)
@@ -258,7 +274,7 @@ class BlogPostAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                 'is_published',
             )
         }),
-        (_("۲. تنظیمات ریپورتاژ آگهی، آپلود بنر تبلیغاتی (۱۲۰×۲۴۰) و پیش‌نمایش"), {
+        (_("۲. تنظیمات ریپورتاژ آگهی، آپلود بنر تبلیغاتی (۱۲۰×۲۴۰) و رنگ/تم"), {
             'fields': (
                 'is_reportage',
                 'reportage_sponsor',
@@ -266,9 +282,11 @@ class BlogPostAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
                 'reportage_banner_url',
                 'reportage_banner_preview',
                 'reportage_link',
+                'reportage_bg_color',
+                'reportage_ring_color',
             ),
             'description': _(
-                "امکان آپلود مستقیم فایل بنر تبلیغاتی (عکس یا GIF متحرک در ابعاد ۱۲۰ در ۲۴۰ پیکسل) به جای لینک، به همراه پیش‌نمایش گرافیکی زنده و تست دکمه هدایت اسپانسر"
+                "امکان آپلود مستقیم فایل بنر تبلیغاتی (عکس یا GIF متحرک در ابعاد ۱۲۰ در ۲۴۰ پیکسل) به جای لینک، به همراه پیش‌نمایش گرافیکی زنده، تست دکمه هدایت اسپانسر و انتخاب رنگ/تم بصری"
             )
         }),
         (_("۳. تصویر شاخص مقاله"), {
@@ -393,7 +411,8 @@ class BlogPostListSerializer(serializers.ModelSerializer):
         model = BlogPost
         fields = (
             'id', 'title', 'slug', 'is_reportage', 'reportage_sponsor', 'reportage_banner', 
-            'reportage_banner_url', 'reportage_link', 'category', 'category_name', 
+            'reportage_banner_url', 'reportage_link', 'reportage_bg_color', 'reportage_ring_color',
+            'category', 'category_name', 
             'author_name', 'excerpt', 'image', 'key_takeaways', 'tags', 'focus_keyword',
             'views_count', 'reading_time_minutes', 'created_at', 'created_at_jalali', 'is_published'
         )

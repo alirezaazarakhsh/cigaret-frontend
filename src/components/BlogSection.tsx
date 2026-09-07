@@ -98,6 +98,35 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(getInitialSelectedPost);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
+
+  // Query specific category filtered API endpoints to calculate exact post count per category
+  useEffect(() => {
+    const fetchCategoryCounts = async () => {
+      if (!categories || categories.length === 0) return;
+      const counts: Record<string, number> = {};
+      try {
+        const allRes = await blogApi.getPosts();
+        counts['all'] = allRes ? allRes.length : 0;
+
+        const reportageRes = await blogApi.getPosts({ isReportage: true });
+        counts['reportage'] = reportageRes ? reportageRes.length : 0;
+
+        for (const cat of categories) {
+          const catKey = cat.id || cat.slug || cat.name;
+          const catRes = await blogApi.getPosts({ category: cat.name });
+          const count = catRes ? catRes.length : 0;
+          counts[catKey] = count;
+          counts[cat.name] = count;
+          counts[cat.slug] = count;
+        }
+        setCategoryCounts(counts);
+      } catch (e) {
+        console.warn('Failed to query category filtered API endpoints for counts:', e);
+      }
+    };
+    fetchCategoryCounts();
+  }, [categories]);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
@@ -131,6 +160,30 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
     }
   }, [selectedPost, isUrlInitialized]);
 
+  // Listen to global blog update events and storage changes for real-time theme & post synchronization
+  useEffect(() => {
+    const handleBlogUpdate = () => {
+      const localPosts = djangoDatabaseStore.getBlogPosts();
+      if (localPosts && localPosts.length > 0) {
+        setAllPosts(localPosts);
+        setPosts(localPosts);
+        if (selectedPost) {
+          const updatedSelected = localPosts.find(p => p.id === selectedPost.id || p.slug === selectedPost.slug);
+          if (updatedSelected) {
+            setSelectedPost(prev => prev ? { ...prev, ...updatedSelected } : updatedSelected);
+          }
+        }
+      }
+    };
+
+    window.addEventListener('sovin-blog-updated', handleBlogUpdate);
+    window.addEventListener('storage', handleBlogUpdate);
+    return () => {
+      window.removeEventListener('sovin-blog-updated', handleBlogUpdate);
+      window.removeEventListener('storage', handleBlogUpdate);
+    };
+  }, [selectedPost]);
+
   // Background API Sync for posts, categories, and current slug detail
   useEffect(() => {
     const syncWithApi = async () => {
@@ -145,9 +198,14 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
           }
         }
 
+        const matchedCat = categories.find(c => c.id === selectedCategory || c.slug === selectedCategory || c.name === selectedCategory);
+        const categoryParam = selectedCategory === 'reportage' || selectedCategory === 'all'
+          ? undefined 
+          : (matchedCat ? matchedCat.name : selectedCategory);
+
         const [fullList, fetchedCats] = await Promise.all([
           blogApi.getPosts({ 
-            category: selectedCategory === 'reportage' ? undefined : selectedCategory, 
+            category: categoryParam, 
             search: searchQuery,
             isReportage: selectedCategory === 'reportage' ? true : undefined
           }),
@@ -194,9 +252,33 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
   };
 
   const getCategoryCount = (catId: string) => {
-    if (catId === 'all') return allPosts.length;
-    if (catId === 'reportage') return allPosts.filter(p => p.isReportage).length;
-    return allPosts.filter(p => p.category === catId || p.categorySlug === catId).length;
+    if (catId === 'all') {
+      const filteredAll = allPosts;
+      return filteredAll.length > 0 ? filteredAll.length : (categoryCounts['all'] ?? 0);
+    }
+    if (catId === 'reportage') {
+      const filteredReportage = allPosts.filter(p => p.isReportage);
+      return filteredReportage.length > 0 ? filteredReportage.length : (categoryCounts['reportage'] ?? 0);
+    }
+    
+    // Find category definition in categories list matching id, slug, or name
+    const foundCat = categories.find(c => c.id === catId || c.slug === catId || c.name === catId);
+    if (foundCat) {
+      const filteredByCat = allPosts.filter(p => 
+        p.category === foundCat.name || 
+        p.categorySlug === foundCat.slug || 
+        p.category === foundCat.id ||
+        (p as any).categoryId === foundCat.id
+      );
+      if (filteredByCat.length > 0) return filteredByCat.length;
+      if (categoryCounts[foundCat.name] !== undefined) return categoryCounts[foundCat.name];
+      if (categoryCounts[foundCat.slug] !== undefined) return categoryCounts[foundCat.slug];
+      if (categoryCounts[foundCat.id] !== undefined) return categoryCounts[foundCat.id];
+    }
+
+    const filteredGeneric = allPosts.filter(p => p.category === catId || p.categorySlug === catId || (p as any).categoryId === catId);
+    if (filteredGeneric.length > 0) return filteredGeneric.length;
+    return categoryCounts[catId] ?? 0;
   };
 
   const categorySpecs: CategorySpec[] = useMemo(() => {
@@ -227,7 +309,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
 
     const hasAll = categories.some(cat => cat.slug === 'all' || cat.name === 'همه مقالات و مطالب' || cat.id === 'all');
     const mapped = categories.map((cat, idx) => ({
-      id: cat.name,
+      id: cat.id || cat.slug || cat.name,
       label: cat.name,
       icon: iconMap[cat.slug] || (idx % 3 === 0 ? Layers : (idx % 2 === 0 ? FileText : BookOpen)),
       color: cat.color || 'text-blue-600',
@@ -569,11 +651,8 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
             </div>
           )}
 
-          {/* Reportage & Advertising Banner Section (Standard 468x60 Banner Ad) */}
-          {selectedPost && <ReportageBannerBox post={selectedPost} />}
-
           {/* Article HTML/Text Content (Responsive & PWA Optimized) */}
-          <div className="text-xs sm:text-sm text-slate-800 leading-loose space-y-4 font-normal">
+          <div className="text-xs sm:text-sm text-slate-800 leading-loose space-y-4 font-normal break-words min-w-0">
             {selectedPost?.content ? (
               selectedPost.content.includes('<') && selectedPost.content.includes('>') ? (
                 <div 
@@ -647,6 +726,9 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
               ))}
             </div>
           )}
+
+          {/* Reportage & Advertising Banner Section (Strictly below article text content) */}
+          {selectedPost && <ReportageBannerBox post={selectedPost} />}
 
           {/* Related Posts Section */}
           {relatedPosts.length > 0 && (
@@ -765,8 +847,21 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
 
           {/* Posts Grid */}
           {isLoading ? (
-            <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-xs text-slate-500 font-medium">
-              در حال لود اطلاعات مقالات از دیتابیس...
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6 animate-pulse">
+              {[1, 2, 3, 4, 5, 6].map((n) => (
+                <div key={n} className="bg-white border border-slate-200 rounded-3xl p-4 space-y-4 shadow-xs">
+                  <div className="w-full h-48 bg-slate-200 rounded-2xl"></div>
+                  <div className="space-y-2">
+                    <div className="w-3/4 h-5 bg-slate-200 rounded-lg"></div>
+                    <div className="w-full h-4 bg-slate-200 rounded-lg"></div>
+                    <div className="w-1/2 h-4 bg-slate-200 rounded-lg"></div>
+                  </div>
+                  <div className="pt-2 flex items-center justify-between">
+                    <div className="w-24 h-3 bg-slate-200 rounded-lg"></div>
+                    <div className="w-16 h-3 bg-slate-200 rounded-lg"></div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : posts.length === 0 ? (
             <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center text-xs text-slate-500 font-medium space-y-3">

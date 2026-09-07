@@ -383,6 +383,7 @@ class DjangoDatabaseStore {
 
     try {
       localStorage.setItem('sovin_django_blog_posts', JSON.stringify(current));
+      window.dispatchEvent(new Event('sovin-blog-updated'));
     } catch {}
 
     return fullPost;
@@ -393,6 +394,7 @@ class DjangoDatabaseStore {
     const updated = current.filter(p => p.id !== id);
     try {
       localStorage.setItem('sovin_django_blog_posts', JSON.stringify(updated));
+      window.dispatchEvent(new Event('sovin-blog-updated'));
     } catch {}
     return true;
   }

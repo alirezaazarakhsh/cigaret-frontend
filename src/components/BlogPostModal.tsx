@@ -203,11 +203,8 @@ export const BlogPostModal: React.FC<BlogPostModalProps> = ({
             </ul>
           </div>
 
-          {/* Reportage & Advertising Banner Section (Standard 468x60 Banner Ad) */}
-          <ReportageBannerBox post={post} />
-
           {/* Article Main Text Content */}
-          <div className="text-xs sm:text-sm text-slate-800 leading-loose space-y-4 pt-2 font-normal">
+          <div className="text-xs sm:text-sm text-slate-800 leading-loose space-y-4 pt-2 font-normal break-words min-w-0">
             {post.content ? (
               post.content.includes('<') && post.content.includes('>') ? (
                 <div 
@@ -270,6 +267,9 @@ export const BlogPostModal: React.FC<BlogPostModalProps> = ({
               </span>
             ))}
           </div>
+
+          {/* Reportage & Advertising Banner Section (Strictly below article text content) */}
+          <ReportageBannerBox post={post} />
 
           {/* Wholesale Call to Action Banner */}
           <div className="bg-slate-900 text-white rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4 mt-6">

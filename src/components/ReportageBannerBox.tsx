@@ -45,19 +45,23 @@ export const ReportageBannerBox: React.FC<ReportageBannerBoxProps> = ({ post, cl
               )}
             </div>
 
-            {/* Website URL (if provided, otherwise empty) */}
-            {post.reportageLink && (
-              <a
-                href={post.reportageLink}
-                target="_blank"
-                rel="noopener noreferrer sponsored"
-                className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-white/70 backdrop-blur-sm border ${theme.borderColor} ${theme.titleColor} hover:underline dir-ltr`}
-                title="آدرس وب‌سایت حامی"
-              >
-                <span className="font-mono">{post.reportageLink.replace(/^https?:\/\//, '')}</span>
-                <ExternalLink className="w-3.5 h-3.5" />
-              </a>
-            )}
+            {/* Website URL (fallback to site default domain if blank) */}
+            {(() => {
+              const defaultDomain = typeof window !== 'undefined' ? window.location.origin : 'https://cigarettesevin.vercel.app';
+              const effectiveLink = post.reportageLink && post.reportageLink.trim() !== '' ? post.reportageLink : defaultDomain;
+              return (
+                <a
+                  href={effectiveLink}
+                  target="_blank"
+                  rel="noopener noreferrer sponsored"
+                  className={`inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-xl bg-white/70 backdrop-blur-sm border ${theme.borderColor} ${theme.titleColor} hover:underline dir-ltr truncate max-w-[200px] sm:max-w-xs`}
+                  title="آدرس وب‌سایت حامی"
+                >
+                  <span className="font-mono truncate">{effectiveLink.replace(/^https?:\/\//, '')}</span>
+                  <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                </a>
+              );
+            })()}
           </div>
 
           <h4 className={`text-base sm:text-lg font-black leading-snug tracking-tight ${theme.titleColor}`}>
@@ -67,33 +71,37 @@ export const ReportageBannerBox: React.FC<ReportageBannerBoxProps> = ({ post, cl
 
         {/* Bottom: Standard 468x60 Banner Box */}
         <div className="w-full flex flex-col items-center justify-center pt-1">
-          {post.reportageBanner ? (
-            <div className="w-full flex flex-col items-center justify-center">
-              <a
-                href={post.reportageLink || '#'}
-                target={post.reportageLink ? "_blank" : "_self"}
-                rel="noopener noreferrer sponsored"
-                className={`group relative block w-full max-w-[468px] h-[60px] rounded-xl overflow-hidden border-2 ${theme.borderColor} shadow-lg transition-all duration-300 transform hover:scale-[1.01] bg-slate-900`}
-                title={post.reportageSponsor || 'بنر ریپورتاژ ۴۶۸ در ۶۰'}
-              >
-                <img
-                  src={post.reportageBanner}
-                  alt={post.reportageSponsor || 'بنر ریپورتاژ ۴۶۸ در ۶۰'}
-                  className="w-full h-full object-cover group-hover:opacity-95 transition-opacity"
-                />
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-end p-2 opacity-0 group-hover:opacity-100">
-                  <span className="text-[10px] font-black text-white bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-md flex items-center gap-1">
-                    <span>مشاهده</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </span>
+          {post.reportageBanner ? (() => {
+              const defaultDomain = typeof window !== 'undefined' ? window.location.origin : 'https://cigarettesevin.vercel.app';
+              const effectiveLink = post.reportageLink && post.reportageLink.trim() !== '' ? post.reportageLink : defaultDomain;
+              return (
+                <div className="w-full flex flex-col items-center justify-center">
+                  <a
+                    href={effectiveLink}
+                    target="_blank"
+                    rel="noopener noreferrer sponsored"
+                    className={`group relative block w-full max-w-[468px] h-[60px] rounded-xl overflow-hidden border-2 ${theme.borderColor} shadow-lg transition-all duration-300 transform hover:scale-[1.01] bg-slate-900`}
+                    title={post.reportageSponsor || 'بنر ریپورتاژ ۴۶۸ در ۶۰'}
+                  >
+                    <img
+                      src={post.reportageBanner}
+                      alt={post.reportageSponsor || 'بنر ریپورتاژ ۴۶۸ در ۶۰'}
+                      className="w-full h-full object-cover group-hover:opacity-95 transition-opacity"
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-end p-2 opacity-0 group-hover:opacity-100">
+                      <span className="text-[10px] font-black text-white bg-black/70 backdrop-blur-sm px-2 py-0.5 rounded-md flex items-center gap-1">
+                        <span>مشاهده</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </span>
+                    </div>
+                  </a>
+                  <div className="flex items-center justify-between w-full max-w-[468px] px-1 mt-1 text-[10px] font-bold opacity-70">
+                    <span className={theme.titleColor}>ابعاد استاندارد: ۴۶۸×۶۰ پیکسل</span>
+                    <span className={`uppercase tracking-widest text-[9px] ${theme.titleColor}`}>Sponsored Ad</span>
+                  </div>
                 </div>
-              </a>
-              <div className="flex items-center justify-between w-full max-w-[468px] px-1 mt-1 text-[10px] font-bold opacity-70">
-                <span className={theme.titleColor}>ابعاد استاندارد: ۴۶۸×۶۰ پیکسل</span>
-                <span className={`uppercase tracking-widest text-[9px] ${theme.titleColor}`}>Sponsored Ad</span>
-              </div>
-            </div>
-          ) : (
+              );
+          })() : (
             <div className="w-full flex flex-col items-center justify-center">
               <div className={`w-full max-w-[468px] h-[60px] rounded-xl border-2 border-dashed ${theme.borderColor} bg-white/40 flex items-center justify-center gap-2 text-xs font-black ${theme.titleColor}`}>
                 <Sparkles className="w-4 h-4 text-amber-500 animate-spin-slow" />
