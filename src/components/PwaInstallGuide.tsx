@@ -158,8 +158,15 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
 
       {/* 2. FULL INTERACTIVE INSTALLATION GUIDE MODAL */}
       {isModalVisible && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden text-right flex flex-col max-h-[80vh]" dir="rtl">
+        <div 
+          className="fixed inset-0 bg-slate-900/80 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in duration-200 cursor-pointer"
+          onClick={handleCloseModalInternal}
+        >
+          <div 
+            className="bg-white rounded-3xl w-full max-w-md shadow-2xl border border-slate-200 overflow-hidden text-right flex flex-col max-h-[80vh] cursor-default" 
+            dir="rtl"
+            onClick={(e) => e.stopPropagation()}
+          >
             
             {/* Header */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">

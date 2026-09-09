@@ -144,10 +144,14 @@ export const ProductsMegaMenu: React.FC<ProductsMegaMenuProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-start sm:items-center justify-center p-2 sm:p-4">
+    <div 
+      className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 backdrop-blur-xs flex items-start sm:items-center justify-center p-2 sm:p-4 cursor-pointer"
+      onClick={onClose}
+    >
       <div 
-        className="bg-white border border-slate-200 rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-4 sm:my-auto max-h-[92vh] flex flex-col"
+        className="bg-white border border-slate-200 rounded-3xl w-full max-w-5xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-4 sm:my-auto max-h-[92vh] flex flex-col cursor-default"
         id="products-mega-menu"
+        onClick={(e) => e.stopPropagation()}
       >
         
         {/* TOP HEADER & SEARCH BAR */}

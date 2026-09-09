@@ -18,9 +18,11 @@ import {
   Truck, 
   MapPin, 
   Building,
-  Package
+  Package,
+  AlertCircle,
+  LogIn
 } from 'lucide-react';
-import { CartItem, CustomerInfo, OrderInvoice, UserProfile, RetailShopCustomer, DjangoCrmConfig } from '../types';
+import { CartItem, CustomerInfo, OrderInvoice, UserProfile, RetailShopCustomer, DjangoCrmConfig, PosCustomer, PosLedgerTransaction } from '../types';
 import { formatToman, formatNumberFa, calculateItemSubtotal, getApplicableDiscount } from '../utils/formatters';
 import { generateInvoicePdf } from '../utils/pdfGenerator';
 import { DEFAULT_SHIPPING_OPTIONS, MOCK_BANK_ACCOUNT } from '../data/shippingOptions';
@@ -54,6 +56,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 }) => {
   // Drawer flow steps: 'cart' -> 'payment_receipt'
   const [activeStep, setActiveStep] = useState<'cart' | 'payment_receipt'>('cart');
+  const [paymentMethodChoice, setPaymentMethodChoice] = useState<'bank_transfer' | 'wallet'>('bank_transfer');
   const [selectedShop, setSelectedShop] = useState<RetailShopCustomer | null>(null);
 
   // Customer & Shipping State
@@ -242,26 +245,93 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     }
   };
 
-  // Payment validation rule: User MUST upload receipt image OR provide bank ref code / card digits
+  const hasSufficientWalletBalance = Boolean(
+    currentUser && (currentUser.walletBalance || 0) >= finalPayable
+  );
+
+  // Payment validation rule: Either wallet payment is selected with sufficient balance, OR user uploads receipt/provides bank ref code
   const isPaymentProvided = Boolean(
-    (receiptImage && receiptImage.trim() !== '') ||
-    (bankRefCode && bankRefCode.trim().length >= 4) ||
-    (senderCardLast4 && senderCardLast4.trim().length === 4)
+    (paymentMethodChoice === 'wallet' && hasSufficientWalletBalance) ||
+    (paymentMethodChoice === 'bank_transfer' && (
+      (receiptImage && receiptImage.trim() !== '') ||
+      (bankRefCode && bankRefCode.trim().length >= 4) ||
+      (senderCardLast4 && senderCardLast4.trim().length === 4)
+    ))
   );
   const [submitErrorMsg, setSubmitErrorMsg] = useState<string | null>(null);
 
   const handleSubmitFinalOrder = async () => {
     setSubmitErrorMsg(null);
 
-    // Mandatory receipt check
-    if (!isPaymentProvided) {
-      setSubmitErrorMsg('بارگذاری تصویر فیش واریزی یا ثبت شماره پیگیری/۴ رقم کارت الزامی است. امکان ثبت سفارش بدون فیش وجود ندارد.');
-      setActiveStep('payment_receipt');
+    if (!currentUser) {
+      onClose();
+      if (onNavigateToProfile) onNavigateToProfile();
+      if (typeof window !== 'undefined') {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
       return;
+    }
+
+    if (paymentMethodChoice === 'wallet') {
+      if (!hasSufficientWalletBalance) {
+        setSubmitErrorMsg(`موجودی کیف پول شما (${formatToman(currentUser?.walletBalance || 0)}) برای تسویه فاکتور (${formatToman(finalPayable)}) کافی نیست. لطفاً با فیش بانکی اقدام نمایید.`);
+        return;
+      }
+    } else {
+      // Mandatory receipt check
+      if (!isPaymentProvided) {
+        setSubmitErrorMsg('بارگذاری تصویر فیش واریزی یا ثبت شماره پیگیری/۴ رقم کارت الزامی است. امکان ثبت سفارش بدون فیش وجود ندارد.');
+        setActiveStep('payment_receipt');
+        return;
+      }
     }
 
     setIsSubmittingOrder(true);
     const trackingCode = `SVN-${Date.now().toString().slice(-6)}`;
+
+    // If wallet payment, deduct wallet balance and save to user
+    if (paymentMethodChoice === 'wallet' && currentUser) {
+      const updatedBalance = Math.max(0, (currentUser.walletBalance || 0) - finalPayable);
+      const updatedUser: UserProfile = {
+        ...currentUser,
+        walletBalance: updatedBalance
+      };
+      localStorage.setItem('sevin_current_user', JSON.stringify(updatedUser));
+      
+      // Update POS Customers storage
+      try {
+        const storedCustomers = localStorage.getItem('sovin_pos_customers');
+        if (storedCustomers) {
+          const customers: PosCustomer[] = JSON.parse(storedCustomers);
+          const cleanUserPhone = currentUser.phone.replace(/\s+/g, '').replace(/^(\+98|98|0)?/, '');
+          const idx = customers.findIndex(c => {
+            const cleanCustPhone = c.phone.replace(/\s+/g, '').replace(/^(\+98|98|0)?/, '');
+            return cleanCustPhone === cleanUserPhone || c.phone === currentUser.phone;
+          });
+          if (idx !== -1) {
+            customers[idx].walletBalance = updatedBalance;
+            localStorage.setItem('sovin_pos_customers', JSON.stringify(customers));
+          }
+        }
+
+        // Add ledger entry
+        const storedTxs = localStorage.getItem('sovin_pos_ledger_txs');
+        const txs: PosLedgerTransaction[] = storedTxs ? JSON.parse(storedTxs) : [];
+        txs.unshift({
+          id: `tx-wallet-${Date.now()}`,
+          customerId: `cust_${currentUser.id}`,
+          date: `${new Date().toLocaleDateString('fa-IR')} ${new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`,
+          amount: finalPayable,
+          type: 'debit',
+          description: `کسر از کیف پول جهت خرید سفارش ${trackingCode}`
+        });
+        localStorage.setItem('sovin_pos_ledger_txs', JSON.stringify(txs));
+      } catch (e) {
+        console.error(e);
+      }
+
+      window.dispatchEvent(new Event('sevin_user_updated'));
+    }
 
     const orderInvoice: OrderInvoice = {
       orderId: trackingCode,
@@ -275,10 +345,10 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       discountAmount: totalDiscount,
       shippingCost,
       finalTotal: finalPayable,
-      paymentStatus: 'واریز شده و ثبت فیش',
-      receiptImage: receiptImage || undefined,
-      bankRefCode: bankRefCode || undefined,
-      senderCardLast4: senderCardLast4 || undefined,
+      paymentStatus: paymentMethodChoice === 'wallet' ? 'پرداخت شده از کیف پول' : 'واریز شده و ثبت فیش',
+      receiptImage: paymentMethodChoice === 'bank_transfer' ? (receiptImage || undefined) : undefined,
+      bankRefCode: paymentMethodChoice === 'bank_transfer' ? (bankRefCode || undefined) : undefined,
+      senderCardLast4: paymentMethodChoice === 'bank_transfer' ? (senderCardLast4 || undefined) : undefined,
       retailShop: selectedShop || undefined,
       visitorCode: currentUser?.visitorCode || currentUser?.referralCode || 'VISITOR-9419',
       visitorCommission: finalPayable * (currentUser?.commissionRate || 2.5) / 100,
@@ -314,18 +384,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
      !currentUser.fullName ||
      currentUser.fullName.includes('گرامی') ||
      !currentUser.shopName ||
-     currentUser.shopName.includes('سوپرمارکت') ||
      !currentUser.address)
   );
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 overflow-hidden bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200 modal-overscroll-contain" style={{ overscrollBehavior: 'contain' }}>
       <div className="absolute inset-0" onClick={onClose} />
       
-      <div className="absolute inset-y-0 left-0 max-w-full flex pl-0 sm:pl-10">
-        <div className="w-screen max-w-xl bg-white border-r border-slate-200 shadow-2xl flex flex-col justify-between">
+      <div className="absolute inset-y-0 left-0 max-w-full flex pl-0 sm:pl-10 modal-overscroll-contain">
+        <div className="w-screen max-w-xl bg-white border-r border-slate-200 shadow-2xl flex flex-col justify-between modal-overscroll-contain" style={{ overscrollBehavior: 'contain' }}>
           
           {/* Header */}
           <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50 ">
@@ -572,7 +641,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                           />
                         </div>
                         <div>
-                          <label className="block text-slate-700 font-medium mb-1">نام مغازه / سوپرمارکت:</label>
+                          <label className="block text-slate-700 font-medium mb-1">نام فروشگاه / مغازه:</label>
                           <input
                             type="text"
                             value={customer.shopName}
@@ -665,180 +734,259 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
             ) : (
               /* --- Step 2: Payment Receipt & Bank Card --- */
               <div className="space-y-4">
-                {/* Bank Card Info Card */}
-                <div className="bg-linear-to-br from-slate-900 to-slate-800 text-white p-5 rounded-3xl border border-slate-700 shadow-md space-y-4">
-                  <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
-                    <div className="flex items-center gap-2">
-                      <CreditCard className="w-5 h-5 text-blue-400" />
-                      <span className="text-xs font-bold text-blue-300">حساب‌های رسمی جهت واریز حواله دخانیات سرو:</span>
-                    </div>
-                    <span className="text-[11px] text-slate-400">بانک ملی و تجارت</span>
-                  </div>
+                
+                {/* Payment Method Selector Tab */}
+                <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethodChoice('bank_transfer')}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                      paymentMethodChoice === 'bank_transfer'
+                        ? 'bg-white text-blue-700 shadow-sm border border-slate-200'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <CreditCard className="w-4 h-4 text-blue-600" />
+                    <span>کارت به کارت / فیش</span>
+                  </button>
 
-                  <div className="space-y-4 text-xs">
-                    {/* Account 1 */}
-                    <div className="space-y-2 border-b border-slate-700/50 pb-3">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-blue-300 font-bold">۱) حساب اصلی شرکت (بانک ملی)</span>
-                        <span className="text-[10px] text-slate-400">{djangoConfig?.bankHolder1 || 'امور مالی شرکت دخانیات سرو'}</span>
-                      </div>
-                      
-                      {/* Card 1 */}
-                      <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
-                        <div>
-                          <div className="text-[9px] text-slate-400">شماره کارت:</div>
-                          <div className="text-sm font-black tracking-wider text-emerald-400 font-mono" dir="ltr">
-                            {djangoConfig?.bankCard1 || '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲'}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyCard1(djangoConfig?.bankCard1 || '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲')}
-                          className="py-1 px-2.5 rounded-lg bg-slate-850 hover:bg-slate-750 text-slate-200 text-[10px] font-black flex items-center gap-1 transition-colors border border-slate-700"
-                        >
-                          {copiedCard1 ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-blue-400" />}
-                          {copiedCard1 ? 'کپی شد' : 'کپی کارت'}
-                        </button>
-                      </div>
-
-                      {/* Shaba 1 */}
-                      <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
-                        <div className="min-w-0 flex-1 pr-1">
-                           <div className="text-[9px] text-slate-400">شماره شبا:</div>
-                          <div className="text-[11px] font-mono font-bold text-slate-300 truncate" dir="ltr">
-                            {djangoConfig?.bankShiba1 || 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲'}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyShaba1(djangoConfig?.bankShiba1 || 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲')}
-                          className="py-1 px-2.5 rounded-lg bg-slate-850 hover:bg-slate-750 text-slate-200 text-[10px] font-black flex items-center gap-1 transition-colors border border-slate-700 shrink-0"
-                        >
-                          {copiedShaba1 ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-blue-400" />}
-                          {copiedShaba1 ? 'کپی شد' : 'کپی شبا'}
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Account 2 */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[11px] text-blue-300 font-bold">۲) حساب ترابری و تدارکات (بانک تجارت)</span>
-                        <span className="text-[10px] text-slate-400">{djangoConfig?.bankHolder2 || 'حساب ترابری و تدارکات دخانیات سرو'}</span>
-                      </div>
-
-                      {/* Card 2 */}
-                      <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
-                        <div>
-                          <div className="text-[9px] text-slate-400">شماره کارت:</div>
-                          <div className="text-sm font-black tracking-wider text-emerald-400 font-mono" dir="ltr">
-                            {djangoConfig?.bankCard2 || '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰'}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyCard2(djangoConfig?.bankCard2 || '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰')}
-                          className="py-1 px-2.5 rounded-lg bg-slate-850 hover:bg-slate-750 text-slate-200 text-[10px] font-black flex items-center gap-1 transition-colors border border-slate-700"
-                        >
-                          {copiedCard2 ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-blue-400" />}
-                          {copiedCard2 ? 'کپی شد' : 'کپی کارت'}
-                        </button>
-                      </div>
-
-                      {/* Shaba 2 */}
-                      <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
-                        <div className="min-w-0 flex-1 pr-1">
-                           <div className="text-[9px] text-slate-400">شماره شبا:</div>
-                          <div className="text-[11px] font-mono font-bold text-slate-300 truncate" dir="ltr">
-                            {djangoConfig?.bankShiba2 || 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸'}
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => handleCopyShaba2(djangoConfig?.bankShiba2 || 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸')}
-                          className="py-1 px-2.5 rounded-lg bg-slate-850 hover:bg-slate-750 text-slate-200 text-[10px] font-black flex items-center gap-1 transition-colors border border-slate-700 shrink-0"
-                        >
-                          {copiedShaba2 ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-blue-400" />}
-                          {copiedShaba2 ? 'کپی شد' : 'کپی شبا'}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethodChoice('wallet')}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                      paymentMethodChoice === 'wallet'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <Package className="w-4 h-4" />
+                    <span>برداشت از کیف پول</span>
+                  </button>
                 </div>
 
-                {/* Upload Receipt Section */}
-                <div className={`p-4 rounded-2xl border transition-all space-y-3 ${
-                  submitErrorMsg || !isPaymentProvided
-                    ? 'bg-rose-50/80 border-rose-300 '
-                    : 'bg-emerald-50/80 border-emerald-300 '
-                }`}>
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 text-xs font-black text-slate-900 ">
-                      <Upload className="w-4 h-4 text-blue-600" />
-                      <span>ثبت فیش واریزی یا شماره پیگیری بانکی (الزامی):</span>
+                {/* Option 1: Instant Wallet Withdrawal */}
+                {paymentMethodChoice === 'wallet' ? (
+                  <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-slate-900 text-white p-5 rounded-3xl border border-emerald-500/50 shadow-xl space-y-4">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Package className="w-5 h-5 text-emerald-400" />
+                        <span className="text-xs font-black text-emerald-300">تسویه فوری از موجودی کیف پول</span>
+                      </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+                        آنی و بدون نیاز به تایید فیش
+                      </span>
                     </div>
-                    <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
-                      isPaymentProvided
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-rose-600 text-white animate-pulse'
+
+                    <div className="space-y-3 text-xs">
+                      <div className="flex items-center justify-between bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800">
+                        <span className="text-slate-400">موجودی فعلی کیف پول شما:</span>
+                        <span className="font-mono font-black text-emerald-400 text-base">
+                          {formatToman(currentUser?.walletBalance || 0)}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800">
+                        <span className="text-slate-400">مبلغ قابل کسر فاکتور:</span>
+                        <span className="font-mono font-black text-white text-base">
+                          {formatToman(finalPayable)}
+                        </span>
+                      </div>
+
+                      {hasSufficientWalletBalance ? (
+                        <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl text-emerald-300 text-xs font-bold leading-relaxed flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                          <span>
+                            موجودی کیف پول شما کافی است. با فشردن دکمه ثبت، مبلغ بلافاصله کسر و سفارش شما برای بارگیری ثبت خواهد شد.
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-rose-500/10 border border-rose-500/30 rounded-2xl text-rose-300 text-xs font-bold leading-relaxed flex items-center gap-2">
+                          <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                          <span>
+                            موجودی کیف پول شما ({formatToman(currentUser?.walletBalance || 0)}) کمتر از مبلغ فاکتور است. لطفاً گزینه «کارت به کارت / فیش» را انتخاب فرمایید.
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {/* Bank Card Info Card */}
+                    <div className="bg-linear-to-br from-slate-900 to-slate-800 text-white p-5 rounded-3xl border border-slate-700 shadow-md space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-700/80 pb-3">
+                        <div className="flex items-center gap-2">
+                          <CreditCard className="w-5 h-5 text-blue-400" />
+                          <span className="text-xs font-bold text-blue-300">حساب‌های رسمی جهت واریز حواله دخانیات سرو:</span>
+                        </div>
+                        <span className="text-[11px] text-slate-400">بانک ملی و تجارت</span>
+                      </div>
+
+                      <div className="space-y-4 text-xs">
+                        {/* Account 1 */}
+                        <div className="space-y-2 border-b border-slate-700/50 pb-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-blue-300 font-bold">۱) حساب اصلی شرکت (بانک ملی)</span>
+                            <span className="text-[10px] text-slate-400">{djangoConfig?.bankHolder1 || 'امور مالی شرکت دخانیات سرو'}</span>
+                          </div>
+                          
+                          {/* Card 1 */}
+                          <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div>
+                              <div className="text-[9px] text-slate-400">شماره کارت:</div>
+                              <div className="text-sm font-black tracking-wider text-emerald-400 font-mono" dir="ltr">
+                                {djangoConfig?.bankCard1 || '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲'}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCard1(djangoConfig?.bankCard1 || '۶۰۳۷-۹۹۷۹-۷۵۳۱-۱۹۸۲')}
+                              className="py-1 px-2.5 rounded-lg bg-slate-850 hover:bg-slate-750 text-slate-200 text-[10px] font-black flex items-center gap-1 transition-colors border border-slate-700"
+                            >
+                              {copiedCard1 ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-blue-400" />}
+                              {copiedCard1 ? 'کپی شد' : 'کپی کارت'}
+                            </button>
+                          </div>
+
+                          {/* Shaba 1 */}
+                          <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div className="min-w-0 flex-1 pr-1">
+                               <div className="text-[9px] text-slate-400">شماره شبا:</div>
+                              <div className="text-[11px] font-mono font-bold text-slate-300 truncate" dir="ltr">
+                                {djangoConfig?.bankShiba1 || 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲'}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyShaba1(djangoConfig?.bankShiba1 || 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲')}
+                              className="py-1 px-2.5 rounded-lg bg-slate-850 hover:bg-slate-750 text-slate-200 text-[10px] font-black flex items-center gap-1 transition-colors border border-slate-700 shrink-0"
+                            >
+                              {copiedShaba1 ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-blue-400" />}
+                              {copiedShaba1 ? 'کپی شد' : 'کپی شبا'}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Account 2 */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[11px] text-blue-300 font-bold">۲) حساب ترابری و تدارکات (بانک تجارت)</span>
+                            <span className="text-[10px] text-slate-400">{djangoConfig?.bankHolder2 || 'حساب ترابری و تدارکات دخانیات سرو'}</span>
+                          </div>
+
+                          {/* Card 2 */}
+                          <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div>
+                              <div className="text-[9px] text-slate-400">شماره کارت:</div>
+                              <div className="text-sm font-black tracking-wider text-emerald-400 font-mono" dir="ltr">
+                                {djangoConfig?.bankCard2 || '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰'}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyCard2(djangoConfig?.bankCard2 || '۵۸۹۲-۱۰۱۲-۳۴۵۶-۷۸۹۰')}
+                              className="py-1 px-2.5 rounded-lg bg-slate-850 hover:bg-slate-750 text-slate-200 text-[10px] font-black flex items-center gap-1 transition-colors border border-slate-700"
+                            >
+                              {copiedCard2 ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-blue-400" />}
+                              {copiedCard2 ? 'کپی شد' : 'کپی کارت'}
+                            </button>
+                          </div>
+
+                          {/* Shaba 2 */}
+                          <div className="bg-slate-950/70 p-2.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                            <div className="min-w-0 flex-1 pr-1">
+                               <div className="text-[9px] text-slate-400">شماره شبا:</div>
+                              <div className="text-[11px] font-mono font-bold text-slate-300 truncate" dir="ltr">
+                                {djangoConfig?.bankShiba2 || 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸'}
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleCopyShaba2(djangoConfig?.bankShiba2 || 'IR۸۲۰۱۲۰۰۰۰۰۰۰۹۸۷۶۵۴۳۲۱۰۹۸')}
+                              className="py-1 px-2.5 rounded-lg bg-slate-850 hover:bg-slate-750 text-slate-200 text-[10px] font-black flex items-center gap-1 transition-colors border border-slate-700 shrink-0"
+                            >
+                              {copiedShaba2 ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-blue-400" />}
+                              {copiedShaba2 ? 'کپی شد' : 'کپی شبا'}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Upload Receipt Section */}
+                    <div className={`p-4 rounded-2xl border transition-all space-y-3 ${
+                      submitErrorMsg || !isPaymentProvided
+                        ? 'bg-rose-50/80 border-rose-300 '
+                        : 'bg-emerald-50/80 border-emerald-300 '
                     }`}>
-                      {isPaymentProvided ? 'ثبت گردید' : 'الزامی جهت ارسال'}
-                    </span>
-                  </div>
-
-                  {submitErrorMsg && (
-                    <div className="p-3 bg-rose-600 text-white rounded-xl text-xs font-bold leading-relaxed shadow-xs flex items-center gap-2">
-                      <X className="w-4 h-4 shrink-0" />
-                      <span>{submitErrorMsg}</span>
-                    </div>
-                  )}
-
-                  <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-4 text-center transition-colors bg-white ">
-                    <input
-                      type="file"
-                      id="receipt-upload"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                    <label htmlFor="receipt-upload" className="cursor-pointer block space-y-2">
-                      <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
-                        <ImageIcon className="w-5 h-5" />
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2 text-xs font-black text-slate-900 ">
+                          <Upload className="w-4 h-4 text-blue-600" />
+                          <span>ثبت فیش واریزی یا شماره پیگیری بانکی (الزامی):</span>
+                        </div>
+                        <span className={`text-[10px] font-black px-2 py-0.5 rounded-md ${
+                          isPaymentProvided
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-rose-600 text-white animate-pulse'
+                        }`}>
+                          {isPaymentProvided ? 'ثبت گردید' : 'الزامی جهت ارسال'}
+                        </span>
                       </div>
-                      <div className="text-xs font-bold text-slate-700 ">
-                        {receiptFileName ? `فایل انتخاب شده: ${receiptFileName}` : 'برای آپلود تصویر فیش بانکی کلیک کنید'}
-                      </div>
-                      <div className="text-[10px] text-slate-400">
-                        فرمت‌های مجاز: JPG, PNG (حداکثر ۵ مگابایت)
-                      </div>
-                    </label>
-                  </div>
 
-                  {/* Manual Ref Code & Sender Card Last 4 */}
-                  <div className="grid grid-cols-2 gap-2 text-xs pt-1">
-                    <div>
-                      <label className="block text-slate-700 font-medium mb-1">شماره ارجاع / پیگیری بانکی:</label>
-                      <input
-                        type="text"
-                        placeholder="مثال: 98124501"
-                        value={bankRefCode}
-                        onChange={(e) => setBankRefCode(e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded-xl p-2 text-slate-900 focus:outline-hidden focus:border-blue-500 text-xs"
-                      />
+                      {submitErrorMsg && (
+                        <div className="p-3 bg-rose-600 text-white rounded-xl text-xs font-bold leading-relaxed shadow-xs flex items-center gap-2">
+                          <X className="w-4 h-4 shrink-0" />
+                          <span>{submitErrorMsg}</span>
+                        </div>
+                      )}
+
+                      <div className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-4 text-center transition-colors bg-white ">
+                        <input
+                          type="file"
+                          id="receipt-upload"
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                          className="hidden"
+                        />
+                        <label htmlFor="receipt-upload" className="cursor-pointer block space-y-2">
+                          <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center mx-auto">
+                            <ImageIcon className="w-5 h-5" />
+                          </div>
+                          <div className="text-xs font-bold text-slate-700 ">
+                            {receiptFileName ? `فایل انتخاب شده: ${receiptFileName}` : 'برای آپلود تصویر فیش بانکی کلیک کنید'}
+                          </div>
+                          <div className="text-[10px] text-slate-400">
+                            فرمت‌های مجاز: JPG, PNG (حداکثر ۵ مگابایت)
+                          </div>
+                        </label>
+                      </div>
+
+                      {/* Manual Ref Code & Sender Card Last 4 */}
+                      <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                        <div>
+                          <label className="block text-slate-700 font-medium mb-1">شماره ارجاع / پیگیری بانکی:</label>
+                          <input
+                            type="text"
+                            placeholder="مثال: 98124501"
+                            value={bankRefCode}
+                            onChange={(e) => setBankRefCode(e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded-xl p-2 text-slate-900 focus:outline-hidden focus:border-blue-500 text-xs"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-slate-700 font-medium mb-1">۴ رقم آخر کارت واریزکننده:</label>
+                          <input
+                            type="text"
+                            placeholder="مثال: 4501"
+                            maxLength={4}
+                            value={senderCardLast4}
+                            onChange={(e) => setSenderCardLast4(e.target.value)}
+                            className="w-full bg-white border border-slate-300 rounded-xl p-2 text-slate-900 focus:outline-hidden focus:border-blue-500 text-xs"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-slate-700 font-medium mb-1">۴ رقم آخر کارت واریزکننده:</label>
-                      <input
-                        type="text"
-                        placeholder="مثال: 4501"
-                        maxLength={4}
-                        value={senderCardLast4}
-                        onChange={(e) => setSenderCardLast4(e.target.value)}
-                        className="w-full bg-white border border-slate-300 rounded-xl p-2 text-slate-900 focus:outline-hidden focus:border-blue-500 text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
+                  </>
+                )}
 
               </div>
             )}
@@ -874,7 +1022,30 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
 
               {/* Action Buttons */}
-              {isCustomerProfileIncomplete ? (
+              {!currentUser ? (
+                <div className="bg-blue-50 border-2 border-blue-400 rounded-2xl p-4 space-y-2.5">
+                  <div className="flex items-center gap-2 text-blue-950 font-black text-xs">
+                    <LogIn className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>جهت ثبت سفارش و دریافت کد پیگیری وارد حساب شوید</span>
+                  </div>
+                  <p className="text-[11px] text-blue-800 leading-relaxed">
+                    برای ثبت نهایی سفارش در انبار مرکزی، پیگیری لحظه‌ای مرسوله و صدور فاکتور رسمی، لطفاً ابتدا وارد حساب کاربری خود شوید.
+                  </p>
+                  <button
+                    onClick={() => {
+                      onClose();
+                      if (onNavigateToProfile) onNavigateToProfile();
+                      if (typeof window !== 'undefined') {
+                        window.scrollTo({ top: 0, behavior: 'instant' });
+                      }
+                    }}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <LogIn className="w-4 h-4" />
+                    <span>ورود به حساب / ثبت‌نام سریع</span>
+                  </button>
+                </div>
+              ) : isCustomerProfileIncomplete ? (
                 <div className="bg-amber-50 border-2 border-amber-400 rounded-2xl p-4 space-y-2.5">
                   <div className="flex items-center gap-2 text-amber-900 font-black text-xs">
                     <Building className="w-4 h-4 text-amber-600 shrink-0" />
@@ -887,6 +1058,9 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     onClick={() => {
                       onClose();
                       if (onNavigateToProfile) onNavigateToProfile();
+                      if (typeof window !== 'undefined') {
+                        window.scrollTo({ top: 0, behavior: 'instant' });
+                      }
                     }}
                     className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-black text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-2"
                   >
@@ -958,8 +1132,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
       {/* Success Modal */}
       {orderSuccessModal && (
-        <div className="fixed inset-0 z-60 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center space-y-4 shadow-2xl animate-in zoom-in-95">
+        <div 
+          className="fixed inset-0 z-60 bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => {
+            setOrderSuccessModal(null);
+            onClose();
+          }}
+        >
+          <div 
+            className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-md w-full text-center space-y-4 shadow-2xl animate-in zoom-in-95 cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="w-16 h-16 rounded-3xl bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
               <CheckCircle2 className="w-10 h-10" />
             </div>

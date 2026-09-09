@@ -63,11 +63,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   return (
     <div 
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200 no-scrollbar overflow-hidden"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/70 backdrop-blur-xs animate-in fade-in duration-200 no-scrollbar overflow-hidden modal-overscroll-contain"
+      style={{ overscrollBehavior: 'contain' }}
     >
       <div 
         onClick={(e) => e.stopPropagation()}
         className="bg-white [#0f172a] border border-slate-200 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto modal-overscroll-contain shadow-2xl p-5 sm:p-7 relative text-slate-900 my-auto"
+        style={{ overscrollBehavior: 'contain' }}
         id="product-details-modal"
       >
         {/* Header Section */}

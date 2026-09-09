@@ -54,6 +54,7 @@ export type NavigationTab =
   | 'contact' 
   | 'shipping' 
   | 'blog' 
+  | 'reportage'
   | 'django-crm'
   | 'django-docs'
   | 'accounting-pos'
@@ -76,6 +77,25 @@ export interface CustomerTierConfig {
   accentColor: string;
   discountRate: number; // درصد تخفیف ویژه
   defaultCreditLimit: number; // سقف اعتبار پیش‌فرض
+  description: string;
+}
+
+export type VisitorTierId = 'visitor_junior' | 'visitor_silver' | 'visitor_gold_leader' | 'visitor_diamond_ambassador';
+
+export interface VisitorTierConfig {
+  id: VisitorTierId;
+  nameFa: string;
+  badgeTitle: string;
+  cardTitle: string;
+  themeColor: string;
+  cardGradient: string;
+  cardBorder: string;
+  badgeBg: string;
+  badgeText: string;
+  textColor: string;
+  accentColor: string;
+  commissionRate: number; // درصد کمیسیون بازاریابی
+  monthlyTargetAmount: number; // تارگت فروش ماهانه
   description: string;
 }
 
@@ -241,8 +261,10 @@ export interface UserProfile {
   customerStamps?: Record<string, string>; // مهرهایی که ویزیتور برای مغازه‌داران خود ذخیره می‌کند (شناسه مغازه -> آدرس تصویر مهر)
   orderHistory?: OrderInvoice[];
   
-  // کارت رتبه، کیف پول و سقف اعتبار خرید از دیتابیس
+  // کارت‌های رتبه VIP مجزا برای مشتریان و ویزیتورها
   tierId?: CustomerTierId;
+  customerVipTierId?: CustomerTierId; // کارت VIP اختصاصی باشگاه مشتریان / مغازه‌داران
+  visitorVipTierId?: VisitorTierId; // کارت VIP و درجه اختصاصی ویزیتورها / سفیران فروش
   creditLimit?: number; // سقف اعتبار خرید دفتری (تومان)
   walletBalance?: number; // موجودی کیف پول کاربر
 }
@@ -409,6 +431,7 @@ export interface OrderInvoice {
     | 'در انتظار تأیید انبار' 
     | 'ارسال شده به سامانه مرکزی' 
     | 'واریز شده و ثبت فیش'
+    | 'پرداخت شده از کیف پول'
     | 'فیش واریزی ارسال شده (در انتظار بررسی)'
     | 'تسویه با کارتخوان پای باجه'
     | 'منظور به حساب دفتری و نسیه'

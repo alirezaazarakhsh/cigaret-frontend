@@ -74,8 +74,17 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
   const [activeSubTab, setActiveSubTab] = useState<'orders' | 'financial_hub' | 'profile' | 'tickets' | 'new_ticket' | 'visitor_club' | 'visitor_report'>(initialSubTab || 'orders');
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, []);
+
+  useEffect(() => {
     if (initialSubTab) {
       setActiveSubTab(initialSubTab);
+    }
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' });
     }
   }, [initialSubTab]);
 
@@ -104,6 +113,16 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
   const [isLoadingOtp, setIsLoadingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [mockGeneratedOtp, setMockGeneratedOtp] = useState('1111');
+
+  // Environment Check: Only show quick test code in development / preview sandbox
+  const isDevPreviewMode = Boolean(
+    import.meta.env.DEV || 
+    (typeof window !== 'undefined' && (
+      window.location.hostname === 'localhost' || 
+      window.location.hostname.includes('127.0.0.1') ||
+      window.location.hostname.includes('ais-dev')
+    ))
+  );
 
   // Orders State
   const [userOrders, setUserOrders] = useState<OrderInvoice[]>([]);
@@ -322,26 +341,36 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
     try {
       const res = await accountsApi.sendOtp(cleanedPhone);
       if (res.success) {
-        if (res.dev_mock_otp) {
+        if (res.dev_mock_otp && isDevPreviewMode) {
           setMockGeneratedOtp(res.dev_mock_otp);
-        } else {
+        } else if (isDevPreviewMode) {
           setMockGeneratedOtp('1111');
+        } else {
+          setMockGeneratedOtp('');
         }
         setOtpStep('otp');
         setOtpCountdown(res.expiresIn || 120);
         showToast(res.message || `کد تأیید ورود به شماره ${loginPhone} ارسال گردید.`);
       } else {
-        // Fallback for dev/offline resilience
+        // Fallback for dev/preview sandbox
+        if (isDevPreviewMode) {
+          setMockGeneratedOtp('1111');
+          setOtpStep('otp');
+          setOtpCountdown(120);
+          showToast(`کد تستی پیش‌نمایش: 1111 (${res.message || 'حالت دمو'})`);
+        } else {
+          showToast(res.message || 'خطا در ارسال پیامک کد تأیید. لطفاً دقایقی دیگر تلاش نمایید.');
+        }
+      }
+    } catch {
+      if (isDevPreviewMode) {
         setMockGeneratedOtp('1111');
         setOtpStep('otp');
         setOtpCountdown(120);
-        showToast(`کد تستی ورود: 1111 (${res.message || 'آماده ورود'})`);
+        showToast('کد تستی پیش‌نمایش: 1111');
+      } else {
+        showToast('خطا در برقراری ارتباط با سامانه پیامک. لطفاً دوباره تلاش نمایید.');
       }
-    } catch {
-      setMockGeneratedOtp('1111');
-      setOtpStep('otp');
-      setOtpCountdown(120);
-      showToast(`کد تستی ورود: 1111`);
     } finally {
       setIsLoadingOtp(false);
     }
@@ -359,16 +388,36 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
     setIsVerifyingOtp(true);
 
     try {
+      // Check existing customer/visitor records from local DB
+      let existingPosUser: any = null;
+      try {
+        const stored = localStorage.getItem('sovin_pos_customers');
+        if (stored) {
+          const list = JSON.parse(stored);
+          existingPosUser = list.find((c: any) => 
+            c.phone === cleanedPhone || 
+            c.phone?.replace(/\D/g, '') === cleanedPhone.replace(/\D/g, '')
+          );
+        }
+      } catch (err) {
+        console.error(err);
+      }
+
       const res = await accountsApi.verifyOtp(cleanedPhone, otpCode);
 
       if (res.success && res.user) {
         const dUser = res.user;
-
-        // Use backend role if provided, otherwise fallback to UI selection
         const backendRole = dUser.role || dUser.user_type;
-        // Prioritize admin check, then user selection
-        let finalRole = (backendRole === 'admin' || dUser.is_superuser || dUser.is_staff) ? 'admin'
-                      : selectedLoginRole;
+        
+        // Auto-detect role: Admin, Visitor, or Customer
+        let finalRole: 'admin' | 'visitor' | 'customer' = 'customer';
+        if (backendRole === 'admin' || dUser.is_superuser || dUser.is_staff) {
+          finalRole = 'admin';
+        } else if (backendRole === 'visitor' || dUser.is_visitor || existingPosUser?.isVisitor || existingPosUser?.role === 'visitor') {
+          finalRole = 'visitor';
+        } else {
+          finalRole = 'customer';
+        }
 
         if (finalRole === 'admin') {
           const newUser: UserProfile = {
@@ -389,84 +438,108 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
           window.dispatchEvent(new Event('storage'));
           showToast(`مدیریت گرامی، ${newUser.fullName} خوش آمدید.`);
         } else if (finalRole === 'visitor') {
-          // Fetch real visitor profile from Django backend (/api/v1/visitors/profile/)
+          // Fetch visitor data
           const visitorData = await visitorsApi.getProfile().catch(() => null);
 
           const newUser: UserProfile = {
             id: `django-usr-${dUser.id}`,
             phone: dUser.phone || cleanedPhone,
-            fullName: dUser.full_name || 'سفیر فروش و ویزیتور',
-            province: dUser.province || 'تهران',
-            city: dUser.city || 'تهران',
-            address: dUser.address || '',
-            nationalId: dUser.national_id || '',
-            bankCardNumber: '',
-            bankSheba: '',
-            bankName: '',
-            bankAccountHolder: dUser.full_name || '',
-            isVerified: Boolean(dUser.is_verified),
-            createdAt: toShamsiDate(dUser.date_joined),
+            fullName: dUser.full_name || existingPosUser?.name || 'سفیر فروش و ویزیتور',
+            province: dUser.province || existingPosUser?.city || 'تهران',
+            city: dUser.city || existingPosUser?.city || 'تهران',
+            address: dUser.address || existingPosUser?.address || '',
+            nationalId: dUser.national_id || existingPosUser?.nationalCode || '',
+            bankCardNumber: existingPosUser?.bankCardNumber || '',
+            bankSheba: existingPosUser?.bankSheba || '',
+            bankName: existingPosUser?.bankName || '',
+            bankAccountHolder: dUser.full_name || existingPosUser?.name || '',
+            vehicleType: existingPosUser?.vehicleType || 'motorcycle',
+            vehiclePlate: existingPosUser?.vehiclePlate || '',
+            hasAcceptedContract: Boolean(existingPosUser?.hasAcceptedContract),
+            isVerified: Boolean(dUser.is_verified || existingPosUser?.isVerified),
+            createdAt: toShamsiDate(dUser.date_joined) || existingPosUser?.createdAt || new Date().toLocaleDateString('fa-IR'),
             role: 'visitor',
-            visitorCode: visitorData?.visitor_code || `VISITOR-${dUser.id}`,
-            commissionRate: Number(visitorData?.commission_rate || 2.5),
-            totalSalesAmount: Number(visitorData?.total_sales_amount || 0),
+            visitorCode: visitorData?.visitor_code || existingPosUser?.visitorCode || `VISITOR-${dUser.id || cleanedPhone.slice(-4)}`,
+            commissionRate: Number(visitorData?.commission_rate || existingPosUser?.commissionRate || 2.5),
+            totalSalesAmount: Number(visitorData?.total_sales_amount || existingPosUser?.totalPurchases || 0),
             totalCommissionEarned: Number(visitorData?.total_commission_earned || 0),
-            isProfileCompleted: Boolean(dUser.national_id),
+            walletBalance: existingPosUser?.walletBalance || 0,
+            creditLimit: existingPosUser?.creditLimit || 30000000,
+            tierId: existingPosUser?.tierId || 'gold',
+            isProfileCompleted: Boolean(dUser.national_id || existingPosUser?.nationalCode),
           };
 
           localStorage.setItem('sevin_current_user', JSON.stringify(newUser));
           onLogin(newUser);
           setEditProfile(newUser);
           window.dispatchEvent(new Event('storage'));
-          showToast(`خوش آمدید! ویزیتور گرامی، ${newUser.fullName} (کد اختصاصی: ${newUser.visitorCode}) با موفقیت وارد شدید.`);
+          showToast(`خوش آمدید! ویزیتور گرامی، ${newUser.fullName} (کد: ${newUser.visitorCode}) با موفقیت وارد شدید.`);
         } else {
           // Customer / Wholesaler Login
           const newUser: UserProfile = {
             id: `django-usr-${dUser.id}`,
             phone: dUser.phone || cleanedPhone,
-            fullName: dUser.full_name || 'مدیر فروشگاه / خریدار عمده',
-            shopName: dUser.business_name || 'فروشگاه دخانیات',
-            province: dUser.province || 'تهران',
-            city: dUser.city || 'تهران',
-            address: dUser.address || '',
-            nationalId: dUser.national_id || '',
-            isVerified: Boolean(dUser.is_verified),
-            createdAt: toShamsiDate(dUser.date_joined),
+            fullName: dUser.full_name || existingPosUser?.name || 'مدیر فروشگاه / خریدار عمده',
+            shopName: dUser.business_name || existingPosUser?.shopName || existingPosUser?.name || 'فروشگاه دخانیات نگین',
+            businessLicenseNumber: existingPosUser?.businessLicenseNumber || '',
+            province: dUser.province || existingPosUser?.city || 'تهران',
+            city: dUser.city || existingPosUser?.city || 'تهران',
+            address: dUser.address || existingPosUser?.address || '',
+            nationalId: dUser.national_id || existingPosUser?.nationalCode || '',
+            isVerified: Boolean(dUser.is_verified || existingPosUser?.isVerified),
+            createdAt: toShamsiDate(dUser.date_joined) || existingPosUser?.createdAt || new Date().toLocaleDateString('fa-IR'),
             role: 'customer',
-            isProfileCompleted: Boolean(dUser.address && dUser.business_name),
+            tierId: existingPosUser?.tierId || 'gold',
+            walletBalance: existingPosUser?.walletBalance || 0,
+            creditLimit: existingPosUser?.creditLimit || 50000000,
+            isProfileCompleted: Boolean((dUser.address || existingPosUser?.address) && (dUser.business_name || existingPosUser?.shopName)),
           };
 
           localStorage.setItem('sevin_current_user', JSON.stringify(newUser));
           onLogin(newUser);
           setEditProfile(newUser);
           window.dispatchEvent(new Event('storage'));
-          showToast(`ورود موفقیت‌آمیز مغازه‌دار با شماره ${cleanedPhone}.`);
+          showToast(`ورود موفقیت‌آمیز با شماره ${cleanedPhone}.`);
         }
       } else {
-        // Check if master dev code is entered as offline fallback
-        if (otpCode === '1111' || otpCode === mockGeneratedOtp || otpCode === '1234') {
-          const fallbackId = `usr-${selectedLoginRole === 'visitor' ? 'vis' : 'cust'}-${Date.now()}`;
+        // Master dev code / offline fallback (Only allowed in development / preview sandbox)
+        if (isDevPreviewMode && (otpCode === '1111' || (mockGeneratedOtp && otpCode === mockGeneratedOtp) || otpCode === '1234')) {
+          const isVisitorMatched = Boolean(existingPosUser?.isVisitor || existingPosUser?.role === 'visitor');
+          const fallbackRole: 'visitor' | 'customer' = isVisitorMatched ? 'visitor' : 'customer';
+          const fallbackId = `usr-${fallbackRole === 'visitor' ? 'vis' : 'cust'}-${Date.now()}`;
+          
           const newUser: UserProfile = {
             id: fallbackId,
             phone: cleanedPhone,
-            fullName: selectedLoginRole === 'visitor' ? 'ویزیتور ثبت‌شده دیتابیس' : 'مدیر فروشگاه',
-            shopName: selectedLoginRole === 'customer' ? 'فروشگاه / سوپرمارکت' : undefined,
-            province: 'تهران',
-            city: 'تهران',
-            address: '',
+            fullName: existingPosUser?.name || (fallbackRole === 'visitor' ? 'سفیر فروش و ویزیتور' : 'خریدار گرامی'),
+            shopName: fallbackRole === 'customer' ? (existingPosUser?.shopName || 'فروشگاه دخانیات نگین') : undefined,
+            province: existingPosUser?.city || 'تهران',
+            city: existingPosUser?.city || 'تهران',
+            address: existingPosUser?.address || '',
+            nationalId: existingPosUser?.nationalCode || '',
+            bankCardNumber: existingPosUser?.bankCardNumber || '',
+            bankSheba: existingPosUser?.bankSheba || '',
+            bankName: existingPosUser?.bankName || '',
+            bankAccountHolder: existingPosUser?.name || '',
+            vehicleType: existingPosUser?.vehicleType || 'motorcycle',
+            vehiclePlate: existingPosUser?.vehiclePlate || '',
+            hasAcceptedContract: Boolean(existingPosUser?.hasAcceptedContract),
             isVerified: true,
             createdAt: new Date().toLocaleDateString('fa-IR'),
-            role: selectedLoginRole === 'visitor' ? 'visitor' : 'customer',
-            visitorCode: selectedLoginRole === 'visitor' ? `VISITOR-${cleanedPhone.slice(-4)}` : undefined,
-            commissionRate: selectedLoginRole === 'visitor' ? 2.5 : undefined,
-            isProfileCompleted: false,
+            role: fallbackRole,
+            visitorCode: fallbackRole === 'visitor' ? (existingPosUser?.visitorCode || `VISITOR-${cleanedPhone.slice(-4)}`) : undefined,
+            commissionRate: fallbackRole === 'visitor' ? 2.5 : undefined,
+            tierId: existingPosUser?.tierId || 'gold',
+            walletBalance: existingPosUser?.walletBalance || 2500000,
+            creditLimit: existingPosUser?.creditLimit || (fallbackRole === 'visitor' ? 30000000 : 50000000),
+            isProfileCompleted: true,
           };
 
           localStorage.setItem('sevin_current_user', JSON.stringify(newUser));
           onLogin(newUser);
           setEditProfile(newUser);
           window.dispatchEvent(new Event('storage'));
-          showToast(`ورود با موفقیت انجام شد.`);
+          showToast(`ورود آزمایشی با موفقیت انجام شد.`);
         } else {
           showToast(res.message || 'کد تأیید وارد شده صحیح نمی‌باشد یا منقضی شده است.');
         }
@@ -485,7 +558,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
     let isComplete = false;
     if (editProfile.role === 'customer') {
       const hasName = editProfile.fullName && editProfile.fullName.trim().length > 2 && !editProfile.fullName.includes('گرامی');
-      const hasShop = editProfile.shopName && editProfile.shopName.trim().length > 2 && !editProfile.shopName.includes('سوپرمارکت');
+      const hasShop = editProfile.shopName && editProfile.shopName.trim().length > 2;
       const hasAddress = editProfile.address && editProfile.address.trim().length > 5;
       isComplete = Boolean(hasName && hasShop && hasAddress);
     } else {
@@ -629,73 +702,31 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
       <section className="py-12 px-4 max-w-xl mx-auto" id="user-auth-section">
         <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-10 shadow-xl">
           
-          <div className="text-center mb-8">
+          <div className="text-center mb-6">
             <div className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-200 flex items-center justify-center mx-auto mb-4 text-blue-600 shadow-sm">
               <Building2 className="w-8 h-8" />
             </div>
-            <span className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100 ">
+            <span className="text-xs font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
               سامانه پخش عمده دخانیات دخانیات سرو
             </span>
             <h2 className="text-2xl font-black text-slate-900 mt-2">
               ورود سریع با شماره موبایل
             </h2>
             <p className="text-xs text-slate-500 mt-1">
-              مشاهده سوابق پیش‌فاکتورها، صدور مستقیم PDF، ارسال تیکت و پیگیری بارگیری از انبار جنت‌آباد
+              ورود یکپارچه مشتریان، مغازه‌داران، ویزیتورها و خریداران عمده با کد تایید یکبار مصرف (OTP)
             </p>
           </div>
 
-          {/* Role Selection Tabs */}
-          <div className="grid grid-cols-2 gap-2 bg-slate-100 p-1.5 rounded-2xl mb-6">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedLoginRole('customer');
-                setOtpStep('phone');
-              }}
-              className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                selectedLoginRole === 'customer'
-                  ? 'bg-white text-blue-600 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Building className="w-4 h-4" />
-              <span>مغازه‌دار / مشتری عادی</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedLoginRole('visitor');
-                setOtpStep('phone');
-              }}
-              className={`py-2.5 px-3 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-2 ${
-                selectedLoginRole === 'visitor'
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <UserCheck className="w-4 h-4" />
-              <span>سفیر فروش / ویزیتور</span>
-            </button>
+          <div className="bg-blue-50/60 border border-blue-200/80 rounded-2xl p-3.5 mb-6 text-xs text-blue-900 flex items-center gap-3">
+            <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0" />
+            <span>ورود و احراز هویت هوشمند: پس از ثبت شماره و ورود، پنل بر اساس نقش و دسترسی شما نمایش داده می‌شود.</span>
           </div>
-
-          {selectedLoginRole === 'visitor' ? (
-            <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 mb-4 text-xs text-blue-900 flex items-center gap-2">
-              <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0" />
-              <span>ورود به پنل ویزیتوری نیاز به شماره موبایل ثبت‌شده در سیستم مرکزی جنگو دارد.</span>
-            </div>
-          ) : (
-            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-3 mb-4 text-xs text-emerald-900 flex items-center gap-2">
-              <Building className="w-5 h-5 text-emerald-600 shrink-0" />
-              <span>کلیه مغازه‌داران و خریداران محترم می‌توانند با شماره همراه خود به صورت مستقیم ثبت‌نام و خرید نمایند.</span>
-            </div>
-          )}
 
           {otpStep === 'phone' ? (
             <form onSubmit={handleRequestOtp} className="space-y-4">
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  {selectedLoginRole === 'visitor' ? 'شماره موبایل ویزیتور:' : 'شماره موبایل مغازه‌دار / خریدار:'}
+                  شماره موبایل:
                 </label>
                 <div className="relative">
                   <input
@@ -731,19 +762,23 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             </form>
           ) : (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3 text-xs text-blue-800 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <span>کد تأیید به شماره <strong>{loginPhone}</strong> ارسال شد.</span>
-                {mockGeneratedOtp && (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-3.5 text-xs text-blue-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-blue-600 shrink-0" />
+                  <span>کد تأیید به شماره <strong>{loginPhone}</strong> ارسال شد.</span>
+                </div>
+                {isDevPreviewMode && mockGeneratedOtp ? (
                   <button
                     type="button"
                     onClick={() => setOtpCode(mockGeneratedOtp)}
-                    className="inline-flex items-center gap-1 text-[11px] font-mono font-bold bg-blue-100 hover:bg-blue-200 text-blue-800 px-2.5 py-1 rounded-lg transition-colors border border-blue-300"
+                    className="inline-flex items-center gap-1.5 text-[11px] font-mono font-bold bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 py-1.5 rounded-xl transition-all border border-blue-300 shadow-2xs self-start sm:self-auto"
+                    title="درج خودکار کد در محیط تست و توسعه"
                   >
-                    <span>کد تست سریع:</span>
+                    <span>کد تست پیش‌نمایش:</span>
                     <strong className="tracking-wider">{mockGeneratedOtp}</strong>
-                    <span className="text-[10px] font-sans">(کلیک جهت درج)</span>
+                    <span className="text-[10px] font-sans font-normal text-blue-600">(کلیک جهت درج)</span>
                   </button>
-                )}
+                ) : null}
               </div>
 
               <div>
@@ -804,7 +839,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
   // Check profile completeness for mandatory banner
   const isProfileIncomplete = currentUser ? (
     currentUser.role === 'customer'
-      ? (!currentUser.fullName || currentUser.fullName.includes('گرامی') || !currentUser.shopName || currentUser.shopName.includes('سوپرمارکت') || !currentUser.address)
+      ? (!currentUser.fullName || currentUser.fullName.includes('گرامی') || !currentUser.shopName || !currentUser.address)
       : (!currentUser.fullName || !currentUser.nationalId || !currentUser.bankCardNumber || !currentUser.bankSheba)
   ) : false;
 
@@ -868,26 +903,65 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-auto justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 ">
-            <button
-              onClick={() => {
-                setSelectedTicketId(null);
-                setActiveSubTab('new_ticket');
-              }}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-2xs"
-            >
-              <PlusCircle className="w-3.5 h-3.5" />
-              <span>ارسال تیکت</span>
-            </button>
+          {/* Quick Actions & Instant Role Switcher for Preview */}
+          <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-wrap">
+            {/* Instant Preview Role Switcher */}
+            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+              <button
+                type="button"
+                onClick={() => {
+                  const updated: UserProfile = {
+                    ...currentUser,
+                    role: 'customer',
+                    shopName: currentUser.shopName || 'فروشگاه دخانیات نگین',
+                  };
+                  localStorage.setItem('sevin_current_user', JSON.stringify(updated));
+                  onUpdateProfile(updated);
+                  showToast('سوییچ به پنل فروشگاه انجام شد.');
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${currentUser.role === 'customer' ? 'bg-white text-blue-600 shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                پنل فروشگاه
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const updated: UserProfile = {
+                    ...currentUser,
+                    role: 'visitor',
+                    visitorCode: currentUser.visitorCode || 'VIS-9419',
+                    commissionRate: currentUser.commissionRate || 2.5,
+                  };
+                  localStorage.setItem('sevin_current_user', JSON.stringify(updated));
+                  onUpdateProfile(updated);
+                  showToast('سوییچ به پنل ویزیتور و بازاریاب انجام شد.');
+                }}
+                className={`px-3 py-1.5 rounded-lg transition-all ${currentUser.role === 'visitor' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                پنل ویزیتور
+              </button>
+            </div>
 
-            <button
-              onClick={onLogout}
-              className="flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-xl text-xs font-bold transition-all"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>خروج</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setSelectedTicketId(null);
+                  setActiveSubTab('new_ticket');
+                }}
+                className="flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 px-3.5 py-2 rounded-xl text-xs font-black transition-all shadow-2xs"
+              >
+                <PlusCircle className="w-3.5 h-3.5" />
+                <span>ارسال تیکت</span>
+              </button>
+
+              <button
+                onClick={onLogout}
+                className="flex items-center justify-center gap-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 px-3 py-2 rounded-xl text-xs font-bold transition-all"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span>خروج</span>
+              </button>
+            </div>
           </div>
 
         </div>
@@ -937,23 +1011,21 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             <span>سفارش‌ها و پیش‌فاکتورها ({formatNumberFa(userOrders.length)})</span>
           </button>
 
-          {/* Customer Financial Ledger Tab */}
-          {currentUser.role === 'customer' && (
-            <button
-              onClick={() => {
-                setSelectedTicketId(null);
-                setActiveSubTab('financial_hub');
-              }}
-              className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
-                activeSubTab === 'financial_hub' && !selectedTicketId
-                  ? 'bg-blue-600 text-white shadow-xs'
-                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 '
-              }`}
-            >
-              <CreditCard className="w-3.5 h-3.5" />
-              <span>حساب دفتری و نسیه مغازه‌دار</span>
-            </button>
-          )}
+          {/* Customer & Visitor Financial Ledger Tab */}
+          <button
+            onClick={() => {
+              setSelectedTicketId(null);
+              setActiveSubTab('financial_hub');
+            }}
+            className={`px-3 sm:px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shrink-0 whitespace-nowrap ${
+              activeSubTab === 'financial_hub' && !selectedTicketId
+                ? 'bg-blue-600 text-white shadow-xs'
+                : 'bg-slate-100 text-slate-700 hover:bg-slate-200 '
+            }`}
+          >
+            <CreditCard className="w-3.5 h-3.5" />
+            <span>حساب دفتری و کیف پول</span>
+          </button>
 
           <button
             onClick={() => {
@@ -1242,8 +1314,14 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
 
               {/* Add Shop Modal */}
               {showAddShopModal && (
-                <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-                  <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl">
+                <div 
+                  className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+                  onClick={() => setShowAddShopModal(false)}
+                >
+                  <div 
+                    className="bg-white border border-slate-200 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl cursor-default"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                       <h3 className="font-black text-sm text-slate-900 ">افزودن مغازه‌دار جدید به باشگاه</h3>
                       <button onClick={() => setShowAddShopModal(false)} className="text-slate-400 hover:text-slate-600 font-bold text-sm">✕</button>
@@ -1269,13 +1347,13 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                       setNewAddress('');
                     }} className="space-y-3 text-xs">
                       <div>
-                        <label className="block text-slate-700 font-medium mb-1">نام مغازه / سوپرمارکت:</label>
+                        <label className="block text-slate-700 font-medium mb-1">نام فروشگاه / مغازه:</label>
                         <input
                           type="text"
                           required
                           value={newShopName}
                           onChange={(e) => setNewShopName(e.target.value)}
-                          placeholder="مثال: سوپرمارکت مرکزی"
+                          placeholder="مثال: فروشگاه دخانیات نگین"
                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-3 text-slate-900 focus:outline-hidden"
                         />
                       </div>
@@ -1664,14 +1742,14 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">
-                          نام فروشگاه / سوپرمارکت:
+                          نام فروشگاه / مغازه:
                         </label>
                         <input
                           type="text"
                           required
                           value={editProfile.shopName || ''}
                           onChange={(e) => setEditProfile({ ...editProfile, shopName: e.target.value })}
-                          placeholder="مثال: سوپرمارکت مرکزی نگین"
+                          placeholder="مثال: فروشگاه دخانیات نگین"
                           className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-3 py-2.5 text-xs text-slate-900 focus:ring-2 focus:ring-blue-500 focus:outline-hidden"
                         />
                       </div>
@@ -1853,12 +1931,40 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
                           <label className="block text-xs font-bold text-slate-700 mb-1">
                             تصویر کارت ملی (جهت ثبت در جنگو):
                           </label>
-                          <div className="w-full bg-slate-50 border border-dashed border-slate-300 rounded-2xl p-2.5 text-center flex items-center justify-center cursor-pointer hover:bg-slate-100 transition-colors">
-                            <span className="text-xs text-slate-500 flex items-center gap-2">
-                              <Download className="w-4 h-4 rotate-180" />
-                              {editProfile.nationalIdImage ? 'کارت ملی بارگذاری شده است' : 'انتخاب تصویر و بارگذاری'}
+                          <label className="w-full bg-slate-50 border border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-2.5 text-center flex items-center justify-center cursor-pointer hover:bg-slate-100 transition-colors block">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onload = () => {
+                                    setEditProfile({
+                                      ...editProfile,
+                                      nationalIdImage: reader.result as string
+                                    });
+                                    showToast('تصویر کارت ملی بارگذاری شد.');
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
+                            <span className="text-xs text-slate-600 font-bold flex items-center gap-2">
+                              <Download className="w-4 h-4 rotate-180 text-blue-600" />
+                              {editProfile.nationalIdImage ? 'کارت ملی انتخاب شده (جهت تغییر کلیک کنید)' : 'انتخاب تصویر و بارگذاری'}
                             </span>
-                          </div>
+                          </label>
+                          {editProfile.nationalIdImage && (
+                            <div className="mt-2 text-center">
+                              <img
+                                src={editProfile.nationalIdImage}
+                                alt="National ID Preview"
+                                className="h-16 mx-auto rounded-lg border border-slate-200 object-cover shadow-2xs"
+                              />
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1953,8 +2059,14 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
 
       {/* Order Details Modal */}
       {selectedOrderForDetails && (
-        <div className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 max-w-2xl w-full space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto modal-overscroll-contain">
+        <div 
+          className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+          onClick={() => setSelectedOrderForDetails(null)}
+        >
+          <div 
+            className="bg-white border border-slate-200 rounded-3xl p-6 max-w-2xl w-full space-y-4 shadow-2xl my-auto max-h-[92vh] overflow-y-auto modal-overscroll-contain cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="font-black text-sm text-slate-900 flex items-center gap-2">

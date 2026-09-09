@@ -3,7 +3,7 @@ import { RetailShopCustomer } from '../types';
 export const INITIAL_RETAIL_SHOPS: RetailShopCustomer[] = [
   {
     id: 'shop-1',
-    shopName: 'سوپرمارکت و دخانیات پایتخت (قاسم‌زاده)',
+    shopName: 'فروشگاه و دخانیات پایتخت (قاسم‌زاده)',
     ownerName: 'حاج رضا قاسم‌زاده',
     phone: '09121112233',
     city: 'تهران',
@@ -33,7 +33,7 @@ export const INITIAL_RETAIL_SHOPS: RetailShopCustomer[] = [
   },
   {
     id: 'shop-4',
-    shopName: 'سوپرمارکت بزرگ نوین (کرمی)',
+    shopName: 'فروشگاه بزرگ نوین (کرمی)',
     ownerName: 'ساسان کرمی',
     phone: '09128889900',
     city: 'تهران',

@@ -59,7 +59,7 @@ export const LedgerDocs: React.FC = () => {
       auth: 'IsAuthenticated (Accountant / Customer)',
       description: 'دریافت صورت‌حساب ریز تراکنش‌های دفتری، جمع بدهکاری، بستانکاری و مانده نهایی مشتری',
       responseBody: JSON.stringify({
-        customer_name: "سوپرمارکت بهارستان (حاج احمد)",
+        customer_name: "فروشگاه دخانیات بهارستان (حاج احمد)",
         credit_limit: 150000000,
         current_debt: 68400000,
         is_blocked: false,

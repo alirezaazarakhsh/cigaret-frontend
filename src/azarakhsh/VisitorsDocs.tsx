@@ -21,12 +21,12 @@ export const VisitorsDocs: React.FC = () => {
     },
     {
       name: 'visitors_retailshopcustomer',
-      verboseName: 'باشگاه مشتریان مغازه‌داران و سوپرمارکت‌ها',
+      verboseName: 'باشگاه مشتریان فروشگاه‌ها و مغازه‌داران',
       description: 'واحدهای صنفی ثبت‌شده تحت شبکه ویزیتور مربوطه جهت دریافت پورسانت مستمر',
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه' },
         { name: 'visitor_id', type: 'ForeignKey', isFk: true, fkTarget: 'visitors_visitorprofile', verbose: 'ویزیتور معرف' },
-        { name: 'shop_name', type: 'CharField(max_length=200)', verbose: 'نام مغازه / سوپرمارکت' },
+        { name: 'shop_name', type: 'CharField(max_length=200)', verbose: 'نام فروشگاه / مغازه' },
         { name: 'owner_name', type: 'CharField(max_length=150)', verbose: 'نام صاحب مغازه' },
         { name: 'phone', type: 'CharField(max_length=15)', verbose: 'شماره تماس' },
         { name: 'city', type: 'CharField(max_length=60)', verbose: 'شهر' },
@@ -93,7 +93,7 @@ export const VisitorsDocs: React.FC = () => {
     {
       "id": 101,
       "visitor": 5,
-      "shop_name": "سوپرمارکت شقایق",
+      "shop_name": "فروشگاه دخانیات شقایق",
       "owner_name": "حسین محمدی",
       "phone": "09121112233",
       "city": "تهران",
@@ -113,7 +113,7 @@ export const VisitorsDocs: React.FC = () => {
   -H "Authorization: Bearer <JWT_TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "shop_name": "سوپرمارکت شقایق",
+    "shop_name": "فروشگاه دخانیات شقایق",
     "owner_name": "حسین محمدی",
     "phone": "09121112233",
     "city": "تهران",
@@ -124,7 +124,7 @@ export const VisitorsDocs: React.FC = () => {
   "message": "واحد صنفی جدید با موفقیت در شبکه شما ثبت گردید.",
   "data": {
     "id": 102,
-    "shop_name": "سوپرمارکت شقایق",
+    "shop_name": "فروشگاه دخانیات شقایق",
     "owner_name": "حسین محمدی"
   }
 }`
@@ -193,10 +193,10 @@ class VisitorProfile(models.Model):
 
 class RetailShopCustomer(models.Model):
     """
-    باشگاه مشتریان مغازهداران و سوپرمارکتهای زیرمجموعه هر ویزیتور
+    باشگاه مشتریان مغازه‌داران و واحدهای صنفی زیرمجموعه هر ویزیتور
     """
     visitor = models.ForeignKey(VisitorProfile, on_delete=models.CASCADE, related_name='shops', verbose_name=_("ویزیتور معرف"))
-    shop_name = models.CharField(_("نام مغازه / سوپرمارکت"), max_length=200)
+    shop_name = models.CharField(_("نام فروشگاه / مغازه"), max_length=200)
     owner_name = models.CharField(_("نام صاحب مغازه"), max_length=150)
     phone = models.CharField(_("شماره تماس"), max_length=15)
     city = models.CharField(_("شهر"), max_length=60)
@@ -205,8 +205,8 @@ class RetailShopCustomer(models.Model):
     created_at = models.DateTimeField(_("تاریخ ثبت"), auto_now_add=True)
 
     class Meta:
-        verbose_name = _("مغازهدار (باشگاه مشتریان)")
-        verbose_name_plural = _("شبکه مغازهداران ویزیتوران")
+        verbose_name = _("مغازه‌دار (باشگاه مشتریان)")
+        verbose_name_plural = _("شبکه مغازه‌داران ویزیتوران")
         ordering = ['-created_at']
 
     def __str__(self):
@@ -383,7 +383,7 @@ class VisitorDashboardAPIView(APIView):
 
 class RetailShopListAPIView(APIView):
     """
-    اندپوینت دریافت لیست مغازه‌داران و سوپرمارکت‌های تحت شبکه ویزیتور جاری
+    اندپوینت دریافت لیست مغازه‌داران و فروشگاه‌های تحت شبکه ویزیتور جاری
     """
     permission_classes = [IsAuthenticated]
 
@@ -409,7 +409,7 @@ class RetailShopCreateAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_summary="ثبت مغازه/سوپرمارکت جدید در شبکه (ویزیتور)",
+        operation_summary="ثبت مغازه/فروشگاه جدید در شبکه (ویزیتور)",
         request_body=RetailShopCustomerCreateSerializer,
         responses={201: RetailShopCustomerSerializer}
     )
@@ -589,7 +589,7 @@ const fetchVisitorDashboard = async () => {
       title="۱۲. اپلیکیشن ویزیتوران و باشگاه مشتریان مغازه‌داران"
       titleEn="visitors / Commission & Retail Club App"
       badge="2.5% Commission • Retail CRM APIView"
-      description="مدیریت کدهای ویزیتوری اختصاصی، ثبت واحدهای صنفی و سوپرمارکت‌ها در باشگاه مشتریان، محاسبه خودکار ۲.۵٪ سود کمیسیون از تمام فاکتورهای صادره و صدور گزارشات واریز پورسانت. این اپلیکیشن بر پایه APIView صریح (دقیقاً مشابه الگوی regular_customers بدون ViewSet) پیاده‌سازی شده است."
+      description="مدیریت کدهای ویزیتوری اختصاصی، ثبت واحدهای صنفی و فروشگاه‌ها در باشگاه مشتریان، محاسبه خودکار ۲.۵٪ سود کمیسیون از تمام فاکتورهای صادره و صدور گزارشات واریز پورسانت. این اپلیکیشن بر پایه APIView صریح (دقیقاً مشابه الگوی regular_customers بدون ViewSet) پیاده‌سازی شده است."
       icon={<Users className="w-6 h-6 text-blue-500" />}
       modelsCode={modelsCode}
       adminCode={adminCode}

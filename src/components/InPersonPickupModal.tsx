@@ -158,10 +158,14 @@ export const InPersonPickupModal: React.FC<InPersonPickupModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4">
+    <div 
+      className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-950/75 backdrop-blur-xs flex items-center justify-center p-2 sm:p-4 cursor-pointer"
+      onClick={onClose}
+    >
       <div 
-        className="bg-white border border-slate-200 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto max-h-[92vh] flex flex-col"
+        className="bg-white border border-slate-200 rounded-3xl w-full max-w-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 my-auto max-h-[92vh] flex flex-col cursor-default"
         id="in-person-pickup-modal"
+        onClick={(e) => e.stopPropagation()}
       >
         
         {/* MODAL TOP HEADER */}

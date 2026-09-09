@@ -65,7 +65,7 @@ const INITIAL_DEMO_TICKETS: TicketItem[] = [
     ticketNumber: 'TK-9042',
     type: 'customer',
     subject: 'استعلام زمان تحویل بار ۳ کارتن مارلبرو تاچ مشکی',
-    customerName: 'حاج محمد رضایی (سوپرمارکت رضایی)',
+    customerName: 'حاج محمد رضایی (فروشگاه رضایی)',
     customerPhone: '09123456789',
     department: 'warehouse',
     priority: 'high',

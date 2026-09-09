@@ -72,9 +72,95 @@ import { ProductsMegaMenu } from './components/ProductsMegaMenu';
 import { InPersonPickupModal } from './components/InPersonPickupModal';
 import { BackendConnectionModal } from './components/BackendConnectionModal';
 import { syncWithDjangoApi, djangoDatabaseStore, djangoMarkNotificationRead, djangoMarkAllNotificationsRead } from './services/djangoApi';
-import { api } from './services/api';
+import { api, accountsApi, visitorsApi } from './services/api';
+import { getApiToken, setApiToken } from './services/apiConfig';
 import { generatePriceListPdf } from './utils/pdfGenerator';
-import { formatToman, formatNumberFa } from './utils/formatters';
+import { formatToman, formatNumberFa, toShamsiDate } from './utils/formatters';
+
+export function normalizeUserProfile(rawUser: any): UserProfile {
+  if (!rawUser) {
+    throw new Error('User profile data is required');
+  }
+
+  // Determine role: default to 'customer', check if visitor or admin
+  const rawRole = rawUser.role || rawUser.user_type || (rawUser.is_superuser || rawUser.is_staff ? 'admin' : 'customer');
+  const role: 'visitor' | 'customer' | 'admin' = (rawRole === 'admin' || rawUser.is_superuser) 
+    ? 'admin' 
+    : (rawRole === 'visitor' ? 'visitor' : 'customer');
+
+  const phone = String(rawUser.phone || rawUser.username || '').replace(/\s+/g, '');
+  const fullName = String(
+    rawUser.fullName || 
+    rawUser.full_name || 
+    (role === 'visitor' ? 'سفیر فروش و ویزیتور' : role === 'admin' ? 'مدیر ارشد سامانه' : 'خریدار گرامی')
+  );
+
+  const createdAt = rawUser.createdAt || rawUser.created_at || (rawUser.date_joined ? toShamsiDate(rawUser.date_joined) : new Date().toLocaleDateString('fa-IR'));
+  const isVerified = Boolean(rawUser.isVerified ?? rawUser.is_verified ?? rawUser.is_active ?? true);
+
+  // Unified profile completion calculation
+  let isProfileCompleted = Boolean(rawUser.isProfileCompleted);
+  if (role === 'customer') {
+    const hasName = fullName && fullName.trim().length > 2 && !fullName.includes('گرامی');
+    const shopVal = rawUser.shopName || rawUser.business_name;
+    const hasShop = shopVal && shopVal.trim().length > 2;
+    const hasAddress = rawUser.address && rawUser.address.trim().length > 5;
+    isProfileCompleted = isProfileCompleted || Boolean(hasName && hasShop && hasAddress);
+  } else if (role === 'visitor') {
+    const hasName = fullName && fullName.trim().length > 2;
+    const hasNational = rawUser.nationalId && String(rawUser.nationalId).trim().length >= 10;
+    const hasCard = rawUser.bankCardNumber && String(rawUser.bankCardNumber).replace(/\D/g, '').length >= 16;
+    isProfileCompleted = isProfileCompleted || Boolean(hasName && (hasNational || hasCard));
+  } else {
+    isProfileCompleted = true;
+  }
+
+  return {
+    id: String(rawUser.id || `usr-${phone || Date.now()}`),
+    phone,
+    fullName,
+    nationalId: rawUser.nationalId || rawUser.national_id || '',
+    nationalIdImage: rawUser.nationalIdImage || rawUser.national_id_image || '',
+    province: rawUser.province || 'تهران',
+    city: rawUser.city || 'تهران',
+    address: rawUser.address || '',
+    
+    // Visitor specifics
+    vehicleType: rawUser.vehicleType || rawUser.vehicle_type,
+    vehiclePlate: rawUser.vehiclePlate || rawUser.vehicle_plate,
+    isVehicleVerified: Boolean(rawUser.isVehicleVerified ?? rawUser.is_vehicle_verified),
+    hasAcceptedContract: Boolean(rawUser.hasAcceptedContract ?? true),
+    visitorCode: rawUser.visitorCode || rawUser.visitor_code || (role === 'visitor' ? (phone.length >= 4 ? `VIS-${phone.slice(-4)}` : 'VIS-1001') : undefined),
+    commissionRate: typeof rawUser.commissionRate === 'number' ? rawUser.commissionRate : (typeof rawUser.commission_rate === 'number' ? Number(rawUser.commission_rate) : 2.5),
+    totalSalesAmount: Number(rawUser.totalSalesAmount || rawUser.total_sales_amount || 0),
+    totalCommissionEarned: Number(rawUser.totalCommissionEarned || rawUser.total_commission_earned || 0),
+    bankCardNumber: rawUser.bankCardNumber || rawUser.bank_card_number || '',
+    bankSheba: rawUser.bankSheba || rawUser.bank_sheba || '',
+    bankName: rawUser.bankName || rawUser.bank_name || '',
+    bankAccountHolder: rawUser.bankAccountHolder || rawUser.bank_account_holder || fullName,
+    customerStamps: rawUser.customerStamps || {},
+
+    // Customer specifics
+    shopName: rawUser.shopName || rawUser.business_name || (role === 'customer' ? 'فروشگاه دخانیات' : undefined),
+    shopLicenseNo: rawUser.shopLicenseNo || rawUser.shop_license_no || '',
+    businessName: rawUser.businessName || rawUser.business_name || (role === 'customer' ? 'پخش و توزیع' : undefined),
+    businessLicenseNumber: rawUser.businessLicenseNumber || rawUser.business_license_number || '',
+    stampImage: rawUser.stampImage || rawUser.stamp_image || '',
+
+    // Universal status and ordering
+    isVerified,
+    createdAt: String(createdAt),
+    role,
+    referralCode: rawUser.referralCode || rawUser.referral_code || (phone.length >= 4 ? `REF-${phone.slice(-4)}` : undefined),
+    isProfileCompleted,
+    orderHistory: Array.isArray(rawUser.orderHistory) ? rawUser.orderHistory : [],
+    
+    // Financial & Loyalty Tier
+    tierId: rawUser.tierId || rawUser.tier_id || 'bronze',
+    creditLimit: Number(rawUser.creditLimit || rawUser.credit_limit || 0),
+    walletBalance: Number(rawUser.walletBalance || rawUser.wallet_balance || 0),
+  };
+}
 
 const CATEGORIES: { id: CigaretteCategory; label: string }[] = [
   { id: 'all', label: 'همه دسته‌ها' },
@@ -95,6 +181,7 @@ function getTabFromPath(pathname: string): NavigationTab {
   if (p.includes('/invoice') || p.includes('/pishfactor')) return 'invoice';
   if (p.includes('/tracking') || p.includes('/rahgiri')) return 'tracking';
   if (p.includes('/shipping') || p.includes('/barbari')) return 'shipping';
+  if (p.includes('/reportage') || p.includes('/riportazh')) return 'reportage';
   if (p.includes('/blog') || p.includes('/maghalat')) return 'blog';
   if (p.includes('/live-prices') || p.includes('/gheymat')) return 'live-prices';
   if (p.includes('/django-crm') || p.includes('/crm')) return 'django-crm';
@@ -109,6 +196,7 @@ function getPathForTab(tab: NavigationTab): string {
     case 'contact': return '/contact-us';
     case 'shipping': return '/shipping';
     case 'blog': return '/blog';
+    case 'reportage': return '/reportage';
     case 'user-panel': return '/login';
     case 'live-prices': return '/live-prices';
     case 'django-crm': return '/django-crm';
@@ -128,7 +216,8 @@ export default function App() {
 
   const setActiveTab = (tab: NavigationTab, pushHistory: boolean = true) => {
     setActiveTabState(tab);
-    if (pushHistory && typeof window !== 'undefined') {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' });
       const target = getPathForTab(tab);
       // If switching to accounting-pos but already on a shopmanage sub-route, preserve it
       if (tab === 'accounting-pos' && window.location.pathname.startsWith('/shopmanage')) {
@@ -140,12 +229,20 @@ export default function App() {
     }
   };
 
+  // Automatically scroll to top whenever activeTab changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [activeTab]);
+
   // Sync with browser back/forward buttons
   useEffect(() => {
     const handlePopState = () => {
       if (typeof window !== 'undefined') {
         const nextTab = getTabFromPath(window.location.pathname);
         setActiveTabState(nextTab);
+        window.scrollTo({ top: 0, behavior: 'instant' });
       }
     };
     window.addEventListener('popstate', handlePopState);
@@ -162,31 +259,133 @@ export default function App() {
     document.body.classList.remove('dark');
   }, []);
 
-  // User Profile Authentication State (Phone based)
+  // User Profile Authentication State (Unified Model for Customer & Visitor)
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem('sevin_current_user');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return normalizeUserProfile(parsed);
+      }
     } catch (e) {
-      console.error(e);
+      console.error('Error loading stored user profile:', e);
     }
     return null;
   });
 
-  const handleLoginUser = (user: UserProfile) => {
-    setCurrentUser(user);
-    localStorage.setItem('sevin_current_user', JSON.stringify(user));
+  // Keep auth state synchronized across tabs, windows, and child components
+  useEffect(() => {
+    const handleAuthSync = () => {
+      try {
+        const saved = localStorage.getItem('sevin_current_user');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          setCurrentUser(normalizeUserProfile(parsed));
+        } else {
+          setCurrentUser(null);
+        }
+      } catch {
+        setCurrentUser(null);
+      }
+    };
+
+    window.addEventListener('storage', handleAuthSync);
+    window.addEventListener('sevin-auth-change', handleAuthSync);
+    return () => {
+      window.removeEventListener('storage', handleAuthSync);
+      window.removeEventListener('sevin-auth-change', handleAuthSync);
+    };
+  }, []);
+
+  // Background refresh of user profile from Django server on mount
+  useEffect(() => {
+    let isMounted = true;
+    const syncProfileFromBackend = async () => {
+      const token = getApiToken();
+      if (!token && !currentUser) return;
+
+      try {
+        if (currentUser?.role === 'visitor') {
+          const visitorData = await visitorsApi.getProfile().catch(() => null);
+          if (visitorData && isMounted && currentUser) {
+            const updated = normalizeUserProfile({
+              ...currentUser,
+              visitorCode: visitorData.visitor_code || currentUser.visitorCode,
+              commissionRate: Number(visitorData.commission_rate ?? currentUser.commissionRate ?? 2.5),
+              totalSalesAmount: Number(visitorData.total_sales_amount ?? currentUser.totalSalesAmount ?? 0),
+              totalCommissionEarned: Number(visitorData.total_commission_earned ?? currentUser.totalCommissionEarned ?? 0),
+            });
+            setCurrentUser(updated);
+            localStorage.setItem('sevin_current_user', JSON.stringify(updated));
+          }
+        } else if (currentUser) {
+          const profileData = await accountsApi.getProfile().catch(() => null);
+          if (profileData && isMounted && currentUser) {
+            const updated = normalizeUserProfile({
+              ...currentUser,
+              ...profileData,
+              fullName: profileData.full_name || currentUser.fullName,
+              isVerified: Boolean(profileData.is_verified ?? currentUser.isVerified),
+              walletBalance: Number(profileData.wallet_balance ?? currentUser.walletBalance ?? 0),
+              creditLimit: Number(profileData.credit_limit ?? currentUser.creditLimit ?? 0),
+            });
+            setCurrentUser(updated);
+            localStorage.setItem('sevin_current_user', JSON.stringify(updated));
+          }
+        }
+      } catch (err) {
+        console.debug('Background profile sync skipped or offline:', err);
+      }
+    };
+
+    syncProfileFromBackend();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Unified Login Handler for Customer, Visitor and Admin
+  const handleLoginUser = (user: UserProfile, token?: string) => {
+    const normalized = normalizeUserProfile(user);
+    setCurrentUser(normalized);
+    localStorage.setItem('sevin_current_user', JSON.stringify(normalized));
+
+    if (token) {
+      setApiToken(token);
+      localStorage.setItem('sevin_api_token', token);
+    }
+
+    // Dispatch global event for other components to react immediately
+    window.dispatchEvent(new Event('sevin-auth-change'));
+
+    // Role-specific customized notification
+    if (normalized.role === 'admin') {
+      showToast(`مدیریت ارشد گرامی، ${normalized.fullName} خوش آمدید.`);
+    } else if (normalized.role === 'visitor') {
+      showToast(`خوش آمدید! ویزیتور گرامی، ${normalized.fullName} (کد: ${normalized.visitorCode || 'فعال'})`);
+    } else {
+      showToast(`ورود موفقیت‌آمیز به حساب کاربری: ${normalized.fullName}`);
+    }
   };
 
+  // Unified Logout Handler
   const handleLogoutUser = () => {
     setCurrentUser(null);
     localStorage.removeItem('sevin_current_user');
+    localStorage.removeItem('sevin_api_token');
+    window.dispatchEvent(new Event('sevin-auth-change'));
     showToast('از حساب کاربری خارج شدید.');
   };
 
+  // Unified Profile Update Handler
   const handleUpdateProfile = (user: UserProfile) => {
-    setCurrentUser(user);
-    localStorage.setItem('sevin_current_user', JSON.stringify(user));
+    const normalized = normalizeUserProfile(user);
+    setCurrentUser(normalized);
+    localStorage.setItem('sevin_current_user', JSON.stringify(normalized));
+    window.dispatchEvent(new Event('sevin-auth-change'));
+
+    // Asynchronously update in background
+    api.customers.updateProfile(normalized).catch(() => {});
   };
 
   // Retail Shops Customer Club state for Visitors
@@ -1134,6 +1333,14 @@ export default function App() {
         {/* TAB 5: Blog and SEO */}
         {activeTab === 'blog' && (
           <BlogSection onSelectProductTag={(b) => {
+            setSelectedBrand(b);
+            setActiveTab('catalog');
+          }} />
+        )}
+
+        {/* TAB 5.5: Reportage & Ads */}
+        {activeTab === 'reportage' && (
+          <BlogSection initialCategory="reportage" onSelectProductTag={(b) => {
             setSelectedBrand(b);
             setActiveTab('catalog');
           }} />

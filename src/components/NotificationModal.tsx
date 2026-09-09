@@ -110,11 +110,14 @@ export const NotificationModal: React.FC<NotificationModalProps> = ({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 no-scrollbar overflow-hidden" 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200 no-scrollbar overflow-hidden cursor-pointer modal-overscroll-contain" 
+      style={{ overscrollBehavior: 'contain' }}
       dir="rtl"
+      onClick={onClose}
     >
       <div 
-        className="bg-white border border-slate-200 rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[90vh] transition-all my-auto"
+        className="bg-white border border-slate-200 rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh] sm:max-h-[90vh] transition-all my-auto cursor-default modal-overscroll-contain"
+        style={{ overscrollBehavior: 'contain' }}
         onClick={(e) => e.stopPropagation()}
       >
         

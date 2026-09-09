@@ -48,17 +48,18 @@ interface CategorySpec {
 
 interface BlogSectionProps {
   onSelectProductTag?: (tag: string) => void;
+  initialCategory?: string;
 }
 
 // ...
 
-export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) => {
+export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag, initialCategory = 'all' }) => {
   // Helper to load initial selected post from localStorage or local store instantly on refresh
   const getInitialSelectedPost = (): BlogPost | null => {
     try {
       const pathParts = window.location.pathname.split('/');
       const rawSlug = pathParts[pathParts.length - 1];
-      if (rawSlug && rawSlug !== 'blog' && rawSlug !== '') {
+      if (rawSlug && rawSlug !== 'blog' && rawSlug !== 'reportage' && rawSlug !== '') {
         const decodedSlug = decodeURIComponent(rawSlug);
         const cachedSelected = localStorage.getItem('sovin_cached_selected_post');
         if (cachedSelected) {
@@ -96,7 +97,7 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag }) 
     return [];
   });
   const [selectedPost, setSelectedPost] = useState<BlogPost | null>(getInitialSelectedPost);
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>(initialCategory);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
 

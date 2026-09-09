@@ -52,6 +52,52 @@ export const AuthUsersDocs: React.FC = () => {
   const endpoints: ApiEndpointMeta[] = [
     {
       method: 'POST',
+      path: '/api/v1/accounts/otp-request/',
+      auth: 'AllowAny',
+      description: 'درخواست ارسال پیامک کد تأیید ورود یکپارچه برای مشتریان، مغازه‌داران و ویزیتورها',
+      requestBody: JSON.stringify({
+        phone: "09120759419"
+      }, null, 2),
+      responseBody: JSON.stringify({
+        success: true,
+        message: "کد تأیید با موفقیت پیامک گردید.",
+        expires_in: 120
+      }, null, 2),
+      curlExample: `curl -X POST http://localhost:8000/api/v1/accounts/otp-request/ \\
+  -H "Content-Type: application/json" \\
+  -d '{"phone":"09120759419"}'`
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/accounts/otp-verify/',
+      auth: 'AllowAny',
+      description: 'احراز هویت یکپارچه و ورود با کد OTP (تشخیص هوشمند نقش مشتری/ویزیتور/ادمین و صدور JWT)',
+      requestBody: JSON.stringify({
+        phone: "09120759419",
+        code: "1111"
+      }, null, 2),
+      responseBody: JSON.stringify({
+        success: true,
+        tokens: {
+          access: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+          refresh: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        },
+        user: {
+          id: 12,
+          phone: "09120759419",
+          full_name: "مدیر فروشگاه / ویزیتور",
+          role: "customer",
+          is_visitor: false,
+          is_verified: true,
+          date_joined: "2026-03-08T12:00:00Z"
+        }
+      }, null, 2),
+      curlExample: `curl -X POST http://localhost:8000/api/v1/accounts/otp-verify/ \\
+  -H "Content-Type: application/json" \\
+  -d '{"phone":"09120759419","code":"1111"}'`
+    },
+    {
+      method: 'POST',
       path: '/api/v1/accounts/register/',
       auth: 'AllowAny',
       description: 'ثبت‌نام کاربر مغازه‌دار یا ویزیتور جدید و دریافت توکن JWT',

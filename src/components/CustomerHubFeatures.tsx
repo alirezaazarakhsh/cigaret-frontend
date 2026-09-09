@@ -632,8 +632,14 @@ export const CustomerBankDepositSlipModal: React.FC<CustomerBankDepositSlipModal
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 my-auto max-h-[92vh] overflow-y-auto modal-overscroll-contain">
+    <div 
+      className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 my-auto max-h-[92vh] overflow-y-auto modal-overscroll-contain cursor-default"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2 text-slate-900 font-black text-sm sm:text-base">
@@ -886,8 +892,14 @@ export const CustomerDigitalPassModal: React.FC<CustomerDigitalPassModalProps> =
   const tier = getCustomerTier(currentUser.tierId);
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 my-auto max-h-[92vh] overflow-y-auto modal-overscroll-contain">
+    <div 
+      className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 my-auto max-h-[92vh] overflow-y-auto modal-overscroll-contain cursor-default"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2 text-slate-900 font-black text-sm">
@@ -1015,8 +1027,14 @@ export const CustomerPriceAlertsModal: React.FC<CustomerPriceAlertsModalProps> =
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4">
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col my-auto modal-overscroll-contain">
+    <div 
+      className="fixed inset-0 z-50 overflow-y-auto no-scrollbar bg-slate-900/80 backdrop-blur-xs flex items-center justify-center p-4 cursor-pointer"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col my-auto modal-overscroll-contain cursor-default"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         <div className="flex items-center justify-between border-b border-slate-100 pb-3 shrink-0">
           <div className="flex items-center gap-2 text-slate-900 font-black text-sm">

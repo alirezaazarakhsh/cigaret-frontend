@@ -182,12 +182,12 @@ export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
       ]
     },
     {
-      module: 'مشتریان و باشگاه سوپرمارکت‌ها (Customers & Retail)',
+      module: 'مشتریان و باشگاه فروشگاه‌ها (Customers & Retail)',
       items: [
         { method: 'POST', path: '/auth/login-otp/', desc: 'ورود یا ثبت‌نام با شماره موبایل' },
         { method: 'GET', path: '/customers/profile/', desc: 'دریافت اطلاعات هویتی و حقوقی خریدار' },
         { method: 'PUT', path: '/customers/profile/', desc: 'ویرایش کد اقتصادی، شناسه ملی و نشانی انبار' },
-        { method: 'GET', path: '/customers/retail-shops/', desc: 'فهرست سوپرمارکت‌ها و مشتریان حضوری' },
+        { method: 'GET', path: '/customers/retail-shops/', desc: 'فهرست فروشگاه‌ها و مشتریان حضوری' },
         { method: 'POST', path: '/customers/retail-shops/', desc: 'ثبت مغازه و صدور لینک اختصاصی وب‌اپ' },
       ]
     },
@@ -209,8 +209,15 @@ export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200" dir="rtl">
-      <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/80 backdrop-blur-sm animate-in fade-in duration-200 cursor-pointer" 
+      dir="rtl"
+      onClick={onClose}
+    >
+      <div 
+        className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden cursor-default"
+        onClick={(e) => e.stopPropagation()}
+      >
         
         {/* Header */}
         <div className="p-4 sm:p-6 bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white flex items-center justify-between gap-4 border-b border-indigo-900/50">

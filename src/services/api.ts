@@ -381,7 +381,7 @@ export const customersApi = {
       id: `usr_${Date.now()}`,
       phone,
       fullName: 'مشتری گرامی',
-      shopName: 'فروشگاه / سوپرمارکت',
+      shopName: 'فروشگاه دخانیات نگین',
       province: 'تهران',
       city: 'تهران',
       address: '',

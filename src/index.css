@@ -71,9 +71,13 @@
   }
 
   /* Modal scroll containment to isolate modal scrolling and prevent scroll chaining to body */
-  .modal-overscroll-contain {
+  .modal-overscroll-contain,
+  .overscroll-contain,
+  .fixed.inset-0,
+  [class*="fixed inset-0"] {
     overscroll-behavior: contain !important;
     overscroll-behavior-y: contain !important;
+    overscroll-behavior-x: contain !important;
     -webkit-overflow-scrolling: touch;
   }
 

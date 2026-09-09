@@ -67,10 +67,16 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 print:p-0 print:bg-white print:static animate-in fade-in duration-200">
+    <div 
+      className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 print:p-0 print:bg-white print:static animate-in fade-in duration-200 cursor-pointer modal-overscroll-contain"
+      style={{ overscrollBehavior: 'contain' }}
+      onClick={onClose}
+    >
       <div 
-        className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl p-6 sm:p-8 shadow-2xl relative text-slate-900 print:border-none print:shadow-none print:w-full print:max-w-none transition-colors my-auto max-h-[92vh] flex flex-col overflow-hidden print:max-h-none print:overflow-visible"
+        className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl p-6 sm:p-8 shadow-2xl relative text-slate-900 print:border-none print:shadow-none print:w-full print:max-w-none transition-colors my-auto max-h-[92vh] flex flex-col overflow-hidden print:max-h-none print:overflow-visible cursor-default modal-overscroll-contain"
+        style={{ overscrollBehavior: 'contain' }}
         id="printable-invoice"
+        onClick={(e) => e.stopPropagation()}
       >
         {/* Print Action Bar (Hidden on print) */}
         <div className="flex items-center justify-between pb-4 mb-6 border-b border-slate-200 print:hidden flex-wrap gap-3 shrink-0">
