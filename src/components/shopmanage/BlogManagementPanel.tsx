@@ -562,6 +562,11 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
   const [isSyncingCategories, setIsSyncingCategories] = useState<boolean>(false);
   const [isSyncingLocalPosts, setIsSyncingLocalPosts] = useState<boolean>(false);
 
+  // Category Deletion and Post Transfer State
+  const [categoryToDelete, setCategoryToDelete] = useState<{ id: string; name: string; count: number } | null>(null);
+  const [targetCategoryForTransfer, setTargetCategoryForTransfer] = useState<string>('');
+  const [isTransferringAndDeleting, setIsTransferringAndDeleting] = useState<boolean>(false);
+
   // Yoast SEO State
   const [seoSnippetTab, setSeoSnippetTab] = useState<'desktop' | 'mobile'>('desktop');
   const [seoChecklistOpen, setSeoChecklistOpen] = useState<boolean>(true);
@@ -972,22 +977,75 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
     }
   };
 
-  // Delete Category
+  // Delete Category with custom article transfer logic
   const handleDeleteCategory = async (catId: string, catName: string) => {
     if (catId === 'all') {
       showNotification('امکان حذف دسته‌بندی پیش‌فرض سیستم وجود ندارد.', 'error');
       return;
     }
-    if (!window.confirm(`آیا از حذف دسته‌بندی «${catName}» اطمینان دارید؟`)) {
-      return;
-    }
 
+    const articleCount = posts.filter(p => p.category === catName).length;
+
+    if (articleCount > 0) {
+      // Category has articles, so we must ask to transfer them first!
+      setCategoryToDelete({ id: catId, name: catName, count: articleCount });
+      // Pre-select the first available other category
+      const others = categories.filter(c => c.id !== 'all' && c.id !== catId && c.name !== catName);
+      if (others.length > 0) {
+        setTargetCategoryForTransfer(others[0].name);
+      } else {
+        setTargetCategoryForTransfer('عمومی'); // Default fallback if no other categories exist
+      }
+    } else {
+      // Category is empty, can delete directly with simple confirmation
+      if (window.confirm(`آیا از حذف دسته‌بندی «${catName}» که هیچ مقاله‌ای در آن نیست، اطمینان دارید؟`)) {
+        try {
+          await djangoDeleteBlogCategory(catId, crmConfig);
+          showNotification(`دسته‌بندی «${catName}» با موفقیت حذف شد.`);
+          await loadData();
+        } catch (err) {
+          showNotification('خطا در حذف دسته‌بندی.', 'error');
+        }
+      }
+    }
+  };
+
+  // Perform actual article transferring and category deletion
+  const handleTransferAndDelete = async () => {
+    if (!categoryToDelete) return;
+    setIsTransferringAndDeleting(true);
     try {
-      await djangoDeleteBlogCategory(catId, crmConfig);
-      showNotification(`دسته‌بندی «${catName}» با موفقیت حذف شد.`);
+      const postsToTransfer = posts.filter(p => p.category === categoryToDelete.name);
+      let targetCatName = targetCategoryForTransfer.trim();
+      if (!targetCatName) {
+        targetCatName = 'عمومی';
+      }
+
+      // Check if target category exists, if not we will auto-create it
+      const targetExists = categories.some(c => c.name.trim().toLowerCase() === targetCatName.trim().toLowerCase());
+      if (!targetExists) {
+        showNotification(`در حال ایجاد دسته‌بندی مقصد «${targetCatName}» در دیتابیس...`);
+        await djangoCreateBlogCategory({ name: targetCatName, description: 'دسته‌بندی پیش‌فرض منتقل شده' }, crmConfig);
+      }
+
+      // Transfer posts in parallel or sequence (parallel is faster)
+      showNotification(`در حال انتقال ${formatNumberFa(postsToTransfer.length)} مقاله به دسته‌بندی «${targetCatName}»...`);
+      await Promise.all(postsToTransfer.map(post => 
+        djangoUpdateBlogPost(post.id, { ...post, category: targetCatName }, crmConfig)
+      ));
+
+      // Finally delete the old category
+      showNotification(`در حال حذف نهایی دسته‌بندی قدیمی «${categoryToDelete.name}»...`);
+      await djangoDeleteBlogCategory(categoryToDelete.id, crmConfig);
+
+      showNotification(`با موفقیت ${formatNumberFa(postsToTransfer.length)} مقاله به «${targetCatName}» منتقل شد و دسته‌بندی «${categoryToDelete.name}» حذف گردید.`, 'success');
+      setCategoryToDelete(null);
       await loadData();
     } catch (err) {
-      showNotification('خطا در حذف دسته‌بندی.', 'error');
+      console.error(err);
+      showNotification('خطا در انتقال مقالات و حذف دسته‌بندی.', 'error');
+    } finally {
+      setIsTransferringAndDeleting(false);
     }
   };
 
@@ -2939,6 +2997,76 @@ export const BlogManagementPanel: React.FC<BlogManagementPanelProps> = ({
         )}
 
       </div>
+
+      {/* CATEGORY DELETION TRANSFER MODAL */}
+      {categoryToDelete && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-2xl border border-slate-200 max-w-md w-full p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 border border-amber-100">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">
+                  حذف دسته‌بندی «{categoryToDelete.name}»
+                </h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  این دسته‌بندی دارای <span className="font-bold text-amber-600">{formatNumberFa(categoryToDelete.count)} مقاله</span> است. برای حذف این دسته، ابتدا باید مقالات آن را به یک دسته‌بندی دیگر منتقل کنید.
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-slate-700">
+                انتخاب دسته‌بندی مقصد:
+              </label>
+              <select
+                value={targetCategoryForTransfer}
+                onChange={(e) => setTargetCategoryForTransfer(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-500"
+              >
+                {categories
+                  .filter(c => c.id !== 'all' && c.id !== categoryToDelete.id && c.name !== categoryToDelete.name)
+                  .map(c => (
+                    <option key={c.id} value={c.name}>
+                      {c.name}
+                    </option>
+                  ))}
+                <option value="عمومی">دسته‌بندی پیش‌فرض عمومی (ایجاد خودکار)</option>
+              </select>
+              <p className="text-[10px] text-slate-400">
+                تمام مقالات متصل به دسته‌بندی «{categoryToDelete.name}» با موفقیت بروزرسانی خواهند شد و سپس این دسته‌بندی حذف می‌گردد.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setCategoryToDelete(null)}
+                disabled={isTransferringAndDeleting}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-50"
+              >
+                انصراف
+              </button>
+              <button
+                type="button"
+                onClick={handleTransferAndDelete}
+                disabled={isTransferringAndDeleting}
+                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-xs flex items-center gap-2 disabled:opacity-60 cursor-pointer"
+              >
+                {isTransferringAndDeleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                )}
+                <span>
+                  {isTransferringAndDeleting ? 'در حال انتقال و حذف...' : 'انتقال مقالات و حذف نهایی'}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
