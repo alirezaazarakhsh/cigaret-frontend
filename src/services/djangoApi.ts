@@ -3130,50 +3130,50 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
   const res = await executeDjangoAxiosRequest('/api/v1/sliders/', 'POST', payload, { token });
   
-  const current = getLocalSliders();
-  const newSlider = {
-    ...payload,
-    id: res.data?.id || `slider_${Date.now()}`,
-    is_active: payload.is_active !== undefined ? payload.is_active : true,
-    order: payload.order !== undefined ? Number(payload.order) : current.length + 1,
-    created_at: new Date().toISOString()
-  };
-  
-  const updated = [newSlider, ...current];
-  saveLocalSliders(updated);
-
   if (res.success) {
+    const current = getLocalSliders();
+    const newSlider = {
+      ...payload,
+      id: res.data?.id || `slider_${Date.now()}`,
+      is_active: payload.is_active !== undefined ? payload.is_active : true,
+      order: payload.order !== undefined ? Number(payload.order) : current.length + 1,
+      created_at: new Date().toISOString()
+    };
+    
+    const updated = [newSlider, ...current];
+    saveLocalSliders(updated);
     return { success: true, data: res.data || newSlider, message: 'اسلایدر با موفقیت در دیتابیس جنگو ذخیره شد.' };
   }
-  return { success: true, data: newSlider, message: 'اسلایدر در دیتابیس ثبت گردید.' };
+  
+  return { success: false, error: res.error, message: res.error || 'خطا در برقراری ارتباط با سرور جنگو' };
 }
 
 export async function djangoUpdateSlider(id: string | number, payload: any, config?: DjangoCrmConfig): Promise<any> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
   const res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'PUT', payload, { token });
   
-  const current = getLocalSliders();
-  const updated = current.map(item => item.id == id ? { ...item, ...payload, id } : item);
-  saveLocalSliders(updated);
-
   if (res.success) {
+    const current = getLocalSliders();
+    const updated = current.map(item => item.id == id ? { ...item, ...payload, id } : item);
+    saveLocalSliders(updated);
     return { success: true, data: res.data || payload, message: 'اسلایدر با موفقیت به‌روزرسانی شد.' };
   }
-  return { success: true, data: payload, message: 'تغییرات اسلایدر ثبت گردید.' };
+  
+  return { success: false, error: res.error, message: res.error || 'خطا در به‌روزرسانی اسلایدر در سرور' };
 }
 
 export async function djangoDeleteSlider(id: string | number, config?: DjangoCrmConfig): Promise<any> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
   const res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'DELETE', undefined, { token });
   
-  const current = getLocalSliders();
-  const updated = current.filter(item => item.id != id);
-  saveLocalSliders(updated);
-
   if (res.success) {
+    const current = getLocalSliders();
+    const updated = current.filter(item => item.id != id);
+    saveLocalSliders(updated);
     return { success: true, message: 'اسلایدر با موفقیت حذف گردید.' };
   }
-  return { success: true, message: 'اسلایدر از لیست حذف شد.' };
+  
+  return { success: false, error: res.error, message: res.error || 'خطا در حذف اسلایدر از سرور' };
 }
 
 

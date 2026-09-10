@@ -242,9 +242,28 @@ sliders/serializers.py
 سریالایزرهای DRF برای تبدیل متون، لینک‌ها، دکمه‌های کنترل و ترکیب اسلایدرها با تنظیمات سایت (site_settings)
 """
 
+import base64
+import uuid
+from django.core.files.base import ContentFile
 from rest_framework import serializers
 from .models import Slider, SliderFeature
 from site_settings.models import PageHeaderSetting, SiteBranding
+
+
+class Base64ImageField(serializers.ImageField):
+    """
+    سفارشی‌سازی فیلد تصویر جهت پشتیبانی همزمان از آپلود سنتی فایل (Django Admin)
+    و ارسال مستقیم استرینگ Base64 در جی‌سون درخواست‌های API (فرانت‌اند React)
+    """
+    def to_internal_value(self, data):
+        if isinstance(data, str) and data.startswith('data:image'):
+            try:
+                format, imgstr = data.split(';base64,')
+                ext = format.split('/')[-1]
+                data = ContentFile(base64.b64decode(imgstr), name=f"slider_{uuid.uuid4()}.{ext}")
+            except Exception:
+                raise serializers.ValidationError("فرمت تصویر ارسالی معتبر نیست.")
+        return super(Base64ImageField, self).to_internal_value(data)
 
 
 class SliderFeatureSerializer(serializers.ModelSerializer):
@@ -258,8 +277,9 @@ class SliderFeatureSerializer(serializers.ModelSerializer):
 
 class SliderSerializer(serializers.ModelSerializer):
     """
-    سریالایزر کامل اسلایدر هیروبنر شامل اصلاح لینک‌ها و آرایه ویژگی‌ها
+    سریالایزر کامل اسلایدر هیروبنر شامل اصلاح لینک‌ها، پشتیبانی از تصویر Base64 و آرایه ویژگی‌ها
     """
+    image = Base64ImageField(required=False, allow_null=True)
     features = serializers.SerializerMethodField()
     resolved_primary_link = serializers.SerializerMethodField()
     resolved_secondary_link = serializers.SerializerMethodField()
@@ -285,7 +305,8 @@ class SliderSerializer(serializers.ModelSerializer):
             'stat_number', 
             'stat_label', 
             'features', 
-            'order'
+            'order',
+            'is_active'
         ]
 
     def get_features(self, obj):
@@ -317,6 +338,41 @@ class SliderSerializer(serializers.ModelSerializer):
             'catalog': '/catalog',
         }
         return default_links.get(obj.secondary_btn_action, '#')
+
+    def create(self, validated_data):
+        """
+        مدیریت ایجاد دستی و ثبت ویژگی‌های بولت‌دار (SliderFeature) تودرتو
+        """
+        # دریافت لیست ویژگی‌ها از داده‌های خام درخواست
+        features_data = self.context['request'].data.get('features', [])
+        slider = Slider.objects.create(**validated_data)
+        
+        # ذخیره ویژگی‌های بولت‌دار به ترتیب
+        for idx, text in enumerate(features_data):
+            if text and text.strip():
+                SliderFeature.objects.create(slider=slider, text=text.strip(), order=idx + 1)
+        
+        return slider
+
+    def update(self, instance, validated_data):
+        """
+        به‌روزرسانی اسلایدر همراه با بازنویسی و ادیت ویژگی‌های بولت‌دار
+        """
+        features_data = self.context['request'].data.get('features', None)
+        
+        # بروزرسانی فیلدهای اسلایدر
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        # بروزرسانی ویژگی‌های بولت‌دار در صورت ارسال
+        if features_data is not None:
+            instance.features.all().delete()
+            for idx, text in enumerate(features_data):
+                if text and text.strip():
+                    SliderFeature.objects.create(slider=instance, text=text.strip(), order=idx + 1)
+        
+        return instance
 
 
 class HeroCombinedConfigSerializer(serializers.Serializer):
@@ -350,9 +406,9 @@ from site_settings.models import PageHeaderSetting, SiteBranding
 
 class ActiveSlidersListAPIView(APIView):
     """
-    اندپوینت دریافت لیست تمامی اسلایدرهای فعال هیروبنر
-    توضیحات: این ویو به صورت APIView صریح نوشته شده و تمامی اسلایدهایی که is_active=True هستند را بر حسب اولویت (order) مرتب می‌کند.
-    در صورتی که اسلایدی در دیتابیس موجود نباشد، یک اسلاید ساختاریافته پیش‌فرض جهت جلوگیری از شکست صفحه فرانت‌اند برمی‌گرداند.
+    اندپوینت دریافت لیست تمامی اسلایدرها و ایجاد اسلایدر جدید
+    توضیحات: این ویو به صورت APIView صریح نوشته شده و امکان دریافت لیست اسلایدهای فعال (متد GET)
+    و ساخت اسلایدر جدید توسط مدیریت ارشد (متد POST) را فراهم می‌آورد.
     """
     permission_classes = [AllowAny]
 
@@ -374,6 +430,26 @@ class ActiveSlidersListAPIView(APIView):
             'count': queryset.count(),
             'results': serializer.data
         }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="ایجاد اسلایدر جدید (مخصوص مدیریت)",
+        operation_description="ساخت اسلایدر جدید به همراه ذخیره‌سازی ویژگی‌ها و آپلود خودکار تصویر بنر.",
+        request_body=SliderSerializer,
+        responses={201: SliderSerializer}
+    )
+    def post(self, request):
+        # احراز هویت ادمین / کارمند صریح
+        if not request.user or not request.user.is_staff:
+            return Response(
+                {'error': 'دسترسی غیرمجاز. فقط کاربران ادمین و مدیران سیستم امکان ایجاد اسلایدر را دارند.'}, 
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = SliderSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class HeroCombinedConfigAPIView(APIView):

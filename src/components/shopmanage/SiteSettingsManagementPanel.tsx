@@ -252,6 +252,8 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
         const res = await djangoUpdateSlider(editingSlider.id, payload);
         if (res.success) {
           setBannerNotice({ message: 'بنر با موفقیت بروزرسانی شد.', type: 'success' });
+          setShowModal(false);
+          await loadSliders();
         } else {
           setBannerNotice({ message: res.message || 'خطا در ویرایش بنر', type: 'error' });
         }
@@ -259,19 +261,17 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
         const res = await djangoCreateSlider(payload);
         if (res.success) {
           setBannerNotice({ message: 'بنر جدید با موفقیت ایجاد شد.', type: 'success' });
+          setShowModal(false);
+          await loadSliders();
         } else {
           setBannerNotice({ message: res.message || 'خطا در ثبت بنر', type: 'error' });
         }
       }
-      setShowModal(false);
-      await loadSliders();
-    } catch (err) {
-      setBannerNotice({ message: 'عملیات ذخیره‌سازی با موفقیت انجام گردید.', type: 'success' });
-      setShowModal(false);
-      await loadSliders();
+    } catch (err: any) {
+      setBannerNotice({ message: err?.message || 'خطا در برقراری ارتباط با سرور.', type: 'error' });
     } finally {
       setIsSaving(false);
-      setTimeout(() => setBannerNotice(null), 3000);
+      setTimeout(() => setBannerNotice(null), 4000);
     }
   };
 
@@ -282,12 +282,14 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       const res = await djangoDeleteSlider(id);
       if (res.success) {
         setBannerNotice({ message: 'بنر با موفقیت حذف گردید.', type: 'success' });
+      } else {
+        setBannerNotice({ message: res.message || 'خطا در حذف بنر از دیتابیس.', type: 'error' });
       }
       await loadSliders();
     } catch (err) {
       setBannerNotice({ message: 'خطا در حذف بنر از دیتابیس.', type: 'error' });
     } finally {
-      setTimeout(() => setBannerNotice(null), 3000);
+      setTimeout(() => setBannerNotice(null), 4000);
     }
   };
 
