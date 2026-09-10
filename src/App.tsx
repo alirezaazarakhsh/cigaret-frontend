@@ -71,7 +71,7 @@ import { HeroBannerSlider } from './components/HeroBannerSlider';
 import { ProductsMegaMenu } from './components/ProductsMegaMenu';
 import { InPersonPickupModal } from './components/InPersonPickupModal';
 import { BackendConnectionModal } from './components/BackendConnectionModal';
-import { syncWithDjangoApi, djangoDatabaseStore, djangoMarkNotificationRead, djangoMarkAllNotificationsRead } from './services/djangoApi';
+import { syncWithDjangoApi, djangoDatabaseStore, djangoMarkNotificationRead, djangoMarkAllNotificationsRead, getLocalSliders } from './services/djangoApi';
 import { api, accountsApi, visitorsApi } from './services/api';
 import { getApiToken, setApiToken } from './services/apiConfig';
 import { generatePriceListPdf } from './utils/pdfGenerator';
@@ -626,14 +626,18 @@ export default function App() {
       }).catch(() => {});
 
       // 4. Fetch Hero Sliders (zero-cache)
-      // Strictly follows rule: if backend database has no sliders, sliders stays [] and slider is hidden
+      // Fall back to local sliders if backend database is empty or API fails, to ensure live preview is always visible and functional!
       api.sliders.getAll().then((loadedSliders) => {
         if (isMounted) {
-          setSliders(loadedSliders || []);
+          if (loadedSliders && loadedSliders.length > 0) {
+            setSliders(loadedSliders);
+          } else {
+            setSliders(getLocalSliders() || []);
+          }
         }
       }).catch(() => {
         if (isMounted) {
-          setSliders([]);
+          setSliders(getLocalSliders() || []);
         }
       });
 

@@ -78,8 +78,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   const [formTargetType, setFormTargetType] = useState<string>('all');
   const [formFeatures, setFormFeatures] = useState<string[]>([]);
   const [newFeatureInput, setNewFeatureInput] = useState<string>('');
-  const [formStartDate, setFormStartDate] = useState<string>('');
-  const [formEndDate, setFormEndDate] = useState<string>('');
   const [formOrder, setFormOrder] = useState<number>(1);
   const [formIsActive, setFormIsActive] = useState<boolean>(true);
 
@@ -136,8 +134,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       { id: '2', text: 'تضمین اصالت کارتن و سلامت فیزیکی بار', order: 2 }
     ]);
     setModalActiveTab('form');
-    setFormStartDate('');
-    setFormEndDate('');
     setFormOrder(sliders.length + 1);
     setFormIsActive(true);
     setShowModal(true);
@@ -171,8 +167,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       setBulletFeatures([]);
     }
     setModalActiveTab('form');
-    setFormStartDate(slider.start_date || '');
-    setFormEndDate(slider.end_date || '');
     setFormOrder(slider.order !== undefined ? slider.order : 1);
     setFormIsActive(slider.is_active !== undefined ? slider.is_active : true);
     setShowModal(true);
@@ -241,8 +235,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       stat_label: formStatLabel.trim() || undefined,
       target_type: formTargetType || undefined,
       features: activeBulletTexts.length > 0 ? activeBulletTexts : undefined,
-      start_date: formStartDate.trim() || undefined,
-      end_date: formEndDate.trim() || undefined,
       order: Number(formOrder) || 1,
       is_active: formIsActive
     };
@@ -1219,8 +1211,8 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                       </div>
                     </div>
 
-                    {/* SECTION 5: Stats, Target, Dates & Order */}
-                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 pt-1 border-t">
+                    {/* SECTION 5: Stats & Target */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t">
                       <div>
                         <label className="block text-xs font-bold text-slate-700 mb-1">عدد آمار (stat_number)</label>
                         <input
@@ -1242,28 +1234,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                           className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800"
                         />
                       </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">تاریخ شروع (start_date)</label>
-                        <input
-                          type="text"
-                          value={formStartDate}
-                          onChange={(e) => setFormStartDate(e.target.value)}
-                          placeholder="۱۴۰۳/۰۶/۰۱"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">تاریخ پایان (end_date)</label>
-                        <input
-                          type="text"
-                          value={formEndDate}
-                          onChange={(e) => setFormEndDate(e.target.value)}
-                          placeholder="۱۴۰۳/۱۲/۲۹"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800"
-                        />
-                      </div>
                     </div>
 
                     {/* SECTION 6: Order & Active Status */}
@@ -1279,18 +1249,16 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">وضعیت انتشار</label>
-                        <button
-                          type="button"
-                          onClick={() => setFormIsActive(!formIsActive)}
-                          className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
-                            formIsActive ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-rose-100 text-rose-800 border border-rose-300'
-                          }`}
-                        >
-                          {formIsActive ? <Check className="w-4 h-4" /> : <X className="w-4 h-4" />}
-                          <span>{formIsActive ? 'فعال (منتشر شده در هیرو سایت)' : 'غیرفعال (پیش‌نویس)'}</span>
-                        </button>
+                      <div className="flex items-center gap-3 pt-5">
+                        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={formIsActive}
+                            onChange={(e) => setFormIsActive(e.target.checked)}
+                            className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer accent-indigo-600"
+                          />
+                          <span className="text-xs font-bold text-slate-800">وضعیت نمایش اسلایدر (فعال / غیرفعال)</span>
+                        </label>
                       </div>
                     </div>
                   </>

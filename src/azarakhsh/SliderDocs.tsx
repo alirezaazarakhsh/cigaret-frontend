@@ -138,18 +138,6 @@ class Slider(models.Model):
         null=True, 
         verbose_name=_("نوع مخاطب / گروه هدف")
     )
-    start_date = models.CharField(
-        max_length=50, 
-        blank=True, 
-        null=True, 
-        verbose_name=_("تاریخ شروع نمایش")
-    )
-    end_date = models.CharField(
-        max_length=50, 
-        blank=True, 
-        null=True, 
-        verbose_name=_("تاریخ پایان نمایش")
-    )
 
     # تنظیمات اولویت و وضعیت
     is_active = models.BooleanField(default=True, verbose_name=_("وضعیت نمایش (فعال/غیرفعال)"))
@@ -672,7 +660,8 @@ useEffect(() => {
         "ارسال بیمه‌شده به سراسر ۳۱ استان کشور",
         "امکان تسویه نقدی و پرداخت در محل انبار"
       ],
-      "order": 1
+      "order": 1,
+      "is_active": true
     }
   ]
 }`

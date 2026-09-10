@@ -684,8 +684,6 @@ export interface SiteBannerSlider {
   stat_label?: string;
   target_type?: string;
   features?: string[];
-  start_date?: string;
-  end_date?: string;
   is_active?: boolean;
   order?: number;
   created_at?: string;

@@ -1409,6 +1409,8 @@ export const slidersApi = {
         '/sliders/',
         '/sliders/hero-combined/',
         '/api/sliders/',
+        '/api/v1/sliders/',
+        '/api/v1/sliders/hero-combined/',
       ];
 
       for (const endpoint of endpoints) {
