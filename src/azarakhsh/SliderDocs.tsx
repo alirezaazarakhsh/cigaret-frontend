@@ -22,6 +22,7 @@ from django.utils.translation import gettext_lazy as _
 class Slider(models.Model):
     """
     مدل اصلی اسلایدر هیروبنر صفحه اصلی
+    تمامی فیلدها بنا به دستور کاربر کاملاً اختیاری هستند (blank=True, null=True)
     شامل تیتر، متن هایلایت، نشانک، کنترل‌های دکمه (متن + لینک + اکشن)، آمار و وضعیت نمایش
     """
     class ActionChoices(models.TextChoices):
@@ -32,11 +33,13 @@ class Slider(models.Model):
         SHIPPING = 'shipping', _('پیگیری باربری (/shipping)')
         CUSTOM_LINK = 'custom-link', _('لینک اختصاصی / سفارشی')
 
-    # متون اصلی و تیترها
+    # متون اصلی و تیترها (تماماً اختیاری - blank=True, null=True)
     title = models.CharField(
         max_length=255, 
+        blank=True, 
+        null=True, 
         verbose_name=_("تیتر اصلی اسلاید (Title)"),
-        help_text=_("عنوان بزرگ هیرو (مثال: سامانه پخش عمده دخانیات آذرخش)")
+        help_text=_("عنوان بزرگ هیرو (اختیاری)")
     )
     highlight = models.CharField(
         max_length=255, 
@@ -49,21 +52,20 @@ class Slider(models.Model):
         max_length=255, 
         blank=True, 
         null=True, 
-        verbose_name=_("متن نشانک بالای عنوان (Badge)"),
-        default="تأمین مستقیم و دست‌اول"
+        verbose_name=_("متن نشانک بالای عنوان (Badge)")
     )
     description = models.TextField(
         blank=True, 
         null=True, 
-        verbose_name=_("توضیحات کامل اسلاید"),
-        help_text=_("توضیحات ۲ الی ۳ خطی زیر عنوان")
+        verbose_name=_("توضیحات کامل اسلاید")
     )
     
-    # تصویر پس‌زمینه
+    # تصویر پس‌زمینه (اختیاری)
     image = models.ImageField(
         upload_to='sliders/', 
-        verbose_name=_("تصویر پس‌زمینه HD"),
-        help_text=_("تصویر اصلی بنر با فرمت WEBP یا JPG با کیفیت بالا")
+        blank=True, 
+        null=True, 
+        verbose_name=_("تصویر پس‌زمینه HD")
     )
 
     # کنترل‌ها و لینک دکمه اصلی (Primary CTA)
@@ -71,19 +73,19 @@ class Slider(models.Model):
         max_length=100, 
         blank=True, 
         null=True, 
-        verbose_name=_("متن دکمه اصلی"),
-        default="مشاهده نرخ لحظه‌ای سیگار"
+        verbose_name=_("متن دکمه اصلی")
     )
     primary_btn_link = models.CharField(
         max_length=255, 
         blank=True, 
         null=True, 
-        verbose_name=_("لینک / مسیر دکمه اصلی"),
-        default="/live-prices"
+        verbose_name=_("لینک / مسیر دکمه اصلی")
     )
     primary_btn_action = models.CharField(
         max_length=30, 
         choices=ActionChoices.choices, 
+        blank=True, 
+        null=True, 
         default=ActionChoices.LIVE_PRICES,
         verbose_name=_("نوع اکشن دکمه اصلی")
     )
@@ -93,19 +95,19 @@ class Slider(models.Model):
         max_length=100, 
         blank=True, 
         null=True, 
-        verbose_name=_("متن دکمه فرعی"),
-        default="صدور پیش‌فاکتور آنلاین"
+        verbose_name=_("متن دکمه فرعی")
     )
     secondary_btn_link = models.CharField(
         max_length=255, 
         blank=True, 
         null=True, 
-        verbose_name=_("لینک / مسیر دکمه فرعی"),
-        default="/invoice"
+        verbose_name=_("لینک / مسیر دکمه فرعی")
     )
     secondary_btn_action = models.CharField(
         max_length=30, 
         choices=ActionChoices.choices, 
+        blank=True, 
+        null=True, 
         default=ActionChoices.INVOICE,
         verbose_name=_("نوع اکشن دکمه فرعی")
     )
@@ -115,22 +117,38 @@ class Slider(models.Model):
         max_length=255, 
         blank=True, 
         null=True, 
-        verbose_name=_("شعار زیر نشانک"),
-        default="بارگیری روزانه از انبار مرکزی"
+        verbose_name=_("شعار زیر نشانک")
     )
     stat_number = models.CharField(
         max_length=50, 
         blank=True, 
         null=True, 
-        verbose_name=_("عدد آماری (مثال: +۱۲,۵۰۰)"),
-        default="+۱۲,۵۰۰"
+        verbose_name=_("عدد آماری")
     )
     stat_label = models.CharField(
         max_length=100, 
         blank=True, 
         null=True, 
-        verbose_name=_("برچسب آمار (مثال: فاکتور صادرشده)"),
-        default="کارتن تحویل‌شده این ماه"
+        verbose_name=_("برچسب آمار")
+    )
+
+    target_type = models.CharField(
+        max_length=100, 
+        blank=True, 
+        null=True, 
+        verbose_name=_("نوع مخاطب / گروه هدف")
+    )
+    start_date = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True, 
+        verbose_name=_("تاریخ شروع نمایش")
+    )
+    end_date = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True, 
+        verbose_name=_("تاریخ پایان نمایش")
     )
 
     # تنظیمات اولویت و وضعیت

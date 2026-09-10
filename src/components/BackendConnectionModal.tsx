@@ -189,6 +189,10 @@ export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
         { method: 'PUT', path: '/customers/profile/', desc: 'ویرایش کد اقتصادی، شناسه ملی و نشانی انبار' },
         { method: 'GET', path: '/customers/retail-shops/', desc: 'فهرست فروشگاه‌ها و مشتریان حضوری' },
         { method: 'POST', path: '/customers/retail-shops/', desc: 'ثبت مغازه و صدور لینک اختصاصی وب‌اپ' },
+        { method: 'GET', path: '/regular_customers/', desc: 'دریافت لیست مشتریان ثابت، مانده بدهی و حساب‌های دفتری' },
+        { method: 'POST', path: '/regular_customers/', desc: 'افزودن مشتری ثابت جدید با شماره تماس و سقف اعتبار' },
+        { method: 'PUT/PATCH', path: '/regular_customers/:id/', desc: 'ویرایش اطلاعات، بدهی و یادداشت مشتری ثابت' },
+        { method: 'DELETE', path: '/regular_customers/:id/', desc: 'حذف مشتری ثابت از دیتابیس آذرخش' },
       ]
     },
     {
@@ -196,6 +200,15 @@ export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
       items: [
         { method: 'POST', path: '/pos/receipts/', desc: 'ثبت فاکتور تحویل حضوری و کسر اتوماتیک انبار' },
         { method: 'GET', path: '/pos/receipts/', desc: 'فهرست تراکنش‌ها و تسویه‌های کارتخوان' },
+      ]
+    },
+    {
+      module: 'بنرها و اسلایدرها (Sliders & Hero Banners)',
+      items: [
+        { method: 'GET', path: '/sliders/', desc: 'دریافت تمام بنرها و اسلایدرهای فعال هیرو سایت' },
+        { method: 'POST', path: '/sliders/', desc: 'ایجاد اسلایدر جدید (با فیلدهای اختیاری، ویژگی‌های بولتی و آپلود تصویر)' },
+        { method: 'PUT/PATCH', path: '/sliders/:id/', desc: 'ویرایش بنر، اولویت نمایش، متون و وضعیت انتشار' },
+        { method: 'DELETE', path: '/sliders/:id/', desc: 'حذف اسلایدر از سیستم' },
       ]
     },
     {

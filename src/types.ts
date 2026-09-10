@@ -665,12 +665,39 @@ export interface SupportTicketItem {
   }[];
 }
 
+export interface SiteBannerSlider {
+  id?: string | number;
+  title?: string;
+  highlight?: string;
+  badge?: string;
+  description?: string;
+  image?: string;
+  imageUrl?: string;
+  primary_btn_text?: string;
+  primary_btn_link?: string;
+  primary_btn_action?: string;
+  secondary_btn_text?: string;
+  secondary_btn_link?: string;
+  secondary_btn_action?: string;
+  tagline?: string;
+  stat_number?: string;
+  stat_label?: string;
+  target_type?: string;
+  features?: string[];
+  start_date?: string;
+  end_date?: string;
+  is_active?: boolean;
+  order?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface BannerSlide {
-  id: string;
+  id?: string;
   badge?: string;
   badgeIcon?: React.ComponentType<{ className?: string }>;
   badgeColor?: string;
-  title: string;
+  title?: string;
   highlight?: string;
   description?: string;
   features?: string[];
@@ -678,7 +705,7 @@ export interface BannerSlide {
   primaryBtnAction?: 'live-prices' | 'invoice' | 'catalog' | 'pdf' | 'iqos' | 'shipping' | string;
   secondaryBtnText?: string;
   secondaryBtnAction?: 'live-prices' | 'invoice' | 'catalog' | 'pdf' | 'iqos' | 'shipping' | string;
-  imageUrl: string;
+  imageUrl?: string;
   tagline?: string;
   statNumber?: string;
   statLabel?: string;

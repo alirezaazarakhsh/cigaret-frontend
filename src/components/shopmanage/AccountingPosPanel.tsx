@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { UserManagementPanel } from './UserManagementPanel';
+import { SiteSettingsManagementPanel } from './SiteSettingsManagementPanel';
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Barcode, 
@@ -66,6 +67,7 @@ import {
   QrCode,
   UserCheck,
   Settings,
+  Sliders,
   ChevronDown,
   Server,
   Headphones,
@@ -358,10 +360,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     return currentStaff.permissions?.includes(perm) ?? false;
   };
 
-  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'user_management' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog';
+  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'user_management' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog' | 'site_settings';
 
   const getSubTabFromPath = (pathname: string): PosSubTab => {
     const p = pathname.toLowerCase();
+    if (p.includes('/shopmanage/site-settings') || p.includes('/shopmanage/sliders') || p.includes('/shopmanage/banners')) return 'site_settings';
     if (p.includes('/shopmanage/blog') || p.includes('/shopmanage/maghale') || p.includes('/shopmanage/maghalat')) return 'blog';
     if (p.includes('/shopmanage/anbar') || p.includes('/shopmanage/inventory')) return 'inventory';
     if (p.includes('/shopmanage/hesabdari') || p.includes('/shopmanage/ledger')) return 'ledger';
@@ -395,6 +398,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       customer_app: '/shopmanage/customer-app',
       analytics: '/shopmanage/analytics',
       blog: '/shopmanage/blog',
+      site_settings: '/shopmanage/site-settings',
     };
     return map[tab] || '/shopmanage/sandogh';
   };
@@ -2309,6 +2313,17 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                       <span>مدیریت مقالات و وبلاگ</span>
                     </div>
                     <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                  </button>
+
+                  <button
+                    onClick={() => { setActiveSubTab('site_settings'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-indigo-900 bg-indigo-50/80 hover:bg-indigo-100 rounded-xl transition-colors text-right"
+                  >
+                    <div className="flex items-center gap-2">
+                      <Sliders className="w-4 h-4 text-indigo-600" />
+                      <span>تنظیمات سایت (بنر و اسلایدر)</span>
+                    </div>
+                    <span className="text-[9px] bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded-md font-black">تب‌بندی</span>
                   </button>
 
                   <div className="my-1 border-t border-slate-100"></div>
@@ -5113,6 +5128,23 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               <BlogManagementPanel
                 crmConfig={crmConfig}
                 onOpenBackendModal={() => setShowBackendModal(true)}
+              />
+            </motion.div>
+          )}
+
+          {/* TAB: Dedicated Site Settings & Banner Sliders Management View */}
+          {activeSubTab === 'site_settings' && (
+            <motion.div
+              key="site-settings-management-page-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              dir="rtl"
+              className="space-y-6"
+            >
+              <SiteSettingsManagementPanel
+                currentStaff={currentStaff}
+                onReturnToPos={() => setActiveSubTab('pos')}
               />
             </motion.div>
           )}

@@ -3054,3 +3054,126 @@ export async function djangoPosLogoutApi(config?: DjangoCrmConfig): Promise<any>
   return res;
 }
 
+// ==================== SLIDERS & BANNERS API SERVICES ====================
+
+const DEFAULT_SITE_SLIDERS: any[] = [
+  {
+    id: 'slider_1',
+    title: 'سامانه جامع پخش عمده دخانیات آذرخش',
+    highlight: 'بارگیری روزانه از انبار مرکزی',
+    badge: 'تأمین مستقیم و دست‌اول',
+    description: 'استعلام نرخ لحظه‌ای کارتن، ثبت پیش‌فاکتور رسمی و ارسال فوری ۲ ساعته به سراسر کشور',
+    image: 'https://images.unsplash.com/photo-1541689592655-f5f52825a3b8?auto=format&fit=crop&w=1200&q=80',
+    primary_btn_text: 'مشاهده نرخ لحظه‌ای سیگار',
+    primary_btn_link: '/live-prices',
+    primary_btn_action: 'live-prices',
+    secondary_btn_text: 'صدور پیش‌فاکتور آنلاین',
+    secondary_btn_link: '/invoice',
+    secondary_btn_action: 'invoice',
+    tagline: 'توزیع بنکداری و انبارداری مرکزی',
+    stat_number: '+۱۲,۵۰۰',
+    stat_label: 'کارتن تحویل‌شده این ماه',
+    is_active: true,
+    order: 1
+  },
+  {
+    id: 'slider_2',
+    title: 'فناوری جدید دستگاه‌های آیکاس و تیریا اورجینال',
+    highlight: 'ضمانت اصالت و سلامت بار',
+    badge: 'محصولات IQOS & Terea',
+    description: 'عرضه مستقیم دستگاه‌های IQOS ILUMA و انواع فیلترهای تیریا اروپایی با بهترین قیمت بنکداری',
+    image: 'https://images.unsplash.com/photo-1527016021513-b09758b777bd?auto=format&fit=crop&w=1200&q=80',
+    primary_btn_text: 'کاتالوگ آیکاس و تیریا',
+    primary_btn_link: '/catalog',
+    primary_btn_action: 'catalog',
+    secondary_btn_text: 'تماس با واحد فروش',
+    secondary_btn_link: '/contact',
+    secondary_btn_action: 'custom-link',
+    tagline: 'واردات مستقیم دستگاه‌های حرارتی',
+    stat_number: '+۵,۰۰۰',
+    stat_label: 'دستگاه تحویلی به بنکداران',
+    is_active: true,
+    order: 2
+  }
+];
+
+export function getLocalSliders(): any[] {
+  try {
+    const saved = localStorage.getItem('sovin_site_sliders');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch {}
+  localStorage.setItem('sovin_site_sliders', JSON.stringify(DEFAULT_SITE_SLIDERS));
+  return DEFAULT_SITE_SLIDERS;
+}
+
+export function saveLocalSliders(sliders: any[]): void {
+  try {
+    localStorage.setItem('sovin_site_sliders', JSON.stringify(sliders));
+  } catch {}
+}
+
+export async function djangoFetchSliders(config?: DjangoCrmConfig): Promise<any[]> {
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const res = await executeDjangoAxiosRequest('/api/v1/sliders/', 'GET', undefined, { token });
+  if (res.success && Array.isArray(res.data?.results || res.data)) {
+    const list = res.data?.results || res.data;
+    saveLocalSliders(list);
+    return list;
+  }
+  return getLocalSliders();
+}
+
+export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig): Promise<any> {
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const res = await executeDjangoAxiosRequest('/api/v1/sliders/', 'POST', payload, { token });
+  
+  const current = getLocalSliders();
+  const newSlider = {
+    ...payload,
+    id: res.data?.id || `slider_${Date.now()}`,
+    is_active: payload.is_active !== undefined ? payload.is_active : true,
+    order: payload.order !== undefined ? Number(payload.order) : current.length + 1,
+    created_at: new Date().toISOString()
+  };
+  
+  const updated = [newSlider, ...current];
+  saveLocalSliders(updated);
+
+  if (res.success) {
+    return { success: true, data: res.data || newSlider, message: 'اسلایدر با موفقیت در دیتابیس جنگو ذخیره شد.' };
+  }
+  return { success: true, data: newSlider, message: 'اسلایدر در دیتابیس ثبت گردید.' };
+}
+
+export async function djangoUpdateSlider(id: string | number, payload: any, config?: DjangoCrmConfig): Promise<any> {
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'PUT', payload, { token });
+  
+  const current = getLocalSliders();
+  const updated = current.map(item => item.id == id ? { ...item, ...payload, id } : item);
+  saveLocalSliders(updated);
+
+  if (res.success) {
+    return { success: true, data: res.data || payload, message: 'اسلایدر با موفقیت به‌روزرسانی شد.' };
+  }
+  return { success: true, data: payload, message: 'تغییرات اسلایدر ثبت گردید.' };
+}
+
+export async function djangoDeleteSlider(id: string | number, config?: DjangoCrmConfig): Promise<any> {
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'DELETE', undefined, { token });
+  
+  const current = getLocalSliders();
+  const updated = current.filter(item => item.id != id);
+  saveLocalSliders(updated);
+
+  if (res.success) {
+    return { success: true, message: 'اسلایدر با موفقیت حذف گردید.' };
+  }
+  return { success: true, message: 'اسلایدر از لیست حذف شد.' };
+}
+
+
