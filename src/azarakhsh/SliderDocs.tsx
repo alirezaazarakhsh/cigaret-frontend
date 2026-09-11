@@ -202,7 +202,7 @@ class SliderAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (_('عنوان و متون هیرو'), {
-            'fields': ('title', 'highlight', 'badge', 'tagline', 'description', 'image', 'image_preview')
+            'fields': ('title', 'highlight', 'badge', 'tagline', 'description', 'image', 'large_image_preview')
         }),
         (_('کنترل‌ها و لینک‌های اقدام (Call To Action)'), {
             'fields': (
@@ -217,13 +217,27 @@ class SliderAdmin(admin.ModelAdmin):
             'fields': ('is_active', 'order')
         }),
     )
-    readonly_fields = ('image_preview', 'created_at', 'updated_at')
+    readonly_fields = ('image_preview', 'large_image_preview', 'created_at', 'updated_at')
 
     def image_preview(self, obj):
         if obj.image:
-            return format_html('<img src="{}" style="max-height: 50px; border-radius: 8px; border: 1px solid #cbd5e1;" />', obj.image.url)
+            return format_html('<img src="{}" style="max-height: 60px; max-width: 120px; border-radius: 6px; border: 1px solid #cbd5e1; object-fit: cover; transition: transform 0.2s;" />', obj.image.url)
         return _("تصویری موجود نیست")
-    image_preview.short_description = _("پیش‌نمایش بنر")
+    image_preview.short_description = _("پیش‌نمایش بنر (لیست)")
+
+    def large_image_preview(self, obj):
+        if obj.image:
+            return format_html(
+                '<div style="margin-top: 5px;">'
+                '<a href="{0}" target="_blank">'
+                '<img src="{0}" style="max-height: 220px; max-width: 100%; border-radius: 12px; border: 2px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.15); object-fit: contain; background: #f8fafc; padding: 4px;" />'
+                '</a>'
+                '<p style="margin: 8px 0 0 0; font-size: 11px; color: #64748b; font-weight: bold;">(برای مشاهده تصویر در اندازه واقعی روی آن کلیک کنید)</p>'
+                '</div>',
+                obj.image.url
+            )
+        return _("تصویری آپلود نشده است")
+    large_image_preview.short_description = _("پیش‌نمایش بزرگ تصویر")
 `}
       serializersCode={`"""
 sliders/serializers.py

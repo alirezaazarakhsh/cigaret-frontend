@@ -56,6 +56,12 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
 
   const handleAction = (action: string) => {
     if (!action) return;
+    
+    const presets = ['live-prices', 'invoice', 'catalog', 'shipping', 'pdf', 'iqos', 'iqos_heets'];
+    const isPreset = presets.includes(action);
+    const isUrl = action.startsWith('http://') || action.startsWith('https://') || 
+                  (!isPreset && !action.startsWith('/') && action.includes('.') && action.length > 3);
+
     if (action === 'live-prices') {
       onNavigateTab('live-prices');
     } else if (action === 'invoice') {
@@ -71,8 +77,15 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
       onNavigateTab('shipping');
     } else if (action === 'pdf') {
       generatePriceListPdf(products, 'all');
-    } else if (action.startsWith('http://') || action.startsWith('https://')) {
-      window.location.href = action;
+    } else if (isUrl) {
+      const targetUrl = action.startsWith('http://') || action.startsWith('https://') 
+        ? action 
+        : `https://${action}`;
+      try {
+        window.open(targetUrl, '_blank');
+      } catch (e) {
+        window.location.href = targetUrl;
+      }
     } else {
       onNavigateTab(action);
     }

@@ -48,7 +48,7 @@ export async function executeDjangoAxiosRequest<T = any>(
   if (config?.token) {
     headers['Authorization'] = config.token.startsWith('Bearer ') || config.token.startsWith('Token ')
       ? config.token
-      : `Bearer ${config.token}`;
+      : (config.token.startsWith('ey') ? `Bearer ${config.token}` : `Token ${config.token}`);
   }
 
   try {
@@ -67,9 +67,34 @@ export async function executeDjangoAxiosRequest<T = any>(
     };
   } catch (err: any) {
     const isTimeout = axios.isCancel(err) || err?.code === 'ECONNABORTED' || err?.message?.includes('timeout');
-    const errorMessage = isTimeout
-      ? `زمان درخواست به سرور به پایان رسید (Timeout ${timeout / 1000}s)`
-      : (err?.response?.data?.detail || err?.response?.data?.message || err?.message || 'خطا در برقراری ارتباط با سرور جنگو');
+    
+    let errorMessage = '';
+    if (isTimeout) {
+      errorMessage = `زمان درخواست به سرور به پایان رسید (Timeout ${timeout / 1000}s)`;
+    } else if (err?.response?.data) {
+      const data = err.response.data;
+      if (typeof data === 'string') {
+        errorMessage = data;
+      } else if (data.detail) {
+        errorMessage = data.detail;
+      } else if (data.message) {
+        errorMessage = data.message;
+      } else if (data.error) {
+        errorMessage = data.error;
+      } else if (typeof data === 'object') {
+        // DRF field-specific validation errors: e.g. { "title": ["This field is required."], ... }
+        const fieldErrors: string[] = [];
+        Object.entries(data).forEach(([key, val]) => {
+          const errors = Array.isArray(val) ? val.join(' - ') : String(val);
+          fieldErrors.push(`${key}: ${errors}`);
+        });
+        errorMessage = fieldErrors.join(' | ');
+      } else {
+        errorMessage = err.message || 'خطا در برقراری ارتباط با سرور جنگو';
+      }
+    } else {
+      errorMessage = err?.message || 'خطا در برقراری ارتباط با سرور جنگو';
+    }
 
     return {
       success: false,
@@ -3118,62 +3143,190 @@ export function saveLocalSliders(sliders: any[]): void {
 export async function djangoFetchSliders(config?: DjangoCrmConfig): Promise<any[]> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
   const res = await executeDjangoAxiosRequest('/api/v1/sliders/', 'GET', undefined, { token });
+  
+  const localList = getLocalSliders();
+  
   if (res.success && Array.isArray(res.data?.results || res.data)) {
-    const list = res.data?.results || res.data;
-    saveLocalSliders(list);
-    return list;
+    const serverList = res.data?.results || res.data;
+    const mergedList = [...localList];
+    
+    serverList.forEach((serverItem: any) => {
+      const existingIdx = mergedList.findIndex(localItem => 
+        String(localItem.id) === String(serverItem.id) ||
+        (String(localItem.id).startsWith('slider_') && localItem.title === serverItem.title)
+      );
+      
+      if (existingIdx > -1) {
+        mergedList[existingIdx] = {
+          ...mergedList[existingIdx],
+          ...serverItem,
+          id: serverItem.id
+        };
+      } else {
+        mergedList.push(serverItem);
+      }
+    });
+    
+    saveLocalSliders(mergedList);
+    return mergedList;
   }
-  return getLocalSliders();
+  return localList;
 }
 
 export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig): Promise<any> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
-  const res = await executeDjangoAxiosRequest('/api/v1/sliders/', 'POST', payload, { token });
+  
+  // Explicitly keep only the fields expected by the Django model and serializer
+  const cleanPayload: any = {};
+  const allowedFields = [
+    'title',
+    'highlight',
+    'badge',
+    'description',
+    'primary_btn_text',
+    'primary_btn_link',
+    'primary_btn_action',
+    'secondary_btn_text',
+    'secondary_btn_link',
+    'secondary_btn_action',
+    'tagline',
+    'stat_number',
+    'stat_label',
+    'target_type',
+    'features',
+    'order',
+    'is_active'
+  ];
+
+  allowedFields.forEach(field => {
+    if (payload[field] !== undefined) {
+      // Convert empty strings to null to avoid blank validation issues on choices or keep it as empty string for CharField
+      if (payload[field] === '' && (field === 'primary_btn_action' || field === 'secondary_btn_action')) {
+        cleanPayload[field] = null;
+      } else {
+        cleanPayload[field] = payload[field];
+      }
+    }
+  });
+
+  // Image upload handler: only include 'image' if it's a valid Base64 string.
+  // Never send string URLs or paths to Django ImageField as it will cause a 400 Bad Request error.
+  if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,')) {
+    cleanPayload.image = payload.image;
+  }
+
+  const current = getLocalSliders();
+  const tempId = `slider_${Date.now()}`;
+  const newSlider = {
+    ...payload,
+    id: tempId,
+    is_active: payload.is_active !== undefined ? payload.is_active : true,
+    order: payload.order !== undefined ? Number(payload.order) : current.length + 1,
+    created_at: new Date().toISOString()
+  };
+
+  const res = await executeDjangoAxiosRequest('/api/v1/sliders/', 'POST', cleanPayload, { token });
   
   if (res.success) {
-    const current = getLocalSliders();
-    const newSlider = {
-      ...payload,
-      id: res.data?.id || `slider_${Date.now()}`,
-      is_active: payload.is_active !== undefined ? payload.is_active : true,
-      order: payload.order !== undefined ? Number(payload.order) : current.length + 1,
-      created_at: new Date().toISOString()
+    const serverId = res.data?.id || res.data?.data?.id;
+    const finalSlider = {
+      ...newSlider,
+      ...(res.data || {}),
+      id: serverId || tempId
     };
     
-    const updated = [newSlider, ...current];
+    // Save to local storage after successful server creation
+    const updated = [finalSlider, ...current.filter(item => item.id !== tempId)];
     saveLocalSliders(updated);
-    return { success: true, data: res.data || newSlider, message: 'اسلایدر با موفقیت در دیتابیس جنگو ذخیره شد.' };
+    return { success: true, data: finalSlider, message: 'اسلایدر با موفقیت در دیتابیس جنگو ذخیره شد.' };
   }
   
-  return { success: false, error: res.error, message: res.error || 'خطا در برقراری ارتباط با سرور جنگو' };
+  // If it fails with validation or auth error, return success: false with the actual server error
+  return { 
+    success: false, 
+    error: res.error, 
+    message: `خطا در ذخیره‌سازی در دیتابیس جنگو: ${res.error || 'عدم ارتباط با سرور'}` 
+  };
 }
 
 export async function djangoUpdateSlider(id: string | number, payload: any, config?: DjangoCrmConfig): Promise<any> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
-  const res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'PUT', payload, { token });
+  
+  // Explicitly keep only the fields expected by the Django model and serializer
+  const cleanPayload: any = {};
+  const allowedFields = [
+    'title',
+    'highlight',
+    'badge',
+    'description',
+    'primary_btn_text',
+    'primary_btn_link',
+    'primary_btn_action',
+    'secondary_btn_text',
+    'secondary_btn_link',
+    'secondary_btn_action',
+    'tagline',
+    'stat_number',
+    'stat_label',
+    'target_type',
+    'features',
+    'order',
+    'is_active'
+  ];
+
+  allowedFields.forEach(field => {
+    if (payload[field] !== undefined) {
+      if (payload[field] === '' && (field === 'primary_btn_action' || field === 'secondary_btn_action')) {
+        cleanPayload[field] = null;
+      } else {
+        cleanPayload[field] = payload[field];
+      }
+    }
+  });
+
+  // Image upload handler: only include 'image' if it's a valid Base64 string.
+  // Never send string URLs or paths to Django ImageField as it will cause a 400 Bad Request error.
+  if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,')) {
+    cleanPayload.image = payload.image;
+  }
+
+  const res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'PUT', cleanPayload, { token });
   
   if (res.success) {
+    const serverData = res.data?.data || res.data || {};
     const current = getLocalSliders();
-    const updated = current.map(item => item.id == id ? { ...item, ...payload, id } : item);
+    const updated = current.map(item => 
+      item.id == id ? { ...item, ...payload, ...serverData, id } : item
+    );
     saveLocalSliders(updated);
-    return { success: true, data: res.data || payload, message: 'اسلایدر با موفقیت به‌روزرسانی شد.' };
+    return { success: true, data: { ...payload, ...serverData }, message: 'اسلایدر با موفقیت در دیتابیس جنگو بروزرسانی شد.' };
   }
   
-  return { success: false, error: res.error, message: res.error || 'خطا در به‌روزرسانی اسلایدر در سرور' };
+  return { 
+    success: false, 
+    error: res.error, 
+    message: `خطا در بروزرسانی دیتابیس جنگو: ${res.error || 'عدم ارتباط با سرور'}` 
+  };
 }
 
 export async function djangoDeleteSlider(id: string | number, config?: DjangoCrmConfig): Promise<any> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  
+  const current = getLocalSliders();
+  const updated = current.filter(item => item.id != id);
+  saveLocalSliders(updated);
+  
   const res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'DELETE', undefined, { token });
   
   if (res.success) {
-    const current = getLocalSliders();
-    const updated = current.filter(item => item.id != id);
-    saveLocalSliders(updated);
-    return { success: true, message: 'اسلایدر با موفقیت حذف گردید.' };
+    return { success: true, message: 'اسلایدر با موفقیت از دیتابیس جنگو حذف گردید.' };
   }
   
-  return { success: false, error: res.error, message: res.error || 'خطا در حذف اسلایدر از سرور' };
+  return { 
+    success: true, 
+    localOnly: true, 
+    message: 'اسلایدر به صورت محلی حذف گردید (عدم ارتباط با سرور).' 
+  };
 }
 
 
