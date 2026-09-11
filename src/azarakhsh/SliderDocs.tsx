@@ -132,13 +132,6 @@ class Slider(models.Model):
         verbose_name=_("برچسب آمار")
     )
 
-    target_type = models.CharField(
-        max_length=100, 
-        blank=True, 
-        null=True, 
-        verbose_name=_("نوع مخاطب / گروه هدف")
-    )
-
     # تنظیمات اولویت و وضعیت
     is_active = models.BooleanField(default=True, verbose_name=_("وضعیت نمایش (فعال/غیرفعال)"))
     order = models.PositiveIntegerField(default=0, verbose_name=_("ترتیب اولویت نمایش"))

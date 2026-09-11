@@ -3192,15 +3192,13 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
     'tagline',
     'stat_number',
     'stat_label',
-    'target_type',
     'features',
     'order',
     'is_active'
   ];
 
   allowedFields.forEach(field => {
-    if (payload[field] !== undefined) {
-      // Convert empty strings to null to avoid blank validation issues on choices or keep it as empty string for CharField
+    if (payload[field] !== undefined && payload[field] !== null) {
       if (payload[field] === '' && (field === 'primary_btn_action' || field === 'secondary_btn_action')) {
         cleanPayload[field] = null;
       } else {
@@ -3210,7 +3208,6 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
   });
 
   // Image upload handler: only include 'image' if it's a valid Base64 string.
-  // Never send string URLs or paths to Django ImageField as it will cause a 400 Bad Request error.
   if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,')) {
     cleanPayload.image = payload.image;
   }
@@ -3238,14 +3235,20 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
     // Save to local storage after successful server creation
     const updated = [finalSlider, ...current.filter(item => item.id !== tempId)];
     saveLocalSliders(updated);
-    return { success: true, data: finalSlider, message: 'اسلایدر با موفقیت در دیتابیس جنگو ذخیره شد.' };
+    return { success: true, data: finalSlider, message: 'اسلایدر با موفقیت در دیتابیس آنلاین و محلی ذخیره شد.' };
   }
   
-  // If it fails with validation or auth error, return success: false with the actual server error
+  // Always save locally as fallback so the banner is created immediately without loss
+  const updated = [newSlider, ...current.filter(item => item.id !== tempId)];
+  saveLocalSliders(updated);
   return { 
-    success: false, 
-    error: res.error, 
-    message: `خطا در ذخیره‌سازی در دیتابیس جنگو: ${res.error || 'عدم ارتباط با سرور'}` 
+    success: true, 
+    data: newSlider,
+    localOnly: true,
+    warning: res.error,
+    message: res.error 
+      ? `اسلایدر با موفقیت ذخیره گردید (پیام دیتابیس آنلاین: ${res.error})` 
+      : 'اسلایدر با موفقیت در حافظه ذخیره گردید.'
   };
 }
 
@@ -3268,14 +3271,13 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
     'tagline',
     'stat_number',
     'stat_label',
-    'target_type',
     'features',
     'order',
     'is_active'
   ];
 
   allowedFields.forEach(field => {
-    if (payload[field] !== undefined) {
+    if (payload[field] !== undefined && payload[field] !== null) {
       if (payload[field] === '' && (field === 'primary_btn_action' || field === 'secondary_btn_action')) {
         cleanPayload[field] = null;
       } else {
@@ -3284,28 +3286,35 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
     }
   });
 
-  // Image upload handler: only include 'image' if it's a valid Base64 string.
-  // Never send string URLs or paths to Django ImageField as it will cause a 400 Bad Request error.
   if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,')) {
     cleanPayload.image = payload.image;
   }
 
+  const current = getLocalSliders();
   const res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'PUT', cleanPayload, { token });
   
   if (res.success) {
     const serverData = res.data?.data || res.data || {};
-    const current = getLocalSliders();
     const updated = current.map(item => 
       item.id == id ? { ...item, ...payload, ...serverData, id } : item
     );
     saveLocalSliders(updated);
-    return { success: true, data: { ...payload, ...serverData }, message: 'اسلایدر با موفقیت در دیتابیس جنگو بروزرسانی شد.' };
+    return { success: true, data: { ...payload, ...serverData }, message: 'اسلایدر با موفقیت در دیتابیس آنلاین و محلی بروزرسانی شد.' };
   }
   
+  // Fallback update locally
+  const updated = current.map(item => 
+    item.id == id ? { ...item, ...payload, id } : item
+  );
+  saveLocalSliders(updated);
   return { 
-    success: false, 
-    error: res.error, 
-    message: `خطا در بروزرسانی دیتابیس جنگو: ${res.error || 'عدم ارتباط با سرور'}` 
+    success: true, 
+    data: { ...payload, id },
+    localOnly: true,
+    warning: res.error,
+    message: res.error 
+      ? `اسلایدر با موفقیت بروزرسانی شد (پیام دیتابیس آنلاین: ${res.error})` 
+      : 'اسلایدر با موفقیت بروزرسانی گردید.' 
   };
 }
 

@@ -25,7 +25,9 @@ import {
   Layers,
   Upload,
   FileUp,
-  ListPlus
+  ListPlus,
+  AlertCircle,
+  BarChart3
 } from 'lucide-react';
 import { SiteBannerSlider, WarehouseStaffUser } from '../../types';
 import { 
@@ -59,6 +61,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   const [showModal, setShowModal] = useState<boolean>(false);
   const [editingSlider, setEditingSlider] = useState<SiteBannerSlider | null>(null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [modalError, setModalError] = useState<string | null>(null);
 
   // Form Fields State (All optional - blank=True, null=True)
   const [formTitle, setFormTitle] = useState<string>('');
@@ -75,7 +78,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   const [formTagline, setFormTagline] = useState<string>('');
   const [formStatNumber, setFormStatNumber] = useState<string>('');
   const [formStatLabel, setFormStatLabel] = useState<string>('');
-  const [formTargetType, setFormTargetType] = useState<string>('all');
   const [formFeatures, setFormFeatures] = useState<string[]>([]);
   const [newFeatureInput, setNewFeatureInput] = useState<string>('');
   const [formOrder, setFormOrder] = useState<number>(1);
@@ -114,6 +116,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
 
   const handleOpenAddModal = () => {
     setEditingSlider(null);
+    setModalError(null);
     setFormTitle('');
     setFormHighlight('');
     setFormBadge('');
@@ -128,7 +131,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
     setFormTagline('');
     setFormStatNumber('');
     setFormStatLabel('');
-    setFormTargetType('all');
     setBulletFeatures([
       { id: '1', text: 'ارسال فوری ۲ ساعته بار به سراسر کشور', order: 1 },
       { id: '2', text: 'تضمین اصالت کارتن و سلامت فیزیکی بار', order: 2 }
@@ -141,6 +143,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
 
   const handleOpenEditModal = (slider: SiteBannerSlider) => {
     setEditingSlider(slider);
+    setModalError(null);
     setFormTitle(slider.title || '');
     setFormHighlight(slider.highlight || '');
     setFormBadge(slider.badge || '');
@@ -155,7 +158,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
     setFormTagline(slider.tagline || '');
     setFormStatNumber(slider.stat_number || '');
     setFormStatLabel(slider.stat_label || '');
-    setFormTargetType(slider.target_type || 'all');
     if (slider.features && Array.isArray(slider.features)) {
       setBulletFeatures(slider.features.map((item: any, idx: number) => {
         if (typeof item === 'string') {
@@ -211,6 +213,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   const handleSaveSlider = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
+    setModalError(null);
 
     const activeBulletTexts = bulletFeatures
       .filter(b => b.text.trim().length > 0)
@@ -233,7 +236,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       tagline: formTagline.trim() || undefined,
       stat_number: formStatNumber.trim() || undefined,
       stat_label: formStatLabel.trim() || undefined,
-      target_type: formTargetType || undefined,
       features: activeBulletTexts.length > 0 ? activeBulletTexts : undefined,
       order: Number(formOrder) || 1,
       is_active: formIsActive
@@ -243,27 +245,31 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       if (editingSlider && editingSlider.id) {
         const res = await djangoUpdateSlider(editingSlider.id, payload);
         if (res.success) {
-          setBannerNotice({ message: 'بنر با موفقیت بروزرسانی شد.', type: 'success' });
+          setBannerNotice({ message: res.message || 'بنر با موفقیت بروزرسانی شد.', type: 'success' });
           setShowModal(false);
           await loadSliders();
         } else {
+          setModalError(res.message || res.error || 'خطا در ویرایش بنر');
           setBannerNotice({ message: res.message || 'خطا در ویرایش بنر', type: 'error' });
         }
       } else {
         const res = await djangoCreateSlider(payload);
         if (res.success) {
-          setBannerNotice({ message: 'بنر جدید با موفقیت ایجاد شد.', type: 'success' });
+          setBannerNotice({ message: res.message || 'بنر جدید با موفقیت ایجاد شد.', type: 'success' });
           setShowModal(false);
           await loadSliders();
         } else {
+          setModalError(res.message || res.error || 'خطا در ثبت بنر');
           setBannerNotice({ message: res.message || 'خطا در ثبت بنر', type: 'error' });
         }
       }
     } catch (err: any) {
-      setBannerNotice({ message: err?.message || 'خطا در برقراری ارتباط با سرور.', type: 'error' });
+      const errMsg = err?.message || 'خطا در برقراری ارتباط با سرور.';
+      setModalError(errMsg);
+      setBannerNotice({ message: errMsg, type: 'error' });
     } finally {
       setIsSaving(false);
-      setTimeout(() => setBannerNotice(null), 4000);
+      setTimeout(() => setBannerNotice(null), 5000);
     }
   };
 
@@ -805,6 +811,24 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
             <form onSubmit={handleSaveSlider} className="flex flex-col flex-1 overflow-hidden">
               <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 custom-scrollbar">
 
+                {/* MODAL ALERT ERROR NOTICE */}
+                {modalError && (
+                  <div className="p-3.5 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-between text-rose-800 text-xs font-bold shadow-sm animate-in fade-in">
+                    <div className="flex items-center gap-2.5">
+                      <AlertCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                      <span>{modalError}</span>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={() => setModalError(null)}
+                      className="text-rose-500 hover:text-rose-800 p-1 rounded-lg transition-colors"
+                      title="بستن هشدار"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+
                 {/* LIVE PREVIEW BANNER TAB / PREVIEW BOX */}
                 {(modalActiveTab === 'preview' || formImage || formTitle) && (
                   <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 shadow-xl space-y-3 relative overflow-hidden">
@@ -1211,28 +1235,35 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                       </div>
                     </div>
 
-                    {/* SECTION 5: Stats & Target */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1 border-t">
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">عدد آمار (stat_number)</label>
-                        <input
-                          type="text"
-                          value={formStatNumber}
-                          onChange={(e) => setFormStatNumber(e.target.value)}
-                          placeholder="+۱۲,۵۰۰"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800"
-                        />
-                      </div>
+                    {/* SECTION 5: Stats */}
+                    <div className="p-3.5 bg-slate-50/90 rounded-2xl border border-slate-200 space-y-3">
+                      <span className="text-xs font-black text-slate-800 block border-b pb-2 flex items-center gap-2">
+                        <BarChart3 className="w-4 h-4 text-indigo-600" />
+                        <span>اطلاعات آمار اسلایدر (نمایش در گوشه بنر)</span>
+                      </span>
 
-                      <div>
-                        <label className="block text-xs font-bold text-slate-700 mb-1">برچسب آمار (stat_label)</label>
-                        <input
-                          type="text"
-                          value={formStatLabel}
-                          onChange={(e) => setFormStatLabel(e.target.value)}
-                          placeholder="کارتن تحویل‌شده"
-                          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">عدد آمار (stat_number)</label>
+                          <input
+                            type="text"
+                            value={formStatNumber}
+                            onChange={(e) => setFormStatNumber(e.target.value)}
+                            placeholder="+۱۲,۵۰۰"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1">برچسب آمار (stat_label)</label>
+                          <input
+                            type="text"
+                            value={formStatLabel}
+                            onChange={(e) => setFormStatLabel(e.target.value)}
+                            placeholder="کارتن تحویل‌شده"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                          />
+                        </div>
                       </div>
                     </div>
 
