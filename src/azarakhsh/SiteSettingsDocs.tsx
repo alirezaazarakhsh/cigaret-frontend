@@ -422,6 +422,7 @@ site_settings/views.py
 """
 
 from rest_framework import status, viewsets
+from rest_framework.decorators import action
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAdminUser
@@ -472,11 +473,44 @@ class UnifiedPublicConfigView(APIView):
 class SiteValueFeatureViewSet(viewsets.ModelViewSet):
     """
     ViewSet کامل ویرایش کارت‌های ۴‌گانه خدمات و مزایای زیر اسلایدر
-    اتصال مستقیم به صندوق و پنل مدیریت
+    پشتیبانی از مدیریت تک‌تک کارت‌ها (POST/PUT/DELETE) و بروزرسانی یکجای (bulk_update)
     """
     queryset = SiteValueFeature.objects.all().order_by('order')
     serializer_class = SiteValueFeatureSerializer
     permission_classes = [AllowAny]  # یا IsAdminUser در محیط پروداکشن
+
+    @swagger_auto_schema(
+        methods=['post', 'put'],
+        operation_summary="بروزرسانی دسته‌جمعی کارت‌های ۴‌گانه خدمات",
+        request_body=SiteValueFeatureSerializer(many=True),
+        responses={200: "ذخیره‌سازی موفق"}
+    )
+    @action(detail=False, methods=['post', 'put'], url_path='bulk_update')
+    def bulk_update_features(self, request):
+        features_data = request.data.get('features', request.data)
+        if not isinstance(features_data, list):
+            return Response({'error': 'لیست کارت‌ها معتبر نیست'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # بروزرسانی یا ثبت کارت‌های ارسال شده
+        saved_items = []
+        for idx, item in enumerate(features_data[:4]):
+            obj_id = item.get('id')
+            defaults = {
+                'title': item.get('title', ''),
+                'desc': item.get('desc') or item.get('description', ''),
+                'icon': item.get('icon', 'shield-tick'),
+                'badge': item.get('badge') or item.get('badge_text', ''),
+                'order': item.get('order', idx + 1),
+                'is_active': item.get('is_active', True)
+            }
+            if obj_id and isinstance(obj_id, int) and obj_id < 1000000:
+                obj, _ = SiteValueFeature.objects.update_or_create(id=obj_id, defaults=defaults)
+            else:
+                obj = SiteValueFeature.objects.create(**defaults)
+            saved_items.append(obj)
+            
+        serializer = self.get_serializer(saved_items, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 `;
 
   const urlsCode = `"""

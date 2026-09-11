@@ -241,15 +241,36 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   const handleImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 8 * 1024 * 1024) {
-        alert('حجم تصویر نباید بیشتر از ۸ مگابایت باشد.');
+      if (file.size > 15 * 1024 * 1024) {
+        alert('حجم تصویر نباید بیشتر از ۱۵ مگابایت باشد.');
         return;
       }
       const reader = new FileReader();
       reader.onloadend = () => {
-        if (reader.result) {
-          setFormImage(reader.result.toString());
-        }
+        const resultStr = reader.result?.toString() || '';
+        if (!resultStr) return;
+        
+        // Failsafe image compression to optimize base64 size and prevent API timeout
+        const img = new Image();
+        img.onload = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            const MAX_WIDTH = 1200;
+            const scale = img.width > MAX_WIDTH ? MAX_WIDTH / img.width : 1;
+            canvas.width = Math.round(img.width * scale);
+            canvas.height = Math.round(img.height * scale);
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+              const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+              setFormImage(compressedDataUrl);
+              return;
+            }
+          } catch {}
+          setFormImage(resultStr);
+        };
+        img.onerror = () => setFormImage(resultStr);
+        img.src = resultStr;
       };
       reader.readAsDataURL(file);
     }

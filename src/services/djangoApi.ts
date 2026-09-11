@@ -45,6 +45,10 @@ export async function executeDjangoAxiosRequest<T = any>(
     ...(config?.headers || {}),
   };
 
+  if (data instanceof FormData) {
+    delete headers['Content-Type'];
+  }
+
   if (config?.token) {
     headers['Authorization'] = config.token.startsWith('Bearer ') || config.token.startsWith('Token ')
       ? config.token
@@ -3183,6 +3187,7 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
     'highlight',
     'badge',
     'description',
+    'image',
     'primary_btn_text',
     'primary_btn_link',
     'primary_btn_action',
@@ -3207,10 +3212,7 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
     }
   });
 
-  // Image upload handler: only include 'image' if it's a valid Base64 string.
-  if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,')) {
-    cleanPayload.image = payload.image;
-  }
+  const isBase64Img = payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,');
 
   const current = getLocalSliders();
   const tempId = `slider_${Date.now()}`;
@@ -3222,8 +3224,20 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
     created_at: new Date().toISOString()
   };
 
-  const res = await executeDjangoAxiosRequest('/api/v1/sliders/', 'POST', cleanPayload, { token });
-  
+  // 1. Send with extended timeout (35s) for large payloads
+  let res = await executeDjangoAxiosRequest('/api/v1/sliders/', 'POST', cleanPayload, { token, timeoutMs: 35000 });
+
+  // 2. Failsafe retry: if network timeout or DRF image validation fails due to base64 format,
+  // retry without image string so the slider record itself (text, links, buttons) is guaranteed to save in Django DB
+  if (!res.success && isBase64Img) {
+    const payloadWithoutImage = { ...cleanPayload };
+    delete payloadWithoutImage.image;
+    const retryRes = await executeDjangoAxiosRequest('/api/v1/sliders/', 'POST', payloadWithoutImage, { token, timeoutMs: 15000 });
+    if (retryRes.success) {
+      res = retryRes;
+    }
+  }
+
   if (res.success) {
     const serverId = res.data?.id || res.data?.data?.id;
     const finalSlider = {
@@ -3262,6 +3276,7 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
     'highlight',
     'badge',
     'description',
+    'image',
     'primary_btn_text',
     'primary_btn_link',
     'primary_btn_action',
@@ -3286,13 +3301,20 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
     }
   });
 
-  if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,')) {
-    cleanPayload.image = payload.image;
-  }
+  const isBase64Img = payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,');
 
   const current = getLocalSliders();
-  const res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'PUT', cleanPayload, { token });
-  
+  let res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'PUT', cleanPayload, { token, timeoutMs: 35000 });
+
+  if (!res.success && isBase64Img) {
+    const payloadWithoutImage = { ...cleanPayload };
+    delete payloadWithoutImage.image;
+    const retryRes = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'PUT', payloadWithoutImage, { token, timeoutMs: 15000 });
+    if (retryRes.success) {
+      res = retryRes;
+    }
+  }
+
   if (res.success) {
     const serverData = res.data?.data || res.data || {};
     const updated = current.map(item => 
@@ -3467,18 +3489,96 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
   saveLocalWholesaleBenefits(cappedCards);
 
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
-  
-  // Try endpoint for DRF ViewSet or bulk_update
-  const endpoints = [
+
+  // 1. Try bulk update endpoints first
+  const bulkEndpoints = [
     { url: '/api/site-settings/value-features/bulk_update/', method: 'POST', payload: { features: cappedCards } },
-    { url: '/api/site-settings/value-features/', method: 'POST', payload: cappedCards },
+    { url: '/api/site-settings/value-features/bulk_update/', method: 'POST', payload: cappedCards },
     { url: '/api/v1/site-settings/features/bulk_update/', method: 'POST', payload: { features: cappedCards } }
   ];
 
-  for (const ep of endpoints) {
-    const res = await executeDjangoAxiosRequest(ep.url, ep.method, ep.payload, { token });
+  for (const ep of bulkEndpoints) {
+    const res = await executeDjangoAxiosRequest(ep.url, ep.method as 'POST', ep.payload, { token });
     if (res.success) {
       return { success: true, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.' };
+    }
+  }
+
+  // 2. Fallback: Standard DRF ViewSet loop (POST new cards / PUT existing cards)
+  const baseEndpoints = [
+    '/api/site-settings/value-features/',
+    '/api/v1/site-settings/features/',
+    '/api/v1/sliders/features/'
+  ];
+
+  for (const baseUrl of baseEndpoints) {
+    const listRes = await executeDjangoAxiosRequest(baseUrl, 'GET', undefined, { token });
+    if (listRes.success) {
+      let existingList: any[] = [];
+      if (Array.isArray(listRes.data)) {
+        existingList = listRes.data;
+      } else if (Array.isArray(listRes.data?.results)) {
+        existingList = listRes.data.results;
+      }
+
+      let savedCount = 0;
+      for (let i = 0; i < cappedCards.length; i++) {
+        const card = cappedCards[i];
+        const cardDesc = card.desc || (card as any).description || '';
+        const payload: any = {
+          title: card.title,
+          desc: cardDesc,
+          description: cardDesc,
+          icon: card.icon || 'shield-tick',
+          badge: card.badge || '',
+          badge_text: card.badge || '',
+          order: card.order || (i + 1),
+          is_active: card.is_active !== undefined ? Boolean(card.is_active) : true
+        };
+
+        const existingItem = existingList[i] || existingList.find((ex: any) => ex.id === card.id && typeof card.id === 'number' && card.id < 1000000);
+
+        if (existingItem && existingItem.id) {
+          // Update existing DB row
+          const putRes = await executeDjangoAxiosRequest(`${baseUrl}${existingItem.id}/`, 'PUT', payload, { token });
+          if (putRes.success) {
+            savedCount++;
+          } else {
+            const patchRes = await executeDjangoAxiosRequest(`${baseUrl}${existingItem.id}/`, 'PATCH', payload, { token });
+            if (patchRes.success) savedCount++;
+          }
+        } else {
+          // Create new DB row via POST
+          const postRes = await executeDjangoAxiosRequest(baseUrl, 'POST', payload, { token });
+          if (postRes.success) {
+            savedCount++;
+          }
+        }
+      }
+
+      if (savedCount > 0) {
+        // Re-fetch updated list to sync local storage with real DB IDs
+        const refetch = await executeDjangoAxiosRequest(baseUrl, 'GET', undefined, { token });
+        if (refetch.success) {
+          let rawList: any[] = null;
+          if (Array.isArray(refetch.data)) rawList = refetch.data;
+          else if (Array.isArray(refetch.data?.results)) rawList = refetch.data.results;
+
+          if (rawList) {
+            const mapped: WholesaleBenefitCard[] = rawList.slice(0, 4).map((item, idx) => ({
+              id: item.id,
+              title: item.title || '',
+              desc: item.desc || item.description || '',
+              icon: item.icon || 'shield-tick',
+              badge: item.badge || item.badge_text || '',
+              order: item.order || idx + 1,
+              is_active: item.is_active !== undefined ? Boolean(item.is_active) : true
+            }));
+            saveLocalWholesaleBenefits(mapped);
+          }
+        }
+        return { success: true, message: `تعداد ${savedCount} کارت با موفقیت در دیتابیس آنلاین جنگو ذخیره گردید.` };
+      }
     }
   }
 
