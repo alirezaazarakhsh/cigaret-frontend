@@ -35,7 +35,11 @@ import {
   djangoCreateSlider, 
   djangoUpdateSlider, 
   djangoDeleteSlider, 
-  getLocalSliders 
+  getLocalSliders,
+  djangoFetchWholesaleBenefits,
+  djangoSaveWholesaleBenefits,
+  getLocalWholesaleBenefits,
+  WholesaleBenefitCard
 } from '../../services/djangoApi';
 
 interface SiteSettingsManagementPanelProps {
@@ -98,6 +102,10 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   const [heroBadge, setHeroBadge] = useState<string>('تأمین مستقیم و دست‌اول');
   const [announcementText, setAnnouncementText] = useState<string>('بارگیری روزانه از انبار مرکزی جنت‌آباد • ارسال ۲ ساعته به سراسر کشور');
 
+  // Wholesale Value Feature Cards (Max 4 items)
+  const [benefitCards, setBenefitCards] = useState<WholesaleBenefitCard[]>(() => getLocalWholesaleBenefits());
+  const [isSavingBenefits, setIsSavingBenefits] = useState(false);
+
   useEffect(() => {
     loadSliders();
   }, []);
@@ -105,12 +113,68 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   const loadSliders = async () => {
     setIsLoading(true);
     try {
-      const data = await djangoFetchSliders();
+      const [data, benefits] = await Promise.all([
+        djangoFetchSliders(),
+        djangoFetchWholesaleBenefits()
+      ]);
       setSliders(data);
+      if (benefits && benefits.length > 0) {
+        setBenefitCards(benefits);
+      }
     } catch (err) {
       setSliders(getLocalSliders());
+      setBenefitCards(getLocalWholesaleBenefits());
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleUpdateCardField = (index: number, field: keyof WholesaleBenefitCard, value: any) => {
+    setBenefitCards(prev => {
+      const next = [...prev];
+      if (next[index]) {
+        next[index] = { ...next[index], [field]: value };
+      }
+      return next;
+    });
+  };
+
+  const handleAddCard = () => {
+    if (benefitCards.length >= 4) return;
+    setBenefitCards(prev => [
+      ...prev,
+      {
+        id: Date.now(),
+        title: 'مزیت و سرویس جدید آذرخش',
+        desc: 'توضیحات کوتاه سرویس بنکداری آذرخش',
+        icon: 'shield-tick',
+        badge: 'خدمات SVN',
+        order: prev.length + 1,
+        is_active: true
+      }
+    ]);
+  };
+
+  const handleRemoveCard = (index: number) => {
+    setBenefitCards(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const handleSaveWholesaleBenefits = async () => {
+    setIsSavingBenefits(true);
+    try {
+      const res = await djangoSaveWholesaleBenefits(benefitCards);
+      setBannerNotice({
+        message: res.message || 'کارت‌های خدمات ۴گانه با موفقیت ذخیره گردیدند.',
+        type: 'success'
+      });
+    } catch (err) {
+      setBannerNotice({
+        message: 'خطا در ذخیره‌سازی کارت‌های خدمات.',
+        type: 'error'
+      });
+    } finally {
+      setIsSavingBenefits(false);
+      setTimeout(() => setBannerNotice(null), 4000);
     }
   };
 
@@ -382,8 +446,8 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                 : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
-            <Globe className="w-4 h-4" />
-            <span>تنظیمات عمومی و برندینگ</span>
+            <Sparkles className="w-4 h-4" />
+            <span>تنظیمات زیر اسلایدر صفحه اصلی</span>
           </button>
 
           <button
@@ -396,18 +460,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
           >
             <Layout className="w-4 h-4" />
             <span>تنظیمات هدر و اعلان فوقانی</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('social')}
-            className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-2 shrink-0 ${
-              activeTab === 'social'
-                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            <span>شبکه‌های اجتماعی و ارتباطات</span>
           </button>
         </div>
       </div>
@@ -634,39 +686,192 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
           </div>
         )}
 
-        {/* ================= TAB 2: GENERAL SETTINGS ================= */}
+        {/* ================= TAB 2: VALUE CARDS SETTINGS ================= */}
         {activeTab === 'general' && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
-            <h2 className="text-base font-black text-slate-900 border-b pb-3">تنظیمات نام، شعار و برندینگ عمومی</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">عنوان اصلی سایت (Site Title)</label>
-                <input
-                  type="text"
-                  value={siteTitle}
-                  onChange={(e) => setSiteTitle(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-800"
-                />
+          <div className="space-y-6">
+            {/* Wholesale Feature Cards Section (Max 4 items) */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-5">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b pb-4">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-indigo-600" />
+                    <h2 className="text-base font-black text-slate-900">
+                      مدیریت کارت‌های ۴‌گانه خدمات و مزایای بنکداری (زیر اسلایدر هیرو)
+                    </h2>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">
+                    این کارت‌ها مستقیماً زیر بنر اسلایدر اصلی قرار دارند. حداکثر ۴ کارت قابل تعریف است و آیکون‌ها به صورت نام متنی (مثلاً iconsax: shield-tick, discount-shape, truck-fast, user-edit) ذخیره می‌گردند.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 text-xs font-black font-mono border border-indigo-200">
+                    {benefitCards.length} / ۴ کارت
+                  </span>
+
+                  {benefitCards.length < 4 && (
+                    <button
+                      onClick={handleAddCard}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>افزودن کارت جديد</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">شعار برند (Slogan)</label>
-                <input
-                  type="text"
-                  value={siteSlogan}
-                  onChange={(e) => setSiteSlogan(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800"
-                />
+              {/* Character Limit & Format Guidance Alert */}
+              <div className="p-3 bg-amber-50/80 border border-amber-200/90 rounded-xl text-xs text-amber-900 flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-bold">راهنمای استانداردهای متنی و آیکون:</span>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    جهت حفظ ساختار بصری و عدم خروج متن از کادر کارت، <strong>عنوان حداکثر ۴۵ کاراکتر</strong>، <strong>برچسب حداکثر ۱۵ کاراکتر</strong> و <strong>توضیحات حداکثر ۱۲۰ کاراکتر</strong> باشد. نام آیکون را می‌توانید از Iconsax یا Lucide مانند <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-mono">shield-tick</code>، <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-mono">discount-shape</code>، <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-mono">truck-fast</code> یا <code className="bg-amber-100 px-1 py-0.5 rounded text-amber-900 font-mono">user-edit</code> درج نمایید.
+                  </p>
+                </div>
+              </div>
+
+              {/* Cards Grid / List */}
+              {benefitCards.length === 0 ? (
+                <div className="p-8 text-center bg-slate-50 border border-dashed border-slate-300 rounded-2xl space-y-3">
+                  <p className="text-xs font-bold text-slate-600">
+                    هیچ کارت خدماتی ثبت نشده است. (در این حالت بخش کارت‌های ۴‌گانه در صفحه اصلی سایت کلاً مخفی می‌شود)
+                  </p>
+                  <button
+                    onClick={handleAddCard}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-500 transition-colors inline-flex items-center gap-1.5"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>افزودن اولین کارت</span>
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {benefitCards.map((card, idx) => (
+                    <div key={card.id || idx} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 relative group">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-800 flex items-center justify-center text-[10px] font-mono font-bold">
+                            {card.order || idx + 1}
+                          </span>
+                          <span className="text-xs font-black text-indigo-700">
+                            کارت خدمات شماره {card.order || idx + 1}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3">
+                          <label className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-700 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={card.is_active !== false}
+                              onChange={(e) => handleUpdateCardField(idx, 'is_active', e.target.checked)}
+                              className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-3.5 h-3.5"
+                            />
+                            <span>فعال</span>
+                          </label>
+
+                          <button
+                            onClick={() => handleRemoveCard(idx)}
+                            className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            title="حذف این کارت از لیست"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+
+                    <div className="space-y-2.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            ترتیب نمایش (۱-۴)
+                          </label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={4}
+                            value={card.order || idx + 1}
+                            onChange={(e) => handleUpdateCardField(idx, 'order', parseInt(e.target.value) || (idx + 1))}
+                            className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs text-slate-800 font-mono text-center font-bold focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            عنوان اصلی کارت (حداکثر ۴۵ کاراکتر)
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={45}
+                            value={card.title}
+                            onChange={(e) => handleUpdateCardField(idx, 'title', e.target.value)}
+                            placeholder="تضمین اصالت بار و هولوگرام..."
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 font-bold"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            برچسب (Max 15)
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={15}
+                            value={card.badge || ''}
+                            onChange={(e) => handleUpdateCardField(idx, 'badge', e.target.value)}
+                            placeholder="اصالت SVN"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 font-medium"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            نام آیکون (Iconsax)
+                          </label>
+                          <input
+                            type="text"
+                            value={card.icon}
+                            onChange={(e) => handleUpdateCardField(idx, 'icon', e.target.value)}
+                            placeholder="shield-tick"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-mono text-indigo-900 focus:outline-none focus:border-indigo-500 dir-ltr text-left"
+                          />
+                        </div>
+
+                        <div className="sm:col-span-2">
+                          <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                            توضیحات کوتاه (حداکثر ۱۲۰ کاراکتر)
+                          </label>
+                          <input
+                            type="text"
+                            maxLength={120}
+                            value={card.desc}
+                            onChange={(e) => handleUpdateCardField(idx, 'desc', e.target.value)}
+                            placeholder="ارسال همان روز با باربری‌های معتبر..."
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              )}
+
+              {/* Save Button */}
+              <div className="pt-2 flex justify-end">
+                <button
+                  onClick={handleSaveWholesaleBenefits}
+                  disabled={isSavingBenefits}
+                  className="px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-400 text-white rounded-xl text-xs font-black transition-all shadow-md flex items-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isSavingBenefits ? 'animate-spin' : ''}`} />
+                  <span>{isSavingBenefits ? 'در حال ذخیره‌سازی در دیتابیس...' : 'ذخیره کارت‌های ۴‌گانه خدمات و مزایا'}</span>
+                </button>
               </div>
             </div>
-
-            <button
-              onClick={() => alert('تنظیمات برندینگ عمومی ذخیره شد.')}
-              className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-500 transition-colors"
-            >
-              ذخیره تغییرات برندینگ
-            </button>
           </div>
         )}
 
@@ -702,40 +907,6 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
               className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-500 transition-colors"
             >
               ذخیره تنظیمات هدر
-            </button>
-          </div>
-        )}
-
-        {/* ================= TAB 4: SOCIAL & CONTACT ================= */}
-        {activeTab === 'social' && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
-            <h2 className="text-base font-black text-slate-900 border-b pb-3">اطلاعات تماس، تلگرام و پشتیبانی آنلاین</h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">کانال تلگرام آذرخش</label>
-                <input
-                  type="text"
-                  defaultValue="https://t.me/azarakhsh_cigar"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 dir-ltr"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">تلفن واحد فروش و ثبت سفارش</label>
-                <input
-                  type="text"
-                  defaultValue="09120759419"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800"
-                />
-              </div>
-            </div>
-
-            <button
-              onClick={() => alert('اطلاعات تماس ذخیره شد.')}
-              className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-500 transition-colors"
-            >
-              ذخیره اطلاعات تماس
             </button>
           </div>
         )}

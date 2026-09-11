@@ -3338,4 +3338,156 @@ export async function djangoDeleteSlider(id: string | number, config?: DjangoCrm
   };
 }
 
+export interface WholesaleBenefitCard {
+  id?: string | number;
+  title: string;
+  desc: string;
+  icon: string;
+  badge?: string;
+  order?: number;
+  is_active?: boolean;
+}
+
+export const DEFAULT_WHOLESALE_BENEFITS: WholesaleBenefitCard[] = [
+  {
+    id: 1,
+    title: 'تضمین اصالت بار و هولوگرام دخانیات سرو',
+    desc: 'کلیه کارتن‌ها با بارکد اصالت کارخانه و بسته‌بندی پلمپ وکیوم از انبار مرکزی جنت‌آباد تحویل می‌گردند.',
+    icon: 'shield-tick',
+    badge: 'اصالت SVN',
+    order: 1,
+    is_active: true
+  },
+  {
+    id: 2,
+    title: 'تخفیف‌های پلکانی تیراژ بالا',
+    desc: 'محاسبه خودکار تخفیف‌های تجاری تا ۹٪ برای خریدهای بالای ۳ و ۵ و ۱۰ کارتن در پیش‌فاکتور.',
+    icon: 'discount-shape',
+    badge: 'تا ۹٪ تخفیف',
+    order: 2,
+    is_active: true
+  },
+  {
+    id: 3,
+    title: 'ارسال فوری با بیجک باربری شفاف',
+    desc: 'ارسال همان روز با باربری‌های معتبر وطن و جهانگیر با هزینه مشخص و درج مستقیم در فاکتور رسمی.',
+    icon: 'truck-fast',
+    badge: 'تحویل ۱ روزه',
+    order: 3,
+    is_active: true
+  },
+  {
+    id: 4,
+    title: 'ثبت سفارش اختصاصی ویزیتور',
+    desc: 'مدیریت حرفه‌ای سبد خرید و فاکتورها توسط ویزیتورهای مجاز بنکداری با احراز هویت پیامکی.',
+    icon: 'user-edit',
+    badge: 'پنل بنکداری',
+    order: 4,
+    is_active: true
+  }
+];
+
+export function getLocalWholesaleBenefits(): WholesaleBenefitCard[] {
+  try {
+    const raw = localStorage.getItem('wholesale_benefits_cards');
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.slice(0, 4).map((item, idx) => ({
+          ...item,
+          order: item.order || idx + 1,
+          is_active: item.is_active !== undefined ? item.is_active : true
+        }));
+      }
+    }
+  } catch {}
+  return DEFAULT_WHOLESALE_BENEFITS;
+}
+
+export function saveLocalWholesaleBenefits(cards: WholesaleBenefitCard[]): void {
+  try {
+    const cappedCards = Array.isArray(cards) ? cards.slice(0, 4).map((c, i) => ({
+      ...c,
+      order: c.order || i + 1,
+      is_active: c.is_active !== undefined ? c.is_active : true
+    })) : [];
+    localStorage.setItem('wholesale_benefits_cards', JSON.stringify(cappedCards));
+  } catch {}
+}
+
+export async function djangoFetchWholesaleBenefits(config?: DjangoCrmConfig): Promise<WholesaleBenefitCard[]> {
+  try {
+    const endpoints = [
+      '/api/site-settings/value-features/',
+      '/api/v1/site-settings/features/',
+      '/api/site-settings/public-config/',
+      '/api/v1/sliders/features/',
+      '/site-settings/features/',
+      '/sliders/features/'
+    ];
+    for (const endpoint of endpoints) {
+      const res = await executeDjangoAxiosRequest(endpoint, 'GET');
+      if (res.success && res.data !== undefined) {
+        let rawList: any[] = null;
+        if (Array.isArray(res.data)) {
+          rawList = res.data;
+        } else if (Array.isArray(res.data.results)) {
+          rawList = res.data.results;
+        } else if (Array.isArray(res.data.value_features)) {
+          rawList = res.data.value_features;
+        } else if (Array.isArray(res.data.features)) {
+          rawList = res.data.features;
+        }
+
+        if (rawList !== null && Array.isArray(rawList)) {
+          const mapped: WholesaleBenefitCard[] = rawList.slice(0, 4).map((item, idx) => ({
+            id: item.id || idx + 1,
+            title: item.title || '',
+            desc: item.desc || item.description || '',
+            icon: item.icon || 'shield-tick',
+            badge: item.badge || item.badge_text || '',
+            order: item.order || idx + 1,
+            is_active: item.is_active !== undefined ? Boolean(item.is_active) : true
+          }));
+          saveLocalWholesaleBenefits(mapped);
+          return mapped;
+        }
+      }
+    }
+  } catch {}
+  return getLocalWholesaleBenefits();
+}
+
+export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[], config?: DjangoCrmConfig): Promise<any> {
+  const cappedCards = cards.slice(0, 4).map((c, idx) => ({
+    ...c,
+    order: c.order || idx + 1,
+    is_active: c.is_active !== undefined ? c.is_active : true
+  }));
+  saveLocalWholesaleBenefits(cappedCards);
+
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  
+  // Try endpoint for DRF ViewSet or bulk_update
+  const endpoints = [
+    { url: '/api/site-settings/value-features/bulk_update/', method: 'POST', payload: { features: cappedCards } },
+    { url: '/api/site-settings/value-features/', method: 'POST', payload: cappedCards },
+    { url: '/api/v1/site-settings/features/bulk_update/', method: 'POST', payload: { features: cappedCards } }
+  ];
+
+  for (const ep of endpoints) {
+    const res = await executeDjangoAxiosRequest(ep.url, ep.method, ep.payload, { token });
+    if (res.success) {
+      return { success: true, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.' };
+    }
+  }
+
+  return {
+    success: true,
+    localOnly: true,
+    message: 'کارت‌های خدمات به صورت محلی ذخیره شدند (آماده برای همگام‌سازی با دیتابیس سرور).'
+  };
+}
+
+
 

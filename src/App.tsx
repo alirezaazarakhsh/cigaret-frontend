@@ -71,7 +71,16 @@ import { HeroBannerSlider } from './components/HeroBannerSlider';
 import { ProductsMegaMenu } from './components/ProductsMegaMenu';
 import { InPersonPickupModal } from './components/InPersonPickupModal';
 import { BackendConnectionModal } from './components/BackendConnectionModal';
-import { syncWithDjangoApi, djangoDatabaseStore, djangoMarkNotificationRead, djangoMarkAllNotificationsRead, getLocalSliders } from './services/djangoApi';
+import { 
+  syncWithDjangoApi, 
+  djangoDatabaseStore, 
+  djangoMarkNotificationRead, 
+  djangoMarkAllNotificationsRead, 
+  getLocalSliders,
+  getLocalWholesaleBenefits,
+  djangoFetchWholesaleBenefits,
+  WholesaleBenefitCard
+} from './services/djangoApi';
 import { api, accountsApi, visitorsApi } from './services/api';
 import { getApiToken, setApiToken } from './services/apiConfig';
 import { generatePriceListPdf } from './utils/pdfGenerator';
@@ -590,12 +599,19 @@ export default function App() {
   // Dynamic Hero Banner Sliders from Django backend
   // Note: if backend database has no slider records, sliders stays [] and the slider is completely hidden!
   const [sliders, setSliders] = useState<BannerSlide[]>([]);
+  const [wholesaleBenefits, setWholesaleBenefits] = useState<WholesaleBenefitCard[]>(() => getLocalWholesaleBenefits());
 
   // Auto-fetch products, site settings and footer settings from unified API layer on mount or cache reset
   useEffect(() => {
     let isMounted = true;
 
     const refreshDataFromApi = () => {
+      // Fetch wholesale benefits
+      djangoFetchWholesaleBenefits().then((cards) => {
+        if (isMounted && Array.isArray(cards)) {
+          setWholesaleBenefits(cards);
+        }
+      }).catch(() => {});
       // 1. Fetch Products with zero cache
       api.products.getAll().then((loadedProducts) => {
         if (isMounted && loadedProducts && loadedProducts.length > 0) {
@@ -1056,33 +1072,35 @@ export default function App() {
             )}
 
             {/* Wholesale Features Highlights */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-              {WHOLESALE_BENEFITS.map((b, idx) => (
-                <div key={idx} className="group relative bg-white border border-slate-200/90 p-4 rounded-2xl flex items-start gap-3 shadow-xs hover:shadow-md hover:border-blue-400 transition-all duration-200 overflow-hidden">
-                  <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-sky-400 opacity-75 group-hover:opacity-100 transition-opacity" />
-                  
-                  <div className="w-10 h-10 rounded-2xl bg-blue-50/80 text-blue-600 border border-blue-200/80 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    {renderFeatureIcon(b.icon)}
-                  </div>
-
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <h4 className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors">
-                        {b.title}
-                      </h4>
-                      {b.badge && (
-                        <span className="text-[9px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-md border border-blue-200 shrink-0">
-                          {b.badge}
-                        </span>
-                      )}
+            {wholesaleBenefits && wholesaleBenefits.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+                {wholesaleBenefits.map((b, idx) => (
+                  <div key={b.id || idx} className="group relative bg-white border border-slate-200/90 p-4 rounded-2xl flex items-start gap-3 shadow-xs hover:shadow-md hover:border-blue-400 transition-all duration-200 overflow-hidden">
+                    <div className="absolute top-0 right-0 left-0 h-1 bg-gradient-to-r from-blue-600 via-indigo-500 to-sky-400 opacity-75 group-hover:opacity-100 transition-opacity" />
+                    
+                    <div className="w-10 h-10 rounded-2xl bg-blue-50/80 text-blue-600 border border-blue-200/80 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                      {renderFeatureIcon(b.icon)}
                     </div>
-                    <p className="text-[11px] text-slate-500 leading-relaxed font-medium line-clamp-2">
-                      {b.desc}
-                    </p>
+
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="text-xs font-black text-slate-900 group-hover:text-blue-600 transition-colors">
+                          {b.title}
+                        </h4>
+                        {b.badge && (
+                          <span className="text-[9px] font-bold bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded-md border border-blue-200 shrink-0">
+                            {b.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500 leading-relaxed font-medium line-clamp-2">
+                        {b.desc}
+                      </p>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
 
             {/* Filter & Search Bar */}
             {/* Search, Filter & Categories */}

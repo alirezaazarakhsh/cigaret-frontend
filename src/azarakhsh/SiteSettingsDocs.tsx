@@ -1,3 +1,4 @@
+/* eslint-disable no-useless-escape */
 import React, { useState } from 'react';
 import { 
   Sliders, 
@@ -6,7 +7,6 @@ import {
   FileCode, 
   Sparkles, 
   Image, 
-  Phone, 
   Mail, 
   MapPin, 
   Layers, 
@@ -32,7 +32,7 @@ export const SiteSettingsDocs: React.FC = () => {
 
   const modelsCode = `"""
 site_settings/models.py
-مدل‌های جامع تنظیمات سایت، برندینگ، متون هدر صفحات، فرم تماس با ما، متون فوتر و متون اختصاصی باربری
+مدل‌های جامع تنظیمات سایت، برندینگ، متون هدر صفحات، کارت‌های ۴‌گانه زیر اسلایدر و متون اختصاصی باربری
 """
 
 from django.db import models
@@ -114,6 +114,28 @@ class SiteBranding(models.Model):
         return f"{self.site_title} ({self.brand_short_name})"
 
 
+class SiteValueFeature(models.Model):
+    """
+    مدل کارت‌های ۴‌گانه خدمات و مزایای بنکداری زیر اسلایدر هیرو
+    (برچسب، عنوان، آیکون متنی iconsax، توضیحات کوتاه)
+    مکان در پروژه جنگو: اپلیکیشن site_settings (فایل site_settings/models.py)
+    """
+    title = models.CharField(_('عنوان اصلی کارت (حداکثر ۴۵ کاراکتر)'), max_length=45)
+    desc = models.TextField(_('توضیحات کوتاه کارت (حداکثر ۱۲۰ کاراکتر)'), max_length=120)
+    icon = models.CharField(_('نام آیکون متنی (Iconsax / Lucide)'), max_length=50, default='shield-tick', help_text=_('مانند shield-tick, discount-shape, truck-fast, user-edit'))
+    badge = models.CharField(_('برچسب کارت (حداکثر ۱۵ کاراکتر)'), max_length=15, blank=True, null=True, help_text=_('مانند اصالت SVN یا تا ۹٪ تخفیف'))
+    order = models.PositiveSmallIntegerField(_('ترتیب نمایش (۱ تا ۴)'), default=1)
+    is_active = models.BooleanField(_('فعال'), default=True)
+
+    class Meta:
+        verbose_name = _('کارت مزیت و خدمات سایت')
+        verbose_name_plural = _('کارت‌های ۴‌گانه خدمات و مزایای زیر اسلایدر')
+        ordering = ['order', 'id']
+
+    def __str__(self):
+        return f"{self.order}. {self.title}"
+
+
 class PageHeaderSetting(models.Model):
     """
     تنظیمات متون هدر، بنر و هیرو برای هر صفحه به تفکیک
@@ -148,94 +170,6 @@ class PageHeaderSetting(models.Model):
 
     def __str__(self):
         return f"هدر صفحه: {self.get_page_key_display()}"
-
-
-class ContactInfoSetting(models.Model):
-    """
-    اطلاعات تماس کامل شرکت، آدرس‌ها، شبکه‌های اجتماعی و راه‌های ارتباطی
-    """
-    # تلفن‌ها
-    primary_phone = models.CharField(_('شماره تلفن ثابت اصلی'), max_length=30, default='021-44123456')
-    secondary_phone = models.CharField(_('شماره تلفن ثابت دوم'), max_length=30, blank=True, null=True)
-    mobile_sales = models.CharField(_('شماره موبایل واحد فروش عمده'), max_length=20, default='09120000000')
-    mobile_support = models.CharField(_('شماره موبایل پشتیبانی ۲۴ ساعته'), max_length=20, default='09121111111')
-    email = models.EmailField(_('ایمیل رسمی شرکت'), default='info@sevin-tobacco.com')
-
-    # آدرس‌ها
-    central_warehouse_address = models.TextField(
-        _('آدرس انبار مرکزی'), 
-        default='تهران، جنت‌آباد مرکزی، خیابان مخبری، مجتمع انبارداری و پخش دخانیات سرو'
-    )
-    shush_freight_hub_address = models.TextField(
-        _('آدرس بارانداز شوش'), 
-        default='تهران، خیابان شوش غربی، پایانه باربری اختصاصی، سکوی تخلیه و بارگیری دخانیات سرو'
-    )
-    sales_office_address = models.TextField(
-        _('آدرس دفتر مرکزی فروش'), 
-        default='تهران، میدان ونک، برج نگار، طبقه ۸'
-    )
-    postal_code = models.CharField(_('کد پستی ۱۰ رقمی'), max_length=20, default='1475896321')
-
-    # شبکه‌های اجتماعی و پیام‌رسان‌ها
-    telegram_channel = models.CharField(_('کانال تلگرام استعلام نرخ'), max_length=100, default='@SevinTobacco_Official')
-    whatsapp_number = models.CharField(_('واتساپ سفارش سریع'), max_length=30, default='+989120000000')
-    instagram_id = models.CharField(_('صفحه اینستاگرام'), max_length=100, default='sevin_tobacco_official')
-    bale_rubika_channel = models.CharField(_('کانال بله / روبیکا'), max_length=100, blank=True, null=True)
-
-    # ساعات کاری و توضیحات فرم تماس
-    working_hours_text = models.CharField(
-        _('متن ساعات کاری'), 
-        max_length=200, 
-        default='شنبه تا چهارشنبه ۹:۰۰ الی ۱۹:۰۰ | پنجشنبه‌ها ۹:۰۰ الی ۱۵:۰۰'
-    )
-    contact_form_note = models.TextField(
-        _('پیام راهنمای بالای فرم تماس'), 
-        default='همکاران محترم و خریداران عمده می‌توانند پیام، انتقاد، پیشنهاد یا درخواست همکاری خود را از طریق فرم زیر ثبت نمایند. کارشناسان ما ظرف حداکثر ۲ ساعت با شما تماس خواهند گرفت.'
-    )
-
-    class Meta:
-        verbose_name = _('اطلاعات تماس و آدرس‌های شرکت')
-        verbose_name_plural = _('اطلاعات تماس و آدرس‌های شرکت')
-
-    def __str__(self):
-        return f"اطلاعات تماس ({self.primary_phone})"
-
-
-class FooterSetting(models.Model):
-    """
-    تنظیمات جامع متون فوتر، متن درباره ما، حق کپی‌رایت، نمادهای اعتماد و لینک‌ها
-    """
-    about_text = models.TextField(
-        _('متن درباره شرکت در فوتر'), 
-        default='سامانه جامع پخش مستقیم و بنکداری دخانیات دخانیات سرو، مرجع دست‌اول استعلام نرخ کارتن و باکس سیگارهای وارداتی اصل، دستگاه‌های آیکاس و کارتریج‌های تیریا با بارگیری روزانه از انبار مرکزی جنت‌آباد.'
-    )
-    copyright_text = models.CharField(
-        _('متن حق کپی‌رایت فوتر'), 
-        max_length=255, 
-        default='کلیه حقوق مادی و معنوی این سامانه متعلق به شرکت پخش عمده دخانیات دخانیات سرو (سهامی خاص) می‌باشد.'
-    )
-    
-    # گواهی‌ها و کدهای اینماد
-    enamad_code_html = models.TextField(_('کد HTML نماد اعتماد الکترونیکی (اینماد)'), blank=True, null=True)
-    samandehi_code_html = models.TextField(_('کد ساماندهی'), blank=True, null=True)
-    guild_license_number = models.CharField(_('شماره پروانه کسب اتحادیه'), max_length=80, default='پروانه کسب اتحادیه بنکداران تهران: ۹۸۷۴۵۶')
-    
-    # ویژگی‌های فوتر
-    feature_1_title = models.CharField(_('ویژگی ۱ - عنوان'), max_length=80, default='تضمین ۱۰۰٪ اصالت بار')
-    feature_1_desc = models.CharField(_('ویژگی ۱ - توضیح'), max_length=120, default='هولوگرام اصلی و بسته‌بندی کارخانه‌ای بدون هواخوردگی')
-    
-    feature_2_title = models.CharField(_('ویژگی ۲ - عنوان'), max_length=80, default='ارسال فوری و بیمه‌شده')
-    feature_2_desc = models.CharField(_('ویژگی ۲ - توضیح'), max_length=120, default='تحویل ۲ ساعته تهران و باربری به سراسر ۳۱ استان کشور')
-    
-    feature_3_title = models.CharField(_('ویژگی ۳ - عنوان'), max_length=80, default='تخفیف‌های پلکانی بنکداری')
-    feature_3_desc = models.CharField(_('ویژگی ۳ - توضیح'), max_length=120, default='تخفیف ویژه تا سقف ۴.۵٪ برای خریدهای بالای ۱۰ کارتن')
-
-    class Meta:
-        verbose_name = _('تنظیمات متون فوتر و نمادها')
-        verbose_name_plural = _('تنظیمات متون فوتر و نمادها')
-
-    def __str__(self):
-        return "تنظیمات فوتر سایت"
 
 
 class ShippingTextsSetting(models.Model):
@@ -304,7 +238,7 @@ class SiteMaintenance(models.Model):
 
   const adminCode = `"""
 site_settings/admin.py
-پنل مدیریت پیشرفته تنظیمات سایت، برندینگ، متون هدر، اطلاعات تماس و فوتر در ادمین جنگو
+پنل مدیریت پیشرفته تنظیمات سایت، برندینگ، کارت‌های زیر اسلایدر و متون باربری در ادمین جنگو
 """
 
 from django.contrib import admin
@@ -312,9 +246,8 @@ from django.utils.html import format_html
 from django.utils.translation import gettext_lazy as _
 from .models import (
     SiteBranding, 
+    SiteValueFeature,
     PageHeaderSetting, 
-    ContactInfoSetting, 
-    FooterSetting, 
     ShippingTextsSetting
 )
 
@@ -344,8 +277,21 @@ class SiteBrandingAdmin(admin.ModelAdmin):
     logo_preview.short_description = _("پیش‌نمایش لوگو")
 
     def has_add_permission(self, request):
-        # جلوگیری از ایجاد ردیف‌های تکراری و ایجاد ساختار یکتای Singleton
         return SiteBranding.objects.count() == 0
+
+
+@admin.register(SiteValueFeature)
+class SiteValueFeatureAdmin(admin.ModelAdmin):
+    list_display = ('order', 'title', 'badge', 'icon', 'is_active')
+    list_display_links = ('title',)
+    list_editable = ('order', 'is_active')
+    search_fields = ('title', 'desc', 'badge')
+    ordering = ('order',)
+    fieldsets = (
+        (_('مشخصات کارت خدمات زیر اسلایدر'), {
+            'fields': ('title', 'badge', 'icon', 'desc', 'order', 'is_active')
+        }),
+    )
 
 
 @admin.register(PageHeaderSetting)
@@ -369,49 +315,6 @@ class PageHeaderSettingAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(ContactInfoSetting)
-class ContactInfoSettingAdmin(admin.ModelAdmin):
-    fieldsets = (
-        (_('شماره‌های تماس'), {
-            'fields': ('primary_phone', 'secondary_phone', 'mobile_sales', 'mobile_support', 'email')
-        }),
-        (_('آدرس‌ها و انبارها'), {
-            'fields': ('central_warehouse_address', 'shush_freight_hub_address', 'sales_office_address', 'postal_code')
-        }),
-        (_('پیام‌رسان‌ها و شبکه‌های اجتماعی'), {
-            'fields': ('telegram_channel', 'whatsapp_number', 'instagram_id', 'bale_rubika_channel')
-        }),
-        (_('ساعات کاری و راهنمای فرم'), {
-            'fields': ('working_hours_text', 'contact_form_note')
-        }),
-    )
-
-    def has_add_permission(self, request):
-        return ContactInfoSetting.objects.count() == 0
-
-
-@admin.register(FooterSetting)
-class FooterSettingAdmin(admin.ModelAdmin):
-    fieldsets = (
-        (_('متون اصلی فوتر'), {
-            'fields': ('about_text', 'copyright_text', 'guild_license_number')
-        }),
-        (_('نمادها و ای‌نماد'), {
-            'fields': ('enamad_code_html', 'samandehi_code_html')
-        }),
-        (_('۳ ویژگی برجسته خدمات شرکت در فوتر'), {
-            'fields': (
-                ('feature_1_title', 'feature_1_desc'),
-                ('feature_2_title', 'feature_2_desc'),
-                ('feature_3_title', 'feature_3_desc'),
-            )
-        }),
-    )
-
-    def has_add_permission(self, request):
-        return FooterSetting.objects.count() == 0
-
-
 @admin.register(ShippingTextsSetting)
 class ShippingTextsSettingAdmin(admin.ModelAdmin):
     fieldsets = (
@@ -432,15 +335,14 @@ class ShippingTextsSettingAdmin(admin.ModelAdmin):
 
   const serializersCode = `"""
 site_settings/serializers.py
-سریالایزرهای DRF جهت دریافت تنظیمات کامل سایت، هدر، فوتر و باربری
+سریالایزرهای DRF جهت دریافت تنظیمات کامل سایت، کارت‌های زیر اسلایدر، هدر و باربری
 """
 
 from rest_framework import serializers
 from .models import (
     SiteBranding, 
+    SiteValueFeature,
     PageHeaderSetting, 
-    ContactInfoSetting, 
-    FooterSetting, 
     ShippingTextsSetting
 )
 
@@ -466,6 +368,12 @@ class SiteBrandingSerializer(serializers.ModelSerializer):
         ]
 
 
+class SiteValueFeatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SiteValueFeature
+        fields = ['id', 'title', 'desc', 'icon', 'badge', 'order', 'is_active']
+
+
 class PageHeaderSettingSerializer(serializers.ModelSerializer):
     class Meta:
         model = PageHeaderSetting
@@ -479,47 +387,6 @@ class PageHeaderSettingSerializer(serializers.ModelSerializer):
             'primary_button_link',
             'secondary_button_text',
             'secondary_button_link'
-        ]
-
-
-class ContactInfoSettingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ContactInfoSetting
-        fields = [
-            'primary_phone',
-            'secondary_phone',
-            'mobile_sales',
-            'mobile_support',
-            'email',
-            'central_warehouse_address',
-            'shush_freight_hub_address',
-            'sales_office_address',
-            'postal_code',
-            'telegram_channel',
-            'whatsapp_number',
-            'instagram_id',
-            'bale_rubika_channel',
-            'working_hours_text',
-            'contact_form_note'
-        ]
-
-
-class FooterSettingSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = FooterSetting
-        ref_name = 'SiteSettings_FooterSettingSerializer'
-        fields = [
-            'about_text',
-            'copyright_text',
-            'guild_license_number',
-            'enamad_code_html',
-            'samandehi_code_html',
-            'feature_1_title',
-            'feature_1_desc',
-            'feature_2_title',
-            'feature_2_desc',
-            'feature_3_title',
-            'feature_3_desc'
         ]
 
 
@@ -540,39 +407,36 @@ class ShippingTextsSettingSerializer(serializers.ModelSerializer):
 
 class UnifiedPublicConfigSerializer(serializers.Serializer):
     """
-    سریالایزر تجمیعی فوق‌سریع: ارسال کل تنظیمات سایت (لوگو، هدر، فوتر، تماس و باربری)
+    سریالایزر تجمیعی فوق‌سریع: ارسال کل تنظیمات سایت (لوگو، کارت‌های زیر اسلایدر، هدر و باربری)
     در یک درخواست سبک جهت کش در فرانت‌اند
     """
     branding = SiteBrandingSerializer()
-    contact_info = ContactInfoSettingSerializer()
-    footer = FooterSettingSerializer()
+    value_features = SiteValueFeatureSerializer(many=True)
     shipping_texts = ShippingTextsSettingSerializer()
     page_headers = PageHeaderSettingSerializer(many=True)
 `;
 
   const viewsCode = `"""
 site_settings/views.py
-اندپوینت‌های DRF جهت واکشی تنظیمات عمومی سایت
+اندپوینت‌های DRF جهت واکشی و مدیریت تنظیمات عمومی سایت و کارت‌های زیر اسلایدر
 """
 
-from rest_framework import status
+from rest_framework import status, viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 from drf_yasg.utils import swagger_auto_schema
 
 from .models import (
     SiteBranding, 
+    SiteValueFeature,
     PageHeaderSetting, 
-    ContactInfoSetting, 
-    FooterSetting, 
     ShippingTextsSetting
 )
 from .serializers import (
     SiteBrandingSerializer,
+    SiteValueFeatureSerializer,
     PageHeaderSettingSerializer,
-    ContactInfoSettingSerializer,
-    FooterSettingSerializer,
     ShippingTextsSettingSerializer,
     UnifiedPublicConfigSerializer
 )
@@ -580,69 +444,86 @@ from .serializers import (
 
 class UnifiedPublicConfigView(APIView):
     """
-    اندپوینت تجمیعی عمومی: واکشی کلیه اطلاعات برند، لوگو، متون هدر، فوتر، راه‌های تماس و باربری
+    اندپوینت تجمیعی عمومی: واکشی کلیه اطلاعات برند، لوگو، متون هدر، کارت‌های ۴‌گانه زیر اسلایدر و باربری
     با کش سرور جهت حداکثر کارایی در فرانت‌اند React
     """
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
-        operation_summary="دریافت کلیه تنظیمات عمومی سایت (لوگو، هدر، فوتر، تماس، باربری)",
-        operation_description="این اندپوینت کلیه اطلاعات مورد نیاز فرانت‌اند شامل لوگو، متون هدر صفحات، متون فوتر و باربری را یکجا برمی‌گرداند.",
+        operation_summary="دریافت کلیه تنظیمات عمومی سایت (لوگو، هدر، کارت‌های زیر اسلایدر، باربری)",
+        operation_description="این اندپوینت کلیه اطلاعات مورد نیاز فرانت‌اند شامل لوگو، کارت‌های ۴‌گانه زیر اسلایدر، متون هدر صفحات و باربری را یکجا برمی‌گرداند.",
         responses={200: UnifiedPublicConfigSerializer}
     )
     def get(self, request):
         branding = SiteBranding.objects.first() or SiteBranding.objects.create()
-        contact_info = ContactInfoSetting.objects.first() or ContactInfoSetting.objects.create()
-        footer = FooterSetting.objects.first() or FooterSetting.objects.create()
+        value_features = SiteValueFeature.objects.filter(is_active=True).order_by('order')
         shipping_texts = ShippingTextsSetting.objects.first() or ShippingTextsSetting.objects.create()
         page_headers = PageHeaderSetting.objects.filter(is_active=True)
 
         data = {
             'branding': SiteBrandingSerializer(branding, context={'request': request}).data,
-            'contact_info': ContactInfoSettingSerializer(contact_info).data,
-            'footer': FooterSettingSerializer(footer).data,
+            'value_features': SiteValueFeatureSerializer(value_features, many=True).data,
             'shipping_texts': ShippingTextsSettingSerializer(shipping_texts).data,
             'page_headers': PageHeaderSettingSerializer(page_headers, many=True).data,
         }
         return Response(data, status=status.HTTP_200_OK)
+
+
+class SiteValueFeatureViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet کامل ویرایش کارت‌های ۴‌گانه خدمات و مزایای زیر اسلایدر
+    اتصال مستقیم به صندوق و پنل مدیریت
+    """
+    queryset = SiteValueFeature.objects.all().order_by('order')
+    serializer_class = SiteValueFeatureSerializer
+    permission_classes = [AllowAny]  # یا IsAdminUser در محیط پروداکشن
 `;
 
   const urlsCode = `"""
 site_settings/urls.py
-مسیرهای URL برای تنظیمات عمومی سایت، لوگو، هدر، فوتر و اطلاعات تماس
+مسیرهای URL برای تنظیمات عمومی سایت، کارت‌های زیر اسلایدر و هدرها
 """
 
-from django.urls import path
-from .views import UnifiedPublicConfigView
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
+from .views import UnifiedPublicConfigView, SiteValueFeatureViewSet
 
 app_name = 'site_settings'
 
+router = DefaultRouter()
+router.register(r'value-features', SiteValueFeatureViewSet, basename='value-feature')
+
 urlpatterns = [
-    # اندپوینت تجمیعی واکشی تمامی تنظیمات برند، هدرها، فوتر و باربری
+    # اندپوینت تجمیعی واکشی تمامی تنظیمات برند، هدرها، کارت‌های زیر اسلایدر و باربری
     path('public-config/', UnifiedPublicConfigView.as_view(), name='public-config'),
+    
+    # اندپوینت مدیریت CRUD کارت‌های ۴‌گانه خدمات زیر اسلایدر
+    path('', include(router.urls)),
 ]
 `;
 
   const notesCode = `## 📌 راهنمای معماری تنظیمات سایت (site_settings)
 
-نکته مهم: پیام‌های فرم تماس با ما سایت به صورت مستقل و مجزا در اپلیکیشن **\`warehouse_contact\`** پردازش و نگهداری می‌شوند. اپلیکیشن **\`site_settings\`** صرفاً مسئول مدیریت تنظیمات برندینگ، متون هدر، اطلاعات تماس، متون فوتر و باربری است.
+نکته مهم: اطلاعات تماس، آدرس انبارها، پیام‌های فرم تماس و تنظیمات فوتر به اپلیکیشن اختصاصی **\`footer\`** و **\`warehouse_contact\`** منتقل شده‌اند. اپلیکیشن **\`site_settings\`** صرفاً مسئول مدیریت تنظیمات برندینگ، متون هدر، کارت‌های ۴‌گانه زیر اسلایدر و باربری است.
 
-### ۱. اندپوینت کلیدی این اپلیکیشن:
-* **دریافت تمام تنظیمات سایت (لوگو، هدر، فوتر، باربری):**
+### ۱. اندپوینت‌های کلیدی این اپلیکیشن:
+* **دریافت تمام تنظیمات سایت (لوگو، هدر، کارت‌های زیر اسلایدر، باربری):**
   \`GET /api/site-settings/public-config/\`
+* **مدیریت کارت‌های ۴‌گانه خدمات زیر اسلایدر (مشاهده، افزودن، ویرایش و حذف):**
+  \`GET / POST / PUT / DELETE /api/site-settings/value-features/\`
 
 ---
 
-### ۲. اتصال در فرانت‌اند React:
+### ۲. اتصال در فرانت‌اند React و صندوق:
 \`\`\`typescript
 // دریافت خودکار در کامپوننت App.tsx
 useEffect(() => {
   fetch('https://your-django-api.com/api/site-settings/public-config/')
     .then(res => res.json())
     .then(data => {
-      // تنظیم لوگو، نام برند، متون هدر و فوتر در State
+      // تنظیم لوگو، نام برند، کارت‌های ۴‌گانه زیر اسلایدر و متون هدر در State
       setBrandConfig(data.branding);
-      setFooterConfig(data.footer);
+      setValueFeatures(data.value_features);
       setShippingTexts(data.shipping_texts);
     });
 }, []);
@@ -651,9 +532,9 @@ useEffect(() => {
 ---
 
 ### ۳. ویژگی‌های اختصاصی این ماژول:
-1. **الگوی Singleton:** مدل‌های Branding، ContactInfo، Footer و ShippingTexts به صورت یکتا طراحی شده‌اند تا ادمین به راحتی یک ردیف اصلی را ویرایش کند.
-2. **پیش‌نمایش زنده لوگو در پنل ادمین جنگو** با متد \`logo_preview\`.
-3. **تفکیک تمیز وظایف:** پیام‌های فرم تماس در \`warehouse_contact\` قرار دارند.
+1. **الگوی Singleton:** مدل‌های Branding و ShippingTexts به صورت یکتا جهت تنظیمات پایه طراحی شده‌اند.
+2. **منوی اختصاصی کارت‌های ۴‌گانه زیر اسلایدر:** با مدل \`SiteValueFeature\`، ادمین در پنل جنگو منوی اختصاصی «کارت‌های ۴‌گانه خدمات و مزایای زیر اسلایدر» را مشاهده کرده و می‌تواند هر ۴ مورد را به راحتی ویرایش، فعال/غیرفعال یا ترتیب‌بندی کند.
+3. **اتصال کامل به صندوق:** تغییرات در پنل صندوق به صورت لحظه‌ای در این کارت‌ها اعمال می‌شود.
 `;
 
   const renderActiveCode = () => {
@@ -670,11 +551,11 @@ useEffect(() => {
 
   const getTabLabel = (tab: CodeTab) => {
     switch (tab) {
-      case 'models': return 'models.py (مدل‌های برند، هدر، تماس، فوتر و باربری)';
-      case 'admin': return 'admin.py (پنل ادمین، فیلدست‌ها و پیش‌نمایش لوگو)';
-      case 'serializers': return 'serializers.py (سریالایزر تجمیعی)';
-      case 'views': return 'views.py (APIView واکشی تنظیمات)';
-      case 'urls': return 'urls.py (روت‌های API)';
+      case 'models': return 'models.py (مدل‌های برند، هدر، کارت‌های زیر اسلایدر و باربری)';
+      case 'admin': return 'admin.py (پنل ادمین، منوی ۴ کارت زیر اسلایدر و پیش‌نمایش لوگو)';
+      case 'serializers': return 'serializers.py (سریالایزر تجمیعی و کارت‌ها)';
+      case 'views': return 'views.py (APIView و ViewSet کارت‌های ۴‌گانه)';
+      case 'urls': return 'urls.py (روت‌های API و کارت‌ها)';
       case 'notes': return 'راهنما و نکات معماری';
     }
   };
@@ -691,10 +572,10 @@ useEffect(() => {
               اپلیکیشن اختصاصی site_settings
             </div>
             <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-              تنظیمات سایت، لوگو، متون هدر، اطلاعات تماس، متون فوتر و متون باربری
+              تنظیمات سایت، لوگو، متون هدر، کارت‌های ۴‌گانه زیر اسلایدر و متون باربری
             </h1>
             <p className="text-xs sm:text-sm text-slate-600 font-medium leading-relaxed max-w-3xl">
-              معماری کامل مدل‌های تنظیم لوگوی لایت و دارک، عنوان برند، متون هیرو و هدر صفحات، اطلاعات تماس و آدرس انبارها، متن درباره ما در فوتر و کلیه متون اختصاصی باربری و بیمه با پنل ادمین پیشرفته و API تجمیعی.
+              معماری کامل مدل‌های تنظیم لوگوی لایت و دارک، عنوان برند، متون هیرو و هدر صفحات، منوی اختصاصی کارت‌های ۴‌گانه زیر اسلایدر هیرو و کلیه متون اختصاصی باربری و بیمه با پنل ادمین پیشرفته و API تجمیعی.
             </p>
           </div>
 
@@ -720,12 +601,8 @@ useEffect(() => {
             متن هدر و هیروی تفکیکی صفحات
           </span>
           <span className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-3 py-1 rounded-xl text-xs font-bold text-slate-700">
-            <Phone className="w-3.5 h-3.5 text-emerald-600" />
-            اطلاعات تماس، تلفن‌ها و آدرس انبارها
-          </span>
-          <span className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-3 py-1 rounded-xl text-xs font-bold text-slate-700">
-            <LayoutTemplate className="w-3.5 h-3.5 text-purple-600" />
-            متون فوتر، کپی‌رایت و ای‌نماد
+            <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+            کارت‌های ۴‌گانه خدمات زیر اسلایدر
           </span>
           <span className="flex items-center gap-1.5 bg-slate-50 border border-slate-200/80 px-3 py-1 rounded-xl text-xs font-bold text-slate-700">
             <Truck className="w-3.5 h-3.5 text-amber-600" />
