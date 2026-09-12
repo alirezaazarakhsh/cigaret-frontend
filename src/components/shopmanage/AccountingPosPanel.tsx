@@ -149,6 +149,10 @@ const DEFAULT_STAFF_MEMBERS: WarehouseStaffUser[] = [
       'send_sms',
       'manage_tickets',
       'manage_notifications',
+      'manage_warehouse_messages',
+      'manage_site_settings',
+      'manage_sliders',
+      'manage_footer_settings',
       'delete_receipts'
     ],
     status: 'active',
@@ -174,6 +178,10 @@ const DEFAULT_STAFF_MEMBERS: WarehouseStaffUser[] = [
       'send_sms',
       'manage_tickets',
       'manage_notifications',
+      'manage_warehouse_messages',
+      'manage_site_settings',
+      'manage_sliders',
+      'manage_footer_settings',
       'delete_receipts'
     ],
     status: 'active',
@@ -673,6 +681,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   'send_sms',
                   'manage_tickets',
                   'manage_notifications',
+                  'manage_warehouse_messages',
+                  'manage_site_settings',
+                  'manage_sliders',
+                  'manage_footer_settings',
                   'delete_receipts'
                 ];
                 return {
@@ -708,6 +720,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             'send_sms',
             'manage_tickets',
             'manage_notifications',
+            'manage_warehouse_messages',
+            'manage_site_settings',
+            'manage_sliders',
+            'manage_footer_settings',
             'delete_receipts'
           ];
           return {
@@ -944,6 +960,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         case 'tickets': return hasStaffPerm('manage_tickets');
         case 'sms_management': return hasStaffPerm('send_sms');
         case 'notifications': return hasStaffPerm('manage_notifications');
+        case 'warehouse_messages': return hasStaffPerm('manage_warehouse_messages');
+        case 'site_settings': return hasStaffPerm('manage_site_settings') || hasStaffPerm('manage_sliders') || hasStaffPerm('manage_footer_settings');
         case 'customer_app': return hasStaffPerm('customer_app_connect');
         case 'analytics': return hasStaffPerm('view_reports');
         default: return true;
@@ -951,7 +969,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     };
 
     if (!isTabAllowed(activeSubTab)) {
-      const candidateTabs: PosSubTab[] = ['pos', 'inventory', 'customers', 'reports', 'monthly_compare', 'ledger', 'staff_management', 'tickets', 'sms_management', 'notifications'];
+      const candidateTabs: PosSubTab[] = ['pos', 'inventory', 'customers', 'reports', 'monthly_compare', 'ledger', 'staff_management', 'tickets', 'sms_management', 'notifications', 'warehouse_messages', 'site_settings'];
       const firstAllowed = candidateTabs.find(t => isTabAllowed(t)) || 'pos';
       setActiveSubTab(firstAllowed);
     }
@@ -2268,22 +2286,24 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           <div className="flex items-center justify-start gap-2 relative shrink-0 order-last md:order-last w-full md:w-auto">
             
             {/* Warehouse Contact Messages Inbox Button with Reactive Badge */}
-            <button
-              onClick={() => setActiveSubTab('warehouse_messages')}
-              className={`relative p-2 rounded-xl border transition-all active:scale-95 flex items-center justify-center ${
-                activeSubTab === 'warehouse_messages'
-                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border-slate-200'
-              }`}
-              title="صندوق پیام‌های تماس سایت"
-            >
-              <MessageSquare className="w-4.5 h-4.5" />
-              {unreadMessageCount > 0 && (
-                <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] font-black w-5.5 h-5.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm animate-pulse">
-                  {unreadMessageCount}
-                </span>
-              )}
-            </button>
+            {(currentStaff.role === 'super_admin' || hasStaffPerm('manage_warehouse_messages')) && (
+              <button
+                onClick={() => setActiveSubTab('warehouse_messages')}
+                className={`relative p-2 rounded-xl border transition-all active:scale-95 flex items-center justify-center ${
+                  activeSubTab === 'warehouse_messages'
+                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
+                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border-slate-200'
+                }`}
+                title="صندوق پیام‌های تماس سایت"
+              >
+                <MessageSquare className="w-4.5 h-4.5" />
+                {unreadMessageCount > 0 && (
+                  <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] font-black w-5.5 h-5.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm animate-pulse">
+                    {unreadMessageCount}
+                  </span>
+                )}
+              </button>
+            )}
 
             {/* Tools & Settings Dropdown */}
             <div className="relative" ref={toolsRef}>
@@ -2306,22 +2326,24 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   }}
                 >
                   {/* Messages Inbox Shortcut in Dropdown */}
-                  <button
-                    onClick={() => { setActiveSubTab('warehouse_messages'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right"
-                  >
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="w-4 h-4 text-indigo-600" />
-                      <span>صندوق پیام‌های تماس سایت</span>
-                    </div>
-                    {unreadMessageCount > 0 ? (
-                      <span className="text-[9px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black animate-pulse">
-                        {unreadMessageCount} جدید
-                      </span>
-                    ) : (
-                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
-                    )}
-                  </button>
+                  {(currentStaff.role === 'super_admin' || hasStaffPerm('manage_warehouse_messages')) && (
+                    <button
+                      onClick={() => { setActiveSubTab('warehouse_messages'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="w-4 h-4 text-indigo-600" />
+                        <span>صندوق پیام‌های تماس سایت</span>
+                      </div>
+                      {unreadMessageCount > 0 ? (
+                        <span className="text-[9px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black animate-pulse">
+                          {unreadMessageCount} جدید
+                        </span>
+                      ) : (
+                        <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                      )}
+                    </button>
+                  )}
 
                   <div className="my-1 border-t border-slate-100"></div>
 
@@ -2380,16 +2402,18 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
                   </button>
 
-                  <button
-                    onClick={() => { setActiveSubTab('site_settings'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-indigo-900 bg-indigo-50/80 hover:bg-indigo-100 rounded-xl transition-colors text-right"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Sliders className="w-4 h-4 text-indigo-600" />
-                      <span>تنظیمات سایت (بنر و اسلایدر)</span>
-                    </div>
-                    <span className="text-[9px] bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded-md font-black">تب‌بندی</span>
-                  </button>
+                  {(currentStaff.role === 'super_admin' || hasStaffPerm('manage_site_settings') || hasStaffPerm('manage_sliders') || hasStaffPerm('manage_footer_settings')) && (
+                    <button
+                      onClick={() => { setActiveSubTab('site_settings'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-indigo-900 bg-indigo-50/80 hover:bg-indigo-100 rounded-xl transition-colors text-right"
+                    >
+                      <div className="flex items-center gap-2">
+                        <Sliders className="w-4 h-4 text-indigo-600" />
+                        <span>تنظیمات سایت (بنر و اسلایدر)</span>
+                      </div>
+                      <span className="text-[9px] bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded-md font-black">تب‌بندی</span>
+                    </button>
+                  )}
 
                   <div className="my-1 border-t border-slate-100"></div>
 
@@ -4509,7 +4533,31 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
             >
-              <WarehouseContactMessagesPanel onRefreshBadge={fetchUnreadMessagesCount} />
+              {!(currentStaff.role === 'super_admin' || currentStaff.permissions?.includes('manage_warehouse_messages')) ? (
+                <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center max-w-xl mx-auto shadow-sm space-y-6">
+                  <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500 text-3xl">
+                    🔒
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-black text-slate-900">عدم دسترسی به بخش پیام‌های تماس</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      شمای کاربری فعلی شما ({currentStaff.fullName}) فاقد دسترسی «صندوق پیام‌های تماس سایت» است. لطفاً از طریق دکمه زیر دسترسی حساب خود را ارتقا دهید.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        setShowStaffModal(true);
+                      }}
+                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors active:scale-95 shadow-md shadow-indigo-600/10"
+                    >
+                      تغییر یا ارتقای دسترسی کاربر
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <WarehouseContactMessagesPanel onRefreshBadge={fetchUnreadMessagesCount} />
+              )}
             </motion.div>
           )}
 
@@ -5219,10 +5267,34 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               dir="rtl"
               className="space-y-6"
             >
-              <SiteSettingsManagementPanel
-                currentStaff={currentStaff}
-                onReturnToPos={() => setActiveSubTab('pos')}
-              />
+              {!(currentStaff.role === 'super_admin' || currentStaff.permissions?.includes('manage_site_settings') || currentStaff.permissions?.includes('manage_sliders') || currentStaff.permissions?.includes('manage_footer_settings')) ? (
+                <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center max-w-xl mx-auto shadow-sm space-y-6">
+                  <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500 text-3xl">
+                    🔒
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-black text-slate-900">عدم دسترسی به تنظیمات سایت</h3>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      شمای کاربری فعلی شما ({currentStaff.fullName}) فاقد دسترسی «تنظیمات عمومی سایت»، «مدیریت اسلایدرها» یا «تنظیمات فوتر سایت» است. لطفاً جهت تغییر دسترسی با مدیریت ارشد تماس بگیرید یا حساب خود را ارتقا دهید.
+                    </p>
+                  </div>
+                  <div className="pt-2">
+                    <button
+                      onClick={() => {
+                        setShowStaffModal(true);
+                      }}
+                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors active:scale-95 shadow-md shadow-indigo-600/10"
+                    >
+                      تغییر یا ارتقای دسترسی کاربر
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <SiteSettingsManagementPanel
+                  currentStaff={currentStaff}
+                  onReturnToPos={() => setActiveSubTab('pos')}
+                />
+              )}
             </motion.div>
           )}
 

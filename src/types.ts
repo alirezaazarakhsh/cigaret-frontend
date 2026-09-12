@@ -162,6 +162,10 @@ export type StaffPermission =
   | 'send_sms'               // ارسال اس ام اس و پایش پنل پیامکی کاوه‌نگار
   | 'manage_tickets'         // پاسخگویی و مدیریت تیکت‌های پشتیبانی
   | 'manage_notifications'   // مدیریت و ارسال اعلانات به کاربران سایت و اپلیکیشن
+  | 'manage_warehouse_messages' // صندوق پیام‌های تماس سایت
+  | 'manage_site_settings'   // تنظیمات عمومی و اطلاعات تماس فروشگاه
+  | 'manage_sliders'         // مدیریت اسلایدرها و بنرهای تبلیغاتی سایت
+  | 'manage_footer_settings' // تنظیمات پاصفحه (فوتر) و شبکه‌های اجتماعی سایت
   | 'delete_receipts';       // دسترسی ادمین جهت حذف فاکتورها
 
 export interface WarehouseStaffUser {

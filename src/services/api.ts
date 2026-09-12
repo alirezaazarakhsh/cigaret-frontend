@@ -665,7 +665,8 @@ export const accountsApi = {
         permissions: [
           'manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger',
           'view_reports', 'monthly_comparison', 'manage_staff', 'customer_app_connect',
-          'send_sms', 'manage_tickets', 'manage_notifications', 'delete_receipts'
+          'send_sms', 'manage_tickets', 'manage_notifications', 'manage_warehouse_messages',
+          'manage_site_settings', 'manage_sliders', 'manage_footer_settings', 'delete_receipts'
         ],
         status: 'active',
         avatarColor: 'bg-indigo-600'
@@ -787,7 +788,8 @@ export const accountsApi = {
             permissions: [
               'manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger',
               'view_reports', 'monthly_comparison', 'manage_staff', 'customer_app_connect',
-              'send_sms', 'manage_tickets', 'manage_notifications', 'delete_receipts'
+              'send_sms', 'manage_tickets', 'manage_notifications', 'manage_warehouse_messages',
+              'manage_site_settings', 'manage_sliders', 'manage_footer_settings', 'delete_receipts'
             ],
             status: 'active'
           }

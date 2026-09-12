@@ -38,6 +38,10 @@ class PosStaff(models.Model):
     perm_send_sms = models.BooleanField(default=False, verbose_name='سامانه پیامکی کاوه‌نگار')
     perm_manage_tickets = models.BooleanField(default=False, verbose_name='پاسخگویی به تیکت‌ها')
     perm_manage_notifications = models.BooleanField(default=False, verbose_name='اعلانات و نوتیفیکیشن‌ها')
+    perm_manage_warehouse_messages = models.BooleanField(default=False, verbose_name='صندوق پیام‌های تماس سایت')
+    perm_manage_site_settings = models.BooleanField(default=False, verbose_name='تنظیمات عمومی سایت')
+    perm_manage_sliders = models.BooleanField(default=False, verbose_name='اسلایدرها و بنرها')
+    perm_manage_footer_settings = models.BooleanField(default=False, verbose_name='تنظیمات فوتر سایت')
     perm_delete_receipts = models.BooleanField(default=False, verbose_name='ابطال و حذف فاکتورها')
 
     class Meta:
@@ -91,7 +95,8 @@ class PosStaffAdmin(admin.ModelAdmin):
                 'perm_manage_pos', 'perm_manage_inventory', 'perm_quick_add_product', 
                 'perm_manage_ledger', 'perm_view_reports', 'perm_monthly_comparison',
                 'perm_customer_app_connect', 'perm_manage_staff', 'perm_send_sms',
-                'perm_manage_tickets', 'perm_manage_notifications', 'perm_delete_receipts'
+                'perm_manage_tickets', 'perm_manage_notifications', 'perm_manage_warehouse_messages',
+                'perm_manage_site_settings', 'perm_manage_sliders', 'perm_manage_footer_settings', 'perm_delete_receipts'
             )
         }),
     )
@@ -197,6 +202,10 @@ class LoginStaffAPIView(APIView):
                 if pos_staff.perm_send_sms: permissions.append('send_sms')
                 if pos_staff.perm_manage_tickets: permissions.append('manage_tickets')
                 if pos_staff.perm_manage_notifications: permissions.append('manage_notifications')
+                if pos_staff.perm_manage_warehouse_messages: permissions.append('manage_warehouse_messages')
+                if pos_staff.perm_manage_site_settings: permissions.append('manage_site_settings')
+                if pos_staff.perm_manage_sliders: permissions.append('manage_sliders')
+                if pos_staff.perm_manage_footer_settings: permissions.append('manage_footer_settings')
                 if pos_staff.perm_delete_receipts: permissions.append('delete_receipts')
             except PosStaff.DoesNotExist:
                 # User is a regular Django user but not explicitly a POS staff.
@@ -206,7 +215,9 @@ class LoginStaffAPIView(APIView):
                     permissions = [
                         'manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger',
                         'view_reports', 'monthly_comparison', 'customer_app_connect',
-                        'manage_staff', 'send_sms', 'manage_tickets', 'manage_notifications', 'delete_receipts'
+                        'manage_staff', 'send_sms', 'manage_tickets', 'manage_notifications',
+                        'manage_warehouse_messages', 'manage_site_settings', 'manage_sliders',
+                        'manage_footer_settings', 'delete_receipts'
                     ]
                 else:
                     return Response({"success": False, "message": "شما دسترسی به صندوق فروشگاهی را ندارید."}, status=status.HTTP_403_FORBIDDEN)
@@ -372,6 +383,10 @@ class CreateStaffAPIView(APIView):
             'perm_send_sms': 'send_sms' in permissions,
             'perm_manage_tickets': 'manage_tickets' in permissions,
             'perm_manage_notifications': 'manage_notifications' in permissions,
+            'perm_manage_warehouse_messages': 'manage_warehouse_messages' in permissions,
+            'perm_manage_site_settings': 'manage_site_settings' in permissions,
+            'perm_manage_sliders': 'manage_sliders' in permissions,
+            'perm_manage_footer_settings': 'manage_footer_settings' in permissions,
             'perm_delete_receipts': 'delete_receipts' in permissions,
         }
 
@@ -416,6 +431,10 @@ class ListStaffAPIView(APIView):
             if staff.perm_send_sms: perms.append('send_sms')
             if staff.perm_manage_tickets: perms.append('manage_tickets')
             if staff.perm_manage_notifications: perms.append('manage_notifications')
+            if staff.perm_manage_warehouse_messages: perms.append('manage_warehouse_messages')
+            if staff.perm_manage_site_settings: perms.append('manage_site_settings')
+            if staff.perm_manage_sliders: perms.append('manage_sliders')
+            if staff.perm_manage_footer_settings: perms.append('manage_footer_settings')
             if staff.perm_delete_receipts: perms.append('delete_receipts')
 
             data.append({
@@ -484,6 +503,10 @@ class StaffDetailAPIView(APIView):
         staff.perm_send_sms = 'send_sms' in permissions
         staff.perm_manage_tickets = 'manage_tickets' in permissions
         staff.perm_manage_notifications = 'manage_notifications' in permissions
+        staff.perm_manage_warehouse_messages = 'manage_warehouse_messages' in permissions
+        staff.perm_manage_site_settings = 'manage_site_settings' in permissions
+        staff.perm_manage_sliders = 'manage_sliders' in permissions
+        staff.perm_manage_footer_settings = 'manage_footer_settings' in permissions
         staff.perm_delete_receipts = 'delete_receipts' in permissions
         staff.save()
 

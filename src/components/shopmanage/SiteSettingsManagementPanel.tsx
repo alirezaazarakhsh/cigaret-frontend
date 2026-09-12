@@ -30,7 +30,7 @@ import {
   BarChart3,
   Building2
 } from 'lucide-react';
-import { SiteBannerSlider, WarehouseStaffUser, FooterSettingsData, FooterColumnItem, FooterSocialItem, FooterLinkItem } from '../../types';
+import { SiteBannerSlider, WarehouseStaffUser, FooterSettingsData, FooterColumnItem, FooterSocialItem, FooterLinkItem, StaffPermission } from '../../types';
 import { 
   djangoFetchSliders, 
   djangoCreateSlider, 
@@ -55,8 +55,19 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   currentStaff,
   onReturnToPos
 }) => {
+  // Helper to check staff permissions
+  const hasPerm = (perm: StaffPermission) => {
+    return currentStaff.role === 'super_admin' || (currentStaff.permissions?.includes(perm) ?? false);
+  };
+
   // Main Tabbed Navigation inside Site Settings
-  const [activeTab, setActiveTab] = useState<'sliders' | 'general' | 'header' | 'social'>('sliders');
+  const [activeTab, setActiveTab] = useState<'sliders' | 'general' | 'header' | 'social'>(() => {
+    if (currentStaff.role === 'super_admin') return 'sliders';
+    if (currentStaff.permissions?.includes('manage_sliders')) return 'sliders';
+    if (currentStaff.permissions?.includes('manage_site_settings')) return 'general';
+    if (currentStaff.permissions?.includes('manage_footer_settings')) return 'header';
+    return 'sliders';
+  });
 
   // Sliders State
   const [sliders, setSliders] = useState<SiteBannerSlider[]>([]);
@@ -715,44 +726,50 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
 
         {/* Tab Navigation Menu */}
         <div className="max-w-7xl mx-auto px-4 flex items-center gap-2 border-t border-slate-100 pt-2 overflow-x-auto">
-          <button
-            onClick={() => setActiveTab('sliders')}
-            className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-2 shrink-0 ${
-              activeTab === 'sliders'
-                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            <Sliders className="w-4 h-4" />
-            <span>تنظیمات بنر و اسلایدر</span>
-            <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-100 text-indigo-800">
-              {sliders.length}
-            </span>
-          </button>
+          {hasPerm('manage_sliders') && (
+            <button
+              onClick={() => setActiveTab('sliders')}
+              className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-2 shrink-0 ${
+                activeTab === 'sliders'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <Sliders className="w-4 h-4" />
+              <span>تنظیمات بنر و اسلایدر</span>
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-100 text-indigo-800">
+                {sliders.length}
+              </span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('general')}
-            className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-2 shrink-0 ${
-              activeTab === 'general'
-                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            <Sparkles className="w-4 h-4" />
-            <span>تنظیمات زیر اسلایدر صفحه اصلی</span>
-          </button>
+          {hasPerm('manage_site_settings') && (
+            <button
+              onClick={() => setActiveTab('general')}
+              className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-2 shrink-0 ${
+                activeTab === 'general'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <Sparkles className="w-4 h-4" />
+              <span>تنظیمات زیر اسلایدر صفحه اصلی</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => setActiveTab('header')}
-            className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-2 shrink-0 ${
-              activeTab === 'header'
-                ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60'
-                : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            <Layout className="w-4 h-4" />
-            <span>تنظیمات کلی فوتر</span>
-          </button>
+          {hasPerm('manage_footer_settings') && (
+            <button
+              onClick={() => setActiveTab('header')}
+              className={`px-4 py-2.5 text-xs font-bold rounded-t-xl transition-all border-b-2 flex items-center gap-2 shrink-0 ${
+                activeTab === 'header'
+                  ? 'border-indigo-600 text-indigo-600 bg-indigo-50/60'
+                  : 'border-transparent text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <Layout className="w-4 h-4" />
+              <span>تنظیمات کلی فوتر</span>
+            </button>
+          )}
         </div>
       </div>
 
