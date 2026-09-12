@@ -3423,12 +3423,14 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
     }
   }
 
-  // 2. Full payload PATCH if not fully satisfied or if updating title/texts
-  for (const url of updateCandidateUrls) {
-    const patchRes = await executeDjangoAxiosRequest(url, 'PATCH', cleanPayload, { token, timeoutMs: 15000 });
-    if (patchRes.success) {
-      res = patchRes;
-      break;
+  // 2. Full payload PATCH if not already updated by lightweight toggle
+  if (!res.success) {
+    for (const url of updateCandidateUrls) {
+      const patchRes = await executeDjangoAxiosRequest(url, 'PATCH', cleanPayload, { token, timeoutMs: 15000 });
+      if (patchRes.success) {
+        res = patchRes;
+        break;
+      }
     }
   }
 

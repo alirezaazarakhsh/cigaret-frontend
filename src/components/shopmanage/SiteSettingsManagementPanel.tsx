@@ -390,29 +390,41 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   const handleToggleActive = async (slider: SiteBannerSlider) => {
     if (!slider.id) return;
     const newStatus = !slider.is_active;
+
+    // 1. Optimistic React state update instantly
+    setSliders(prev => prev.map(s => 
+      String(s.id) === String(slider.id) || (s.title && slider.title && String(s.title).trim() === String(slider.title).trim())
+        ? { ...s, is_active: newStatus } 
+        : s
+    ));
+
+    // 2. Update local storage cache immediately
+    const currentLocal = getLocalSliders();
+    const updatedLocal = currentLocal.map(item => 
+      String(item.id) === String(slider.id) || (item.title && slider.title && String(item.title).trim() === String(slider.title).trim())
+        ? { ...item, is_active: newStatus } 
+        : item
+    );
+    saveLocalSliders(updatedLocal);
+
+    // 3. Notify main website and App.tsx immediately
+    window.dispatchEvent(new CustomEvent('sevin-cache-cleared', { detail: { timestamp: Date.now() } }));
+
+    setBannerNotice({ 
+      message: `وضعیت بنر «${slider.title || 'بدون عنوان'}» به ${newStatus ? 'فعال' : 'غیرفعال'} تغییر یافت.`, 
+      type: 'success' 
+    });
+
     try {
       await djangoUpdateSlider(slider.id, { ...slider, is_active: newStatus });
-      
-      setSliders(prev => prev.map(s => s.id === slider.id ? { ...s, is_active: newStatus } : s));
-      
-      // Update local storage so cache is updated immediately
-      const currentLocal = getLocalSliders();
-      const updatedLocal = currentLocal.map(item => 
-        String(item.id) === String(slider.id) || (item.title && slider.title && String(item.title).trim() === String(slider.title).trim())
-          ? { ...item, is_active: newStatus } 
-          : item
-      );
-      saveLocalSliders(updatedLocal);
-
-      // Notify App.tsx and main website to refresh slider state immediately
-      window.dispatchEvent(new CustomEvent('sevin-cache-cleared', { detail: { timestamp: Date.now() } }));
-
-      setBannerNotice({ 
-        message: `وضعیت بنر «${slider.title || 'بدون عنوان'}» به ${newStatus ? 'فعال' : 'غیرفعال'} تغییر یافت.`, 
-        type: 'success' 
-      });
     } catch (err) {
-      setBannerNotice({ message: 'خطا در تغییر وضعیت بنر.', type: 'error' });
+      // Revert on error
+      setSliders(prev => prev.map(s => 
+        String(s.id) === String(slider.id) || (s.title && slider.title && String(s.title).trim() === String(slider.title).trim())
+          ? { ...s, is_active: !newStatus } 
+          : s
+      ));
+      setBannerNotice({ message: 'خطا در ثبت آنلاین تغییر وضعیت بنر.', type: 'error' });
     } finally {
       setTimeout(() => setBannerNotice(null), 3000);
     }
