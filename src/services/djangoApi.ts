@@ -1,5 +1,5 @@
 import axios, { AxiosRequestConfig, AxiosInstance } from 'axios';
-import { CigaretteProduct, DjangoCrmConfig, CigaretteCategory, BlogPost, BlogCategoryItem } from '../types';
+import { CigaretteProduct, DjangoCrmConfig, CigaretteCategory, BlogPost, BlogCategoryItem, FooterSettingsData, FooterColumnItem, FooterSocialItem, FooterLinkItem } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { BLOG_POSTS } from '../data/blogPosts';
 import { notificationsApi } from './api';
@@ -3908,6 +3908,104 @@ export async function djangoSaveWholesaleBenefits(
     localOnly: false,
     message: 'کارت‌های خدمات ۴‌گانه و تغییرات حذف/ویرایش با موفقیت در دیتابیس آنلاین جنگو همگام شدند.',
     freshCards
+  };
+}
+
+export async function djangoFetchFooterSettings(config?: DjangoCrmConfig): Promise<FooterSettingsData | null> {
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+
+  const candidateGetUrls = [
+    '/api/v1/footer-settings/settings/',
+    '/api/v1/footer/settings/',
+    '/api/v1/footer-settings/',
+    '/api/v1/site_settings/footer/'
+  ];
+
+  for (const url of candidateGetUrls) {
+    const res = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 10000 });
+    if (res.success && res.data) {
+      const data = res.data.data || res.data;
+      if (data && typeof data === 'object') {
+        const parsed: FooterSettingsData = {
+          company_title: data.company_title || 'دخانیات سرو',
+          short_description: data.short_description || data.description_text || '',
+          address_text: data.address_text || '',
+          phone_number: data.phone_number || '',
+          emergency_phone: data.emergency_phone || '',
+          working_hours: data.working_hours || '',
+          shipping_companies: data.shipping_companies || '',
+          enamad_code: data.enamad_code || '',
+          samandehi_code: data.samandehi_code || '',
+          copyright_text: data.copyright_text || '',
+          developer_credit: data.developer_credit || '',
+          is_active: data.is_active !== undefined ? Boolean(data.is_active) : true,
+          columns: Array.isArray(data.columns) ? data.columns : [],
+          socials: Array.isArray(data.socials) ? data.socials : (Array.isArray(data.social_links) ? data.social_links : []),
+        };
+        try {
+          localStorage.setItem('wholesale_footer_settings', JSON.stringify(parsed));
+        } catch {}
+        return parsed;
+      }
+    }
+  }
+
+  // Fallback to local storage
+  try {
+    const saved = localStorage.getItem('wholesale_footer_settings');
+    if (saved) return JSON.parse(saved);
+  } catch {}
+
+  return null;
+}
+
+export async function djangoUpdateFooterSettings(footerData: Partial<FooterSettingsData>, config?: DjangoCrmConfig): Promise<{ success: boolean; data?: FooterSettingsData; message: string }> {
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+
+  const candidateUpdateUrls = [
+    '/api/v1/footer-settings/settings/update/',
+    '/api/v1/footer/settings/update/',
+    '/api/v1/footer-settings/update/',
+    '/api/v1/footer-settings/settings/'
+  ];
+
+  let res: any = { success: false };
+
+  for (const url of candidateUpdateUrls) {
+    // Try PUT first
+    res = await executeDjangoAxiosRequest(url, 'PUT', footerData, { token, timeoutMs: 15000 });
+    if (res.success) break;
+
+    // Try PATCH if PUT failed
+    res = await executeDjangoAxiosRequest(url, 'PATCH', footerData, { token, timeoutMs: 15000 });
+    if (res.success) break;
+
+    // Try POST if PATCH failed
+    res = await executeDjangoAxiosRequest(url, 'POST', footerData, { token, timeoutMs: 15000 });
+    if (res.success) break;
+  }
+
+  // Always update local storage so UI and Footer component stay in sync
+  try {
+    const saved = localStorage.getItem('wholesale_footer_settings');
+    const existing = saved ? JSON.parse(saved) : {};
+    const merged = { ...existing, ...footerData };
+    localStorage.setItem('wholesale_footer_settings', JSON.stringify(merged));
+  } catch {}
+
+  if (res.success) {
+    const responseData = res.data?.data || res.data || footerData;
+    return {
+      success: true,
+      data: responseData,
+      message: 'تنظیمات کلی فوتر با موفقیت در دیتابیس آنلاین سرور ذخیره و همگام شد.'
+    };
+  }
+
+  return {
+    success: true,
+    data: footerData as FooterSettingsData,
+    message: 'تنظیمات کلی فوتر به صورت محلی ذخیره شد (پیام سرور: عدم برقراری ارتباط با اندپویینت).'
   };
 }
 

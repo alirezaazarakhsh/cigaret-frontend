@@ -27,9 +27,10 @@ import {
   FileUp,
   ListPlus,
   AlertCircle,
-  BarChart3
+  BarChart3,
+  Building2
 } from 'lucide-react';
-import { SiteBannerSlider, WarehouseStaffUser } from '../../types';
+import { SiteBannerSlider, WarehouseStaffUser, FooterSettingsData, FooterColumnItem, FooterSocialItem, FooterLinkItem } from '../../types';
 import { 
   djangoFetchSliders, 
   djangoCreateSlider, 
@@ -40,7 +41,9 @@ import {
   djangoFetchWholesaleBenefits,
   djangoSaveWholesaleBenefits,
   getLocalWholesaleBenefits,
-  WholesaleBenefitCard
+  WholesaleBenefitCard,
+  djangoFetchFooterSettings,
+  djangoUpdateFooterSettings
 } from '../../services/djangoApi';
 
 interface SiteSettingsManagementPanelProps {
@@ -108,8 +111,52 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   const [deletedBenefitCardIds, setDeletedBenefitCardIds] = useState<(number | string)[]>([]);
   const [isSavingBenefits, setIsSavingBenefits] = useState(false);
 
+  // Footer Settings State
+  const [footerCompanyTitle, setFooterCompanyTitle] = useState<string>('پخش عمده دخانیات آذرخش (دخانیات سرو)');
+  const [footerShortDescription, setFooterShortDescription] = useState<string>('مرکز تخصصی توزیع بنکداری سیگار، تنباکو و تجهیزات آیکاس با ارسال فوری سراسری.');
+  const [footerAddressText, setFooterAddressText] = useState<string>('تهران، منطقه ۵، جنت‌آباد شمالی، انبار مرکزی آذرخش');
+  const [footerPhoneNumber, setFooterPhoneNumber] = useState<string>('021-44000000');
+  const [footerEmergencyPhone, setFooterEmergencyPhone] = useState<string>('09120759419');
+  const [footerWorkingHours, setFooterWorkingHours] = useState<string>('شنبه تا چهارشنبه: ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها: ۸:۰۰ الی ۱۴:۰۰');
+  const [footerShippingCompanies, setFooterShippingCompanies] = useState<string>('باربری وطن، جهانگیر، پیام‌شمس، پیشتاز و ناوگان اختصاصی تهران');
+  const [footerEnamadCode, setFooterEnamadCode] = useState<string>('');
+  const [footerSamandehiCode, setFooterSamandehiCode] = useState<string>('');
+  const [footerCopyrightText, setFooterCopyrightText] = useState<string>('کلیه حقوق مادی و معنوی متعلق به سامانه پخش عمده آذرخش می‌باشد.');
+  const [footerDeveloperCredit, setFooterDeveloperCredit] = useState<string>('توسعه‌یافته توسط تیم فنی دخانیات سرو • میزبانی زیرساخت دخانیات سرو‌هاست');
+  const [footerIsActive, setFooterIsActive] = useState<boolean>(true);
+  const [footerSocials, setFooterSocials] = useState<FooterSocialItem[]>([
+    { id: 1, platform: 'telegram', title: 'کانال اعلام نرخ تلگرام', url: 'https://t.me/azarakhsh_tobacco', icon: 'Send', order: 1 },
+    { id: 2, platform: 'whatsapp', title: 'پشتیبانی واتساپ', url: 'https://wa.me/989120759419', icon: 'MessageSquare', order: 2 },
+    { id: 3, platform: 'instagram', title: 'صفحه اینستاگرام', url: 'https://instagram.com/azarakhsh_tobacco', icon: 'Instagram', order: 3 },
+  ]);
+  const [footerColumns, setFooterColumns] = useState<FooterColumnItem[]>([
+    {
+      id: 1,
+      title: 'دسترسی سریع',
+      order: 1,
+      links: [
+        { id: 101, title: 'تابلوی نرخ لحظه‌ای', url: '/live-prices', order: 1 },
+        { id: 102, title: 'صدور پیش‌فاکتور', url: '/invoice', order: 2 },
+        { id: 103, title: 'صندوق آنلاین POS', url: '/shopmanage', order: 3 }
+      ]
+    },
+    {
+      id: 2,
+      title: 'خدمات مشتریان',
+      order: 2,
+      links: [
+        { id: 201, title: 'پیگیری وضعیت باربری', url: '/shipping', order: 1 },
+        { id: 202, title: 'ثبت تیکت پشتیبانی', url: '/tickets', order: 2 },
+        { id: 203, title: 'قوانین و ضمانت بار', url: '/terms', order: 3 }
+      ]
+    }
+  ]);
+  const [isSavingFooter, setIsSavingFooter] = useState<boolean>(false);
+  const [isLoadingFooter, setIsLoadingFooter] = useState<boolean>(false);
+
   useEffect(() => {
     loadSliders();
+    loadFooterSettingsData();
   }, []);
 
   const loadSliders = async () => {
@@ -128,6 +175,168 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       setBenefitCards(getLocalWholesaleBenefits());
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const loadFooterSettingsData = async () => {
+    setIsLoadingFooter(true);
+    try {
+      const data = await djangoFetchFooterSettings();
+      if (data) {
+        if (data.company_title) setFooterCompanyTitle(data.company_title);
+        if (data.short_description !== undefined) setFooterShortDescription(data.short_description);
+        if (data.address_text !== undefined) setFooterAddressText(data.address_text);
+        if (data.phone_number !== undefined) setFooterPhoneNumber(data.phone_number);
+        if (data.emergency_phone !== undefined) setFooterEmergencyPhone(data.emergency_phone);
+        if (data.working_hours !== undefined) setFooterWorkingHours(data.working_hours);
+        if (data.shipping_companies !== undefined) setFooterShippingCompanies(data.shipping_companies);
+        if (data.enamad_code !== undefined) setFooterEnamadCode(data.enamad_code);
+        if (data.samandehi_code !== undefined) setFooterSamandehiCode(data.samandehi_code);
+        if (data.copyright_text !== undefined) setFooterCopyrightText(data.copyright_text);
+        if (data.developer_credit !== undefined) setFooterDeveloperCredit(data.developer_credit);
+        if (data.is_active !== undefined) setFooterIsActive(data.is_active);
+        if (Array.isArray(data.socials) && data.socials.length > 0) setFooterSocials(data.socials);
+        if (Array.isArray(data.columns) && data.columns.length > 0) setFooterColumns(data.columns);
+      }
+    } catch (err) {
+      console.error("Failed to load footer settings:", err);
+    } finally {
+      setIsLoadingFooter(false);
+    }
+  };
+
+  // Social Item Handlers
+  const handleAddSocial = () => {
+    const newSocial: FooterSocialItem = {
+      id: Date.now(),
+      platform: 'telegram',
+      title: 'شبکه اجتماعی جدید',
+      url: 'https://',
+      icon: 'Send',
+      order: footerSocials.length + 1
+    };
+    setFooterSocials(prev => [...prev, newSocial]);
+  };
+
+  const handleRemoveSocial = (index: number) => {
+    setFooterSocials(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateSocial = (index: number, field: keyof FooterSocialItem, value: any) => {
+    setFooterSocials(prev => {
+      const next = [...prev];
+      if (next[index]) {
+        next[index] = { ...next[index], [field]: value };
+      }
+      return next;
+    });
+  };
+
+  // Column & Link Handlers
+  const handleAddColumn = () => {
+    const newCol: FooterColumnItem = {
+      id: Date.now(),
+      title: 'ستون جدید',
+      order: footerColumns.length + 1,
+      links: []
+    };
+    setFooterColumns(prev => [...prev, newCol]);
+  };
+
+  const handleRemoveColumn = (colIdx: number) => {
+    setFooterColumns(prev => prev.filter((_, i) => i !== colIdx));
+  };
+
+  const handleUpdateColumnTitle = (colIdx: number, title: string) => {
+    setFooterColumns(prev => {
+      const next = [...prev];
+      if (next[colIdx]) {
+        next[colIdx] = { ...next[colIdx], title };
+      }
+      return next;
+    });
+  };
+
+  const handleAddLinkToColumn = (colIdx: number) => {
+    setFooterColumns(prev => {
+      const next = [...prev];
+      if (next[colIdx]) {
+        const links = next[colIdx].links || [];
+        const newLink: FooterLinkItem = {
+          id: Date.now(),
+          title: 'لینک جدید',
+          url: '/',
+          order: links.length + 1
+        };
+        next[colIdx] = { ...next[colIdx], links: [...links, newLink] };
+      }
+      return next;
+    });
+  };
+
+  const handleRemoveLinkFromColumn = (colIdx: number, linkIdx: number) => {
+    setFooterColumns(prev => {
+      const next = [...prev];
+      if (next[colIdx]) {
+        const links = (next[colIdx].links || []).filter((_, i) => i !== linkIdx);
+        next[colIdx] = { ...next[colIdx], links };
+      }
+      return next;
+    });
+  };
+
+  const handleUpdateLinkInColumn = (colIdx: number, linkIdx: number, field: keyof FooterLinkItem, value: any) => {
+    setFooterColumns(prev => {
+      const next = [...prev];
+      if (next[colIdx]) {
+        const links = [...(next[colIdx].links || [])];
+        if (links[linkIdx]) {
+          links[linkIdx] = { ...links[linkIdx], [field]: value };
+          next[colIdx] = { ...next[colIdx], links };
+        }
+      }
+      return next;
+    });
+  };
+
+  // Save Footer Settings
+  const handleSaveFooterSettings = async () => {
+    setIsSavingFooter(true);
+    setBannerNotice(null);
+    try {
+      const payload: FooterSettingsData = {
+        company_title: footerCompanyTitle,
+        short_description: footerShortDescription,
+        address_text: footerAddressText,
+        phone_number: footerPhoneNumber,
+        emergency_phone: footerEmergencyPhone,
+        working_hours: footerWorkingHours,
+        shipping_companies: footerShippingCompanies,
+        enamad_code: footerEnamadCode,
+        samandehi_code: footerSamandehiCode,
+        copyright_text: footerCopyrightText,
+        developer_credit: footerDeveloperCredit,
+        is_active: footerIsActive,
+        socials: footerSocials,
+        columns: footerColumns
+      };
+
+      const result = await djangoUpdateFooterSettings(payload);
+      setBannerNotice({
+        message: result.message,
+        type: result.success ? 'success' : 'error'
+      });
+      // Dispatch custom event so Footer component updates live across the app
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sevin-footer-updated', { detail: payload }));
+      }
+    } catch (err: any) {
+      setBannerNotice({
+        message: err?.message || 'خطا در ذخیره‌سازی تنظیمات فوتر.',
+        type: 'error'
+      });
+    } finally {
+      setIsSavingFooter(false);
     }
   };
 
@@ -523,7 +732,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
             }`}
           >
             <Layout className="w-4 h-4" />
-            <span>تنظیمات هدر و اعلان فوقانی</span>
+            <span>تنظیمات کلی فوتر</span>
           </button>
         </div>
       </div>
@@ -943,39 +1152,392 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
           </div>
         )}
 
-        {/* ================= TAB 3: HEADER SETTINGS ================= */}
+        {/* ================= TAB 3: FOOTER SETTINGS ================= */}
         {activeTab === 'header' && (
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-6">
-            <h2 className="text-base font-black text-slate-900 border-b pb-3">تنظیمات نوار اعلان فوقانی و هدر صفحه اصلی</h2>
-
-            <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-8">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b pb-4">
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">متن نوار اعلان بالای هدر (Top Announcement Bar)</label>
-                <input
-                  type="text"
-                  value={announcementText}
-                  onChange={(e) => setAnnouncementText(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800"
-                />
+                <h2 className="text-base font-black text-slate-900">تنظیمات کلی فوتر</h2>
+                <p className="text-xs text-slate-500 mt-1">
+                  مدیریت اطلاعات تماس انبار، شبکه‌های اجتماعی، مجوزها و لینک‌های دسترسی سریع فوتر
+                </p>
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">نشانک پیش‌فرض هدر (Hero Badge)</label>
-                <input
-                  type="text"
-                  value={heroBadge}
-                  onChange={(e) => setHeroBadge(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800"
-                />
+              <div className="flex items-center gap-3">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-2 cursor-pointer bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                  <span>وضعیت نمایش فوتر:</span>
+                  <input
+                    type="checkbox"
+                    checked={footerIsActive}
+                    onChange={(e) => setFooterIsActive(e.target.checked)}
+                    className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                  />
+                  <span className={`text-xs font-bold ${footerIsActive ? 'text-emerald-600' : 'text-slate-400'}`}>
+                    {footerIsActive ? 'فعال (نمایش)' : 'غیرفعال (مخفی)'}
+                  </span>
+                </label>
               </div>
             </div>
 
-            <button
-              onClick={() => alert('تنظیمات هدر و نوار اعلان ذخیره گردید.')}
-              className="px-5 py-2.5 bg-indigo-600 text-white rounded-xl text-xs font-bold hover:bg-indigo-500 transition-colors"
-            >
-              ذخیره تنظیمات هدر
-            </button>
+            {/* Section 1: Main Brand & Company Info */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-black text-indigo-800 bg-indigo-50/80 px-3 py-2 rounded-xl border border-indigo-100 flex items-center gap-2">
+                <Building2 className="w-4 h-4 text-indigo-600" />
+                <span>۱. اطلاعات اصلی و برندینگ انبار</span>
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    عنوان شرکت / انبار
+                  </label>
+                  <input
+                    type="text"
+                    value={footerCompanyTitle}
+                    onChange={(e) => setFooterCompanyTitle(e.target.value)}
+                    placeholder="پخش عمده دخانیات آذرخش (دخانیات سرو)"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    باربری‌های طرف قرارداد
+                  </label>
+                  <input
+                    type="text"
+                    value={footerShippingCompanies}
+                    onChange={(e) => setFooterShippingCompanies(e.target.value)}
+                    placeholder="باربری وطن، جهانگیر، پیام‌شمس، پیشتاز و ناوگان اختصاصی تهران"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    توضیحات کوتاه برند در فوتر
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={footerShortDescription}
+                    onChange={(e) => setFooterShortDescription(e.target.value)}
+                    placeholder="مرکز تخصصی توزیع بنکداری سیگار، تنباکو و تجهیزات آیکاس با ارسال فوری سراسری."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Contact Info & Address */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-black text-indigo-800 bg-indigo-50/80 px-3 py-2 rounded-xl border border-indigo-100 flex items-center gap-2">
+                <PhoneCall className="w-4 h-4 text-indigo-600" />
+                <span>۲. اطلاعات تماس و آدرس انبار مرکزی</span>
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    تلفن تماس سفارشات
+                  </label>
+                  <input
+                    type="text"
+                    value={footerPhoneNumber}
+                    onChange={(e) => setFooterPhoneNumber(e.target.value)}
+                    placeholder="021-44000000"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono dir-ltr text-left text-slate-800 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    تلفن فوری پشتیبانی انبار
+                  </label>
+                  <input
+                    type="text"
+                    value={footerEmergencyPhone}
+                    onChange={(e) => setFooterEmergencyPhone(e.target.value)}
+                    placeholder="09120759419"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono dir-ltr text-left text-slate-800 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    ساعات کاری انبار
+                  </label>
+                  <input
+                    type="text"
+                    value={footerWorkingHours}
+                    onChange={(e) => setFooterWorkingHours(e.target.value)}
+                    placeholder="شنبه تا چهارشنبه: ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها: ۸:۰۰ الی ۱۴:۰۰"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div className="md:col-span-3">
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    آدرس کامل انبار مرکزی
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={footerAddressText}
+                    onChange={(e) => setFooterAddressText(e.target.value)}
+                    placeholder="تهران، منطقه ۵، جنت‌آباد شمالی، انبار مرکزی آذرخش"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Badges, Licenses & Legal */}
+            <div className="space-y-4">
+              <h3 className="text-xs font-black text-indigo-800 bg-indigo-50/80 px-3 py-2 rounded-xl border border-indigo-100 flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                <span>۳. مجوزها، کدهای نماد اعتماد و کپی‌رایت</span>
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    کد یا اسکریپت ای‌نماد (eNamad Code)
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={footerEnamadCode}
+                    onChange={(e) => setFooterEnamadCode(e.target.value)}
+                    placeholder="کد یا لینک ای‌نماد..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-500 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    کد یا اسکریپت ساماندهی
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={footerSamandehiCode}
+                    onChange={(e) => setFooterSamandehiCode(e.target.value)}
+                    placeholder="کد یا لینک ساماندهی..."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-500 resize-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    متن کپی‌رایت حقوق سایت
+                  </label>
+                  <input
+                    type="text"
+                    value={footerCopyrightText}
+                    onChange={(e) => setFooterCopyrightText(e.target.value)}
+                    placeholder="کلیه حقوق مادی و معنوی متعلق به سامانه پخش عمده آذرخش می‌باشد."
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">
+                    متن اعتبارات توسعه‌دهنده و میزبانی
+                  </label>
+                  <input
+                    type="text"
+                    value={footerDeveloperCredit}
+                    onChange={(e) => setFooterDeveloperCredit(e.target.value)}
+                    placeholder="توسعه‌یافته توسط تیم فنی دخانیات سرو • میزبانی زیرساخت دخانیات سرو‌هاست"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Social Links with Text Icons */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between bg-indigo-50/80 px-3 py-2 rounded-xl border border-indigo-100">
+                <h3 className="text-xs font-black text-indigo-800 flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4 text-indigo-600" />
+                  <span>۴. شبکه‌های اجتماعی و پیام‌رسان‌ها (آیکون‌ها به صورت متنی)</span>
+                </h3>
+
+                <button
+                  type="button"
+                  onClick={handleAddSocial}
+                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>افزودن شبکه جدید</span>
+                </button>
+              </div>
+
+              <div className="space-y-3">
+                {footerSocials.map((social, sIdx) => (
+                  <div key={social.id || sIdx} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-3">
+                    <div className="w-full sm:w-1/5">
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">پلتفرم</label>
+                      <input
+                        type="text"
+                        value={social.platform}
+                        onChange={(e) => handleUpdateSocial(sIdx, 'platform', e.target.value)}
+                        placeholder="telegram / whatsapp / instagram"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div className="w-full sm:w-1/4">
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">عنوان نمایش</label>
+                      <input
+                        type="text"
+                        value={social.title}
+                        onChange={(e) => handleUpdateSocial(sIdx, 'title', e.target.value)}
+                        placeholder="کانال اعلام نرخ تلگرام"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div className="w-full sm:w-1/3">
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">آدرس لینک (URL)</label>
+                      <input
+                        type="text"
+                        value={social.url}
+                        onChange={(e) => handleUpdateSocial(sIdx, 'url', e.target.value)}
+                        placeholder="https://t.me/azarakhsh_tobacco"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono dir-ltr text-left focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div className="w-full sm:w-1/6">
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">آیکون (متنی)</label>
+                      <input
+                        type="text"
+                        value={social.icon || ''}
+                        onChange={(e) => handleUpdateSocial(sIdx, 'icon', e.target.value)}
+                        placeholder="Send / Instagram / MessageSquare"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono text-indigo-900 focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSocial(sIdx)}
+                      className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors shrink-0 self-end sm:self-center cursor-pointer"
+                      title="حذف شبکه"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 5: Link Columns & Quick Links */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between bg-indigo-50/80 px-3 py-2 rounded-xl border border-indigo-100">
+                <h3 className="text-xs font-black text-indigo-800 flex items-center gap-2">
+                  <Layout className="w-4 h-4 text-indigo-600" />
+                  <span>۵. ستون‌ها و لینک‌های دسترسی سریع فوتر</span>
+                </h3>
+
+                <button
+                  type="button"
+                  onClick={handleAddColumn}
+                  className="px-3 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>افزودن ستون جدید</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {footerColumns.map((col, cIdx) => (
+                  <div key={col.id || cIdx} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <div className="flex-1 ml-2">
+                        <label className="block text-[11px] font-bold text-slate-500 mb-1">عنوان ستون</label>
+                        <input
+                          type="text"
+                          value={col.title}
+                          onChange={(e) => handleUpdateColumnTitle(cIdx, e.target.value)}
+                          placeholder="عنوان ستون فوتر"
+                          className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveColumn(cIdx)}
+                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors mt-4 cursor-pointer"
+                        title="حذف کامل این ستون"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Sub Links */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-600">لینک‌های زیرمجموعه ستون</span>
+                        <button
+                          type="button"
+                          onClick={() => handleAddLinkToColumn(cIdx)}
+                          className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                        >
+                          <Plus className="w-3 h-3" />
+                          <span>افزودن لینک</span>
+                        </button>
+                      </div>
+
+                      {(col.links || []).map((link, lIdx) => (
+                        <div key={link.id || lIdx} className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center gap-2">
+                          <div className="flex-1">
+                            <input
+                              type="text"
+                              value={link.title}
+                              onChange={(e) => handleUpdateLinkInColumn(cIdx, lIdx, 'title', e.target.value)}
+                              placeholder="عنوان لینک"
+                              className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 mb-1"
+                            />
+                            <input
+                              type="text"
+                              value={link.url}
+                              onChange={(e) => handleUpdateLinkInColumn(cIdx, lIdx, 'url', e.target.value)}
+                              placeholder="/live-prices یا مسیر لینک"
+                              className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-mono dir-ltr text-left text-slate-800 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLinkFromColumn(cIdx, lIdx)}
+                            className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="حذف لینک"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Main Save Action */}
+            <div className="pt-4 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <span className="text-xs text-slate-500 font-medium">
+                تغییرات به صورت مستقیم به API انبار (`/footer-settings/settings/update/`) ارسال می‌شوند.
+              </span>
+
+              <button
+                type="button"
+                onClick={handleSaveFooterSettings}
+                disabled={isSavingFooter}
+                className="w-full sm:w-auto px-6 py-3 bg-indigo-600 hover:bg-indigo-500 disabled:bg-indigo-400 text-white rounded-xl text-xs font-black transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              >
+                <RefreshCw className={`w-4 h-4 ${isSavingFooter ? 'animate-spin' : ''}`} />
+                <span>{isSavingFooter ? 'در حال ذخیره‌سازی در دیتابیس...' : 'ذخیره کامل تنظیمات فوتر'}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>
