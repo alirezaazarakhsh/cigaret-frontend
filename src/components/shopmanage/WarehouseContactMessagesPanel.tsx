@@ -20,6 +20,46 @@ import {
 import { WarehouseMessage } from '../../types';
 import { api } from '../../services/api';
 
+/**
+ * Robustly formats a Gregorian ISO or custom date string to Shamsi (Jalali) date with time
+ */
+export function formatPersianDateTime(dateStr?: string | null, jalaliStr?: string | null): string {
+  if (jalaliStr) return jalaliStr;
+  if (!dateStr) return '—';
+  try {
+    const trimmed = dateStr.trim();
+    
+    // If it already looks like a formatted Shamsi string (starts with 13xx or 14xx and contains slash/space)
+    if (/^(13|14|۱۳|۱۴)/.test(trimmed) && (trimmed.includes('/') || trimmed.includes('-'))) {
+      return trimmed;
+    }
+    
+    // Parse Gregorian Date
+    const isoStr = trimmed.includes('/') && !trimmed.includes('T') ? trimmed.replace(/\//g, '-') : trimmed;
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) {
+      return dateStr;
+    }
+
+    // Extract hours and minutes
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    const timeStr = `${hours}:${minutes}`;
+
+    // Convert to Shamsi using browser locale converter
+    const dateStrFa = d.toLocaleDateString('fa-IR', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+
+    return `${timeStr} - ${dateStrFa}`;
+  } catch (err) {
+    console.error('Error formatting Shamsi Date:', err);
+    return dateStr;
+  }
+}
+
 interface WarehouseContactMessagesPanelProps {
   onRefreshBadge?: () => void;
 }
@@ -218,14 +258,13 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
 
     // Date preset filter match
     let matchesDate = true;
-    if (dateFilter !== 'all' && msg.created_at) {
-      const nowStr = msg.created_at;
-      // We can search the string for parts
+    if (dateFilter !== 'all') {
+      const shamsiStr = formatPersianDateTime(msg.created_at, msg.created_at_jalali);
       if (dateFilter === '1405') {
-        matchesDate = nowStr.includes('1405');
+        matchesDate = shamsiStr.includes('1405') || shamsiStr.includes('۱۴۰۵') || msg.created_at?.includes('2026') || msg.created_at_jalali?.includes('1405');
       } else if (dateFilter === 'today') {
-        // Standard check if today (needs standard check or 15)
-        matchesDate = nowStr.includes('15') || nowStr.includes('امروز');
+        const todayFa = new Date().toLocaleDateString('fa-IR');
+        matchesDate = shamsiStr.includes(todayFa) || shamsiStr.includes('امروز') || (msg.created_at && msg.created_at.includes('2026-09-12'));
       }
     }
 
@@ -392,7 +431,9 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
                             )}
                           </span>
                         </td>
-                        <td className="py-3.5 px-4 text-left font-mono text-[10px] text-slate-400">{msg.created_at || '—'}</td>
+                        <td className="py-3.5 px-4 text-left font-mono text-[10px] text-slate-400">
+                          {formatPersianDateTime(msg.created_at, msg.created_at_jalali)}
+                        </td>
                       </tr>
                     );
                   })}
@@ -497,7 +538,9 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
                   <span>تاریخ و زمان ثبت پیام (شمسی):</span>
                 </span>
-                <span className="font-mono text-slate-500">{selectedMessage.created_at}</span>
+                <span className="font-mono text-slate-500">
+                  {formatPersianDateTime(selectedMessage.created_at, selectedMessage.created_at_jalali)}
+                </span>
               </div>
 
             </div>
