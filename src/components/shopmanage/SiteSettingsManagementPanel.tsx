@@ -238,6 +238,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       id: Date.now(),
       title: 'ستون جدید',
       order: footerColumns.length + 1,
+      is_active: true,
       links: []
     };
     setFooterColumns(prev => [...prev, newCol]);
@@ -252,6 +253,16 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       const next = [...prev];
       if (next[colIdx]) {
         next[colIdx] = { ...next[colIdx], title };
+      }
+      return next;
+    });
+  };
+
+  const handleUpdateColumnField = (colIdx: number, field: keyof FooterColumnItem, value: any) => {
+    setFooterColumns(prev => {
+      const next = [...prev];
+      if (next[colIdx]) {
+        next[colIdx] = { ...next[colIdx], [field]: value };
       }
       return next;
     });
@@ -1380,19 +1391,19 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
 
               <div className="space-y-3">
                 {footerSocials.map((social, sIdx) => (
-                  <div key={social.id || sIdx} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row items-center gap-3">
-                    <div className="w-full sm:w-1/5">
+                  <div key={social.id || sIdx} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col lg:flex-row items-center gap-3">
+                    <div className="w-full lg:w-1/6">
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">پلتفرم</label>
                       <input
                         type="text"
                         value={social.platform}
                         onChange={(e) => handleUpdateSocial(sIdx, 'platform', e.target.value)}
-                        placeholder="telegram / whatsapp / instagram"
+                        placeholder="telegram / instagram"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-indigo-500"
                       />
                     </div>
 
-                    <div className="w-full sm:w-1/4">
+                    <div className="w-full lg:w-1/4">
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">عنوان نمایش</label>
                       <input
                         type="text"
@@ -1403,7 +1414,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                       />
                     </div>
 
-                    <div className="w-full sm:w-1/3">
+                    <div className="w-full lg:w-1/3">
                       <label className="block text-[11px] font-bold text-slate-600 mb-1">آدرس لینک (URL)</label>
                       <input
                         type="text"
@@ -1414,25 +1425,47 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                       />
                     </div>
 
-                    <div className="w-full sm:w-1/6">
-                      <label className="block text-[11px] font-bold text-slate-600 mb-1">آیکون (متنی)</label>
+                    <div className="w-full lg:w-1/6">
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">آیکون (Lucide)</label>
                       <input
                         type="text"
                         value={social.icon || ''}
                         onChange={(e) => handleUpdateSocial(sIdx, 'icon', e.target.value)}
-                        placeholder="Send / Instagram / MessageSquare"
+                        placeholder="Send"
                         className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono text-indigo-900 focus:outline-none focus:border-indigo-500"
                       />
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveSocial(sIdx)}
-                      className="p-2 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors shrink-0 self-end sm:self-center cursor-pointer"
-                      title="حذف شبکه"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="w-20">
+                      <label className="block text-[11px] font-bold text-slate-600 mb-1">ترتیب</label>
+                      <input
+                        type="number"
+                        value={social.order ?? (sIdx + 1)}
+                        onChange={(e) => handleUpdateSocial(sIdx, 'order', parseInt(e.target.value) || 0)}
+                        className="w-full bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-xs text-slate-800 text-center font-mono focus:outline-none focus:border-indigo-500"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 shrink-0 self-end lg:self-center mt-2 lg:mt-4">
+                      <label className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={social.is_active !== false}
+                          onChange={(e) => handleUpdateSocial(sIdx, 'is_active', e.target.checked)}
+                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                        />
+                        <span>فعال</span>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSocial(sIdx)}
+                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer mr-1"
+                        title="حذف شبکه"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1459,8 +1492,8 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {footerColumns.map((col, cIdx) => (
                   <div key={col.id || cIdx} className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-4">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <div className="flex-1 ml-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pb-3 border-b border-slate-200">
+                      <div className="flex-1 min-w-[160px]">
                         <label className="block text-[11px] font-bold text-slate-500 mb-1">عنوان ستون</label>
                         <input
                           type="text"
@@ -1471,14 +1504,36 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                         />
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveColumn(cIdx)}
-                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors mt-4 cursor-pointer"
-                        title="حذف کامل این ستون"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      <div className="w-16">
+                        <label className="block text-[11px] font-bold text-slate-500 mb-1">ترتیب</label>
+                        <input
+                          type="number"
+                          value={col.order ?? (cIdx + 1)}
+                          onChange={(e) => handleUpdateColumnField(cIdx, 'order', parseInt(e.target.value) || 0)}
+                          className="w-full bg-white border border-slate-200 rounded-xl px-2 py-1.5 text-xs text-slate-800 text-center font-mono focus:outline-none focus:border-indigo-500"
+                        />
+                      </div>
+
+                      <div className="flex items-center gap-2 mt-4 sm:mt-0">
+                        <label className="flex items-center gap-1 text-[11px] font-bold text-slate-600 cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={col.is_active !== false}
+                            onChange={(e) => handleUpdateColumnField(cIdx, 'is_active', e.target.checked)}
+                            className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                          />
+                          <span>فعال</span>
+                        </label>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveColumn(cIdx)}
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          title="حذف کامل این ستون"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Sub Links */}
@@ -1496,8 +1551,8 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                       </div>
 
                       {(col.links || []).map((link, lIdx) => (
-                        <div key={link.id || lIdx} className="bg-white border border-slate-200 rounded-xl p-2.5 flex items-center gap-2">
-                          <div className="flex-1">
+                        <div key={link.id || lIdx} className="bg-white border border-slate-200 rounded-xl p-2.5 flex flex-wrap items-center gap-2">
+                          <div className="flex-1 min-w-[140px]">
                             <input
                               type="text"
                               value={link.title}
@@ -1513,6 +1568,27 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                               className="w-full bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 text-[11px] font-mono dir-ltr text-left text-slate-800 focus:outline-none focus:border-indigo-500"
                             />
                           </div>
+
+                          <div className="w-14">
+                            <input
+                              type="number"
+                              value={link.order ?? (lIdx + 1)}
+                              onChange={(e) => handleUpdateLinkInColumn(cIdx, lIdx, 'order', parseInt(e.target.value) || 0)}
+                              placeholder="ترتیب"
+                              title="ترتیب نمایش"
+                              className="w-full bg-slate-50 border border-slate-100 rounded-lg px-1 py-1 text-[11px] text-center font-mono text-slate-800 focus:outline-none focus:border-indigo-500"
+                            />
+                          </div>
+
+                          <label className="flex items-center gap-1 text-[11px] font-bold text-slate-600 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={link.is_active !== false}
+                              onChange={(e) => handleUpdateLinkInColumn(cIdx, lIdx, 'is_active', e.target.checked)}
+                              className="w-3.5 h-3.5 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 cursor-pointer"
+                            />
+                            <span>فعال</span>
+                          </label>
 
                           <button
                             type="button"
