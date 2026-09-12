@@ -3159,15 +3159,20 @@ export async function djangoFetchSliders(config?: DjangoCrmConfig): Promise<any[
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
   
   const candidateGetUrls = [
+    '/api/v1/sliders/slider/',
+    '/api/v1/sliders/sliders/',
     '/api/v1/sliders/herosliders/',
     '/api/v1/sliders/hero-sliders/',
     '/api/v1/sliders/heroslider/',
     '/api/v1/sliders/hero-slider/',
     '/api/v1/sliders/',
     '/api/v1/sliders/hero-combined/',
+    '/api/sliders/slider/',
+    '/api/sliders/sliders/',
     '/api/sliders/herosliders/',
     '/api/sliders/hero-sliders/',
     '/api/sliders/heroslider/',
+    '/api/sliders/hero-slider/',
     '/api/sliders/'
   ];
 
@@ -3189,7 +3194,21 @@ export async function djangoFetchSliders(config?: DjangoCrmConfig): Promise<any[
   
   if (res && res.success && Array.isArray(res.data)) {
     const serverList = res.data;
-    const mergedList = [...localList];
+    const serverIdSet = new Set(serverList.map((item: any) => String(item.id)));
+
+    // Mark items inactive in local state if missing from server response (Django filters out is_active=False)
+    const updatedLocal = localList.map(localItem => {
+      const isNumericServerId = localItem.id && !String(localItem.id).startsWith('slider_');
+      if (isNumericServerId && !serverIdSet.has(String(localItem.id))) {
+        return {
+          ...localItem,
+          is_active: false
+        };
+      }
+      return localItem;
+    });
+
+    const mergedList = [...updatedLocal];
     
     serverList.forEach((serverItem: any) => {
       const existingIdx = mergedList.findIndex(localItem => 
@@ -3197,14 +3216,19 @@ export async function djangoFetchSliders(config?: DjangoCrmConfig): Promise<any[
         (String(localItem.id).startsWith('slider_') && localItem.title === serverItem.title)
       );
       
+      const normalizedServerItem = {
+        ...serverItem,
+        is_active: serverItem.is_active !== undefined ? Boolean(serverItem.is_active) : true
+      };
+
       if (existingIdx > -1) {
         mergedList[existingIdx] = {
           ...mergedList[existingIdx],
-          ...serverItem,
+          ...normalizedServerItem,
           id: serverItem.id
         };
       } else {
-        mergedList.push(serverItem);
+        mergedList.push(normalizedServerItem);
       }
     });
     
@@ -3262,13 +3286,19 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
   };
 
   const candidatePostUrls = [
+    '/api/v1/sliders/slider/',
+    '/api/v1/sliders/sliders/',
     '/api/v1/sliders/herosliders/',
     '/api/v1/sliders/hero-sliders/',
     '/api/v1/sliders/heroslider/',
     '/api/v1/sliders/hero-slider/',
     '/api/v1/sliders/',
+    '/api/sliders/slider/',
+    '/api/sliders/sliders/',
     '/api/sliders/herosliders/',
     '/api/sliders/hero-sliders/',
+    '/api/sliders/heroslider/',
+    '/api/sliders/hero-slider/',
     '/api/sliders/'
   ];
 
@@ -3353,10 +3383,6 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
   const isBase64Img = payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,');
   const isExistingUrlImg = payload.image && typeof payload.image === 'string' && !payload.image.startsWith('data:image/');
 
-  // CRITICAL DRF FIX: Django REST Framework ImageField expects a File upload in multipart forms.
-  // Sending an existing URL string (like /media/sliders/xxx.jpg) in JSON causes DRF ImageField error:
-  // "image: دیتای ارسال شده فایل نیست. encoding type فرم را چک کنید."
-  // So we delete string image URLs from JSON payload so Django updates text, status, and buttons while preserving the image file!
   if (isExistingUrlImg) {
     delete cleanPayload.image;
   }
@@ -3364,26 +3390,46 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
   const current = getLocalSliders();
 
   const updateCandidateUrls = [
+    `/api/v1/sliders/slider/${id}/`,
+    `/api/v1/sliders/sliders/${id}/`,
     `/api/v1/sliders/herosliders/${id}/`,
     `/api/v1/sliders/hero-sliders/${id}/`,
     `/api/v1/sliders/heroslider/${id}/`,
     `/api/v1/sliders/hero-slider/${id}/`,
     `/api/v1/sliders/${id}/`,
+    `/api/sliders/slider/${id}/`,
+    `/api/sliders/sliders/${id}/`,
     `/api/sliders/herosliders/${id}/`,
     `/api/sliders/hero-sliders/${id}/`,
     `/api/sliders/heroslider/${id}/`,
+    `/api/sliders/hero-slider/${id}/`,
     `/api/sliders/${id}/`
   ];
 
   let res: any = { success: false };
 
-  // 1. Try PATCH first with cleanPayload
-  for (const url of updateCandidateUrls) {
-    res = await executeDjangoAxiosRequest(url, 'PATCH', cleanPayload, { token, timeoutMs: 15000 });
-    if (res.success) break;
+  // 1. Direct active status toggle via lightweight PATCH first if is_active is explicitly passed
+  if (cleanPayload.is_active !== undefined) {
+    const activeStatusBool = Boolean(cleanPayload.is_active);
+    for (const url of updateCandidateUrls) {
+      const toggleRes = await executeDjangoAxiosRequest(url, 'PATCH', { is_active: activeStatusBool }, { token, timeoutMs: 10000 });
+      if (toggleRes.success) {
+        res = toggleRes;
+        break;
+      }
+    }
   }
 
-  // 2. If initial PATCH failed and image was base64, retry PATCH without image
+  // 2. Full payload PATCH if not fully satisfied or if updating title/texts
+  for (const url of updateCandidateUrls) {
+    const patchRes = await executeDjangoAxiosRequest(url, 'PATCH', cleanPayload, { token, timeoutMs: 15000 });
+    if (patchRes.success) {
+      res = patchRes;
+      break;
+    }
+  }
+
+  // 3. If PATCH failed and image is base64, retry PATCH without base64 image
   if (!res.success && isBase64Img) {
     const payloadNoImg = { ...cleanPayload };
     delete payloadNoImg.image;
@@ -3393,15 +3439,7 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
     }
   }
 
-  // 3. If PATCH with full payload failed and is_active is present, try PATCH with just is_active (guaranteed toggle)
-  if (!res.success && cleanPayload.is_active !== undefined) {
-    for (const url of updateCandidateUrls) {
-      res = await executeDjangoAxiosRequest(url, 'PATCH', { is_active: Boolean(cleanPayload.is_active) }, { token, timeoutMs: 10000 });
-      if (res.success) break;
-    }
-  }
-
-  // 4. Fallback to PUT if PATCH didn't succeed (never pass string image in PUT JSON)
+  // 4. Fallback to PUT if PATCH didn't succeed
   if (!res.success) {
     const putPayload = { ...cleanPayload };
     delete putPayload.image;
@@ -3441,14 +3479,19 @@ export async function djangoDeleteSlider(id: string | number, config?: DjangoCrm
   saveLocalSliders(updated);
   
   const candidateDeleteUrls = [
+    `/api/v1/sliders/slider/${id}/`,
+    `/api/v1/sliders/sliders/${id}/`,
     `/api/v1/sliders/herosliders/${id}/`,
     `/api/v1/sliders/hero-sliders/${id}/`,
     `/api/v1/sliders/heroslider/${id}/`,
     `/api/v1/sliders/hero-slider/${id}/`,
     `/api/v1/sliders/${id}/`,
+    `/api/sliders/slider/${id}/`,
+    `/api/sliders/sliders/${id}/`,
     `/api/sliders/herosliders/${id}/`,
     `/api/sliders/hero-sliders/${id}/`,
     `/api/sliders/heroslider/${id}/`,
+    `/api/sliders/hero-slider/${id}/`,
     `/api/sliders/${id}/`
   ];
 
