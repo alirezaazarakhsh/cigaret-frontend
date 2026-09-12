@@ -3618,7 +3618,7 @@ export function saveLocalWholesaleBenefits(cards: WholesaleBenefitCard[]): void 
 }
 
 const SITE_VALUE_FEATURE_ENDPOINTS = [
-  // Underscore site_settings & sitevaluefeature (Matches Django Admin app_label & model in Screenshot 2!)
+  // Underscore site_settings & sitevaluefeature (Matches Django Admin app_label site_settings & model sitevaluefeature in Screenshot 2!)
   '/api/v1/site_settings/sitevaluefeature/',
   '/api/v1/site_settings/sitevaluefeatures/',
   '/api/v1/site_settings/site-value-features/',
@@ -3628,55 +3628,42 @@ const SITE_VALUE_FEATURE_ENDPOINTS = [
   '/api/v1/site_settings/features/',
 
   // Hyphenated site-settings
+  '/api/v1/site-settings/sitevaluefeature/',
   '/api/v1/site-settings/site-value-features/',
   '/api/v1/site-settings/sitevaluefeatures/',
-  '/api/v1/site-settings/site-value-feature/',
-  '/api/v1/site-settings/sitevaluefeature/',
   '/api/v1/site-settings/site_value_features/',
-  '/api/v1/site-settings/site_value_feature/',
   '/api/v1/site-settings/value-features/',
-  '/api/v1/site-settings/features/',
 
   // Root /api/v1/ endpoints
-  '/api/v1/site-value-features/',
-  '/api/v1/sitevaluefeatures/',
   '/api/v1/sitevaluefeature/',
+  '/api/v1/sitevaluefeatures/',
+  '/api/v1/site-value-features/',
   '/api/v1/site_value_features/',
-  '/api/v1/site_value_feature/',
   '/api/v1/value-features/',
 
   // /api/ endpoints (without v1)
   '/api/site_settings/sitevaluefeature/',
   '/api/site_settings/sitevaluefeatures/',
-  '/api/site_settings/site-value-features/',
-  '/api/site_settings/site_value_features/',
-  '/api/site-settings/site-value-features/',
-  '/api/site-settings/sitevaluefeatures/',
-  '/api/site-settings/site-value-feature/',
   '/api/site-settings/sitevaluefeature/',
-  '/api/site-settings/value-features/',
-  '/api/site-settings/features/',
-  '/api/site-value-features/',
-  '/api/sitevaluefeatures/',
+  '/api/site-settings/site-value-features/',
   '/api/sitevaluefeature/',
-  '/api/value-features/',
-  '/api/v1/sliders/features/'
+  '/api/sitevaluefeatures/'
 ];
 
 const BULK_VALUE_FEATURE_ENDPOINTS = [
+  '/api/v1/site_settings/sitevaluefeature/bulk_update/',
+  '/api/v1/site_settings/sitevaluefeatures/bulk_update/',
   '/api/v1/site-settings/site-value-features/bulk_update/',
   '/api/v1/site-settings/sitevaluefeatures/bulk_update/',
-  '/api/v1/site-settings/value-features/bulk_update/',
-  '/api/site-settings/site-value-features/bulk_update/',
-  '/api/site-settings/sitevaluefeatures/bulk_update/',
-  '/api/site-settings/value-features/bulk_update/',
-  '/api/v1/site-settings/features/bulk_update/'
+  '/api/site_settings/sitevaluefeature/bulk_update/',
+  '/api/site-settings/site-value-features/bulk_update/'
 ];
 
 export async function djangoFetchWholesaleBenefits(config?: DjangoCrmConfig): Promise<WholesaleBenefitCard[]> {
   try {
+    const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
     for (const endpoint of SITE_VALUE_FEATURE_ENDPOINTS) {
-      const res = await executeDjangoAxiosRequest(endpoint, 'GET');
+      const res = await executeDjangoAxiosRequest(endpoint, 'GET', undefined, { token, timeoutMs: 4000 });
       if (res.success && res.data !== undefined) {
         let rawList: any[] = null;
         if (Array.isArray(res.data)) {
@@ -3691,18 +3678,31 @@ export async function djangoFetchWholesaleBenefits(config?: DjangoCrmConfig): Pr
           rawList = res.data.features;
         }
 
-        if (rawList !== null && Array.isArray(rawList) && rawList.length > 0) {
-          const mapped: WholesaleBenefitCard[] = rawList.slice(0, 4).map((item, idx) => ({
-            id: item.id || idx + 1,
-            title: item.title || '',
-            desc: item.desc || item.description || item.subtitle || '',
-            icon: item.icon || 'shield-tick',
-            badge: item.badge || item.badge_text || '',
-            order: item.order || idx + 1,
-            is_active: item.is_active !== undefined ? Boolean(item.is_active) : true
-          }));
-          saveLocalWholesaleBenefits(mapped);
-          return mapped;
+        if (rawList !== null && Array.isArray(rawList)) {
+          // Deduplicate items by ID
+          const seenIds = new Set<string>();
+          const uniqueItems: any[] = [];
+          for (const item of rawList) {
+            const itemKey = item.id !== undefined && item.id !== null ? String(item.id) : `tmp_${uniqueItems.length}`;
+            if (!seenIds.has(itemKey)) {
+              seenIds.add(itemKey);
+              uniqueItems.push(item);
+            }
+          }
+
+          if (uniqueItems.length > 0) {
+            const mapped: WholesaleBenefitCard[] = uniqueItems.slice(0, 4).map((item, idx) => ({
+              id: item.id || (idx + 1),
+              title: item.title || '',
+              desc: item.desc || item.description || item.subtitle || '',
+              icon: item.icon || 'shield-tick',
+              badge: item.badge || item.badge_text || '',
+              order: idx + 1, // Sequential clean order 1, 2, 3, 4
+              is_active: item.is_active !== undefined ? Boolean(item.is_active) : true
+            }));
+            saveLocalWholesaleBenefits(mapped);
+            return mapped;
+          }
         }
       }
     }
@@ -3710,7 +3710,52 @@ export async function djangoFetchWholesaleBenefits(config?: DjangoCrmConfig): Pr
   return getLocalWholesaleBenefits();
 }
 
-export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[], config?: DjangoCrmConfig): Promise<any> {
+export async function djangoDeleteWholesaleBenefit(id: number | string, workingBaseUrl?: string, config?: DjangoCrmConfig): Promise<boolean> {
+  try {
+    const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+    const candidateUrls: string[] = [];
+
+    if (workingBaseUrl) {
+      const cleanBase = workingBaseUrl.endsWith('/') ? workingBaseUrl : `${workingBaseUrl}/`;
+      candidateUrls.push(`${cleanBase}${id}/`, `${cleanBase}${id}`);
+    }
+
+    SITE_VALUE_FEATURE_ENDPOINTS.forEach(ep => {
+      const cleanEp = ep.endsWith('/') ? ep : `${ep}/`;
+      candidateUrls.push(`${cleanEp}${id}/`, `${cleanEp}${id}`);
+    });
+
+    const uniqueCandidates = Array.from(new Set(candidateUrls));
+
+    for (const url of uniqueCandidates) {
+      const delRes = await executeDjangoAxiosRequest(url, 'DELETE', undefined, { token, timeoutMs: 3500 });
+      if (delRes.success || delRes.status === 204 || delRes.status === 200) {
+        return true;
+      }
+    }
+
+    // Try POST to delete endpoint if DELETE method is not allowed
+    for (const ep of SITE_VALUE_FEATURE_ENDPOINTS.slice(0, 4)) {
+      const cleanEp = ep.endsWith('/') ? ep : `${ep}/`;
+      const postDel = await executeDjangoAxiosRequest(`${cleanEp}${id}/delete/`, 'POST', { id }, { token, timeoutMs: 3500 });
+      if (postDel.success) return true;
+    }
+
+    // Soft delete fallback
+    for (const ep of SITE_VALUE_FEATURE_ENDPOINTS.slice(0, 4)) {
+      const cleanEp = ep.endsWith('/') ? ep : `${ep}/`;
+      const patchSoft = await executeDjangoAxiosRequest(`${cleanEp}${id}/`, 'PATCH', { is_active: false }, { token, timeoutMs: 3500 });
+      if (patchSoft.success) return true;
+    }
+  } catch {}
+  return false;
+}
+
+export async function djangoSaveWholesaleBenefits(
+  cards: WholesaleBenefitCard[],
+  deletedIds: (number | string)[] = [],
+  config?: DjangoCrmConfig
+): Promise<any> {
   const cappedCards = cards.slice(0, 4).map((c, idx) => ({
     ...c,
     order: idx + 1,
@@ -3720,24 +3765,12 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
 
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
 
-  // 1. Try bulk update endpoints first if server supports it (validating real JSON payload)
-  for (const url of BULK_VALUE_FEATURE_ENDPOINTS) {
-    const res1 = await executeDjangoAxiosRequest(url, 'POST', { features: cappedCards }, { token });
-    if (res1.success && res1.data && typeof res1.data === 'object' && (Array.isArray(res1.data) || res1.data.status === 'success' || res1.data.success === true)) {
-      return { success: true, localOnly: false, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.', freshCards: cappedCards };
-    }
-    const res2 = await executeDjangoAxiosRequest(url, 'POST', cappedCards, { token });
-    if (res2.success && res2.data && typeof res2.data === 'object' && (Array.isArray(res2.data) || res2.data.status === 'success' || res2.data.success === true)) {
-      return { success: true, localOnly: false, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.', freshCards: cappedCards };
-    }
-  }
-
-  // 2. Find the FIRST active/working base endpoint for SiteValueFeature
+  // 1. Find working base URL
   let workingUrl: string | null = null;
   let existingList: any[] = [];
 
   for (const baseUrl of SITE_VALUE_FEATURE_ENDPOINTS) {
-    const listRes = await executeDjangoAxiosRequest(baseUrl, 'GET', undefined, { token });
+    const listRes = await executeDjangoAxiosRequest(baseUrl, 'GET', undefined, { token, timeoutMs: 4000 });
     if (listRes.success && listRes.data !== undefined) {
       let rawList: any[] = null;
       if (Array.isArray(listRes.data)) {
@@ -3749,8 +3782,15 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
       if (rawList !== null) {
         workingUrl = baseUrl;
         existingList = rawList;
-        break; // Stop at the first working endpoint
+        break;
       }
+    }
+  }
+
+  // 2. Process explicit deletedIds first
+  if (deletedIds && deletedIds.length > 0) {
+    for (const delId of deletedIds) {
+      await djangoDeleteWholesaleBenefit(delId, workingUrl || undefined, config);
     }
   }
 
@@ -3758,19 +3798,19 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     return {
       success: false,
       localOnly: true,
-      message: 'ذخیره محلی انجام شد. اندپویینت دیتابیس سرور پاسخگو نبود.',
+      message: 'تغییرات به صورت محلی ذخیره گردید. دیتابیس آنلاین سرور پاسخگو نبود.',
       freshCards: cappedCards
     };
   }
 
-  // 3. Two-pass deterministic matching to prevent duplicate creation or cross-matching
+  // 3. Strict ID matching between UI cards and DB rows
   const matchedDbIds = new Set<string>();
   const cardMatchedDbIdMap = new Map<number, any>();
 
-  // Pass 1: Strict ID match
   for (let i = 0; i < cappedCards.length; i++) {
     const card = cappedCards[i];
-    if (card.id !== undefined && card.id !== null) {
+    // Check if card has a real DB ID (not client timestamp)
+    if (card.id !== undefined && card.id !== null && Number(card.id) < 1000000000000) {
       const match = existingList.find((ex: any) => ex.id !== undefined && String(ex.id) === String(card.id) && !matchedDbIds.has(String(ex.id)));
       if (match) {
         matchedDbIds.add(String(match.id));
@@ -3779,22 +3819,16 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     }
   }
 
-  // Pass 2: Position-based match for unmatched cards against remaining unmatched DB items
-  const remainingUnmatchedItems = existingList.filter((ex: any) => ex.id !== undefined && !matchedDbIds.has(String(ex.id)));
-  let unmatchedIdx = 0;
-  for (let i = 0; i < cappedCards.length; i++) {
-    if (!cardMatchedDbIdMap.has(i)) {
-      if (unmatchedIdx < remainingUnmatchedItems.length) {
-        const match = remainingUnmatchedItems[unmatchedIdx++];
-        matchedDbIds.add(String(match.id));
-        cardMatchedDbIdMap.set(i, match.id);
-      }
+  // 4. Delete any excess rows in DB that were removed in UI but not in matchedDbIds
+  for (const ex of existingList) {
+    if (ex.id !== undefined && !matchedDbIds.has(String(ex.id))) {
+      await djangoDeleteWholesaleBenefit(ex.id, workingUrl, config);
     }
   }
 
   let savedCount = 0;
 
-  // 4. Update existing DB rows or POST new ones
+  // 5. Update existing rows or POST new ones
   for (let i = 0; i < cappedCards.length; i++) {
     const card = cappedCards[i];
     const cardOrder = i + 1;
@@ -3815,19 +3849,19 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     const targetDbId = cardMatchedDbIdMap.get(i);
 
     if (targetDbId !== undefined && targetDbId !== null) {
-      // Update existing DB row (PUT / PATCH)
-      const putRes = await executeDjangoAxiosRequest(`${workingUrl}${targetDbId}/`, 'PUT', payload, { token });
+      const cleanWorkingUrl = workingUrl.endsWith('/') ? workingUrl : `${workingUrl}/`;
+      const putRes = await executeDjangoAxiosRequest(`${cleanWorkingUrl}${targetDbId}/`, 'PUT', payload, { token, timeoutMs: 5000 });
       if (putRes.success) {
         savedCount++;
       } else {
-        const patchRes = await executeDjangoAxiosRequest(`${workingUrl}${targetDbId}/`, 'PATCH', payload, { token });
+        const patchRes = await executeDjangoAxiosRequest(`${cleanWorkingUrl}${targetDbId}/`, 'PATCH', payload, { token, timeoutMs: 5000 });
         if (patchRes.success) {
           savedCount++;
         }
       }
     } else {
-      // Create new DB row via POST
-      const postRes = await executeDjangoAxiosRequest(workingUrl, 'POST', payload, { token });
+      // POST new card to working DB endpoint
+      const postRes = await executeDjangoAxiosRequest(workingUrl, 'POST', payload, { token, timeoutMs: 5000 });
       if (postRes.success) {
         savedCount++;
         if (postRes.data?.id !== undefined) {
@@ -3837,60 +3871,32 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     }
   }
 
-  // 5. Delete any excess/deleted rows in DB that were removed from UI cards
-  for (const ex of existingList) {
-    if (ex.id !== undefined && !matchedDbIds.has(String(ex.id))) {
-      const targetId = ex.id;
-      let deletedSuccess = false;
-
-      const deleteCandidates = [
-        `${workingUrl}${targetId}/`,
-        `${workingUrl}${targetId}`,
-        `/api/v1/site_settings/sitevaluefeature/${targetId}/`,
-        `/api/v1/site_settings/sitevaluefeatures/${targetId}/`,
-        `/api/v1/site_settings/site-value-features/${targetId}/`,
-        `/api/v1/site-settings/site-value-features/${targetId}/`,
-        `/api/v1/site-settings/sitevaluefeatures/${targetId}/`,
-        `/api/v1/site-settings/sitevaluefeature/${targetId}/`,
-        `/api/v1/site-value-features/${targetId}/`,
-        `/api/v1/sitevaluefeatures/${targetId}/`,
-        `/api/v1/sitevaluefeature/${targetId}/`,
-        `/api/site_settings/sitevaluefeature/${targetId}/`,
-        `/api/site-settings/site-value-features/${targetId}/`
-      ];
-
-      for (const delUrl of deleteCandidates) {
-        const delRes = await executeDjangoAxiosRequest(delUrl, 'DELETE', undefined, { token });
-        if (delRes.success) {
-          deletedSuccess = true;
-          break;
-        }
-      }
-
-      if (!deletedSuccess) {
-        // Try POST to delete endpoint or soft-delete with is_active: false
-        await executeDjangoAxiosRequest(`${workingUrl}${targetId}/delete/`, 'POST', { id: targetId }, { token }).catch(() => {});
-        await executeDjangoAxiosRequest(`${workingUrl}${targetId}/`, 'PATCH', { is_active: false }, { token }).catch(() => {});
-      }
-    }
-  }
-
-  // 6. Re-fetch updated list to sync local storage and return real DB state and IDs
+  // 6. Re-fetch fresh DB list to guarantee exact sync of IDs and state
   let freshCards: WholesaleBenefitCard[] = cappedCards;
-  const refetch = await executeDjangoAxiosRequest(workingUrl, 'GET', undefined, { token });
+  const refetch = await executeDjangoAxiosRequest(workingUrl, 'GET', undefined, { token, timeoutMs: 5000 });
   if (refetch.success) {
     let rawList: any[] = null;
     if (Array.isArray(refetch.data)) rawList = refetch.data;
     else if (Array.isArray(refetch.data?.results)) rawList = refetch.data.results;
 
     if (rawList && rawList.length > 0) {
-      freshCards = rawList.slice(0, 4).map((item, idx) => ({
+      const seenIds = new Set<string>();
+      const uniqueList: any[] = [];
+      for (const item of rawList) {
+        const itemKey = item.id !== undefined && item.id !== null ? String(item.id) : `tmp_${uniqueList.length}`;
+        if (!seenIds.has(itemKey)) {
+          seenIds.add(itemKey);
+          uniqueList.push(item);
+        }
+      }
+
+      freshCards = uniqueList.slice(0, 4).map((item, idx) => ({
         id: item.id,
         title: item.title || '',
         desc: item.desc || item.description || item.subtitle || '',
         icon: item.icon || 'shield-tick',
         badge: item.badge || item.badge_text || '',
-        order: Number(item.order) || idx + 1,
+        order: idx + 1,
         is_active: item.is_active !== undefined ? Boolean(item.is_active) : true
       }));
       saveLocalWholesaleBenefits(freshCards);

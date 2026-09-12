@@ -105,6 +105,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
 
   // Wholesale Value Feature Cards (Max 4 items)
   const [benefitCards, setBenefitCards] = useState<WholesaleBenefitCard[]>(() => getLocalWholesaleBenefits());
+  const [deletedBenefitCardIds, setDeletedBenefitCardIds] = useState<(number | string)[]>([]);
   const [isSavingBenefits, setIsSavingBenefits] = useState(false);
 
   useEffect(() => {
@@ -157,13 +158,18 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
   };
 
   const handleRemoveCard = (index: number) => {
+    const cardToRemove = benefitCards[index];
+    if (cardToRemove && cardToRemove.id && typeof cardToRemove.id === 'number' && cardToRemove.id < 1000000000000) {
+      setDeletedBenefitCardIds(prev => [...prev, cardToRemove.id!]);
+    }
     setBenefitCards(prev => prev.filter((_, idx) => idx !== index));
   };
 
   const handleSaveWholesaleBenefits = async () => {
     setIsSavingBenefits(true);
     try {
-      const res = await djangoSaveWholesaleBenefits(benefitCards);
+      const res = await djangoSaveWholesaleBenefits(benefitCards, deletedBenefitCardIds);
+      setDeletedBenefitCardIds([]);
       if (res.freshCards && Array.isArray(res.freshCards)) {
         setBenefitCards(res.freshCards);
       }
@@ -811,14 +817,14 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {benefitCards.map((card, idx) => (
-                    <div key={card.id || idx} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 relative group">
+                    <div key={card.id ? `card-${card.id}-${idx}` : `card-idx-${idx}`} className="p-4 bg-slate-50 border border-slate-200 rounded-2xl space-y-3 relative group">
                       <div className="flex items-center justify-between border-b border-slate-200 pb-2">
                         <div className="flex items-center gap-2">
                           <span className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-800 flex items-center justify-center text-[10px] font-mono font-bold">
-                            {card.order || idx + 1}
+                            {idx + 1}
                           </span>
                           <span className="text-xs font-black text-indigo-700">
-                            کارت خدمات شماره {card.order || idx + 1}
+                            کارت خدمات شماره {idx + 1}
                           </span>
                         </div>
 
