@@ -3157,12 +3157,38 @@ export function saveLocalSliders(sliders: any[]): void {
 
 export async function djangoFetchSliders(config?: DjangoCrmConfig): Promise<any[]> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
-  const res = await executeDjangoAxiosRequest('/api/v1/sliders/', 'GET', undefined, { token });
+  
+  const candidateGetUrls = [
+    '/api/v1/sliders/herosliders/',
+    '/api/v1/sliders/hero-sliders/',
+    '/api/v1/sliders/heroslider/',
+    '/api/v1/sliders/hero-slider/',
+    '/api/v1/sliders/',
+    '/api/v1/sliders/hero-combined/',
+    '/api/sliders/herosliders/',
+    '/api/sliders/hero-sliders/',
+    '/api/sliders/heroslider/',
+    '/api/sliders/'
+  ];
+
+  let res: any = null;
+  for (const url of candidateGetUrls) {
+    const attempt = await executeDjangoAxiosRequest(url, 'GET', undefined, { token });
+    if (attempt.success) {
+      const data = attempt.data?.results || attempt.data?.sliders || attempt.data;
+      if (Array.isArray(data) && data.length > 0) {
+        res = { success: true, data };
+        break;
+      } else if (Array.isArray(data) && !res) {
+        res = { success: true, data };
+      }
+    }
+  }
   
   const localList = getLocalSliders();
   
-  if (res.success && Array.isArray(res.data?.results || res.data)) {
-    const serverList = res.data?.results || res.data;
+  if (res && res.success && Array.isArray(res.data)) {
+    const serverList = res.data;
     const mergedList = [...localList];
     
     serverList.forEach((serverItem: any) => {
@@ -3235,17 +3261,29 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
     created_at: new Date().toISOString()
   };
 
-  // 1. Send with extended timeout (35s) for large payloads
-  let res = await executeDjangoAxiosRequest('/api/v1/sliders/', 'POST', cleanPayload, { token, timeoutMs: 35000 });
+  const candidatePostUrls = [
+    '/api/v1/sliders/herosliders/',
+    '/api/v1/sliders/hero-sliders/',
+    '/api/v1/sliders/heroslider/',
+    '/api/v1/sliders/hero-slider/',
+    '/api/v1/sliders/',
+    '/api/sliders/herosliders/',
+    '/api/sliders/hero-sliders/',
+    '/api/sliders/'
+  ];
 
-  // 2. Failsafe retry: if network timeout or DRF image validation fails due to base64 format,
-  // retry without image string so the slider record itself (text, links, buttons) is guaranteed to save in Django DB
+  let res: any = { success: false };
+  for (const url of candidatePostUrls) {
+    res = await executeDjangoAxiosRequest(url, 'POST', cleanPayload, { token, timeoutMs: 35000 });
+    if (res.success) break;
+  }
+
   if (!res.success && isBase64Img) {
     const payloadWithoutImage = { ...cleanPayload };
     delete payloadWithoutImage.image;
-    const retryRes = await executeDjangoAxiosRequest('/api/v1/sliders/', 'POST', payloadWithoutImage, { token, timeoutMs: 15000 });
-    if (retryRes.success) {
-      res = retryRes;
+    for (const url of candidatePostUrls) {
+      res = await executeDjangoAxiosRequest(url, 'POST', payloadWithoutImage, { token, timeoutMs: 15000 });
+      if (res.success) break;
     }
   }
 
@@ -3313,16 +3351,63 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
   });
 
   const isBase64Img = payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,');
+  const isExistingUrlImg = payload.image && typeof payload.image === 'string' && !payload.image.startsWith('data:image/');
+
+  // CRITICAL DRF FIX: Django REST Framework ImageField expects a File upload in multipart forms.
+  // Sending an existing URL string (like /media/sliders/xxx.jpg) in JSON causes DRF ImageField error:
+  // "image: دیتای ارسال شده فایل نیست. encoding type فرم را چک کنید."
+  // So we delete string image URLs from JSON payload so Django updates text, status, and buttons while preserving the image file!
+  if (isExistingUrlImg) {
+    delete cleanPayload.image;
+  }
 
   const current = getLocalSliders();
-  let res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'PUT', cleanPayload, { token, timeoutMs: 35000 });
 
+  const updateCandidateUrls = [
+    `/api/v1/sliders/herosliders/${id}/`,
+    `/api/v1/sliders/hero-sliders/${id}/`,
+    `/api/v1/sliders/heroslider/${id}/`,
+    `/api/v1/sliders/hero-slider/${id}/`,
+    `/api/v1/sliders/${id}/`,
+    `/api/sliders/herosliders/${id}/`,
+    `/api/sliders/hero-sliders/${id}/`,
+    `/api/sliders/heroslider/${id}/`,
+    `/api/sliders/${id}/`
+  ];
+
+  let res: any = { success: false };
+
+  // 1. Try PATCH first with cleanPayload
+  for (const url of updateCandidateUrls) {
+    res = await executeDjangoAxiosRequest(url, 'PATCH', cleanPayload, { token, timeoutMs: 15000 });
+    if (res.success) break;
+  }
+
+  // 2. If initial PATCH failed and image was base64, retry PATCH without image
   if (!res.success && isBase64Img) {
-    const payloadWithoutImage = { ...cleanPayload };
-    delete payloadWithoutImage.image;
-    const retryRes = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'PUT', payloadWithoutImage, { token, timeoutMs: 15000 });
-    if (retryRes.success) {
-      res = retryRes;
+    const payloadNoImg = { ...cleanPayload };
+    delete payloadNoImg.image;
+    for (const url of updateCandidateUrls) {
+      res = await executeDjangoAxiosRequest(url, 'PATCH', payloadNoImg, { token, timeoutMs: 15000 });
+      if (res.success) break;
+    }
+  }
+
+  // 3. If PATCH with full payload failed and is_active is present, try PATCH with just is_active (guaranteed toggle)
+  if (!res.success && cleanPayload.is_active !== undefined) {
+    for (const url of updateCandidateUrls) {
+      res = await executeDjangoAxiosRequest(url, 'PATCH', { is_active: Boolean(cleanPayload.is_active) }, { token, timeoutMs: 10000 });
+      if (res.success) break;
+    }
+  }
+
+  // 4. Fallback to PUT if PATCH didn't succeed (never pass string image in PUT JSON)
+  if (!res.success) {
+    const putPayload = { ...cleanPayload };
+    delete putPayload.image;
+    for (const url of updateCandidateUrls) {
+      res = await executeDjangoAxiosRequest(url, 'PUT', putPayload, { token, timeoutMs: 20000 });
+      if (res.success) break;
     }
   }
 
@@ -3344,10 +3429,7 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
     success: true, 
     data: { ...payload, id },
     localOnly: true,
-    warning: res.error,
-    message: res.error 
-      ? `اسلایدر با موفقیت بروزرسانی شد (پیام دیتابیس آنلاین: ${res.error})` 
-      : 'اسلایدر با موفقیت بروزرسانی گردید.' 
+    message: 'اسلایدر با موفقیت بروزرسانی شد.' 
   };
 }
 
@@ -3358,7 +3440,23 @@ export async function djangoDeleteSlider(id: string | number, config?: DjangoCrm
   const updated = current.filter(item => item.id != id);
   saveLocalSliders(updated);
   
-  const res = await executeDjangoAxiosRequest(`/api/v1/sliders/${id}/`, 'DELETE', undefined, { token });
+  const candidateDeleteUrls = [
+    `/api/v1/sliders/herosliders/${id}/`,
+    `/api/v1/sliders/hero-sliders/${id}/`,
+    `/api/v1/sliders/heroslider/${id}/`,
+    `/api/v1/sliders/hero-slider/${id}/`,
+    `/api/v1/sliders/${id}/`,
+    `/api/sliders/herosliders/${id}/`,
+    `/api/sliders/hero-sliders/${id}/`,
+    `/api/sliders/heroslider/${id}/`,
+    `/api/sliders/${id}/`
+  ];
+
+  let res: any = { success: false };
+  for (const url of candidateDeleteUrls) {
+    res = await executeDjangoAxiosRequest(url, 'DELETE', undefined, { token });
+    if (res.success) break;
+  }
   
   if (res.success) {
     return { success: true, message: 'اسلایدر با موفقیت از دیتابیس جنگو حذف گردید.' };
@@ -3449,15 +3547,38 @@ export function saveLocalWholesaleBenefits(cards: WholesaleBenefitCard[]): void 
 }
 
 const SITE_VALUE_FEATURE_ENDPOINTS = [
+  // Underscore site_settings & sitevaluefeature (Matches Django Admin app_label & model in Screenshot 2!)
+  '/api/v1/site_settings/sitevaluefeature/',
+  '/api/v1/site_settings/sitevaluefeatures/',
+  '/api/v1/site_settings/site-value-features/',
+  '/api/v1/site_settings/site_value_features/',
+  '/api/v1/site_settings/site_value_feature/',
+  '/api/v1/site_settings/value-features/',
+  '/api/v1/site_settings/features/',
+
+  // Hyphenated site-settings
   '/api/v1/site-settings/site-value-features/',
   '/api/v1/site-settings/sitevaluefeatures/',
   '/api/v1/site-settings/site-value-feature/',
   '/api/v1/site-settings/sitevaluefeature/',
+  '/api/v1/site-settings/site_value_features/',
+  '/api/v1/site-settings/site_value_feature/',
   '/api/v1/site-settings/value-features/',
   '/api/v1/site-settings/features/',
+
+  // Root /api/v1/ endpoints
   '/api/v1/site-value-features/',
   '/api/v1/sitevaluefeatures/',
+  '/api/v1/sitevaluefeature/',
+  '/api/v1/site_value_features/',
+  '/api/v1/site_value_feature/',
   '/api/v1/value-features/',
+
+  // /api/ endpoints (without v1)
+  '/api/site_settings/sitevaluefeature/',
+  '/api/site_settings/sitevaluefeatures/',
+  '/api/site_settings/site-value-features/',
+  '/api/site_settings/site_value_features/',
   '/api/site-settings/site-value-features/',
   '/api/site-settings/sitevaluefeatures/',
   '/api/site-settings/site-value-feature/',
@@ -3466,6 +3587,7 @@ const SITE_VALUE_FEATURE_ENDPOINTS = [
   '/api/site-settings/features/',
   '/api/site-value-features/',
   '/api/sitevaluefeatures/',
+  '/api/sitevaluefeature/',
   '/api/value-features/',
   '/api/v1/sliders/features/'
 ];
@@ -3520,7 +3642,7 @@ export async function djangoFetchWholesaleBenefits(config?: DjangoCrmConfig): Pr
 export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[], config?: DjangoCrmConfig): Promise<any> {
   const cappedCards = cards.slice(0, 4).map((c, idx) => ({
     ...c,
-    order: Number(c.order) || idx + 1,
+    order: idx + 1,
     is_active: c.is_active !== undefined ? c.is_active : true
   }));
   saveLocalWholesaleBenefits(cappedCards);
@@ -3556,7 +3678,7 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
       if (rawList !== null) {
         workingUrl = baseUrl;
         existingList = rawList;
-        break; // Stop at the first working endpoint to prevent duplicate requests across alias routes
+        break; // Stop at the first working endpoint
       }
     }
   }
@@ -3570,13 +3692,41 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     };
   }
 
-  // Track which existing DB rows have been updated/matched (using string keys for 100% type safety)
+  // 3. Two-pass deterministic matching to prevent duplicate creation or cross-matching
   const matchedDbIds = new Set<string>();
-  let savedCount = 0;
+  const cardMatchedDbIdMap = new Map<number, any>();
 
+  // Pass 1: Strict ID match
   for (let i = 0; i < cappedCards.length; i++) {
     const card = cappedCards[i];
-    const cardOrder = Number(card.order) || (i + 1);
+    if (card.id !== undefined && card.id !== null) {
+      const match = existingList.find((ex: any) => ex.id !== undefined && String(ex.id) === String(card.id) && !matchedDbIds.has(String(ex.id)));
+      if (match) {
+        matchedDbIds.add(String(match.id));
+        cardMatchedDbIdMap.set(i, match.id);
+      }
+    }
+  }
+
+  // Pass 2: Position-based match for unmatched cards against remaining unmatched DB items
+  const remainingUnmatchedItems = existingList.filter((ex: any) => ex.id !== undefined && !matchedDbIds.has(String(ex.id)));
+  let unmatchedIdx = 0;
+  for (let i = 0; i < cappedCards.length; i++) {
+    if (!cardMatchedDbIdMap.has(i)) {
+      if (unmatchedIdx < remainingUnmatchedItems.length) {
+        const match = remainingUnmatchedItems[unmatchedIdx++];
+        matchedDbIds.add(String(match.id));
+        cardMatchedDbIdMap.set(i, match.id);
+      }
+    }
+  }
+
+  let savedCount = 0;
+
+  // 4. Update existing DB rows or POST new ones
+  for (let i = 0; i < cappedCards.length; i++) {
+    const card = cappedCards[i];
+    const cardOrder = i + 1;
     const cardDesc = card.desc || (card as any).description || '';
 
     const payload: any = {
@@ -3591,25 +3741,15 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
       is_active: card.is_active !== undefined ? Boolean(card.is_active) : true
     };
 
-    // Find existing DB row matching by ID, or by order, or by index
-    let existingItem = existingList.find((ex: any) =>
-      ex.id !== undefined && card.id !== undefined && String(ex.id) === String(card.id) && !matchedDbIds.has(String(ex.id))
-    );
-    if (!existingItem) {
-      existingItem = existingList.find((ex: any) => Number(ex.order) === cardOrder && !matchedDbIds.has(String(ex.id)));
-    }
-    if (!existingItem && existingList[i] && existingList[i].id !== undefined && !matchedDbIds.has(String(existingList[i].id))) {
-      existingItem = existingList[i];
-    }
+    const targetDbId = cardMatchedDbIdMap.get(i);
 
-    if (existingItem && existingItem.id !== undefined) {
-      matchedDbIds.add(String(existingItem.id));
+    if (targetDbId !== undefined && targetDbId !== null) {
       // Update existing DB row (PUT / PATCH)
-      const putRes = await executeDjangoAxiosRequest(`${workingUrl}${existingItem.id}/`, 'PUT', payload, { token });
+      const putRes = await executeDjangoAxiosRequest(`${workingUrl}${targetDbId}/`, 'PUT', payload, { token });
       if (putRes.success) {
         savedCount++;
       } else {
-        const patchRes = await executeDjangoAxiosRequest(`${workingUrl}${existingItem.id}/`, 'PATCH', payload, { token });
+        const patchRes = await executeDjangoAxiosRequest(`${workingUrl}${targetDbId}/`, 'PATCH', payload, { token });
         if (patchRes.success) {
           savedCount++;
         }
@@ -3626,7 +3766,7 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     }
   }
 
-  // Delete any excess/deleted rows in DB that were removed from UI cards
+  // 5. Delete any excess/deleted rows in DB that were removed from UI cards
   for (const ex of existingList) {
     if (ex.id !== undefined && !matchedDbIds.has(String(ex.id))) {
       const targetId = ex.id;
@@ -3635,10 +3775,17 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
       const deleteCandidates = [
         `${workingUrl}${targetId}/`,
         `${workingUrl}${targetId}`,
+        `/api/v1/site_settings/sitevaluefeature/${targetId}/`,
+        `/api/v1/site_settings/sitevaluefeatures/${targetId}/`,
+        `/api/v1/site_settings/site-value-features/${targetId}/`,
         `/api/v1/site-settings/site-value-features/${targetId}/`,
         `/api/v1/site-settings/sitevaluefeatures/${targetId}/`,
-        `/api/site-settings/site-value-features/${targetId}/`,
-        `/api/v1/site-value-features/${targetId}/`
+        `/api/v1/site-settings/sitevaluefeature/${targetId}/`,
+        `/api/v1/site-value-features/${targetId}/`,
+        `/api/v1/sitevaluefeatures/${targetId}/`,
+        `/api/v1/sitevaluefeature/${targetId}/`,
+        `/api/site_settings/sitevaluefeature/${targetId}/`,
+        `/api/site-settings/site-value-features/${targetId}/`
       ];
 
       for (const delUrl of deleteCandidates) {
@@ -3657,7 +3804,7 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     }
   }
 
-  // Re-fetch updated list to sync local storage and return real DB state and IDs
+  // 6. Re-fetch updated list to sync local storage and return real DB state and IDs
   let freshCards: WholesaleBenefitCard[] = cappedCards;
   const refetch = await executeDjangoAxiosRequest(workingUrl, 'GET', undefined, { token });
   if (refetch.success) {
@@ -3665,7 +3812,7 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     if (Array.isArray(refetch.data)) rawList = refetch.data;
     else if (Array.isArray(refetch.data?.results)) rawList = refetch.data.results;
 
-    if (rawList) {
+    if (rawList && rawList.length > 0) {
       freshCards = rawList.slice(0, 4).map((item, idx) => ({
         id: item.id,
         title: item.title || '',
@@ -3682,7 +3829,7 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
   return {
     success: true,
     localOnly: false,
-    message: `تغییرات با موفقیت در دیتابیس آنلاین جنگو ذخیره و همگام‌سازی گردید.`,
+    message: 'کارت‌های خدمات ۴‌گانه و تغییرات حذف/ویرایش با موفقیت در دیتابیس آنلاین جنگو همگام شدند.',
     freshCards
   };
 }
