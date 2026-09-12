@@ -163,10 +163,17 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
     setIsSavingBenefits(true);
     try {
       const res = await djangoSaveWholesaleBenefits(benefitCards);
-      setBannerNotice({
-        message: res.message || 'کارت‌های خدمات ۴گانه با موفقیت ذخیره گردیدند.',
-        type: 'success'
-      });
+      if (res.success && !res.localOnly) {
+        setBannerNotice({
+          message: res.message || 'کارت‌های خدمات ۴گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.',
+          type: 'success'
+        });
+      } else {
+        setBannerNotice({
+          message: res.message || 'کارت‌های خدمات به صورت محلی ذخیره شدند (عدم برقراری ارتباط با دیتابیس سرور).',
+          type: 'error'
+        });
+      }
     } catch (err) {
       setBannerNotice({
         message: 'خطا در ذخیره‌سازی کارت‌های خدمات.',
@@ -174,7 +181,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       });
     } finally {
       setIsSavingBenefits(false);
-      setTimeout(() => setBannerNotice(null), 4000);
+      setTimeout(() => setBannerNotice(null), 5000);
     }
   };
 

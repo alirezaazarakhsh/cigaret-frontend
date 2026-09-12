@@ -3437,17 +3437,41 @@ export function saveLocalWholesaleBenefits(cards: WholesaleBenefitCard[]): void 
   } catch {}
 }
 
+const SITE_VALUE_FEATURE_ENDPOINTS = [
+  '/api/v1/site-settings/site-value-features/',
+  '/api/v1/site-settings/sitevaluefeatures/',
+  '/api/v1/site-settings/site-value-feature/',
+  '/api/v1/site-settings/sitevaluefeature/',
+  '/api/v1/site-settings/value-features/',
+  '/api/v1/site-settings/features/',
+  '/api/v1/site-value-features/',
+  '/api/v1/sitevaluefeatures/',
+  '/api/v1/value-features/',
+  '/api/site-settings/site-value-features/',
+  '/api/site-settings/sitevaluefeatures/',
+  '/api/site-settings/site-value-feature/',
+  '/api/site-settings/sitevaluefeature/',
+  '/api/site-settings/value-features/',
+  '/api/site-settings/features/',
+  '/api/site-value-features/',
+  '/api/sitevaluefeatures/',
+  '/api/value-features/',
+  '/api/v1/sliders/features/'
+];
+
+const BULK_VALUE_FEATURE_ENDPOINTS = [
+  '/api/v1/site-settings/site-value-features/bulk_update/',
+  '/api/v1/site-settings/sitevaluefeatures/bulk_update/',
+  '/api/v1/site-settings/value-features/bulk_update/',
+  '/api/site-settings/site-value-features/bulk_update/',
+  '/api/site-settings/sitevaluefeatures/bulk_update/',
+  '/api/site-settings/value-features/bulk_update/',
+  '/api/v1/site-settings/features/bulk_update/'
+];
+
 export async function djangoFetchWholesaleBenefits(config?: DjangoCrmConfig): Promise<WholesaleBenefitCard[]> {
   try {
-    const endpoints = [
-      '/api/site-settings/value-features/',
-      '/api/v1/site-settings/features/',
-      '/api/site-settings/public-config/',
-      '/api/v1/sliders/features/',
-      '/site-settings/features/',
-      '/sliders/features/'
-    ];
-    for (const endpoint of endpoints) {
+    for (const endpoint of SITE_VALUE_FEATURE_ENDPOINTS) {
       const res = await executeDjangoAxiosRequest(endpoint, 'GET');
       if (res.success && res.data !== undefined) {
         let rawList: any[] = null;
@@ -3457,15 +3481,17 @@ export async function djangoFetchWholesaleBenefits(config?: DjangoCrmConfig): Pr
           rawList = res.data.results;
         } else if (Array.isArray(res.data.value_features)) {
           rawList = res.data.value_features;
+        } else if (Array.isArray(res.data.site_value_features)) {
+          rawList = res.data.site_value_features;
         } else if (Array.isArray(res.data.features)) {
           rawList = res.data.features;
         }
 
-        if (rawList !== null && Array.isArray(rawList)) {
+        if (rawList !== null && Array.isArray(rawList) && rawList.length > 0) {
           const mapped: WholesaleBenefitCard[] = rawList.slice(0, 4).map((item, idx) => ({
             id: item.id || idx + 1,
             title: item.title || '',
-            desc: item.desc || item.description || '',
+            desc: item.desc || item.description || item.subtitle || '',
             icon: item.icon || 'shield-tick',
             badge: item.badge || item.badge_text || '',
             order: item.order || idx + 1,
@@ -3491,27 +3517,21 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
 
   // 1. Try bulk update endpoints first
-  const bulkEndpoints = [
-    { url: '/api/site-settings/value-features/bulk_update/', method: 'POST', payload: { features: cappedCards } },
-    { url: '/api/site-settings/value-features/bulk_update/', method: 'POST', payload: cappedCards },
-    { url: '/api/v1/site-settings/features/bulk_update/', method: 'POST', payload: { features: cappedCards } }
-  ];
-
-  for (const ep of bulkEndpoints) {
-    const res = await executeDjangoAxiosRequest(ep.url, ep.method as 'POST', ep.payload, { token });
-    if (res.success) {
-      return { success: true, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.' };
+  for (const url of BULK_VALUE_FEATURE_ENDPOINTS) {
+    const res1 = await executeDjangoAxiosRequest(url, 'POST', { features: cappedCards }, { token });
+    if (res1.success) {
+      return { success: true, localOnly: false, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.' };
+    }
+    const res2 = await executeDjangoAxiosRequest(url, 'POST', cappedCards, { token });
+    if (res2.success) {
+      return { success: true, localOnly: false, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.' };
     }
   }
 
   // 2. Fallback: Standard DRF ViewSet loop (POST new cards / PUT existing cards)
-  const baseEndpoints = [
-    '/api/site-settings/value-features/',
-    '/api/v1/site-settings/features/',
-    '/api/v1/sliders/features/'
-  ];
+  let lastServerErr = '';
 
-  for (const baseUrl of baseEndpoints) {
+  for (const baseUrl of SITE_VALUE_FEATURE_ENDPOINTS) {
     const listRes = await executeDjangoAxiosRequest(baseUrl, 'GET', undefined, { token });
     if (listRes.success) {
       let existingList: any[] = [];
@@ -3529,6 +3549,7 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
           title: card.title,
           desc: cardDesc,
           description: cardDesc,
+          subtitle: cardDesc,
           icon: card.icon || 'shield-tick',
           badge: card.badge || '',
           badge_text: card.badge || '',
@@ -3545,13 +3566,19 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
             savedCount++;
           } else {
             const patchRes = await executeDjangoAxiosRequest(`${baseUrl}${existingItem.id}/`, 'PATCH', payload, { token });
-            if (patchRes.success) savedCount++;
+            if (patchRes.success) {
+              savedCount++;
+            } else {
+              lastServerErr = putRes.error || patchRes.error || '';
+            }
           }
         } else {
           // Create new DB row via POST
           const postRes = await executeDjangoAxiosRequest(baseUrl, 'POST', payload, { token });
           if (postRes.success) {
             savedCount++;
+          } else {
+            lastServerErr = postRes.error || '';
           }
         }
       }
@@ -3568,7 +3595,7 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
             const mapped: WholesaleBenefitCard[] = rawList.slice(0, 4).map((item, idx) => ({
               id: item.id,
               title: item.title || '',
-              desc: item.desc || item.description || '',
+              desc: item.desc || item.description || item.subtitle || '',
               icon: item.icon || 'shield-tick',
               badge: item.badge || item.badge_text || '',
               order: item.order || idx + 1,
@@ -3577,15 +3604,20 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
             saveLocalWholesaleBenefits(mapped);
           }
         }
-        return { success: true, message: `تعداد ${savedCount} کارت با موفقیت در دیتابیس آنلاین جنگو ذخیره گردید.` };
+        return { success: true, localOnly: false, message: `تعداد ${savedCount} کارت با موفقیت در دیتابیس آنلاین جنگو ذخیره گردید.` };
       }
+    } else {
+      if (listRes.error) lastServerErr = listRes.error;
     }
   }
 
   return {
-    success: true,
+    success: false,
     localOnly: true,
-    message: 'کارت‌های خدمات به صورت محلی ذخیره شدند (آماده برای همگام‌سازی با دیتابیس سرور).'
+    warning: lastServerErr,
+    message: lastServerErr
+      ? `ذخیره محلی انجام شد، اما ارتباط با دیتابیس سرور برقرار نشد (${lastServerErr}).`
+      : 'ذخیره محلی انجام شد. انډپویینت دیتابیس سرور پاسخگو نبود.'
   };
 }
 
