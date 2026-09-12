@@ -3509,7 +3509,7 @@ export async function djangoFetchWholesaleBenefits(config?: DjangoCrmConfig): Pr
 export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[], config?: DjangoCrmConfig): Promise<any> {
   const cappedCards = cards.slice(0, 4).map((c, idx) => ({
     ...c,
-    order: c.order || idx + 1,
+    order: Number(c.order) || idx + 1,
     is_active: c.is_active !== undefined ? c.is_active : true
   }));
   saveLocalWholesaleBenefits(cappedCards);
@@ -3528,96 +3528,122 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     }
   }
 
-  // 2. Fallback: Standard DRF ViewSet loop (POST new cards / PUT existing cards)
-  let lastServerErr = '';
+  // 2. Find the FIRST active/working base endpoint for SiteValueFeature
+  let workingUrl: string | null = null;
+  let existingList: any[] = [];
 
   for (const baseUrl of SITE_VALUE_FEATURE_ENDPOINTS) {
     const listRes = await executeDjangoAxiosRequest(baseUrl, 'GET', undefined, { token });
-    if (listRes.success) {
-      let existingList: any[] = [];
+    if (listRes.success && listRes.data !== undefined) {
+      let rawList: any[] = null;
       if (Array.isArray(listRes.data)) {
-        existingList = listRes.data;
+        rawList = listRes.data;
       } else if (Array.isArray(listRes.data?.results)) {
-        existingList = listRes.data.results;
+        rawList = listRes.data.results;
       }
 
-      let savedCount = 0;
-      for (let i = 0; i < cappedCards.length; i++) {
-        const card = cappedCards[i];
-        const cardDesc = card.desc || (card as any).description || '';
-        const payload: any = {
-          title: card.title,
-          desc: cardDesc,
-          description: cardDesc,
-          subtitle: cardDesc,
-          icon: card.icon || 'shield-tick',
-          badge: card.badge || '',
-          badge_text: card.badge || '',
-          order: card.order || (i + 1),
-          is_active: card.is_active !== undefined ? Boolean(card.is_active) : true
-        };
-
-        const existingItem = existingList[i] || existingList.find((ex: any) => ex.id === card.id && typeof card.id === 'number' && card.id < 1000000);
-
-        if (existingItem && existingItem.id) {
-          // Update existing DB row
-          const putRes = await executeDjangoAxiosRequest(`${baseUrl}${existingItem.id}/`, 'PUT', payload, { token });
-          if (putRes.success) {
-            savedCount++;
-          } else {
-            const patchRes = await executeDjangoAxiosRequest(`${baseUrl}${existingItem.id}/`, 'PATCH', payload, { token });
-            if (patchRes.success) {
-              savedCount++;
-            } else {
-              lastServerErr = putRes.error || patchRes.error || '';
-            }
-          }
-        } else {
-          // Create new DB row via POST
-          const postRes = await executeDjangoAxiosRequest(baseUrl, 'POST', payload, { token });
-          if (postRes.success) {
-            savedCount++;
-          } else {
-            lastServerErr = postRes.error || '';
-          }
-        }
+      if (rawList !== null) {
+        workingUrl = baseUrl;
+        existingList = rawList;
+        break; // Stop at the first working endpoint to prevent duplicate requests across alias routes
       }
+    }
+  }
 
-      if (savedCount > 0) {
-        // Re-fetch updated list to sync local storage with real DB IDs
-        const refetch = await executeDjangoAxiosRequest(baseUrl, 'GET', undefined, { token });
-        if (refetch.success) {
-          let rawList: any[] = null;
-          if (Array.isArray(refetch.data)) rawList = refetch.data;
-          else if (Array.isArray(refetch.data?.results)) rawList = refetch.data.results;
+  if (!workingUrl) {
+    return {
+      success: false,
+      localOnly: true,
+      message: 'ذخیره محلی انجام شد. انډپویینت دیتابیس سرور پاسخگو نبود.'
+    };
+  }
 
-          if (rawList) {
-            const mapped: WholesaleBenefitCard[] = rawList.slice(0, 4).map((item, idx) => ({
-              id: item.id,
-              title: item.title || '',
-              desc: item.desc || item.description || item.subtitle || '',
-              icon: item.icon || 'shield-tick',
-              badge: item.badge || item.badge_text || '',
-              order: item.order || idx + 1,
-              is_active: item.is_active !== undefined ? Boolean(item.is_active) : true
-            }));
-            saveLocalWholesaleBenefits(mapped);
-          }
+  // Track which existing DB rows have been updated/matched
+  const matchedDbIds = new Set<string | number>();
+  let savedCount = 0;
+
+  for (let i = 0; i < cappedCards.length; i++) {
+    const card = cappedCards[i];
+    const cardOrder = Number(card.order) || (i + 1);
+    const cardDesc = card.desc || (card as any).description || '';
+
+    const payload: any = {
+      title: card.title,
+      desc: cardDesc,
+      description: cardDesc,
+      subtitle: cardDesc,
+      icon: card.icon || 'shield-tick',
+      badge: card.badge || '',
+      badge_text: card.badge || '',
+      order: cardOrder,
+      is_active: card.is_active !== undefined ? Boolean(card.is_active) : true
+    };
+
+    // Find existing DB row matching by ID, or by order, or by index
+    let existingItem = existingList.find((ex: any) => ex.id === card.id && typeof card.id === 'number' && card.id < 1000000 && !matchedDbIds.has(ex.id));
+    if (!existingItem) {
+      existingItem = existingList.find((ex: any) => Number(ex.order) === cardOrder && !matchedDbIds.has(ex.id));
+    }
+    if (!existingItem && existingList[i] && !matchedDbIds.has(existingList[i].id)) {
+      existingItem = existingList[i];
+    }
+
+    if (existingItem && existingItem.id) {
+      matchedDbIds.add(existingItem.id);
+      // Update existing DB row (PUT / PATCH)
+      const putRes = await executeDjangoAxiosRequest(`${workingUrl}${existingItem.id}/`, 'PUT', payload, { token });
+      if (putRes.success) {
+        savedCount++;
+      } else {
+        const patchRes = await executeDjangoAxiosRequest(`${workingUrl}${existingItem.id}/`, 'PATCH', payload, { token });
+        if (patchRes.success) {
+          savedCount++;
         }
-        return { success: true, localOnly: false, message: `تعداد ${savedCount} کارت با موفقیت در دیتابیس آنلاین جنگو ذخیره گردید.` };
       }
     } else {
-      if (listRes.error) lastServerErr = listRes.error;
+      // Create new DB row via POST
+      const postRes = await executeDjangoAxiosRequest(workingUrl, 'POST', payload, { token });
+      if (postRes.success) {
+        savedCount++;
+        if (postRes.data?.id) {
+          matchedDbIds.add(postRes.data.id);
+        }
+      }
+    }
+  }
+
+  // Delete any excess/duplicate rows in DB that were not matched to the current cards
+  for (const ex of existingList) {
+    if (ex.id && !matchedDbIds.has(ex.id)) {
+      await executeDjangoAxiosRequest(`${workingUrl}${ex.id}/`, 'DELETE', undefined, { token }).catch(() => {});
+    }
+  }
+
+  // Re-fetch updated list to sync local storage with real DB state and IDs
+  const refetch = await executeDjangoAxiosRequest(workingUrl, 'GET', undefined, { token });
+  if (refetch.success) {
+    let rawList: any[] = null;
+    if (Array.isArray(refetch.data)) rawList = refetch.data;
+    else if (Array.isArray(refetch.data?.results)) rawList = refetch.data.results;
+
+    if (rawList) {
+      const mapped: WholesaleBenefitCard[] = rawList.slice(0, 4).map((item, idx) => ({
+        id: item.id,
+        title: item.title || '',
+        desc: item.desc || item.description || item.subtitle || '',
+        icon: item.icon || 'shield-tick',
+        badge: item.badge || item.badge_text || '',
+        order: Number(item.order) || idx + 1,
+        is_active: item.is_active !== undefined ? Boolean(item.is_active) : true
+      }));
+      saveLocalWholesaleBenefits(mapped);
     }
   }
 
   return {
-    success: false,
-    localOnly: true,
-    warning: lastServerErr,
-    message: lastServerErr
-      ? `ذخیره محلی انجام شد، اما ارتباط با دیتابیس سرور برقرار نشد (${lastServerErr}).`
-      : 'ذخیره محلی انجام شد. انډپویینت دیتابیس سرور پاسخگو نبود.'
+    success: true,
+    localOnly: false,
+    message: `تعداد ${savedCount} کارت با موفقیت در دیتابیس آنلاین جنگو بروزرسانی گردید.`
   };
 }
 
