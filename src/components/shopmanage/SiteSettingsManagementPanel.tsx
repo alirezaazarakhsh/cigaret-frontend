@@ -322,13 +322,21 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
       };
 
       const result = await djangoUpdateFooterSettings(payload);
+      if (result.data) {
+        if (Array.isArray(result.data.socials) && result.data.socials.length > 0) {
+          setFooterSocials(result.data.socials);
+        }
+        if (Array.isArray(result.data.columns) && result.data.columns.length > 0) {
+          setFooterColumns(result.data.columns);
+        }
+      }
       setBannerNotice({
         message: result.message,
         type: result.success ? 'success' : 'error'
       });
       // Dispatch custom event so Footer component updates live across the app
       if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('sevin-footer-updated', { detail: payload }));
+        window.dispatchEvent(new CustomEvent('sevin-footer-updated', { detail: result.data || payload }));
       }
     } catch (err: any) {
       setBannerNotice({
