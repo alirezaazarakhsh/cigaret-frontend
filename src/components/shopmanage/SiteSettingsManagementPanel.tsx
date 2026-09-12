@@ -1235,7 +1235,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                 <span>۲. اطلاعات تماس و آدرس انبار مرکزی</span>
               </h3>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     تلفن تماس سفارشات
@@ -1262,20 +1262,20 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                   />
                 </div>
 
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     ساعات کاری انبار
                   </label>
-                  <input
-                    type="text"
+                  <textarea
+                    rows={3}
                     value={footerWorkingHours}
                     onChange={(e) => setFooterWorkingHours(e.target.value)}
                     placeholder="شنبه تا چهارشنبه: ۸:۰۰ الی ۱۸:۰۰ | پنجشنبه‌ها: ۸:۰۰ الی ۱۴:۰۰"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-y leading-relaxed"
                   />
                 </div>
 
-                <div className="md:col-span-3">
+                <div className="md:col-span-2">
                   <label className="block text-xs font-bold text-slate-700 mb-1">
                     آدرس کامل انبار مرکزی
                   </label>
@@ -1284,7 +1284,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                     value={footerAddressText}
                     onChange={(e) => setFooterAddressText(e.target.value)}
                     placeholder="تهران، منطقه ۵، جنت‌آباد شمالی، انبار مرکزی آذرخش"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-y leading-relaxed"
                   />
                 </div>
               </div>
@@ -1303,11 +1303,11 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                     کد یا اسکریپت ای‌نماد (eNamad Code)
                   </label>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={footerEnamadCode}
                     onChange={(e) => setFooterEnamadCode(e.target.value)}
                     placeholder="کد یا لینک ای‌نماد..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-500 resize-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-500 resize-y"
                   />
                 </div>
 
@@ -1316,11 +1316,11 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                     کد یا اسکریپت ساماندهی
                   </label>
                   <textarea
-                    rows={2}
+                    rows={3}
                     value={footerSamandehiCode}
                     onChange={(e) => setFooterSamandehiCode(e.target.value)}
                     placeholder="کد یا لینک ساماندهی..."
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-500 resize-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-indigo-500 resize-y"
                   />
                 </div>
 
