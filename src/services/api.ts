@@ -49,7 +49,8 @@ import {
   BannerSlide,
   NotificationItem,
   BlogPost,
-  BlogCategoryItem
+  BlogCategoryItem,
+  WarehouseMessage
 } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
@@ -62,7 +63,8 @@ import {
   djangoTogglePosStaffLock,
   djangoPosLoginApi,
   djangoPosLogoutApi,
-  djangoFetchSliders
+  djangoFetchSliders,
+  djangoFetchFooterSettings
 } from './djangoApi';
 
 // Local storage keys for resilient offline-first fallback
@@ -1253,22 +1255,7 @@ export const footerApi = {
    * اندپوینت واقعی: GET /api/v1/footer-settings/settings/ (FooterConfigAPIView)
    */
   async getSettings(): Promise<FooterSettingsData | null> {
-    const response = await httpClient.get<any>('/footer-settings/settings/');
-    if (response.success && response.data) {
-      const parsed = parseUnifiedOrFooterData(response.data);
-      if (parsed) {
-        try {
-          localStorage.setItem(STORAGE_KEYS.FOOTER_SETTINGS, JSON.stringify(parsed));
-        } catch {}
-        return parsed;
-      }
-    }
-
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.FOOTER_SETTINGS);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return null;
+    return djangoFetchFooterSettings();
   },
 
   /**
@@ -1353,6 +1340,40 @@ export const contactApi = {
       success: false,
       message: response.error || 'خطا در ثبت پیام.',
     };
+  },
+
+  /**
+   * Retrieves list of contact messages (Admin)
+   * GET /api/v1/warehouse_contact/messages/list/
+   */
+  async getMessages(unreadOnly = false): Promise<WarehouseMessage[]> {
+    const url = `/warehouse_contact/messages/list/${unreadOnly ? '?unread=true' : ''}`;
+    const response = await httpClient.get<{ status: string; count: number; results?: WarehouseMessage[]; data?: WarehouseMessage[] }>(url);
+    if (response.success && response.data) {
+      return response.data.results || response.data.data || [];
+    }
+    return [];
+  },
+
+  /**
+   * Retrieves detail of a single contact message (Admin)
+   * GET /api/v1/warehouse_contact/messages/{id}/
+   */
+  async getMessageDetail(id: number | string): Promise<WarehouseMessage | null> {
+    const response = await httpClient.get<{ status: string; data?: WarehouseMessage; results?: WarehouseMessage }>(`/warehouse_contact/messages/${id}/`);
+    if (response.success && response.data) {
+      return response.data.data || (response.data as any) || null;
+    }
+    return null;
+  },
+
+  /**
+   * Deletes a contact message (Admin)
+   * DELETE /api/v1/warehouse_contact/messages/{id}/
+   */
+  async deleteMessage(id: number | string): Promise<boolean> {
+    const response = await httpClient.delete<any>(`/warehouse_contact/messages/${id}/`);
+    return response.success;
   }
 };
 

@@ -196,6 +196,20 @@ class FooterSetting(models.Model):
     is_active = models.BooleanField(default=True, verbose_name=_("وضعیت نمایش فوتر"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("آخرین به‌روزرسانی"))
 
+    @property
+    def columns(self):
+        """
+        دریافت تمامی ستون‌های لینک فعال فوتر به همراه لینک‌های زیرمجموعه آن‌ها
+        """
+        return FooterColumn.objects.filter(is_active=True)
+
+    @property
+    def socials(self):
+        """
+        دریافت تمامی شبکه‌های اجتماعی فعال فوتر
+        """
+        return FooterSocial.objects.filter(is_active=True)
+
     class Meta:
         verbose_name = _("تنظیمات اصلی فوتر")
         verbose_name_plural = _("تنظیمات اصلی فوتر")

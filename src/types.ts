@@ -711,3 +711,14 @@ export interface BannerSlide {
   statLabel?: string;
 }
 
+export interface WarehouseMessage {
+  id: number;
+  full_name: string;
+  phone: string;
+  subject: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+

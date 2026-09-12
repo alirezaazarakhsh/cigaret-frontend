@@ -675,13 +675,27 @@ export default function App() {
       refreshDataFromApi();
     };
 
+    const handleFooterUpdated = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent.detail) {
+        setFooterSettings(customEvent.detail);
+        setDjangoConfig(prev => ({
+          ...prev,
+          companyName: customEvent.detail.company_title || prev.companyName,
+          transportPhoneCompany: customEvent.detail.phone_number || prev.transportPhoneCompany,
+        }));
+      }
+    };
+
     window.addEventListener('sevin-cache-cleared', handleCacheCleared);
     window.addEventListener('sevin-api-url-changed', handleCacheCleared);
+    window.addEventListener('sevin-footer-updated', handleFooterUpdated);
 
     return () => {
       isMounted = false;
       window.removeEventListener('sevin-cache-cleared', handleCacheCleared);
       window.removeEventListener('sevin-api-url-changed', handleCacheCleared);
+      window.removeEventListener('sevin-footer-updated', handleFooterUpdated);
     };
   }, []);
 

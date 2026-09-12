@@ -71,7 +71,8 @@ import {
   ChevronDown,
   Server,
   Headphones,
-  Bell
+  Bell,
+  MessageSquare
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { 
@@ -97,6 +98,7 @@ import { MonthlySalesComparisonView } from './MonthlySalesComparisonView';
 import { QuickAddProductModal } from './QuickAddProductModal';
 import { CustomerAppConnectModal } from './CustomerAppConnectModal';
 import { TicketManagementPanel } from './TicketManagementPanel';
+import { WarehouseContactMessagesPanel } from './WarehouseContactMessagesPanel';
 import { NotificationManagementPanel } from './NotificationManagementPanel';
 import { BlogManagementModal } from './BlogManagementModal';
 import { BlogManagementPanel } from './BlogManagementPanel';
@@ -360,7 +362,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     return currentStaff.permissions?.includes(perm) ?? false;
   };
 
-  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'user_management' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog' | 'site_settings';
+  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'user_management' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog' | 'site_settings' | 'warehouse_messages';
 
   const getSubTabFromPath = (pathname: string): PosSubTab => {
     const p = pathname.toLowerCase();
@@ -378,6 +380,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     if (p.includes('/shopmanage/tickets') || p.includes('/shopmanage/ticket')) return 'tickets';
     if (p.includes('/shopmanage/sms') || p.includes('/shopmanage/payamak')) return 'sms_management';
     if (p.includes('/shopmanage/notifications') || p.includes('/shopmanage/notif')) return 'notifications';
+    if (p.includes('/shopmanage/messages') || p.includes('/shopmanage/warehouse-messages')) return 'warehouse_messages';
     if (p.includes('/shopmanage/sandogh') || p.includes('/shopmanage/pos')) return 'pos';
     return 'pos';
   };
@@ -399,6 +402,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       analytics: '/shopmanage/analytics',
       blog: '/shopmanage/blog',
       site_settings: '/shopmanage/site-settings',
+      warehouse_messages: '/shopmanage/messages',
     };
     return map[tab] || '/shopmanage/sandogh';
   };
@@ -435,6 +439,29 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [showToolsDropdown, setShowToolsDropdown] = useState(false);
   const [showBlogManagementModal, setShowBlogManagementModal] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
+
+  // Warehouse message count state & effect
+  const [unreadMessageCount, setUnreadMessageCount] = useState<number>(0);
+
+  const fetchUnreadMessagesCount = async () => {
+    try {
+      const messagesList = await api.contact.getMessages();
+      if (messagesList && Array.isArray(messagesList)) {
+        const count = messagesList.filter(m => !m.is_read).length;
+        setUnreadMessageCount(count);
+      }
+    } catch (err) {
+      console.error('Error fetching unread message count:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchUnreadMessagesCount();
+      const intervalId = setInterval(fetchUnreadMessagesCount, 30000);
+      return () => clearInterval(intervalId);
+    }
+  }, [isAuthenticated]);
 
   // Close tools dropdown on click outside
   useEffect(() => {
@@ -2240,6 +2267,24 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           {/* Quick Tools & Actions (Moved to Visual Left Side) */}
           <div className="flex items-center justify-start gap-2 relative shrink-0 order-last md:order-last w-full md:w-auto">
             
+            {/* Warehouse Contact Messages Inbox Button with Reactive Badge */}
+            <button
+              onClick={() => setActiveSubTab('warehouse_messages')}
+              className={`relative p-2 rounded-xl border transition-all active:scale-95 flex items-center justify-center ${
+                activeSubTab === 'warehouse_messages'
+                  ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
+                  : 'bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border-slate-200'
+              }`}
+              title="صندوق پیام‌های تماس سایت"
+            >
+              <MessageSquare className="w-4.5 h-4.5" />
+              {unreadMessageCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[9px] font-black w-4.5 h-4.5 rounded-full flex items-center justify-center border-2 border-white animate-pulse">
+                  {unreadMessageCount}
+                </span>
+              )}
+            </button>
+
             {/* Tools & Settings Dropdown */}
             <div className="relative" ref={toolsRef}>
               <button
@@ -2260,6 +2305,26 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     setShowToolsDropdown(false);
                   }}
                 >
+                  {/* Messages Inbox Shortcut in Dropdown */}
+                  <button
+                    onClick={() => { setActiveSubTab('warehouse_messages'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right"
+                  >
+                    <div className="flex items-center gap-2">
+                      <MessageSquare className="w-4 h-4 text-indigo-600" />
+                      <span>صندوق پیام‌های تماس سایت</span>
+                    </div>
+                    {unreadMessageCount > 0 ? (
+                      <span className="text-[9px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black animate-pulse">
+                        {unreadMessageCount} جدید
+                      </span>
+                    ) : (
+                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                    )}
+                  </button>
+
+                  <div className="my-1 border-t border-slate-100"></div>
+
                   <button
                     onClick={() => { setShowSessionSecurityModal(true); setShowToolsDropdown(false); setIsMenuOpen(false); }}
                     className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right"
@@ -4433,6 +4498,18 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               ) : (
                 <TicketManagementPanel crmConfig={crmConfig} />
               )}
+            </motion.div>
+          )}
+
+          {/* TAB: Warehouse Contact Messages Inbox */}
+          {activeSubTab === 'warehouse_messages' && (
+            <motion.div
+              key="warehouse-messages-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <WarehouseContactMessagesPanel onRefreshBadge={fetchUnreadMessagesCount} />
             </motion.div>
           )}
 
