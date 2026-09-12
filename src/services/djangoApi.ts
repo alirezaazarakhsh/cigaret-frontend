@@ -3758,12 +3758,16 @@ function isRealDbId(id: any): boolean {
 }
 
 const FOOTER_SOCIAL_ENDPOINTS = [
+  '/api/v1/footer_settings/footersocial/',
+  '/api/v1/footer_settings/footer-social/',
+  '/api/v1/footer_settings/socials/',
+  '/api/v1/footer-settings/footersocial/',
   '/api/v1/footer-settings/socials/',
   '/api/v1/footer-settings/social-links/',
   '/api/v1/footer-settings/footer-socials/',
+  '/api/v1/footer/footersocial/',
   '/api/v1/footer/socials/',
   '/api/v1/footer/social-links/',
-  '/api/v1/footer_settings/footersocial/',
   '/api/v1/site_settings/footersocial/'
 ];
 
@@ -3781,11 +3785,12 @@ export async function djangoSyncFooterSocials(socials: FooterSocialItem[], confi
         let rawList: any[] = null;
         if (Array.isArray(listRes.data)) rawList = listRes.data;
         else if (Array.isArray(listRes.data?.results)) rawList = listRes.data.results;
+        else if (Array.isArray(listRes.data?.data)) rawList = listRes.data.data;
 
         if (rawList !== null) {
           workingUrl = url;
           existingList = rawList;
-          break;
+          if (rawList.length > 0) break; // Found endpoint with actual existing database items
         }
       }
     }
@@ -3799,17 +3804,29 @@ export async function djangoSyncFooterSocials(socials: FooterSocialItem[], confi
     for (let i = 0; i < socials.length; i++) {
       const soc = socials[i];
       const isActiveBool = soc.is_active !== undefined ? Boolean(soc.is_active) : true;
-      const socPayload: any = {
+      
+      let formattedUrl = (soc.url || '').trim();
+      if (formattedUrl && !formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://') && !formattedUrl.startsWith('/')) {
+        formattedUrl = `https://${formattedUrl}`;
+      }
+
+      // 1. Strict model payload matching Django FooterSocial model fields
+      const cleanModelPayload: any = {
         platform: (soc.platform || 'telegram').toLowerCase().trim(),
-        title: soc.title || '',
-        name: soc.title || soc.platform || '',
-        url: soc.url || '',
-        link: soc.url || '',
+        title: soc.title || soc.platform || '',
+        url: formattedUrl,
         icon: soc.icon || 'Send',
+        order: Number(soc.order) || (i + 1),
+        is_active: isActiveBool
+      };
+
+      // 2. Rich payload with DRF alias variations
+      const socPayload: any = {
+        ...cleanModelPayload,
+        name: soc.title || soc.platform || '',
+        link: formattedUrl,
         icon_name: soc.icon || 'Send',
-        order: soc.order || (i + 1),
-        priority: soc.order || (i + 1),
-        is_active: isActiveBool,
+        priority: Number(soc.order) || (i + 1),
         active: isActiveBool,
         enabled: isActiveBool,
         status: isActiveBool ? 'active' : 'inactive'
@@ -3821,17 +3838,28 @@ export async function djangoSyncFooterSocials(socials: FooterSocialItem[], confi
 
       if (existingMatch && existingMatch.id) {
         socPayload.id = existingMatch.id;
+        cleanModelPayload.id = existingMatch.id;
         const itemUrl = `${cleanWorkingUrl}${existingMatch.id}/`;
-        await executeDjangoAxiosRequest(itemUrl, 'PATCH', socPayload, { token, timeoutMs: 4000 });
-        await executeDjangoAxiosRequest(itemUrl, 'PUT', socPayload, { token, timeoutMs: 4000 });
-        await executeDjangoAxiosRequest(itemUrl, 'PATCH', { is_active: isActiveBool, active: isActiveBool }, { token, timeoutMs: 3000 });
+        let patchRes = await executeDjangoAxiosRequest(itemUrl, 'PATCH', cleanModelPayload, { token, timeoutMs: 4000 });
+        if (!patchRes.success) {
+          await executeDjangoAxiosRequest(itemUrl, 'PATCH', socPayload, { token, timeoutMs: 4000 });
+        }
+        await executeDjangoAxiosRequest(itemUrl, 'PUT', cleanModelPayload, { token, timeoutMs: 4000 });
       } else {
         delete socPayload.id;
-        const postRes = await executeDjangoAxiosRequest(cleanWorkingUrl, 'POST', socPayload, { token, timeoutMs: 4000 });
+        delete cleanModelPayload.id;
+        let postRes = await executeDjangoAxiosRequest(cleanWorkingUrl, 'POST', cleanModelPayload, { token, timeoutMs: 4000 });
+        if (!postRes.success) {
+          postRes = await executeDjangoAxiosRequest(cleanWorkingUrl, 'POST', socPayload, { token, timeoutMs: 4000 });
+        }
+
         if (!postRes.success) {
           for (const ep of FOOTER_SOCIAL_ENDPOINTS) {
             const cleanEp = ep.endsWith('/') ? ep : `${ep}/`;
-            const altPost = await executeDjangoAxiosRequest(cleanEp, 'POST', socPayload, { token, timeoutMs: 3000 });
+            let altPost = await executeDjangoAxiosRequest(cleanEp, 'POST', cleanModelPayload, { token, timeoutMs: 3000 });
+            if (!altPost.success) {
+              altPost = await executeDjangoAxiosRequest(cleanEp, 'POST', socPayload, { token, timeoutMs: 3000 });
+            }
             if (altPost.success) break;
           }
         }
@@ -4025,22 +4053,26 @@ export async function djangoSaveWholesaleBenefits(
 }
 
 const FOOTER_COLUMN_ENDPOINTS = [
+  '/api/v1/footer_settings/footercolumn/',
+  '/api/v1/footer_settings/footer-column/',
+  '/api/v1/footer_settings/columns/',
+  '/api/v1/footer-settings/footercolumn/',
   '/api/v1/footer-settings/columns/',
   '/api/v1/footer-settings/footer-columns/',
-  '/api/v1/footer-settings/footercolumn/',
+  '/api/v1/footer/footercolumn/',
   '/api/v1/footer/columns/',
-  '/api/v1/footer/footer-columns/',
-  '/api/v1/footer_settings/footercolumn/',
   '/api/v1/site_settings/footercolumn/'
 ];
 
 const FOOTER_LINK_ENDPOINTS = [
+  '/api/v1/footer_settings/footerlink/',
+  '/api/v1/footer_settings/footer-link/',
+  '/api/v1/footer_settings/links/',
+  '/api/v1/footer-settings/footerlink/',
   '/api/v1/footer-settings/links/',
   '/api/v1/footer-settings/footer-links/',
-  '/api/v1/footer-settings/footerlink/',
+  '/api/v1/footer/footerlink/',
   '/api/v1/footer/links/',
-  '/api/v1/footer/footer-links/',
-  '/api/v1/footer_settings/footerlink/',
   '/api/v1/site_settings/footerlink/'
 ];
 
@@ -4058,11 +4090,12 @@ export async function djangoSyncFooterColumns(columns: FooterColumnItem[], confi
         let rawList: any[] = null;
         if (Array.isArray(listRes.data)) rawList = listRes.data;
         else if (Array.isArray(listRes.data?.results)) rawList = listRes.data.results;
+        else if (Array.isArray(listRes.data?.data)) rawList = listRes.data.data;
 
         if (rawList !== null) {
           workingColUrl = url;
           existingCols = rawList;
-          break;
+          if (rawList.length > 0) break;
         }
       }
     }
