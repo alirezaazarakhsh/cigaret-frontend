@@ -3155,31 +3155,46 @@ export function saveLocalSliders(sliders: any[]): void {
   } catch {}
 }
 
+let cachedSliderEndpoint: string | null = null;
+
+function getWorkingSliderEndpoint(): string | null {
+  if (cachedSliderEndpoint) return cachedSliderEndpoint;
+  try {
+    return localStorage.getItem('cached_working_slider_endpoint');
+  } catch {
+    return null;
+  }
+}
+
+function setWorkingSliderEndpoint(endpoint: string): void {
+  const base = endpoint.replace(/\/[0-9a-fA-F-]+\/?.*$/, '/').replace(/\?.*$/, '');
+  cachedSliderEndpoint = base;
+  try {
+    localStorage.setItem('cached_working_slider_endpoint', base);
+  } catch {}
+}
+
 export async function djangoFetchSliders(config?: DjangoCrmConfig): Promise<any[]> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
   
-  const candidateGetUrls = [
-    '/api/v1/sliders/slider/',
+  const known = getWorkingSliderEndpoint();
+  const rawCandidateGetUrls = [
+    '/api/v1/sliders/sliders/?include_inactive=true&all=1',
+    '/api/v1/sliders/slider/?include_inactive=true&all=1',
     '/api/v1/sliders/sliders/',
-    '/api/v1/sliders/herosliders/',
-    '/api/v1/sliders/hero-sliders/',
-    '/api/v1/sliders/heroslider/',
-    '/api/v1/sliders/hero-slider/',
-    '/api/v1/sliders/',
-    '/api/v1/sliders/hero-combined/',
-    '/api/sliders/slider/',
-    '/api/sliders/sliders/',
-    '/api/sliders/herosliders/',
-    '/api/sliders/hero-sliders/',
-    '/api/sliders/heroslider/',
-    '/api/sliders/hero-slider/',
-    '/api/sliders/'
+    '/api/v1/sliders/slider/',
+    '/api/v1/sliders/'
   ];
+
+  const candidateGetUrls = known 
+    ? Array.from(new Set([`${known}?include_inactive=true&all=1`, known, ...rawCandidateGetUrls]))
+    : rawCandidateGetUrls;
 
   let res: any = null;
   for (const url of candidateGetUrls) {
-    const attempt = await executeDjangoAxiosRequest(url, 'GET', undefined, { token });
+    const attempt = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 3500 });
     if (attempt.success) {
+      setWorkingSliderEndpoint(url);
       const data = attempt.data?.results || attempt.data?.sliders || attempt.data;
       if (Array.isArray(data) && data.length > 0) {
         res = { success: true, data };
@@ -3291,18 +3306,7 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
   const candidatePostUrls = [
     '/api/v1/sliders/slider/',
     '/api/v1/sliders/sliders/',
-    '/api/v1/sliders/herosliders/',
-    '/api/v1/sliders/hero-sliders/',
-    '/api/v1/sliders/heroslider/',
-    '/api/v1/sliders/hero-slider/',
-    '/api/v1/sliders/',
-    '/api/sliders/slider/',
-    '/api/sliders/sliders/',
-    '/api/sliders/herosliders/',
-    '/api/sliders/hero-sliders/',
-    '/api/sliders/heroslider/',
-    '/api/sliders/hero-slider/',
-    '/api/sliders/'
+    '/api/v1/sliders/'
   ];
 
   let res: any = { success: false };
@@ -3392,33 +3396,62 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
 
   const current = getLocalSliders();
 
-  const updateCandidateUrls = [
-    `/api/v1/sliders/slider/${id}/`,
+  const knownBase = getWorkingSliderEndpoint();
+  const rawUpdateCandidateUrls = [
     `/api/v1/sliders/sliders/${id}/`,
-    `/api/v1/sliders/herosliders/${id}/`,
-    `/api/v1/sliders/hero-sliders/${id}/`,
-    `/api/v1/sliders/heroslider/${id}/`,
-    `/api/v1/sliders/hero-slider/${id}/`,
-    `/api/v1/sliders/${id}/`,
-    `/api/sliders/slider/${id}/`,
-    `/api/sliders/sliders/${id}/`,
-    `/api/sliders/herosliders/${id}/`,
-    `/api/sliders/hero-sliders/${id}/`,
-    `/api/sliders/heroslider/${id}/`,
-    `/api/sliders/hero-slider/${id}/`,
-    `/api/sliders/${id}/`
+    `/api/v1/sliders/slider/${id}/`,
+    `/api/v1/sliders/sliders/${id}/?include_inactive=true`,
+    `/api/v1/sliders/slider/${id}/?include_inactive=true`,
+    `/api/v1/sliders/${id}/`
   ];
+
+  const updateCandidateUrls = knownBase
+    ? Array.from(new Set([
+        `${knownBase.endsWith('/') ? knownBase : knownBase + '/'}${id}/`,
+        `${knownBase.endsWith('/') ? knownBase : knownBase + '/'}${id}/?include_inactive=true`,
+        ...rawUpdateCandidateUrls
+      ]))
+    : rawUpdateCandidateUrls;
 
   let res: any = { success: false };
 
-  // 1. Direct active status toggle via lightweight PATCH first if is_active is explicitly passed
+  // 1. Direct active status toggle via lightweight PATCH & action endpoints first if is_active is explicitly passed
   if (cleanPayload.is_active !== undefined) {
     const activeStatusBool = Boolean(cleanPayload.is_active);
+    const togglePayload = {
+      is_active: activeStatusBool,
+      active: activeStatusBool,
+      status: activeStatusBool ? 'active' : 'inactive'
+    };
+
+    // Try standard PATCH on candidate URLs
     for (const url of updateCandidateUrls) {
-      const toggleRes = await executeDjangoAxiosRequest(url, 'PATCH', { is_active: activeStatusBool }, { token, timeoutMs: 10000 });
+      const toggleRes = await executeDjangoAxiosRequest(url, 'PATCH', togglePayload, { token, timeoutMs: 3500 });
       if (toggleRes.success) {
         res = toggleRes;
+        setWorkingSliderEndpoint(url);
         break;
+      }
+    }
+
+    // Try custom action routes if detail PATCH failed (e.g. if DRF detail view returns 404 for inactive queryset)
+    if (!res.success) {
+      const actionUrls = [
+        `/api/v1/sliders/slider/${id}/activate/`,
+        `/api/v1/sliders/slider/${id}/toggle/`,
+        `/api/v1/sliders/slider/${id}/toggle-active/`,
+        `/api/v1/sliders/slider/${id}/enable/`,
+        `/api/sliders/slider/${id}/activate/`,
+        `/api/sliders/slider/${id}/toggle/`,
+        `/api/sliders/slider/${id}/toggle-active/`
+      ];
+      for (const actionUrl of actionUrls) {
+        const actRes = await executeDjangoAxiosRequest(actionUrl, 'POST', togglePayload, { token, timeoutMs: 3500 });
+        if (actRes.success) {
+          res = actRes;
+          setWorkingSliderEndpoint(actionUrl);
+          break;
+        }
       }
     }
   }
@@ -3426,9 +3459,10 @@ export async function djangoUpdateSlider(id: string | number, payload: any, conf
   // 2. Full payload PATCH if not already updated by lightweight toggle
   if (!res.success) {
     for (const url of updateCandidateUrls) {
-      const patchRes = await executeDjangoAxiosRequest(url, 'PATCH', cleanPayload, { token, timeoutMs: 15000 });
+      const patchRes = await executeDjangoAxiosRequest(url, 'PATCH', cleanPayload, { token, timeoutMs: 5000 });
       if (patchRes.success) {
         res = patchRes;
+        setWorkingSliderEndpoint(url);
         break;
       }
     }
@@ -3484,20 +3518,9 @@ export async function djangoDeleteSlider(id: string | number, config?: DjangoCrm
   saveLocalSliders(updated);
   
   const candidateDeleteUrls = [
-    `/api/v1/sliders/slider/${id}/`,
     `/api/v1/sliders/sliders/${id}/`,
-    `/api/v1/sliders/herosliders/${id}/`,
-    `/api/v1/sliders/hero-sliders/${id}/`,
-    `/api/v1/sliders/heroslider/${id}/`,
-    `/api/v1/sliders/hero-slider/${id}/`,
-    `/api/v1/sliders/${id}/`,
-    `/api/sliders/slider/${id}/`,
-    `/api/sliders/sliders/${id}/`,
-    `/api/sliders/herosliders/${id}/`,
-    `/api/sliders/hero-sliders/${id}/`,
-    `/api/sliders/heroslider/${id}/`,
-    `/api/sliders/hero-slider/${id}/`,
-    `/api/sliders/${id}/`
+    `/api/v1/sliders/slider/${id}/`,
+    `/api/v1/sliders/${id}/`
   ];
 
   let res: any = { success: false };
