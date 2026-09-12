@@ -3195,11 +3195,14 @@ export async function djangoFetchSliders(config?: DjangoCrmConfig): Promise<any[
   if (res && res.success && Array.isArray(res.data)) {
     const serverList = res.data;
     const serverIdSet = new Set(serverList.map((item: any) => String(item.id)));
+    const serverTitleSet = new Set(serverList.map((item: any) => String(item.title || '').trim()));
 
     // Mark items inactive in local state if missing from server response (Django filters out is_active=False)
     const updatedLocal = localList.map(localItem => {
-      const isNumericServerId = localItem.id && !String(localItem.id).startsWith('slider_');
-      if (isNumericServerId && !serverIdSet.has(String(localItem.id))) {
+      const matchesServerById = localItem.id && serverIdSet.has(String(localItem.id));
+      const matchesServerByTitle = localItem.title && serverTitleSet.has(String(localItem.title).trim());
+      
+      if (!matchesServerById && !matchesServerByTitle) {
         return {
           ...localItem,
           is_active: false
@@ -3213,7 +3216,7 @@ export async function djangoFetchSliders(config?: DjangoCrmConfig): Promise<any[
     serverList.forEach((serverItem: any) => {
       const existingIdx = mergedList.findIndex(localItem => 
         String(localItem.id) === String(serverItem.id) ||
-        (String(localItem.id).startsWith('slider_') && localItem.title === serverItem.title)
+        (localItem.title && serverItem.title && String(localItem.title).trim() === String(serverItem.title).trim())
       );
       
       const normalizedServerItem = {

@@ -29,9 +29,11 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
   onNavigateTab,
   onSelectCategory,
 }) => {
+  const activeSlides = (slides || []).filter(s => (s as any).is_active !== false);
+
   // CRITICAL USER DIRECTIVE:
-  // If the backend database has no slider records (empty array), the slider component MUST be completely hidden!
-  if (!slides || slides.length === 0) {
+  // If the backend database has no active slider records (empty array), the slider component MUST be completely hidden!
+  if (!activeSlides || activeSlides.length === 0) {
     return null;
   }
 
@@ -39,19 +41,19 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
   const [isAutoPlay, setIsAutoPlay] = useState(true);
 
   useEffect(() => {
-    if (!isAutoPlay || slides.length <= 1) return;
+    if (!isAutoPlay || activeSlides.length <= 1) return;
     const timer = setInterval(() => {
-      setCurrentSlideIndex(prev => (prev + 1) % slides.length);
+      setCurrentSlideIndex(prev => (prev + 1) % activeSlides.length);
     }, 6000);
     return () => clearInterval(timer);
-  }, [isAutoPlay, slides.length]);
+  }, [isAutoPlay, activeSlides.length]);
 
   const handleNext = () => {
-    setCurrentSlideIndex((prev) => (prev + 1) % slides.length);
+    setCurrentSlideIndex((prev) => (prev + 1) % activeSlides.length);
   };
 
   const handlePrev = () => {
-    setCurrentSlideIndex((prev) => (prev - 1 + slides.length) % slides.length);
+    setCurrentSlideIndex((prev) => (prev - 1 + activeSlides.length) % activeSlides.length);
   };
 
   const handleAction = (action: string) => {
@@ -91,7 +93,7 @@ export const HeroBannerSlider: React.FC<HeroBannerSliderProps> = ({
     }
   };
 
-  const activeSlide = slides[currentSlideIndex % slides.length];
+  const activeSlide = activeSlides[currentSlideIndex % activeSlides.length];
   if (!activeSlide) return null;
 
   return (

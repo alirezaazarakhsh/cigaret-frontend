@@ -36,6 +36,7 @@ import {
   djangoUpdateSlider, 
   djangoDeleteSlider, 
   getLocalSliders,
+  saveLocalSliders,
   djangoFetchWholesaleBenefits,
   djangoSaveWholesaleBenefits,
   getLocalWholesaleBenefits,
@@ -391,7 +392,21 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
     const newStatus = !slider.is_active;
     try {
       await djangoUpdateSlider(slider.id, { ...slider, is_active: newStatus });
+      
       setSliders(prev => prev.map(s => s.id === slider.id ? { ...s, is_active: newStatus } : s));
+      
+      // Update local storage so cache is updated immediately
+      const currentLocal = getLocalSliders();
+      const updatedLocal = currentLocal.map(item => 
+        String(item.id) === String(slider.id) || (item.title && slider.title && String(item.title).trim() === String(slider.title).trim())
+          ? { ...item, is_active: newStatus } 
+          : item
+      );
+      saveLocalSliders(updatedLocal);
+
+      // Notify App.tsx and main website to refresh slider state immediately
+      window.dispatchEvent(new CustomEvent('sevin-cache-cleared', { detail: { timestamp: Date.now() } }));
+
       setBannerNotice({ 
         message: `وضعیت بنر «${slider.title || 'بدون عنوان'}» به ${newStatus ? 'فعال' : 'غیرفعال'} تغییر یافت.`, 
         type: 'success' 

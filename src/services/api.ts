@@ -61,7 +61,8 @@ import {
   djangoDeletePosStaff,
   djangoTogglePosStaffLock,
   djangoPosLoginApi,
-  djangoPosLogoutApi
+  djangoPosLogoutApi,
+  djangoFetchSliders
 } from './djangoApi';
 
 // Local storage keys for resilient offline-first fallback
@@ -1400,67 +1401,38 @@ export function clearAllClientCaches(): void {
 export const slidersApi = {
   /**
    * Fetches active sliders from backend.
-   * If there are no sliders in the backend database (e.g. empty results or count: 0),
-   * returns an empty array [] so the UI can hide the slider completely.
+   * If there are no active sliders in the backend database, returns an empty array [] so the UI can hide the slider completely.
    */
   async getAll(): Promise<BannerSlide[]> {
     try {
-      const endpoints = [
-        '/sliders/',
-        '/sliders/hero-combined/',
-        '/api/sliders/',
-        '/api/v1/sliders/',
-        '/api/v1/sliders/hero-combined/',
-      ];
-
-      for (const endpoint of endpoints) {
-        const response = await httpClient.get<any>(endpoint);
-        if (response.success && response.data) {
-          let rawList: any[] = [];
-          if (Array.isArray(response.data)) {
-            rawList = response.data;
-          } else if (Array.isArray(response.data.results)) {
-            rawList = response.data.results;
-          } else if (Array.isArray(response.data.sliders)) {
-            rawList = response.data.sliders;
+      const fetched = await djangoFetchSliders();
+      if (Array.isArray(fetched)) {
+        const activeOnly = fetched.filter((item: any) => item && item.is_active !== false);
+        const base = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
+        return activeOnly.map((item: any, idx: number) => {
+          let imageUrl = item.image || item.imageUrl || item.image_url || '';
+          if (imageUrl && imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
+            imageUrl = `${base}${imageUrl}`;
           }
 
-          if (rawList && rawList.length > 0) {
-            const base = getApiBaseUrl().replace(/\/api\/v1\/?$/, '');
-            return rawList
-              .filter((item: any) => item && item.is_active !== false)
-              .map((item: any, idx: number) => {
-                let imageUrl = item.image || item.image_url || '';
-                if (imageUrl && imageUrl.startsWith('/') && !imageUrl.startsWith('//')) {
-                  imageUrl = `${base}${imageUrl}`;
-                }
-
-                return {
-                  id: String(item.id || `slide-${idx}`),
-                  title: item.title || '',
-                  highlight: item.highlight_text || item.highlight || '',
-                  badge: item.badge_text || item.badge || '',
-                  description: item.description || '',
-                  features: Array.isArray(item.features) ? item.features : [],
-                  primaryBtnText: item.primary_btn_text || '',
-                  primaryBtnAction: item.primary_btn_link || item.resolved_primary_link || item.primary_btn_action || 'catalog',
-                  secondaryBtnText: item.secondary_btn_text || '',
-                  secondaryBtnAction: item.secondary_btn_link || item.resolved_secondary_link || item.secondary_btn_action || 'invoice',
-                  imageUrl: imageUrl || '',
-                  tagline: item.tagline || '',
-                  statNumber: item.stat_number || '',
-                  statLabel: item.stat_label || '',
-                };
-              });
-          } else if (
-            response.data &&
-            (response.data.count === 0 ||
-              (Array.isArray(response.data.results) && response.data.results.length === 0) ||
-              (Array.isArray(response.data.sliders) && response.data.sliders.length === 0))
-          ) {
-            return [];
-          }
-        }
+          return {
+            id: String(item.id || `slide-${idx}`),
+            title: item.title || '',
+            highlight: item.highlight_text || item.highlight || '',
+            badge: item.badge_text || item.badge || '',
+            description: item.description || '',
+            features: Array.isArray(item.features) ? item.features : [],
+            primaryBtnText: item.primary_btn_text || '',
+            primaryBtnAction: item.primary_btn_link || item.resolved_primary_link || item.primary_btn_action || 'catalog',
+            secondaryBtnText: item.secondary_btn_text || '',
+            secondaryBtnAction: item.secondary_btn_link || item.resolved_secondary_link || item.secondary_btn_action || 'invoice',
+            imageUrl: imageUrl || '',
+            tagline: item.tagline || '',
+            statNumber: item.stat_number || '',
+            statLabel: item.stat_label || '',
+            is_active: true,
+          };
+        });
       }
       return [];
     } catch {

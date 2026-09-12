@@ -645,15 +645,13 @@ export default function App() {
       // Fall back to local sliders if backend database is empty or API fails, to ensure live preview is always visible and functional!
       api.sliders.getAll().then((loadedSliders) => {
         if (isMounted) {
-          if (loadedSliders && loadedSliders.length > 0) {
+          if (Array.isArray(loadedSliders)) {
             setSliders(loadedSliders);
-          } else {
-            setSliders(getLocalSliders() || []);
           }
         }
       }).catch(() => {
         if (isMounted) {
-          setSliders(getLocalSliders() || []);
+          setSliders([]);
         }
       });
 
