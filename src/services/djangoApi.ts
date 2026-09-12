@@ -3751,6 +3751,105 @@ export async function djangoDeleteWholesaleBenefit(id: number | string, workingB
   return false;
 }
 
+const FOOTER_SOCIAL_ENDPOINTS = [
+  '/api/v1/footer-settings/socials/',
+  '/api/v1/footer-settings/social-links/',
+  '/api/v1/footer-settings/footer-socials/',
+  '/api/v1/footer/socials/',
+  '/api/v1/footer/social-links/',
+  '/api/v1/footer_settings/footersocial/',
+  '/api/v1/site_settings/footersocial/'
+];
+
+export async function djangoSyncFooterSocials(socials: FooterSocialItem[], config?: DjangoCrmConfig): Promise<boolean> {
+  if (!Array.isArray(socials)) return false;
+  try {
+    const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+
+    let workingUrl: string | null = null;
+    let existingList: any[] = [];
+
+    for (const url of FOOTER_SOCIAL_ENDPOINTS) {
+      const listRes = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 3000 });
+      if (listRes.success && listRes.data !== undefined) {
+        let rawList: any[] = null;
+        if (Array.isArray(listRes.data)) rawList = listRes.data;
+        else if (Array.isArray(listRes.data?.results)) rawList = listRes.data.results;
+
+        if (rawList !== null) {
+          workingUrl = url;
+          existingList = rawList;
+          break;
+        }
+      }
+    }
+
+    if (!workingUrl) {
+      workingUrl = FOOTER_SOCIAL_ENDPOINTS[0];
+    }
+
+    const cleanWorkingUrl = workingUrl.endsWith('/') ? workingUrl : `${workingUrl}/`;
+
+    for (let i = 0; i < socials.length; i++) {
+      const soc = socials[i];
+      const isActiveBool = soc.is_active !== undefined ? Boolean(soc.is_active) : true;
+      const socPayload = {
+        platform: soc.platform || 'telegram',
+        title: soc.title || '',
+        name: soc.title || soc.platform || '',
+        url: soc.url || '',
+        link: soc.url || '',
+        icon: soc.icon || '',
+        icon_name: soc.icon || '',
+        order: soc.order || (i + 1),
+        priority: soc.order || (i + 1),
+        is_active: isActiveBool,
+        active: isActiveBool,
+        enabled: isActiveBool,
+        status: isActiveBool ? 'active' : 'inactive'
+      };
+
+      let existingMatch = existingList.find((ex: any) => String(ex.id) === String(soc.id));
+      if (!existingMatch && existingList[i] && existingList[i].id) {
+        existingMatch = existingList[i];
+      }
+
+      if (existingMatch && existingMatch.id) {
+        const itemUrl = `${cleanWorkingUrl}${existingMatch.id}/`;
+        // Send PATCH first for DRF partial update
+        await executeDjangoAxiosRequest(itemUrl, 'PATCH', socPayload, { token, timeoutMs: 4000 });
+        // Also send PUT for full model replace
+        await executeDjangoAxiosRequest(itemUrl, 'PUT', socPayload, { token, timeoutMs: 4000 });
+        // Lightweight PATCH explicitly targeting is_active
+        await executeDjangoAxiosRequest(itemUrl, 'PATCH', { is_active: isActiveBool, active: isActiveBool }, { token, timeoutMs: 3000 });
+      } else {
+        const postRes = await executeDjangoAxiosRequest(cleanWorkingUrl, 'POST', socPayload, { token, timeoutMs: 4000 });
+        if (!postRes.success) {
+          for (const ep of FOOTER_SOCIAL_ENDPOINTS) {
+            const cleanEp = ep.endsWith('/') ? ep : `${ep}/`;
+            const altPost = await executeDjangoAxiosRequest(cleanEp, 'POST', socPayload, { token, timeoutMs: 3000 });
+            if (altPost.success) break;
+          }
+        }
+      }
+    }
+
+    if (existingList.length > socials.length) {
+      const matchedIds = new Set(socials.map(s => String(s.id)));
+      for (let j = socials.length; j < existingList.length; j++) {
+        const ex = existingList[j];
+        if (ex && ex.id && !matchedIds.has(String(ex.id))) {
+          await executeDjangoAxiosRequest(`${cleanWorkingUrl}${ex.id}/`, 'DELETE', undefined, { token, timeoutMs: 3000 });
+        }
+      }
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function djangoSaveWholesaleBenefits(
   cards: WholesaleBenefitCard[],
   deletedIds: (number | string)[] = [],
@@ -3787,7 +3886,7 @@ export async function djangoSaveWholesaleBenefits(
     }
   }
 
-  // 2. Process explicit deletedIds first
+  // 2. Process explicit deletedIds
   if (deletedIds && deletedIds.length > 0) {
     for (const delId of deletedIds) {
       await djangoDeleteWholesaleBenefit(delId, workingUrl || undefined, config);
@@ -3795,44 +3894,18 @@ export async function djangoSaveWholesaleBenefits(
   }
 
   if (!workingUrl) {
-    return {
-      success: false,
-      localOnly: true,
-      message: 'تغییرات به صورت محلی ذخیره گردید. دیتابیس آنلاین سرور پاسخگو نبود.',
-      freshCards: cappedCards
-    };
+    workingUrl = SITE_VALUE_FEATURE_ENDPOINTS[0];
   }
 
-  // 3. Strict ID matching between UI cards and DB rows
-  const matchedDbIds = new Set<string>();
-  const cardMatchedDbIdMap = new Map<number, any>();
+  const cleanWorkingUrl = workingUrl.endsWith('/') ? workingUrl : `${workingUrl}/`;
 
-  for (let i = 0; i < cappedCards.length; i++) {
-    const card = cappedCards[i];
-    // Check if card has a real DB ID (not client timestamp)
-    if (card.id !== undefined && card.id !== null && Number(card.id) < 1000000000000) {
-      const match = existingList.find((ex: any) => ex.id !== undefined && String(ex.id) === String(card.id) && !matchedDbIds.has(String(ex.id)));
-      if (match) {
-        matchedDbIds.add(String(match.id));
-        cardMatchedDbIdMap.set(i, match.id);
-      }
-    }
-  }
-
-  // 4. Delete any excess rows in DB that were removed in UI but not in matchedDbIds
-  for (const ex of existingList) {
-    if (ex.id !== undefined && !matchedDbIds.has(String(ex.id))) {
-      await djangoDeleteWholesaleBenefit(ex.id, workingUrl, config);
-    }
-  }
-
-  let savedCount = 0;
-
-  // 5. Update existing rows or POST new ones
+  // 3. Save / Update cards into database
   for (let i = 0; i < cappedCards.length; i++) {
     const card = cappedCards[i];
     const cardOrder = i + 1;
     const cardDesc = card.desc || (card as any).description || '';
+
+    const isActiveBool = card.is_active !== undefined ? Boolean(card.is_active) : true;
 
     const payload: any = {
       title: card.title,
@@ -3840,40 +3913,76 @@ export async function djangoSaveWholesaleBenefits(
       description: cardDesc,
       subtitle: cardDesc,
       icon: card.icon || 'shield-tick',
+      icon_name: card.icon || 'shield-tick',
       badge: card.badge || '',
       badge_text: card.badge || '',
       order: cardOrder,
-      is_active: card.is_active !== undefined ? Boolean(card.is_active) : true
+      priority: cardOrder,
+      sort_order: cardOrder,
+      is_active: isActiveBool,
+      active: isActiveBool,
+      enabled: isActiveBool,
+      is_visible: isActiveBool,
+      status: isActiveBool ? 'active' : 'inactive'
     };
 
-    const targetDbId = cardMatchedDbIdMap.get(i);
+    let matchedDbItem = existingList.find((ex: any) => ex.id !== undefined && String(ex.id) === String(card.id));
+    if (!matchedDbItem && existingList[i] && existingList[i].id) {
+      matchedDbItem = existingList[i];
+    }
 
-    if (targetDbId !== undefined && targetDbId !== null) {
-      const cleanWorkingUrl = workingUrl.endsWith('/') ? workingUrl : `${workingUrl}/`;
-      const putRes = await executeDjangoAxiosRequest(`${cleanWorkingUrl}${targetDbId}/`, 'PUT', payload, { token, timeoutMs: 5000 });
-      if (putRes.success) {
-        savedCount++;
+    if (matchedDbItem && matchedDbItem.id) {
+      const itemUrl = `${cleanWorkingUrl}${matchedDbItem.id}/`;
+      // 1. Send PATCH for partial model update (preserves untouched DB fields, updates is_active)
+      await executeDjangoAxiosRequest(itemUrl, 'PATCH', payload, { token, timeoutMs: 4000 });
+      // 2. Send PUT for full replacement
+      await executeDjangoAxiosRequest(itemUrl, 'PUT', payload, { token, timeoutMs: 4000 });
+      // 3. Lightweight field PATCH specifically for is_active flag
+      await executeDjangoAxiosRequest(itemUrl, 'PATCH', { is_active: isActiveBool, active: isActiveBool, enabled: isActiveBool }, { token, timeoutMs: 3000 });
+      
+      // 4. Try action endpoints if deactivating
+      if (!isActiveBool) {
+        await executeDjangoAxiosRequest(`${itemUrl}deactivate/`, 'POST', {}, { token, timeoutMs: 2000 });
+        await executeDjangoAxiosRequest(`${itemUrl}toggle_active/`, 'POST', {}, { token, timeoutMs: 2000 });
       } else {
-        const patchRes = await executeDjangoAxiosRequest(`${cleanWorkingUrl}${targetDbId}/`, 'PATCH', payload, { token, timeoutMs: 5000 });
-        if (patchRes.success) {
-          savedCount++;
-        }
+        await executeDjangoAxiosRequest(`${itemUrl}activate/`, 'POST', {}, { token, timeoutMs: 2000 });
       }
     } else {
       // POST new card to working DB endpoint
-      const postRes = await executeDjangoAxiosRequest(workingUrl, 'POST', payload, { token, timeoutMs: 5000 });
-      if (postRes.success) {
-        savedCount++;
-        if (postRes.data?.id !== undefined) {
-          matchedDbIds.add(String(postRes.data.id));
+      const postRes = await executeDjangoAxiosRequest(cleanWorkingUrl, 'POST', payload, { token, timeoutMs: 5000 });
+      if (!postRes.success) {
+        // Try candidate URLs for POST
+        for (const ep of SITE_VALUE_FEATURE_ENDPOINTS) {
+          const cleanEp = ep.endsWith('/') ? ep : `${ep}/`;
+          const altPost = await executeDjangoAxiosRequest(cleanEp, 'POST', payload, { token, timeoutMs: 3000 });
+          if (altPost.success) break;
         }
       }
     }
   }
 
-  // 6. Re-fetch fresh DB list to guarantee exact sync of IDs and state
+  // Delete excess DB items if user removed cards in UI
+  if (existingList.length > cappedCards.length) {
+    for (let j = cappedCards.length; j < existingList.length; j++) {
+      const ex = existingList[j];
+      if (ex && ex.id) {
+        await djangoDeleteWholesaleBenefit(ex.id, workingUrl, config);
+      }
+    }
+  }
+
+  // Also push to nested settings endpoint as fallback
+  const fallbackPayload = {
+    features: cappedCards,
+    value_features: cappedCards,
+    site_value_features: cappedCards,
+    wholesale_benefits: cappedCards
+  };
+  await executeDjangoAxiosRequest('/api/v1/footer-settings/settings/update/', 'PATCH', fallbackPayload, { token, timeoutMs: 3000 });
+
+  // 4. Re-fetch fresh DB list to guarantee exact sync
   let freshCards: WholesaleBenefitCard[] = cappedCards;
-  const refetch = await executeDjangoAxiosRequest(workingUrl, 'GET', undefined, { token, timeoutMs: 5000 });
+  const refetch = await executeDjangoAxiosRequest(cleanWorkingUrl, 'GET', undefined, { token, timeoutMs: 5000 });
   if (refetch.success) {
     let rawList: any[] = null;
     if (Array.isArray(refetch.data)) rawList = refetch.data;
@@ -3911,6 +4020,138 @@ export async function djangoSaveWholesaleBenefits(
   };
 }
 
+const FOOTER_COLUMN_ENDPOINTS = [
+  '/api/v1/footer-settings/columns/',
+  '/api/v1/footer-settings/footer-columns/',
+  '/api/v1/footer-settings/footercolumn/',
+  '/api/v1/footer/columns/',
+  '/api/v1/footer/footer-columns/',
+  '/api/v1/footer_settings/footercolumn/',
+  '/api/v1/site_settings/footercolumn/'
+];
+
+const FOOTER_LINK_ENDPOINTS = [
+  '/api/v1/footer-settings/links/',
+  '/api/v1/footer-settings/footer-links/',
+  '/api/v1/footer-settings/footerlink/',
+  '/api/v1/footer/links/',
+  '/api/v1/footer/footer-links/',
+  '/api/v1/footer_settings/footerlink/',
+  '/api/v1/site_settings/footerlink/'
+];
+
+export async function djangoSyncFooterColumns(columns: FooterColumnItem[], config?: DjangoCrmConfig): Promise<boolean> {
+  if (!Array.isArray(columns)) return false;
+  try {
+    const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+
+    let workingColUrl: string | null = null;
+    let existingCols: any[] = [];
+
+    for (const url of FOOTER_COLUMN_ENDPOINTS) {
+      const listRes = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 3000 });
+      if (listRes.success && listRes.data !== undefined) {
+        let rawList: any[] = null;
+        if (Array.isArray(listRes.data)) rawList = listRes.data;
+        else if (Array.isArray(listRes.data?.results)) rawList = listRes.data.results;
+
+        if (rawList !== null) {
+          workingColUrl = url;
+          existingCols = rawList;
+          break;
+        }
+      }
+    }
+
+    if (!workingColUrl) {
+      workingColUrl = FOOTER_COLUMN_ENDPOINTS[0];
+    }
+
+    const cleanColUrl = workingColUrl.endsWith('/') ? workingColUrl : `${workingColUrl}/`;
+
+    for (let i = 0; i < columns.length; i++) {
+      const col = columns[i];
+      const colPayload = {
+        title: col.title || '',
+        name: col.title || '',
+        order: col.order || (i + 1),
+        priority: col.order || (i + 1),
+        is_active: col.is_active !== undefined ? Boolean(col.is_active) : true,
+        active: col.is_active !== undefined ? Boolean(col.is_active) : true
+      };
+
+      let existingMatch = existingCols.find((ex: any) => String(ex.id) === String(col.id));
+      if (!existingMatch && existingCols[i] && existingCols[i].id) {
+        existingMatch = existingCols[i];
+      }
+
+      let savedColId: any = null;
+
+      if (existingMatch && existingMatch.id) {
+        savedColId = existingMatch.id;
+        const itemUrl = `${cleanColUrl}${existingMatch.id}/`;
+        await executeDjangoAxiosRequest(itemUrl, 'PATCH', colPayload, { token, timeoutMs: 4000 });
+        await executeDjangoAxiosRequest(itemUrl, 'PUT', colPayload, { token, timeoutMs: 4000 });
+      } else {
+        const postRes = await executeDjangoAxiosRequest(cleanColUrl, 'POST', colPayload, { token, timeoutMs: 4000 });
+        if (postRes.success && postRes.data?.id) {
+          savedColId = postRes.data.id;
+        } else {
+          for (const ep of FOOTER_COLUMN_ENDPOINTS) {
+            const cleanEp = ep.endsWith('/') ? ep : `${ep}/`;
+            const altPost = await executeDjangoAxiosRequest(cleanEp, 'POST', colPayload, { token, timeoutMs: 3000 });
+            if (altPost.success && altPost.data?.id) {
+              savedColId = altPost.data.id;
+              break;
+            }
+          }
+        }
+      }
+
+      // Sync sub-links for this column
+      if (col.links && Array.isArray(col.links) && col.links.length > 0) {
+        for (let lIdx = 0; lIdx < col.links.length; lIdx++) {
+          const l = col.links[lIdx];
+          const linkPayload = {
+            column: savedColId || col.id,
+            column_id: savedColId || col.id,
+            title: l.title || '',
+            url: l.url || '',
+            link: l.url || '',
+            order: l.order || (lIdx + 1),
+            priority: l.order || (lIdx + 1),
+            is_active: l.is_active !== undefined ? Boolean(l.is_active) : true
+          };
+
+          for (const linkEp of FOOTER_LINK_ENDPOINTS) {
+            const cleanLinkEp = linkEp.endsWith('/') ? linkEp : `${linkEp}/`;
+            if (l.id && String(l.id).length < 12) {
+              await executeDjangoAxiosRequest(`${cleanLinkEp}${l.id}/`, 'PATCH', linkPayload, { token, timeoutMs: 2500 });
+            } else {
+              const linkPost = await executeDjangoAxiosRequest(cleanLinkEp, 'POST', linkPayload, { token, timeoutMs: 2500 });
+              if (linkPost.success) break;
+            }
+          }
+        }
+      }
+    }
+
+    if (existingCols.length > columns.length) {
+      const matchedIds = new Set(columns.map(c => String(c.id)));
+      for (let j = columns.length; j < existingCols.length; j++) {
+        const ex = existingCols[j];
+        if (ex && ex.id && !matchedIds.has(String(ex.id))) {
+          await executeDjangoAxiosRequest(`${cleanColUrl}${ex.id}/`, 'DELETE', undefined, { token, timeoutMs: 3000 });
+        }
+      }
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function djangoFetchFooterSettings(config?: DjangoCrmConfig): Promise<FooterSettingsData | null> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
 
@@ -3926,6 +4167,18 @@ export async function djangoFetchFooterSettings(config?: DjangoCrmConfig): Promi
     if (res.success && res.data) {
       const data = res.data.data || res.data;
       if (data && typeof data === 'object') {
+        const parsedSocials = Array.isArray(data.socials) ? data.socials : (
+          Array.isArray(data.social_links) ? data.social_links : (
+            Array.isArray(data.social_media) ? data.social_media : (
+              Array.isArray(data.footer_socials) ? data.footer_socials : []
+            )
+          )
+        );
+
+        const parsedColumns = Array.isArray(data.columns) ? data.columns : (
+          Array.isArray(data.footer_columns) ? data.footer_columns : []
+        );
+
         const parsed: FooterSettingsData = {
           company_title: data.company_title || 'دخانیات سرو',
           short_description: data.short_description || data.description_text || '',
@@ -3939,9 +4192,64 @@ export async function djangoFetchFooterSettings(config?: DjangoCrmConfig): Promi
           copyright_text: data.copyright_text || '',
           developer_credit: data.developer_credit || '',
           is_active: data.is_active !== undefined ? Boolean(data.is_active) : true,
-          columns: Array.isArray(data.columns) ? data.columns : [],
-          socials: Array.isArray(data.socials) ? data.socials : (Array.isArray(data.social_links) ? data.social_links : []),
+          columns: parsedColumns,
+          socials: parsedSocials,
         };
+
+        // If socials array is empty, attempt fetching from FOOTER_SOCIAL_ENDPOINTS
+        if (!parsed.socials || parsed.socials.length === 0) {
+          for (const socUrl of FOOTER_SOCIAL_ENDPOINTS) {
+            const socRes = await executeDjangoAxiosRequest(socUrl, 'GET', undefined, { token, timeoutMs: 3000 });
+            if (socRes.success && socRes.data) {
+              let rawList: any[] = null;
+              if (Array.isArray(socRes.data)) rawList = socRes.data;
+              else if (Array.isArray(socRes.data?.results)) rawList = socRes.data.results;
+
+              if (rawList && rawList.length > 0) {
+                parsed.socials = rawList.map((item, idx) => ({
+                  id: item.id,
+                  platform: item.platform || 'telegram',
+                  title: item.title || item.name || '',
+                  url: item.url || item.link || '',
+                  icon: item.icon || item.icon_name || '',
+                  order: item.order || idx + 1,
+                  is_active: item.is_active !== undefined ? Boolean(item.is_active) : true
+                }));
+                break;
+              }
+            }
+          }
+        }
+
+        // If columns array is empty, attempt fetching from FOOTER_COLUMN_ENDPOINTS
+        if (!parsed.columns || parsed.columns.length === 0) {
+          for (const colUrl of FOOTER_COLUMN_ENDPOINTS) {
+            const colRes = await executeDjangoAxiosRequest(colUrl, 'GET', undefined, { token, timeoutMs: 3000 });
+            if (colRes.success && colRes.data) {
+              let rawCols: any[] = null;
+              if (Array.isArray(colRes.data)) rawCols = colRes.data;
+              else if (Array.isArray(colRes.data?.results)) rawCols = colRes.data.results;
+
+              if (rawCols && rawCols.length > 0) {
+                parsed.columns = rawCols.map((cItem, cIdx) => ({
+                  id: cItem.id,
+                  title: cItem.title || cItem.name || '',
+                  order: cItem.order || cIdx + 1,
+                  is_active: cItem.is_active !== undefined ? Boolean(cItem.is_active) : true,
+                  links: Array.isArray(cItem.links) ? cItem.links.map((lItem: any, lIdx: number) => ({
+                    id: lItem.id,
+                    title: lItem.title || '',
+                    url: lItem.url || lItem.link || '',
+                    order: lItem.order || lIdx + 1,
+                    is_active: lItem.is_active !== undefined ? Boolean(lItem.is_active) : true
+                  })) : []
+                }));
+                break;
+              }
+            }
+          }
+        }
+
         try {
           localStorage.setItem('wholesale_footer_settings', JSON.stringify(parsed));
         } catch {}
@@ -3966,23 +4274,58 @@ export async function djangoUpdateFooterSettings(footerData: Partial<FooterSetti
     '/api/v1/footer-settings/settings/update/',
     '/api/v1/footer/settings/update/',
     '/api/v1/footer-settings/update/',
-    '/api/v1/footer-settings/settings/'
+    '/api/v1/footer-settings/settings/',
+    '/api/v1/site_settings/footer/update/',
+    '/api/v1/site_settings/footer/'
   ];
+
+  const fullPayload: any = {
+    company_title: footerData.company_title || '',
+    title: footerData.company_title || '',
+    short_description: footerData.short_description || '',
+    description_text: footerData.short_description || '',
+    description: footerData.short_description || '',
+    address_text: footerData.address_text || '',
+    address: footerData.address_text || '',
+    phone_number: footerData.phone_number || '',
+    phone: footerData.phone_number || '',
+    emergency_phone: footerData.emergency_phone || '',
+    working_hours: footerData.working_hours || '',
+    shipping_companies: footerData.shipping_companies || '',
+    enamad_code: footerData.enamad_code || '',
+    samandehi_code: footerData.samandehi_code || '',
+    copyright_text: footerData.copyright_text || '',
+    developer_credit: footerData.developer_credit || '',
+    is_active: footerData.is_active !== undefined ? Boolean(footerData.is_active) : true,
+    socials: footerData.socials || [],
+    social_links: footerData.socials || [],
+    social_media: footerData.socials || [],
+    footer_socials: footerData.socials || [],
+    columns: footerData.columns || [],
+    footer_columns: footerData.columns || []
+  };
 
   let res: any = { success: false };
 
   for (const url of candidateUpdateUrls) {
-    // Try PUT first
-    res = await executeDjangoAxiosRequest(url, 'PUT', footerData, { token, timeoutMs: 15000 });
+    res = await executeDjangoAxiosRequest(url, 'PUT', fullPayload, { token, timeoutMs: 15000 });
     if (res.success) break;
 
-    // Try PATCH if PUT failed
-    res = await executeDjangoAxiosRequest(url, 'PATCH', footerData, { token, timeoutMs: 15000 });
+    res = await executeDjangoAxiosRequest(url, 'PATCH', fullPayload, { token, timeoutMs: 15000 });
     if (res.success) break;
 
-    // Try POST if PATCH failed
-    res = await executeDjangoAxiosRequest(url, 'POST', footerData, { token, timeoutMs: 15000 });
+    res = await executeDjangoAxiosRequest(url, 'POST', fullPayload, { token, timeoutMs: 15000 });
     if (res.success) break;
+  }
+
+  // Explicitly sync social links directly to DRF social network endpoints
+  if (footerData.socials && Array.isArray(footerData.socials)) {
+    await djangoSyncFooterSocials(footerData.socials, config);
+  }
+
+  // Explicitly sync footer columns and sub-links to DRF column endpoints
+  if (footerData.columns && Array.isArray(footerData.columns)) {
+    await djangoSyncFooterColumns(footerData.columns, config);
   }
 
   // Always update local storage so UI and Footer component stay in sync
@@ -3998,7 +4341,7 @@ export async function djangoUpdateFooterSettings(footerData: Partial<FooterSetti
     return {
       success: true,
       data: responseData,
-      message: 'تنظیمات کلی فوتر با موفقیت در دیتابیس آنلاین سرور ذخیره و همگام شد.'
+      message: 'تنظیمات کلی فوتر، شبکه‌های اجتماعی و ستون‌های لینک با موفقیت در دیتابیس آنلاین سرور ذخیره و همگام شد.'
     };
   }
 

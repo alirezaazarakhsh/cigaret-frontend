@@ -484,6 +484,7 @@ export interface FooterSocialItem {
   url: string;
   icon?: string;
   order?: number;
+  is_active?: boolean;
 }
 
 export interface FooterLinkItem {
@@ -491,12 +492,14 @@ export interface FooterLinkItem {
   title: string;
   url: string;
   order?: number;
+  is_active?: boolean;
 }
 
 export interface FooterColumnItem {
   id?: number | string;
   title: string;
   order?: number;
+  is_active?: boolean;
   links: FooterLinkItem[];
 }
 
