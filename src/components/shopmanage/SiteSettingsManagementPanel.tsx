@@ -334,10 +334,10 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
 
       const result = await djangoUpdateFooterSettings(payload);
       if (result.data) {
-        if (Array.isArray(result.data.socials) && result.data.socials.length > 0) {
+        if (Array.isArray(result.data.socials)) {
           setFooterSocials(result.data.socials);
         }
-        if (Array.isArray(result.data.columns) && result.data.columns.length > 0) {
+        if (Array.isArray(result.data.columns)) {
           setFooterColumns(result.data.columns);
         }
       }

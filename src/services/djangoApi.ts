@@ -3771,32 +3771,70 @@ const FOOTER_SOCIAL_ENDPOINTS = [
   '/api/v1/site_settings/footersocial/'
 ];
 
+let cachedWorkingSocialUrl: string | null = null;
+
+function ensureValidUrl(rawUrl?: string): string {
+  if (!rawUrl) return '';
+  const trimmed = String(rawUrl).trim();
+  if (!trimmed) return '';
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('#') ||
+    trimmed.startsWith('tel:') ||
+    trimmed.startsWith('mailto:')
+  ) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+}
+
 export async function djangoSyncFooterSocials(socials: FooterSocialItem[], config?: DjangoCrmConfig): Promise<boolean> {
   if (!Array.isArray(socials)) return false;
   try {
     const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
 
-    let workingUrl: string | null = null;
+    let workingUrl: string | null = cachedWorkingSocialUrl;
     let existingList: any[] = [];
 
-    for (const url of FOOTER_SOCIAL_ENDPOINTS) {
-      const listRes = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 3000 });
-      if (listRes.success && listRes.data !== undefined) {
-        let rawList: any[] = null;
-        if (Array.isArray(listRes.data)) rawList = listRes.data;
-        else if (Array.isArray(listRes.data?.results)) rawList = listRes.data.results;
-        else if (Array.isArray(listRes.data?.data)) rawList = listRes.data.data;
+    if (!workingUrl) {
+      let firstValidEndpoint: string | null = null;
+      for (const url of FOOTER_SOCIAL_ENDPOINTS) {
+        const listRes = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 2500 });
+        if (listRes.success && listRes.data !== undefined) {
+          let rawList: any[] = null;
+          if (Array.isArray(listRes.data)) rawList = listRes.data;
+          else if (Array.isArray(listRes.data?.results)) rawList = listRes.data.results;
+          else if (Array.isArray(listRes.data?.data)) rawList = listRes.data.data;
 
-        if (rawList !== null) {
-          workingUrl = url;
-          existingList = rawList;
-          if (rawList.length > 0) break; // Found endpoint with actual existing database items
+          if (rawList !== null) {
+            if (!firstValidEndpoint) firstValidEndpoint = url;
+            if (rawList.length > 0) {
+              workingUrl = url;
+              cachedWorkingSocialUrl = url;
+              existingList = rawList;
+              break;
+            }
+          }
         }
+      }
+      if (!workingUrl && firstValidEndpoint) {
+        workingUrl = firstValidEndpoint;
+        cachedWorkingSocialUrl = firstValidEndpoint;
+      }
+    } else {
+      const listRes = await executeDjangoAxiosRequest(workingUrl, 'GET', undefined, { token, timeoutMs: 2500 });
+      if (listRes.success) {
+        if (Array.isArray(listRes.data)) existingList = listRes.data;
+        else if (Array.isArray(listRes.data?.results)) existingList = listRes.data.results;
+        else if (Array.isArray(listRes.data?.data)) existingList = listRes.data.data;
       }
     }
 
     if (!workingUrl) {
       workingUrl = FOOTER_SOCIAL_ENDPOINTS[0];
+      cachedWorkingSocialUrl = FOOTER_SOCIAL_ENDPOINTS[0];
     }
 
     const cleanWorkingUrl = workingUrl.endsWith('/') ? workingUrl : `${workingUrl}/`;
@@ -3804,11 +3842,7 @@ export async function djangoSyncFooterSocials(socials: FooterSocialItem[], confi
     for (let i = 0; i < socials.length; i++) {
       const soc = socials[i];
       const isActiveBool = soc.is_active !== undefined ? Boolean(soc.is_active) : true;
-      
-      let formattedUrl = (soc.url || '').trim();
-      if (formattedUrl && !formattedUrl.startsWith('http://') && !formattedUrl.startsWith('https://') && !formattedUrl.startsWith('/')) {
-        formattedUrl = `https://${formattedUrl}`;
-      }
+      const formattedUrl = ensureValidUrl(soc.url);
 
       // 1. Strict model payload matching Django FooterSocial model fields
       const cleanModelPayload: any = {
@@ -3840,27 +3874,29 @@ export async function djangoSyncFooterSocials(socials: FooterSocialItem[], confi
         socPayload.id = existingMatch.id;
         cleanModelPayload.id = existingMatch.id;
         const itemUrl = `${cleanWorkingUrl}${existingMatch.id}/`;
-        let patchRes = await executeDjangoAxiosRequest(itemUrl, 'PATCH', cleanModelPayload, { token, timeoutMs: 4000 });
+        let patchRes = await executeDjangoAxiosRequest(itemUrl, 'PATCH', cleanModelPayload, { token, timeoutMs: 3000 });
         if (!patchRes.success) {
-          await executeDjangoAxiosRequest(itemUrl, 'PATCH', socPayload, { token, timeoutMs: 4000 });
+          await executeDjangoAxiosRequest(itemUrl, 'PATCH', socPayload, { token, timeoutMs: 3000 });
         }
-        await executeDjangoAxiosRequest(itemUrl, 'PUT', cleanModelPayload, { token, timeoutMs: 4000 });
       } else {
         delete socPayload.id;
         delete cleanModelPayload.id;
-        let postRes = await executeDjangoAxiosRequest(cleanWorkingUrl, 'POST', cleanModelPayload, { token, timeoutMs: 4000 });
+        let postRes = await executeDjangoAxiosRequest(cleanWorkingUrl, 'POST', cleanModelPayload, { token, timeoutMs: 3000 });
         if (!postRes.success) {
-          postRes = await executeDjangoAxiosRequest(cleanWorkingUrl, 'POST', socPayload, { token, timeoutMs: 4000 });
+          postRes = await executeDjangoAxiosRequest(cleanWorkingUrl, 'POST', socPayload, { token, timeoutMs: 3000 });
         }
 
         if (!postRes.success) {
           for (const ep of FOOTER_SOCIAL_ENDPOINTS) {
             const cleanEp = ep.endsWith('/') ? ep : `${ep}/`;
-            let altPost = await executeDjangoAxiosRequest(cleanEp, 'POST', cleanModelPayload, { token, timeoutMs: 3000 });
+            let altPost = await executeDjangoAxiosRequest(cleanEp, 'POST', cleanModelPayload, { token, timeoutMs: 2000 });
             if (!altPost.success) {
-              altPost = await executeDjangoAxiosRequest(cleanEp, 'POST', socPayload, { token, timeoutMs: 3000 });
+              altPost = await executeDjangoAxiosRequest(cleanEp, 'POST', socPayload, { token, timeoutMs: 2000 });
             }
-            if (altPost.success) break;
+            if (altPost.success) {
+              cachedWorkingSocialUrl = cleanEp;
+              break;
+            }
           }
         }
       }
@@ -3871,7 +3907,7 @@ export async function djangoSyncFooterSocials(socials: FooterSocialItem[], confi
       for (let j = socials.length; j < existingList.length; j++) {
         const ex = existingList[j];
         if (ex && ex.id && !matchedIds.has(String(ex.id))) {
-          await executeDjangoAxiosRequest(`${cleanWorkingUrl}${ex.id}/`, 'DELETE', undefined, { token, timeoutMs: 3000 });
+          await executeDjangoAxiosRequest(`${cleanWorkingUrl}${ex.id}/`, 'DELETE', undefined, { token, timeoutMs: 2500 });
         }
       }
     }
