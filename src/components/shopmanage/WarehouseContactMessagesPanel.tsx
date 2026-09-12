@@ -46,8 +46,8 @@ export function formatPersianDateTime(dateStr?: string | null, jalaliStr?: strin
     const minutes = String(d.getMinutes()).padStart(2, '0');
     const timeStr = `${hours}:${minutes}`;
 
-    // Convert to Shamsi using browser locale converter
-    const dateStrFa = d.toLocaleDateString('fa-IR', {
+    // Convert to Shamsi using browser locale converter forcing Persian calendar
+    const dateStrFa = d.toLocaleDateString('fa-IR-u-ca-persian', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit'
@@ -259,9 +259,9 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
     // Date preset filter match
     let matchesDate = true;
     if (dateFilter !== 'all') {
-      const shamsiStr = formatPersianDateTime(msg.created_at, msg.created_at_jalali);
+      const shamsiStr = formatPersianDateTime(msg.created_at, msg.jalali_created_at || msg.created_at_jalali);
       if (dateFilter === '1405') {
-        matchesDate = shamsiStr.includes('1405') || shamsiStr.includes('۱۴۰۵') || msg.created_at?.includes('2026') || msg.created_at_jalali?.includes('1405');
+        matchesDate = shamsiStr.includes('1405') || shamsiStr.includes('۱۴۰۵') || msg.created_at?.includes('2026') || (msg.jalali_created_at || msg.created_at_jalali)?.includes('1405');
       } else if (dateFilter === 'today') {
         const todayFa = new Date().toLocaleDateString('fa-IR');
         matchesDate = shamsiStr.includes(todayFa) || shamsiStr.includes('امروز') || (msg.created_at && msg.created_at.includes('2026-09-12'));
@@ -432,7 +432,7 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
                           </span>
                         </td>
                         <td className="py-3.5 px-4 text-left font-mono text-[10px] text-slate-400">
-                          {formatPersianDateTime(msg.created_at, msg.created_at_jalali)}
+                          {formatPersianDateTime(msg.created_at, msg.jalali_created_at || msg.created_at_jalali)}
                         </td>
                       </tr>
                     );
@@ -539,7 +539,7 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
                   <span>تاریخ و زمان ثبت پیام (شمسی):</span>
                 </span>
                 <span className="font-mono text-slate-500">
-                  {formatPersianDateTime(selectedMessage.created_at, selectedMessage.created_at_jalali)}
+                  {formatPersianDateTime(selectedMessage.created_at, selectedMessage.jalali_created_at || selectedMessage.created_at_jalali)}
                 </span>
               </div>
 
