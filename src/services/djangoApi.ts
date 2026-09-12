@@ -64,6 +64,17 @@ export async function executeDjangoAxiosRequest<T = any>(
       timeout,
     });
 
+    const isHtmlResponse = typeof response.data === 'string' && 
+      (response.data.trim().startsWith('<') || response.data.trim().startsWith('<!DOCTYPE') || response.data.trim().startsWith('<!doctype'));
+
+    if (isHtmlResponse) {
+      return {
+        success: false,
+        status: response.status,
+        error: 'پاسخ دریافتی از سرور HTML است (اندپویینت معتبر نیست).'
+      };
+    }
+
     return {
       success: true,
       data: response.data,
@@ -3516,14 +3527,14 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
 
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
 
-  // 1. Try bulk update endpoints first if server supports it
+  // 1. Try bulk update endpoints first if server supports it (validating real JSON payload)
   for (const url of BULK_VALUE_FEATURE_ENDPOINTS) {
     const res1 = await executeDjangoAxiosRequest(url, 'POST', { features: cappedCards }, { token });
-    if (res1.success) {
+    if (res1.success && res1.data && typeof res1.data === 'object' && (Array.isArray(res1.data) || res1.data.status === 'success' || res1.data.success === true)) {
       return { success: true, localOnly: false, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.', freshCards: cappedCards };
     }
     const res2 = await executeDjangoAxiosRequest(url, 'POST', cappedCards, { token });
-    if (res2.success) {
+    if (res2.success && res2.data && typeof res2.data === 'object' && (Array.isArray(res2.data) || res2.data.status === 'success' || res2.data.success === true)) {
       return { success: true, localOnly: false, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.', freshCards: cappedCards };
     }
   }
@@ -3618,16 +3629,30 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
   // Delete any excess/deleted rows in DB that were removed from UI cards
   for (const ex of existingList) {
     if (ex.id !== undefined && !matchedDbIds.has(String(ex.id))) {
-      const delUrl1 = `${workingUrl}${ex.id}/`;
-      let delRes = await executeDjangoAxiosRequest(delUrl1, 'DELETE', undefined, { token });
-      if (!delRes.success) {
-        // Try without trailing slash
-        delRes = await executeDjangoAxiosRequest(`${workingUrl}${ex.id}`, 'DELETE', undefined, { token });
+      const targetId = ex.id;
+      let deletedSuccess = false;
+
+      const deleteCandidates = [
+        `${workingUrl}${targetId}/`,
+        `${workingUrl}${targetId}`,
+        `/api/v1/site-settings/site-value-features/${targetId}/`,
+        `/api/v1/site-settings/sitevaluefeatures/${targetId}/`,
+        `/api/site-settings/site-value-features/${targetId}/`,
+        `/api/v1/site-value-features/${targetId}/`
+      ];
+
+      for (const delUrl of deleteCandidates) {
+        const delRes = await executeDjangoAxiosRequest(delUrl, 'DELETE', undefined, { token });
+        if (delRes.success) {
+          deletedSuccess = true;
+          break;
+        }
       }
-      if (!delRes.success) {
+
+      if (!deletedSuccess) {
         // Try POST to delete endpoint or soft-delete with is_active: false
-        await executeDjangoAxiosRequest(`${workingUrl}${ex.id}/delete/`, 'POST', undefined, { token }).catch(() => {});
-        await executeDjangoAxiosRequest(delUrl1, 'PATCH', { is_active: false }, { token }).catch(() => {});
+        await executeDjangoAxiosRequest(`${workingUrl}${targetId}/delete/`, 'POST', { id: targetId }, { token }).catch(() => {});
+        await executeDjangoAxiosRequest(`${workingUrl}${targetId}/`, 'PATCH', { is_active: false }, { token }).catch(() => {});
       }
     }
   }
