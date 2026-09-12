@@ -3787,6 +3787,24 @@ function ensureValidUrl(rawUrl?: string): string {
   return `https://${trimmed}`;
 }
 
+function getFooterAppPrefix(): string {
+  if (cachedWorkingFooterUpdateUrl) {
+    const parts = cachedWorkingFooterUpdateUrl.split('/');
+    const idx = parts.indexOf('v1');
+    if (idx !== -1 && parts[idx + 1]) {
+      return `/api/v1/${parts[idx + 1]}`;
+    }
+  }
+  return '/api/v1/footer_settings';
+}
+
+function prioritizeEndpoints(endpoints: string[]): string[] {
+  const prefix = getFooterAppPrefix();
+  const matching = endpoints.filter(ep => ep.startsWith(prefix));
+  const nonMatching = endpoints.filter(ep => !ep.startsWith(prefix));
+  return [...matching, ...nonMatching];
+}
+
 export async function djangoSyncFooterSocials(
   socials: FooterSocialItem[],
   config?: DjangoCrmConfig
@@ -3800,8 +3818,9 @@ export async function djangoSyncFooterSocials(
     let existingList: any[] = [];
 
     if (!workingUrl) {
-      for (const url of FOOTER_SOCIAL_ENDPOINTS) {
-        const listRes = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 1800 });
+      const prioritized = prioritizeEndpoints(FOOTER_SOCIAL_ENDPOINTS);
+      for (const url of prioritized) {
+        const listRes = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 1000 });
         if (listRes.success && listRes.data !== undefined) {
           let rawList: any[] = null;
           if (Array.isArray(listRes.data)) rawList = listRes.data;
@@ -3817,7 +3836,7 @@ export async function djangoSyncFooterSocials(
         }
       }
     } else {
-      const listRes = await executeDjangoAxiosRequest(workingUrl, 'GET', undefined, { token, timeoutMs: 1800 });
+      const listRes = await executeDjangoAxiosRequest(workingUrl, 'GET', undefined, { token, timeoutMs: 1000 });
       if (listRes.success) {
         if (Array.isArray(listRes.data)) existingList = listRes.data;
         else if (Array.isArray(listRes.data?.results)) existingList = listRes.data.results;
@@ -4130,8 +4149,9 @@ export async function djangoSyncFooterColumns(
     let existingCols: any[] = [];
 
     if (!workingColUrl) {
-      for (const url of FOOTER_COLUMN_ENDPOINTS) {
-        const listRes = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 1800 });
+      const prioritized = prioritizeEndpoints(FOOTER_COLUMN_ENDPOINTS);
+      for (const url of prioritized) {
+        const listRes = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 1000 });
         if (listRes.success && listRes.data !== undefined) {
           let rawList: any[] = null;
           if (Array.isArray(listRes.data)) rawList = listRes.data;
@@ -4147,7 +4167,7 @@ export async function djangoSyncFooterColumns(
         }
       }
     } else {
-      const listRes = await executeDjangoAxiosRequest(workingColUrl, 'GET', undefined, { token, timeoutMs: 1800 });
+      const listRes = await executeDjangoAxiosRequest(workingColUrl, 'GET', undefined, { token, timeoutMs: 1000 });
       if (listRes.success) {
         if (Array.isArray(listRes.data)) existingCols = listRes.data;
         else if (Array.isArray(listRes.data?.results)) existingCols = listRes.data.results;
@@ -4496,37 +4516,80 @@ export async function djangoUpdateFooterSettings(footerData: Partial<FooterSetti
     footer_columns: cleanColumns
   };
 
-  // Run general settings update and sub-item syncs in parallel to finish instantly
-  const mainUpdatePromise = (async () => {
-    for (const url of candidateUpdateUrls) {
-      let r = await executeDjangoAxiosRequest(url, 'PUT', fullPayload, { token, timeoutMs: 2500 });
-      if (r.success) {
-        cachedWorkingFooterUpdateUrl = url;
-        return r;
+  // Run general settings update first
+  let mainRes: any = { success: false };
+  for (const url of candidateUpdateUrls) {
+    let r = await executeDjangoAxiosRequest(url, 'PUT', fullPayload, { token, timeoutMs: 2500 });
+    if (r.success) {
+      cachedWorkingFooterUpdateUrl = url;
+      mainRes = r;
+      break;
+    }
+
+    r = await executeDjangoAxiosRequest(url, 'PATCH', fullPayload, { token, timeoutMs: 2500 });
+    if (r.success) {
+      cachedWorkingFooterUpdateUrl = url;
+      mainRes = r;
+      break;
+    }
+  }
+
+  // Detect if the backend successfully saved the nested lists in a single call (using writable nested serializers)
+  let syncedSocials = footerData.socials || [];
+  let syncedColumns = footerData.columns || [];
+  let nestedSaveSucceeded = false;
+
+  if (mainRes.success && mainRes.data) {
+    const resData = mainRes.data.data || mainRes.data;
+    if (resData && typeof resData === 'object') {
+      const resSocials = resData.socials || resData.social_links || resData.social_media || resData.footer_socials;
+      const resColumns = resData.columns || resData.footer_columns;
+
+      if (Array.isArray(resSocials) && resSocials.length > 0) {
+        syncedSocials = resSocials.map((item: any, idx: number) => ({
+          id: item.id,
+          platform: item.platform || 'telegram',
+          title: item.title || item.name || '',
+          url: item.url || item.link || '',
+          icon: item.icon || item.icon_name || '',
+          order: item.order || idx + 1,
+          is_active: item.is_active !== undefined ? Boolean(item.is_active) : true
+        }));
+        nestedSaveSucceeded = true;
       }
 
-      r = await executeDjangoAxiosRequest(url, 'PATCH', fullPayload, { token, timeoutMs: 2500 });
-      if (r.success) {
-        cachedWorkingFooterUpdateUrl = url;
-        return r;
+      if (Array.isArray(resColumns) && resColumns.length > 0) {
+        syncedColumns = resColumns.map((cItem: any, cIdx: number) => ({
+          id: cItem.id,
+          title: cItem.title || cItem.name || '',
+          order: cItem.order || cIdx + 1,
+          is_active: cItem.is_active !== undefined ? Boolean(cItem.is_active) : true,
+          links: Array.isArray(cItem.links) ? cItem.links.map((lItem: any, lIdx: number) => ({
+            id: lItem.id,
+            title: lItem.title || '',
+            url: lItem.url || lItem.link || '',
+            order: lItem.order || lIdx + 1,
+            is_active: lItem.is_active !== undefined ? Boolean(lItem.is_active) : true
+          })) : []
+        }));
+        nestedSaveSucceeded = true;
       }
     }
-    return { success: false };
-  })();
+  }
 
-  const socialsSyncPromise = (footerData.socials && Array.isArray(footerData.socials))
-    ? djangoSyncFooterSocials(footerData.socials, config)
-    : Promise.resolve({ success: true, syncedSocials: footerData.socials || [] });
+  // If the backend has not handled nested writes, fall back to individual endpoint syncing
+  if (!nestedSaveSucceeded) {
+    const socialsSyncRes = (footerData.socials && Array.isArray(footerData.socials))
+      ? await djangoSyncFooterSocials(footerData.socials, config)
+      : { success: true, syncedSocials: footerData.socials || [] };
 
-  const columnsSyncPromise = (footerData.columns && Array.isArray(footerData.columns))
-    ? djangoSyncFooterColumns(footerData.columns, config)
-    : Promise.resolve({ success: true, syncedColumns: footerData.columns || [] });
+    const columnsSyncRes = (footerData.columns && Array.isArray(footerData.columns))
+      ? await djangoSyncFooterColumns(footerData.columns, config)
+      : { success: true, syncedColumns: footerData.columns || [] };
 
-  const [, socialsRes, columnsRes] = await Promise.all([
-    mainUpdatePromise,
-    socialsSyncPromise,
-    columnsSyncPromise
-  ]);
+    syncedSocials = socialsSyncRes.syncedSocials;
+    syncedColumns = columnsSyncRes.syncedColumns;
+  }
 
   const finalData: FooterSettingsData = {
     company_title: footerData.company_title || '',
@@ -4541,8 +4604,8 @@ export async function djangoUpdateFooterSettings(footerData: Partial<FooterSetti
     copyright_text: footerData.copyright_text || '',
     developer_credit: footerData.developer_credit || '',
     is_active: footerData.is_active !== undefined ? Boolean(footerData.is_active) : true,
-    socials: socialsRes.syncedSocials,
-    columns: columnsRes.syncedColumns
+    socials: syncedSocials,
+    columns: syncedColumns
   };
 
   // Always update local storage so UI and Footer component stay in sync immediately

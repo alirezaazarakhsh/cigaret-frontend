@@ -343,40 +343,42 @@ class FooterSettingAdmin(admin.ModelAdmin):
 `}
       serializersCode={`"""
 footer_settings/serializers.py
-سریالایزرهای DRF برای تبدیل تمام بخش‌های فوتر به یک ساختار JSON یکپارچه
+سریالایزرهای DRF برای تبدیل تمام بخش‌های فوتر به یک ساختار JSON یکپارچه و به صورت کاملا نوشتن‌پذیر تودرتو (Writable Nested)
 """
 
 from rest_framework import serializers
+from django.db import transaction
 from .models import FooterSetting, FooterColumn, FooterLink, FooterSocial
 
 
 class FooterLinkSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False, allow_null=True)
+
     class Meta:
         model = FooterLink
         fields = ['id', 'title', 'url', 'order']
 
 
 class FooterColumnSerializer(serializers.ModelSerializer):
-    links = serializers.SerializerMethodField()
+    id = serializers.IntegerField(required=False, allow_null=True)
+    links = FooterLinkSerializer(many=True, required=False)
 
     class Meta:
         model = FooterColumn
         fields = ['id', 'title', 'order', 'links']
 
-    def get_links(self, obj):
-        active_links = obj.links.filter(is_active=True).order_by('order')
-        return FooterLinkSerializer(active_links, many=True).data
-
 
 class FooterSocialSerializer(serializers.ModelSerializer):
+    id = serializers.IntegerField(required=False, allow_null=True)
+
     class Meta:
         model = FooterSocial
         fields = ['id', 'platform', 'title', 'url', 'icon', 'order']
 
 
 class FooterSettingSerializer(serializers.ModelSerializer):
-    columns = serializers.SerializerMethodField()
-    socials = serializers.SerializerMethodField()
+    columns = FooterColumnSerializer(many=True, required=False)
+    socials = FooterSocialSerializer(many=True, required=False)
 
     class Meta:
         model = FooterSetting
@@ -396,13 +398,94 @@ class FooterSettingSerializer(serializers.ModelSerializer):
             'socials'
         ]
 
-    def get_columns(self, obj):
-        active_cols = FooterColumn.objects.filter(is_active=True).order_by('order')
-        return FooterColumnSerializer(active_cols, many=True).data
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        # استخراج داده‌های ستون‌ها و شبکه‌های اجتماعی از بدنه درخواست
+        columns_data = validated_data.pop('columns', None)
+        socials_data = validated_data.pop('socials', None)
 
-    def get_socials(self, obj):
-        active_socials = FooterSocial.objects.filter(is_active=True).order_by('order')
-        return FooterSocialSerializer(active_socials, many=True).data
+        # ۱. بروزرسانی اطلاعات متنی اصلی فوتر
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # ۲. همگام‌سازی شبکه‌های اجتماعی (ایجاد جدید، بروزرسانی موجود، حذف کسر شده‌ها)
+        if socials_data is not None:
+            keep_social_ids = []
+            for social_item in socials_data:
+                soc_id = social_item.get('id')
+                if soc_id and FooterSocial.objects.filter(id=soc_id).exists():
+                    soc_obj = FooterSocial.objects.get(id=soc_id)
+                    for attr, value in social_item.items():
+                        if attr != 'id':
+                            setattr(soc_obj, attr, value)
+                    soc_obj.is_active = True
+                    soc_obj.save()
+                    keep_social_ids.append(soc_obj.id)
+                else:
+                    new_soc = FooterSocial.objects.create(
+                        platform=social_item.get('platform', 'telegram'),
+                        title=social_item.get('title', ''),
+                        url=social_item.get('url', ''),
+                        icon=social_item.get('icon', 'Send'),
+                        order=social_item.get('order', 0),
+                        is_active=True
+                    )
+                    keep_social_ids.append(new_soc.id)
+            
+            # حذف مواردی که کاربر در فرانت‌اند پاک کرده است
+            FooterSocial.objects.exclude(id__in=keep_social_ids).delete()
+
+        # ۳. همگام‌سازی ستون‌ها و لینک‌های فرعی هر ستون
+        if columns_data is not None:
+            keep_col_ids = []
+            for col_item in columns_data:
+                links_data = col_item.pop('links', [])
+                col_id = col_item.get('id')
+                if col_id and FooterColumn.objects.filter(id=col_id).exists():
+                    col_obj = FooterColumn.objects.get(id=col_id)
+                    col_obj.title = col_item.get('title', col_obj.title)
+                    col_obj.order = col_item.get('order', col_obj.order)
+                    col_obj.is_active = True
+                    col_obj.save()
+                    keep_col_ids.append(col_obj.id)
+                else:
+                    col_obj = FooterColumn.objects.create(
+                        title=col_item.get('title', ''),
+                        order=col_item.get('order', 0),
+                        is_active=True
+                    )
+                    keep_col_ids.append(col_obj.id)
+
+                # همگام‌سازی لینک‌های فرعی هر ستون
+                keep_link_ids = []
+                for link_item in links_data:
+                    link_id = link_item.get('id')
+                    if link_id and FooterLink.objects.filter(id=link_id, column=col_obj).exists():
+                        link_obj = FooterLink.objects.get(id=link_id)
+                        link_obj.title = link_item.get('title', link_obj.title)
+                        link_obj.url = link_item.get('url', link_obj.url)
+                        link_obj.order = link_item.get('order', link_obj.order)
+                        link_obj.is_active = True
+                        link_obj.save()
+                        keep_link_ids.append(link_obj.id)
+                    else:
+                        new_link = FooterLink.objects.create(
+                            column=col_obj,
+                            title=link_item.get('title', ''),
+                            url=link_item.get('url', ''),
+                            order=link_item.get('order', 0),
+                            is_active=True
+                        )
+                        keep_link_ids.append(new_link.id)
+                
+                # حذف لینک‌های کسر شده از ستون جاری
+                FooterLink.objects.filter(column=col_obj).exclude(id__in=keep_link_ids).delete()
+
+            # حذف ستون‌های حذف شده از دیتابیس
+            FooterColumn.objects.exclude(id__in=keep_col_ids).delete()
+
+        return instance
 `}
       viewsCode={`"""
 footer_settings/views.py
@@ -469,7 +552,8 @@ class FooterUpdateAPIView(APIView):
         if not setting:
             setting = FooterSetting.objects.create()
 
-        serializer = FooterSettingSerializer(setting, data=request.data, partial=True)
+        # ارسال آرگومان context جهت تکمیل خروجی و ارتباط هوشمند تودرتو
+        serializer = FooterSettingSerializer(setting, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response({
