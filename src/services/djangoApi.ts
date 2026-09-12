@@ -3516,15 +3516,15 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
 
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
 
-  // 1. Try bulk update endpoints first
+  // 1. Try bulk update endpoints first if server supports it
   for (const url of BULK_VALUE_FEATURE_ENDPOINTS) {
     const res1 = await executeDjangoAxiosRequest(url, 'POST', { features: cappedCards }, { token });
     if (res1.success) {
-      return { success: true, localOnly: false, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.' };
+      return { success: true, localOnly: false, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.', freshCards: cappedCards };
     }
     const res2 = await executeDjangoAxiosRequest(url, 'POST', cappedCards, { token });
     if (res2.success) {
-      return { success: true, localOnly: false, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.' };
+      return { success: true, localOnly: false, message: 'کارت‌های ۴‌گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.', freshCards: cappedCards };
     }
   }
 
@@ -3554,12 +3554,13 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     return {
       success: false,
       localOnly: true,
-      message: 'ذخیره محلی انجام شد. انډپویینت دیتابیس سرور پاسخگو نبود.'
+      message: 'ذخیره محلی انجام شد. اندپویینت دیتابیس سرور پاسخگو نبود.',
+      freshCards: cappedCards
     };
   }
 
-  // Track which existing DB rows have been updated/matched
-  const matchedDbIds = new Set<string | number>();
+  // Track which existing DB rows have been updated/matched (using string keys for 100% type safety)
+  const matchedDbIds = new Set<string>();
   let savedCount = 0;
 
   for (let i = 0; i < cappedCards.length; i++) {
@@ -3580,16 +3581,18 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     };
 
     // Find existing DB row matching by ID, or by order, or by index
-    let existingItem = existingList.find((ex: any) => ex.id === card.id && typeof card.id === 'number' && card.id < 1000000 && !matchedDbIds.has(ex.id));
+    let existingItem = existingList.find((ex: any) =>
+      ex.id !== undefined && card.id !== undefined && String(ex.id) === String(card.id) && !matchedDbIds.has(String(ex.id))
+    );
     if (!existingItem) {
-      existingItem = existingList.find((ex: any) => Number(ex.order) === cardOrder && !matchedDbIds.has(ex.id));
+      existingItem = existingList.find((ex: any) => Number(ex.order) === cardOrder && !matchedDbIds.has(String(ex.id)));
     }
-    if (!existingItem && existingList[i] && !matchedDbIds.has(existingList[i].id)) {
+    if (!existingItem && existingList[i] && existingList[i].id !== undefined && !matchedDbIds.has(String(existingList[i].id))) {
       existingItem = existingList[i];
     }
 
-    if (existingItem && existingItem.id) {
-      matchedDbIds.add(existingItem.id);
+    if (existingItem && existingItem.id !== undefined) {
+      matchedDbIds.add(String(existingItem.id));
       // Update existing DB row (PUT / PATCH)
       const putRes = await executeDjangoAxiosRequest(`${workingUrl}${existingItem.id}/`, 'PUT', payload, { token });
       if (putRes.success) {
@@ -3605,21 +3608,32 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
       const postRes = await executeDjangoAxiosRequest(workingUrl, 'POST', payload, { token });
       if (postRes.success) {
         savedCount++;
-        if (postRes.data?.id) {
-          matchedDbIds.add(postRes.data.id);
+        if (postRes.data?.id !== undefined) {
+          matchedDbIds.add(String(postRes.data.id));
         }
       }
     }
   }
 
-  // Delete any excess/duplicate rows in DB that were not matched to the current cards
+  // Delete any excess/deleted rows in DB that were removed from UI cards
   for (const ex of existingList) {
-    if (ex.id && !matchedDbIds.has(ex.id)) {
-      await executeDjangoAxiosRequest(`${workingUrl}${ex.id}/`, 'DELETE', undefined, { token }).catch(() => {});
+    if (ex.id !== undefined && !matchedDbIds.has(String(ex.id))) {
+      const delUrl1 = `${workingUrl}${ex.id}/`;
+      let delRes = await executeDjangoAxiosRequest(delUrl1, 'DELETE', undefined, { token });
+      if (!delRes.success) {
+        // Try without trailing slash
+        delRes = await executeDjangoAxiosRequest(`${workingUrl}${ex.id}`, 'DELETE', undefined, { token });
+      }
+      if (!delRes.success) {
+        // Try POST to delete endpoint or soft-delete with is_active: false
+        await executeDjangoAxiosRequest(`${workingUrl}${ex.id}/delete/`, 'POST', undefined, { token }).catch(() => {});
+        await executeDjangoAxiosRequest(delUrl1, 'PATCH', { is_active: false }, { token }).catch(() => {});
+      }
     }
   }
 
-  // Re-fetch updated list to sync local storage with real DB state and IDs
+  // Re-fetch updated list to sync local storage and return real DB state and IDs
+  let freshCards: WholesaleBenefitCard[] = cappedCards;
   const refetch = await executeDjangoAxiosRequest(workingUrl, 'GET', undefined, { token });
   if (refetch.success) {
     let rawList: any[] = null;
@@ -3627,7 +3641,7 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
     else if (Array.isArray(refetch.data?.results)) rawList = refetch.data.results;
 
     if (rawList) {
-      const mapped: WholesaleBenefitCard[] = rawList.slice(0, 4).map((item, idx) => ({
+      freshCards = rawList.slice(0, 4).map((item, idx) => ({
         id: item.id,
         title: item.title || '',
         desc: item.desc || item.description || item.subtitle || '',
@@ -3636,14 +3650,15 @@ export async function djangoSaveWholesaleBenefits(cards: WholesaleBenefitCard[],
         order: Number(item.order) || idx + 1,
         is_active: item.is_active !== undefined ? Boolean(item.is_active) : true
       }));
-      saveLocalWholesaleBenefits(mapped);
+      saveLocalWholesaleBenefits(freshCards);
     }
   }
 
   return {
     success: true,
     localOnly: false,
-    message: `تعداد ${savedCount} کارت با موفقیت در دیتابیس آنلاین جنگو بروزرسانی گردید.`
+    message: `تغییرات با موفقیت در دیتابیس آنلاین جنگو ذخیره و همگام‌سازی گردید.`,
+    freshCards
   };
 }
 

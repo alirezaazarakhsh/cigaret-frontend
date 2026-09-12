@@ -293,6 +293,10 @@ class SiteValueFeatureAdmin(admin.ModelAdmin):
         }),
     )
 
+    def has_add_permission(self, request):
+        # حداکثر ۴ کارت خدمات زیر اسلایدر هیرو مجاز است (در صورت وجود ۴ کارت، دکمه اضافه کردن در ادمین جنگو غیرفعال می‌شود)
+        return SiteValueFeature.objects.count() < 4
+
 
 @admin.register(PageHeaderSetting)
 class PageHeaderSettingAdmin(admin.ModelAdmin):

@@ -163,6 +163,9 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
     setIsSavingBenefits(true);
     try {
       const res = await djangoSaveWholesaleBenefits(benefitCards);
+      if (res.freshCards && Array.isArray(res.freshCards)) {
+        setBenefitCards(res.freshCards);
+      }
       if (res.success && !res.localOnly) {
         setBannerNotice({
           message: res.message || 'کارت‌های خدمات ۴گانه با موفقیت در دیتابیس آنلاین جنگو ذخیره شدند.',
@@ -737,7 +740,7 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                     {benefitCards.length} / ۴ کارت
                   </span>
 
-                  {benefitCards.length < 4 && (
+                  {benefitCards.length < 4 ? (
                     <button
                       onClick={handleAddCard}
                       className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer"
@@ -745,6 +748,10 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                       <Plus className="w-4 h-4" />
                       <span>افزودن کارت جديد</span>
                     </button>
+                  ) : (
+                    <span className="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-500 text-xs font-bold border border-slate-200 select-none">
+                      تکمیل ۴ کارت (حداکثر مجاز)
+                    </span>
                   )}
                 </div>
               </div>
@@ -872,13 +879,13 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
                           <label className="block text-[11px] font-bold text-slate-700 mb-1">
                             توضیحات کوتاه (حداکثر ۱۲۰ کاراکتر)
                           </label>
-                          <input
-                            type="text"
+                          <textarea
+                            rows={2}
                             maxLength={120}
                             value={card.desc}
                             onChange={(e) => handleUpdateCardField(idx, 'desc', e.target.value)}
                             placeholder="ارسال همان روز با باربری‌های معتبر..."
-                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500"
+                            className="w-full bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-indigo-500 resize-none leading-relaxed"
                           />
                         </div>
                       </div>
