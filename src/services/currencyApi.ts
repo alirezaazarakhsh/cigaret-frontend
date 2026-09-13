@@ -19,7 +19,12 @@ export const currencyRatesApi = {
   ): Promise<{success: boolean; message?: string}> {
     try {
       const response = await httpClient.post('/currency_rates/update-rate/', { 
-          code, rate, title, symbol, is_active, is_base 
+          code, 
+          rate, 
+          title, 
+          symbol, 
+          active: is_active, 
+          base: is_base 
       });
       if (!response.success) {
         console.error('API Error Response:', response);
