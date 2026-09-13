@@ -61,10 +61,10 @@ export const CurrencyRateSettings = () => {
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-      <div className="flex border-b border-slate-200 mb-6">
+      <div className="flex border-b border-slate-200 mb-6 overflow-x-auto">
         <button
           onClick={() => setActiveTab('rates')}
-          className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm transition-colors ${
+          className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm transition-colors whitespace-nowrap ${
             activeTab === 'rates' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'
           }`}
         >
@@ -73,7 +73,7 @@ export const CurrencyRateSettings = () => {
         </button>
         <button
           onClick={() => setActiveTab('list')}
-          className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm transition-colors ${
+          className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm transition-colors whitespace-nowrap ${
             activeTab === 'list' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'
           }`}
         >
@@ -82,7 +82,7 @@ export const CurrencyRateSettings = () => {
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm transition-colors ${
+          className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm transition-colors whitespace-nowrap ${
             activeTab === 'history' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'
           }`}
         >
@@ -94,7 +94,7 @@ export const CurrencyRateSettings = () => {
       {activeTab === 'rates' ? (
         <div className="space-y-4">
           <h3 className="font-bold text-slate-800">به‌روزرسانی یا افزودن ارز</h3>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <input 
                 type="text" 
                 placeholder="کد ارز (مثلاً USD)" 
