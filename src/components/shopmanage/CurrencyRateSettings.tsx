@@ -1,19 +1,60 @@
-import React, { useState } from 'react';
-import { Settings, History, Save, Plus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, History, Save, List } from 'lucide-react';
+import { currencyRatesApi } from '../../services/currencyApi';
 
 export const CurrencyRateSettings = () => {
-  const [activeTab, setActiveTab] = useState<'rates' | 'history'>('rates');
+  const [activeTab, setActiveTab] = useState<'rates' | 'list' | 'history'>('rates');
   const [formData, setFormData] = useState({
     code: '',
     title: '',
     symbol: '',
-    rate: ''
+    rate: '',
+    is_active: true,
+    is_base: false
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [history, setHistory] = useState<any[]>([]);
+  const [currentRates, setCurrentRates] = useState<any[]>([]);
 
-  const handleSave = () => {
-    console.log('Data to be saved to database:', formData);
-    // TODO: Connect to backend API (exchange_rates app)
-    alert('در حال اتصال به API دیتابیس... (در انتظار پیاده‌سازی بک‌انند)');
+  const fetchRates = () => {
+    currencyRatesApi.getRates().then(setCurrentRates);
+  };
+
+  useEffect(() => {
+    fetchRates();
+    if (activeTab === 'history') {
+      currencyRatesApi.getHistory().then(setHistory);
+    }
+  }, [activeTab]);
+
+  const handleSave = async () => {
+    if (!formData.code || !formData.rate) {
+      alert('لطفاً کد ارز و نرخ را وارد کنید.');
+      return;
+    }
+    
+    setIsLoading(true);
+    try {
+      const result = await currencyRatesApi.updateRate(
+        formData.code, 
+        Number(formData.rate),
+        formData.title,
+        formData.symbol,
+        formData.is_active,
+        formData.is_base
+      );
+      if (result.success) {
+        alert('نرخ ارز با موفقیت به‌روزرسانی شد.');
+        setFormData({ code: '', title: '', symbol: '', rate: '', is_active: true, is_base: false });
+        fetchRates(); // Refresh list
+      } else {
+        alert('خطا در به‌روزرسانی نرخ ارز: ' + (result.message || 'خطای ناشناخته'));
+      }
+    } catch (error) {
+      alert('خطا در اتصال به سرور');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -29,6 +70,15 @@ export const CurrencyRateSettings = () => {
           ارزها و نرخ مبادله
         </button>
         <button
+          onClick={() => setActiveTab('list')}
+          className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm transition-colors ${
+            activeTab === 'list' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'
+          }`}
+        >
+          <List className="w-4 h-4" />
+          لیست ارزها
+        </button>
+        <button
           onClick={() => setActiveTab('history')}
           className={`flex items-center gap-2 pb-3 px-4 font-bold text-sm transition-colors ${
             activeTab === 'history' ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-500 hover:text-slate-700'
@@ -41,7 +91,7 @@ export const CurrencyRateSettings = () => {
 
       {activeTab === 'rates' ? (
         <div className="space-y-4">
-          <h3 className="font-bold text-slate-800">اضافه کردن ارز جدید</h3>
+          <h3 className="font-bold text-slate-800">به‌روزرسانی یا افزودن ارز</h3>
           <div className="grid grid-cols-2 gap-4">
             <input 
                 type="text" 
@@ -71,18 +121,70 @@ export const CurrencyRateSettings = () => {
                 value={formData.rate}
                 onChange={(e) => setFormData({...formData, rate: e.target.value})}
             />
+            <label className="flex items-center gap-2">
+                <input 
+                    type="checkbox" 
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                />
+                فعال در سیستم
+            </label>
+            <label className="flex items-center gap-2">
+                <input 
+                    type="checkbox" 
+                    checked={formData.is_base}
+                    onChange={(e) => setFormData({...formData, is_base: e.target.checked})}
+                />
+                ارز پایه سیستم
+            </label>
           </div>
           <button 
             onClick={handleSave}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+            disabled={isLoading}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors disabled:bg-indigo-400"
           >
-            <Save className="w-4 h-4" />
-            ذخیره در دیتابیس
+            {isLoading ? 'در حال ذخیره...' : <><Save className="w-4 h-4" /> ذخیره در دیتابیس</>}
           </button>
         </div>
+      ) : activeTab === 'list' ? (
+        <div className="space-y-2">
+          <h3 className="font-bold text-slate-800 mb-4">ارزهای موجود</h3>
+          <div className="space-y-2">
+              {currentRates.map((r) => (
+                  <div 
+                      key={r.code} 
+                      onClick={() => {
+                          setFormData({ 
+                              code: r.code, 
+                              title: r.title || '',
+                              symbol: r.symbol || '',
+                              rate: r.rate.toString(),
+                              is_active: !!r.is_active,
+                              is_base: !!r.is_base
+                          });
+                          setActiveTab('rates');
+                      }}
+                      className="flex justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors"
+                  >
+                      <span className="font-bold">{r.code}</span>
+                      <span>{Number(r.rate).toLocaleString('fa-IR')} تومان</span>
+                  </div>
+              ))}
+          </div>
+        </div>
       ) : (
-        <div className="text-center text-slate-500 py-10">
-          لیست تاریخچه تغییرات ارزها در این بخش نمایش داده می‌شود.
+        <div className="space-y-2">
+            {history.length > 0 ? (
+                history.map((h, i) => (
+                    <div key={i} className="p-3 border-b border-slate-100 flex justify-between">
+                        <span className="font-bold">{h.code}</span>
+                        <span>{Number(h.rate).toLocaleString('fa-IR')} تومان</span>
+                        <span className="text-slate-400 text-xs">{new Date(h.updated_at).toLocaleDateString('fa-IR')}</span>
+                    </div>
+                ))
+            ) : (
+                <div className="text-center text-slate-500 py-10">داده‌ای برای نمایش وجود ندارد.</div>
+            )}
         </div>
       )}
     </div>

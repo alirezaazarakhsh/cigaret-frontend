@@ -76,6 +76,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { currencyRatesApi } from '../../services/currencyApi';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
   LineChart, Line
@@ -515,22 +516,19 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [terminalRef, setTerminalRef] = useState('');
   const [orderNotes, setOrderNotes] = useState('');
 
-  // Currency Exchange Rate settings
-  const [usdRate, setUsdRate] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('sovin_usd_rate');
-      if (saved) return Number(saved);
-    } catch {}
-    return 71500;
-  });
+  const [usdRate, setUsdRate] = useState<number>(71500);
+  const [eurRate, setEurRate] = useState<number>(76000);
+  const [currencyRates, setCurrencyRates] = useState<any[]>([]);
 
-  const [eurRate, setEurRate] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('sovin_eur_rate');
-      if (saved) return Number(saved);
-    } catch {}
-    return 76000;
-  });
+  useEffect(() => {
+    currencyRatesApi.getRates().then(rates => {
+        setCurrencyRates(rates);
+        const usd = rates.find(r => r.code === 'USD');
+        const eur = rates.find(r => r.code === 'EUR');
+        if (usd) setUsdRate(usd.rate);
+        if (eur) setEurRate(eur.rate);
+    });
+  }, []);
 
   const [showCurrencyRateModal, setShowCurrencyRateModal] = useState<boolean>(false);
 
