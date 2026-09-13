@@ -3,6 +3,18 @@ import { Settings, History, Save, Plus } from 'lucide-react';
 
 export const CurrencyRateSettings = () => {
   const [activeTab, setActiveTab] = useState<'rates' | 'history'>('rates');
+  const [formData, setFormData] = useState({
+    code: '',
+    title: '',
+    symbol: '',
+    rate: ''
+  });
+
+  const handleSave = () => {
+    console.log('Data to be saved to database:', formData);
+    // TODO: Connect to backend API (exchange_rates app)
+    alert('در حال اتصال به API دیتابیس... (در انتظار پیاده‌سازی بک‌انند)');
+  };
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
@@ -31,12 +43,39 @@ export const CurrencyRateSettings = () => {
         <div className="space-y-4">
           <h3 className="font-bold text-slate-800">اضافه کردن ارز جدید</h3>
           <div className="grid grid-cols-2 gap-4">
-            <input type="text" placeholder="کد ارز (مثلاً USD)" className="p-2 border rounded-lg" />
-            <input type="text" placeholder="عنوان ارز" className="p-2 border rounded-lg" />
-            <input type="text" placeholder="نماد ارز (مثلاً $)" className="p-2 border rounded-lg" />
-            <input type="number" placeholder="نرخ به تومان" className="p-2 border rounded-lg" />
+            <input 
+                type="text" 
+                placeholder="کد ارز (مثلاً USD)" 
+                className="p-2 border rounded-lg" 
+                value={formData.code}
+                onChange={(e) => setFormData({...formData, code: e.target.value})}
+            />
+            <input 
+                type="text" 
+                placeholder="عنوان ارز" 
+                className="p-2 border rounded-lg" 
+                value={formData.title}
+                onChange={(e) => setFormData({...formData, title: e.target.value})}
+            />
+            <input 
+                type="text" 
+                placeholder="نماد ارز (مثلاً $)" 
+                className="p-2 border rounded-lg" 
+                value={formData.symbol}
+                onChange={(e) => setFormData({...formData, symbol: e.target.value})}
+            />
+            <input 
+                type="number" 
+                placeholder="نرخ به تومان" 
+                className="p-2 border rounded-lg" 
+                value={formData.rate}
+                onChange={(e) => setFormData({...formData, rate: e.target.value})}
+            />
           </div>
-          <button className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold">
+          <button 
+            onClick={handleSave}
+            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-indigo-700 transition-colors"
+          >
             <Save className="w-4 h-4" />
             ذخیره در دیتابیس
           </button>
