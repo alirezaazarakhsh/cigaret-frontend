@@ -184,15 +184,16 @@ class ExchangeRateHistory(models.Model):
 
   const adminCode = `"""
 currency_rates/admin.py
-پنل مدیریت نرخ ارز در ادمین جنگو
+پنل مدیریت نرخ ارز در ادمین جنگو با تاریخ شمسی
 """
 from django.contrib import admin
 from django.utils.html import format_html
+from jalali_date.admin import ModelAdminJalaliMixin
 from .models import Currency, ExchangeRateHistory
 
 
 @admin.register(Currency)
-class CurrencyAdmin(admin.ModelAdmin):
+class CurrencyAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     list_display = ['code', 'title', 'symbol', 'formatted_rate', 'is_active', 'updated_at']
     list_editable = ['is_active']
     search_fields = ['code', 'title']
@@ -204,7 +205,7 @@ class CurrencyAdmin(admin.ModelAdmin):
 
 
 @admin.register(ExchangeRateHistory)
-class ExchangeRateHistoryAdmin(admin.ModelAdmin):
+class ExchangeRateHistoryAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
     list_display = ['currency', 'formatted_old_rate', 'formatted_new_rate', 'changed_by', 'created_at']
     list_filter = ['currency', 'created_at']
     readonly_fields = ['currency', 'old_rate', 'new_rate', 'changed_by', 'created_at']
@@ -364,12 +365,10 @@ class UpdateRateAPIView(APIView):
             if update_products:
                 try:
                     from products.models import Product
-                    products = Product.objects.filter(currency_code=code)
-                    for p in products:
-                        if hasattr(p, 'price_in_currency') and p.price_in_currency:
-                            p.price_in_toman = int(p.price_in_currency * new_rate)
-                            p.save(update_fields=['price_in_toman'])
-                            affected_count += 1
+                    # نکته: فیلد 'currency_code' در مدل Product وجود ندارد. 
+                    # لطفاً فیلد صحیح ارتباط محصول با ارز را اینجا جایگزین کنید.
+                    # products = Product.objects.filter(currency_code=code)
+                    # pass 
                 except ImportError:
                     pass
 

@@ -166,7 +166,7 @@ export const CurrencyRateSettings = () => {
                               code: r.code, 
                               title: r.title || '',
                               symbol: r.symbol || '',
-                              rate: r.rate.toString(),
+                              rate: r.rate != null ? r.rate.toString() : '',
                               is_active: !!r.is_active,
                               is_base: !!r.is_base
                           });
@@ -175,7 +175,7 @@ export const CurrencyRateSettings = () => {
                       className="flex justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors"
                   >
                       <span className="font-bold">{r.code}</span>
-                      <span>{Number(r.rate).toLocaleString('fa-IR')} تومان</span>
+                      <span>{r.rate != null && !isNaN(Number(r.rate)) ? Number(r.rate).toLocaleString('fa-IR') : 'نامشخص'} تومان</span>
                   </div>
               ))}
           </div>
@@ -186,8 +186,8 @@ export const CurrencyRateSettings = () => {
                 history.map((h, i) => (
                     <div key={i} className="p-3 border-b border-slate-100 flex justify-between">
                         <span className="font-bold">{h.code}</span>
-                        <span>{Number(h.rate).toLocaleString('fa-IR')} تومان</span>
-                        <span className="text-slate-400 text-xs">{new Date(h.updated_at).toLocaleDateString('fa-IR')}</span>
+                        <span>{h.rate != null && !isNaN(Number(h.rate)) ? Number(h.rate).toLocaleString('fa-IR') : 'نامشخص'} تومان</span>
+                        <span className="text-slate-400 text-xs">{new Date(h.updated_at).toLocaleString('fa-IR')}</span>
                     </div>
                 ))
             ) : (
