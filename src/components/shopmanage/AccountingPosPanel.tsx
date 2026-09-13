@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { UserManagementPanel } from './UserManagementPanel';
+import { CurrencyRateSettings } from './CurrencyRateSettings';
 import { SiteSettingsManagementPanel } from './SiteSettingsManagementPanel';
 import { motion, AnimatePresence } from "motion/react";
 import { 
@@ -2286,6 +2287,20 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           {/* Quick Tools & Actions (Moved to Visual Left Side) */}
           <div className="flex items-center justify-start gap-2 relative shrink-0 order-last md:order-last w-full md:w-auto">
             
+            {/* Message Icon - Restored per user request */}
+            {hasStaffPerm('manage_warehouse_messages') && (
+              <button
+                onClick={() => { setActiveSubTab('warehouse_messages'); }}
+                className="relative p-2 bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-xl border border-slate-200 transition-all active:scale-95"
+                title="صندوق پیام‌های تماس سایت"
+              >
+                <MessageSquare className="w-4 h-4" />
+                {unreadMessageCount > 0 && (
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-rose-500 rounded-full animate-pulse border-2 border-white"></span>
+                )}
+              </button>
+            )}
+
             {/* Tools & Settings Dropdown */}
             <div className="relative" ref={toolsRef}>
               <button
@@ -6575,23 +6590,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
-            className="bg-white border border-slate-200 rounded-[28px] max-w-md w-full p-6 shadow-2xl space-y-5"
+            className="bg-white border border-slate-200 rounded-[28px] max-w-2xl w-full p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-md">
-                  <Coins className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-slate-900">
-                    تنظیم نرخ ارز (دلار و یورو)
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    تعیین نرخ مبادله‌ای ارز برای تسویه فاکتورها
-                  </p>
-                </div>
-              </div>
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
+              <h3 className="text-base font-black text-slate-900">مدیریت نرخ ارز</h3>
               <button
                 onClick={() => setShowCurrencyRateModal(false)}
                 className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
@@ -6599,55 +6602,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-black text-slate-700 mb-1.5">
-                  نرخ دلار آمریکا (USD به تومان)
-                </label>
-                <input
-                  type="number"
-                  defaultValue={usdRate}
-                  id="modal_usd_rate"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm font-bold"
-                  placeholder="مثال: 71500"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-black text-slate-700 mb-1.5">
-                  نرخ یورو اروپا (EUR به تومان)
-                </label>
-                <input
-                  type="number"
-                  defaultValue={eurRate}
-                  id="modal_eur_rate"
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-cyan-500 font-mono text-sm font-bold"
-                  placeholder="مثال: 76000"
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center justify-end gap-3 pt-2">
-              <button
-                onClick={() => setShowCurrencyRateModal(false)}
-                className="px-4 py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-bold hover:bg-slate-200 transition-colors"
-              >
-                انصراف
-              </button>
-              <button
-                onClick={() => {
-                  const uInput = (document.getElementById('modal_usd_rate') as HTMLInputElement)?.value;
-                  const eInput = (document.getElementById('modal_eur_rate') as HTMLInputElement)?.value;
-                  const newU = Number(uInput) || usdRate;
-                  const newE = Number(eInput) || eurRate;
-                  handleSaveCurrencyRates(newU, newE);
-                }}
-                className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black shadow-lg shadow-blue-600/20 active:scale-95 transition-all"
-              >
-                ذخیره تنظیمات نرخ
-              </button>
-            </div>
+            
+            <CurrencyRateSettings />
           </motion.div>
         </div>
       )}
