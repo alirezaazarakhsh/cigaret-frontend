@@ -252,18 +252,22 @@ class CurrencySerializer(serializers.ModelSerializer):
 
 class UpdateCurrencyRateSerializer(serializers.Serializer):
     """
-    ورودی تغییر نرخ ارز توسط مدیر
+    ورودی تغییر نرخ ارز توسط مدیر (با قابلیت ساخت ارز جدید)
     """
-    currency_code = serializers.CharField(max_length=10, help_text="کد ارز مثل USD یا AED")
-    new_rate_in_toman = serializers.IntegerField(min_value=1, help_text="نرخ جدید به تومان")
-    update_product_prices = serializers.BooleanField(default=True, help_text="آیا قیمت ریالی محصولات ارزی بر اساس نرخ جدید بروزرسانی شود؟")
+    currency_code = serializers.CharField(max_length=10)
+    new_rate_in_toman = serializers.IntegerField(min_value=1)
+    title = serializers.CharField(max_length=50, required=False, default="ارز جدید")
+    symbol = serializers.CharField(max_length=10, required=False, default="$")
+    is_active = serializers.BooleanField(required=False, default=True)
+    is_base = serializers.BooleanField(required=False, default=False)
+    update_product_prices = serializers.BooleanField(default=True)
 
 
 class CurrencyConvertSerializer(serializers.Serializer):
     """
     ورودی تبدیل آنلاین مبلغ ارزی
     """
-    amount = serializers.FloatField(min_value=0.01, help_text="مبلغ ارزی")
+    amount = serializers.FloatField(min_value=0.01)
     from_currency = serializers.CharField(max_length=10, default="USD")
     to_currency = serializers.CharField(max_length=10, default="TOMAN")
 
@@ -302,12 +306,6 @@ class CurrencyListAPIView(APIView):
     """
     permission_classes = [permissions.AllowAny]
 
-    @swagger_auto_schema(
-        operation_id="لیست_نرخ_ارزها",
-        operation_description="دریافت لیست آخرین نرخ ارزهای فعال در سیستم (دلار، درهم، یورو)",
-        tags=["نرخ ارز و قیمت‌گذاری (Currency Rates)"],
-        responses={200: CurrencySerializer(many=True)}
-    )
     def get(self, request):
         currencies = Currency.objects.filter(is_active=True)
         serializer = CurrencySerializer(currencies, many=True)
@@ -316,32 +314,43 @@ class CurrencyListAPIView(APIView):
 
 class UpdateRateAPIView(APIView):
     """
-    تغییر و بروزرسانی نرخ ارز توسط مدیریت
+    تغییر و بروزرسانی نرخ ارز توسط مدیریت یا ایجاد ارز جدید
     """
     permission_classes = [permissions.IsAdminUser]
 
-    @swagger_auto_schema(
-        operation_id="بروزرسانی_نرخ_ارز",
-        operation_description="تغییر نرخ تبدیل ارز پایه (مثلا دلار) به تومان و ثبت در دیتابیس",
-        tags=["نرخ ارز و قیمت‌گذاری (Currency Rates)"],
-        request_body=UpdateCurrencyRateSerializer,
-        responses={200: openapi.Response(description="نرخ با موفقیت تغییر کرد")}
-    )
     def post(self, request):
         serializer = UpdateCurrencyRateSerializer(data=request.data)
         if serializer.is_valid():
             code = serializer.validated_data['currency_code'].upper()
             new_rate = serializer.validated_data['new_rate_in_toman']
+            title = serializer.validated_data.get('title')
+            symbol = serializer.validated_data.get('symbol')
+            is_active = serializer.validated_data.get('is_active')
+            is_base = serializer.validated_data.get('is_base')
             update_products = serializer.validated_data.get('update_product_prices', True)
 
-            try:
-                currency = Currency.objects.get(code=code)
-            except Currency.DoesNotExist:
-                return Response({'error': f'ارز با کد {code} یافت نشد.'}, status=status.HTTP_404_NOT_FOUND)
+            # استفاده از get_or_create برای مدیریت ایجاد یا آپدیت
+            currency, created = Currency.objects.get_or_create(
+                code=code,
+                defaults={
+                    'title': title,
+                    'symbol': symbol,
+                    'rate_in_toman': new_rate,
+                    'is_active': is_active,
+                    'is_base': is_base
+                }
+            )
 
             old_rate = currency.rate_in_toman
-            currency.rate_in_toman = new_rate
-            currency.save()
+            
+            # اگر ارز موجود بود، آپدیت کن
+            if not created:
+                currency.title = title
+                currency.symbol = symbol
+                currency.rate_in_toman = new_rate
+                currency.is_active = is_active
+                currency.is_base = is_base
+                currency.save()
 
             # ثبت در تاریخچه تغییرات
             ExchangeRateHistory.objects.create(
@@ -352,21 +361,22 @@ class UpdateRateAPIView(APIView):
             )
 
             affected_count = 0
-            # در صورت درخواست، قیمت ریالی تمام کالاهای متصل به این ارز بروزرسانی می‌شود
             if update_products:
-                from products.models import Product  # یا مدل محصولات شما
-                products = Product.objects.filter(currency_code=code)
-                for p in products:
-                    if hasattr(p, 'price_in_currency') and p.price_in_currency:
-                        p.price_in_toman = int(p.price_in_currency * new_rate)
-                        p.save(update_fields=['price_in_toman'])
-                        affected_count += 1
+                try:
+                    from products.models import Product
+                    products = Product.objects.filter(currency_code=code)
+                    for p in products:
+                        if hasattr(p, 'price_in_currency') and p.price_in_currency:
+                            p.price_in_toman = int(p.price_in_currency * new_rate)
+                            p.save(update_fields=['price_in_toman'])
+                            affected_count += 1
+                except ImportError:
+                    pass
 
             return Response({
-                'message': f'نرخ {currency.title} با موفقیت به {new_rate:,} تومان تغییر یافت.',
+                'message': f'ارز {currency.title} با موفقیت {"ایجاد" if created else "بروزرسانی"} شد.',
                 'old_rate': old_rate,
-                'new_rate': new_rate,
-                'affected_products_count': affected_count
+                'new_rate': new_rate
             }, status=status.HTTP_200_OK)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -378,20 +388,13 @@ class CurrencyConvertAPIView(APIView):
     """
     permission_classes = [permissions.AllowAny]
 
-    @swagger_auto_schema(
-        operation_id="تبدیل_آنلاین_ارز",
-        operation_description="محاسبه و تبدیل مبلغ ارزی به تومان بر اساس نرخ روز",
-        tags=["نرخ ارز و قیمت‌گذاری (Currency Rates)"],
-        request_body=CurrencyConvertSerializer,
-        responses={200: openapi.Response(description="مبلغ تبدیل شده")}
-    )
     def post(self, request):
         serializer = CurrencyConvertSerializer(data=request.data)
         if serializer.is_valid():
             amount = serializer.validated_data['amount']
             from_code = serializer.validated_data['from_currency'].upper()
 
-            if from_code == 'TOMAN' or from_code == 'IRR':
+            if from_code in ['TOMAN', 'IRR']:
                 return Response({
                     'converted_amount': int(amount),
                     'rate_used': 1,
@@ -420,12 +423,6 @@ class ExchangeHistoryListAPIView(APIView):
     """
     permission_classes = [permissions.IsAdminUser]
 
-    @swagger_auto_schema(
-        operation_id="تاریخچه_تغییرات_نرخ_ارز",
-        operation_description="سوابق تغییر قیمت دلار و ارزها در دیتابیس",
-        tags=["نرخ ارز و قیمت‌گذاری (Currency Rates)"],
-        responses={200: ExchangeRateHistorySerializer(many=True)}
-    )
     def get(self, request):
         history = ExchangeRateHistory.objects.all().select_related('currency', 'changed_by')[:50]
         serializer = ExchangeRateHistorySerializer(history, many=True)
