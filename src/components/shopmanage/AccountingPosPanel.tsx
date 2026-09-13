@@ -1172,19 +1172,20 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     invalidatePosTokenAndSession('manual_logout');
     
     // ۲. فراخوانی بک‌اند در پس‌زمینه بدون مسدودسازی رابط کاربری
+    // از try-catch برای اطمینان از عدم توقف در صورت خطای بک‌اند استفاده شد
     api.accounts.posLogout().catch(err => console.error('Logout background API error:', err));
     
     if (currentStaff?.phone) {
       setOnlineSessions(prev => prev.filter(s => s.phone !== currentStaff.phone));
     }
 
-    // انیمیشن نرم خروج امنیتی به مدت ۸۰۰ میلی‌ثانیه
-    await new Promise(resolve => setTimeout(resolve, 800));
-
+    // هدایت سریع به صفحه لاگین بدون وقفه طولانی
     setIsAuthenticated(false);
     setSessionExpiredNotice('');
     setIsLoggingOut(false);
-    // عدم ارجاع خودکار به کاتالوگ فروشگاه؛ هدایت و حفظ مستقیم کاربر بر روی صفحه لاگین صندوق
+    
+    // اطمینان از ریدایرکت به صفحه لاگین (اگر با تغییر وضعیت isAuthenticated ریدایرکت خودکار نشد)
+    window.location.href = '/shopmanage/sandogh'; 
   };
 
   const handleExtendSession = () => {
@@ -2285,26 +2286,6 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           {/* Quick Tools & Actions (Moved to Visual Left Side) */}
           <div className="flex items-center justify-start gap-2 relative shrink-0 order-last md:order-last w-full md:w-auto">
             
-            {/* Warehouse Contact Messages Inbox Button with Reactive Badge */}
-            {(currentStaff.role === 'super_admin' || hasStaffPerm('manage_warehouse_messages')) && (
-              <button
-                onClick={() => setActiveSubTab('warehouse_messages')}
-                className={`relative p-2 rounded-xl border transition-all active:scale-95 flex items-center justify-center ${
-                  activeSubTab === 'warehouse_messages'
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-600/20'
-                    : 'bg-slate-100 hover:bg-slate-200 text-slate-600 hover:text-slate-900 border-slate-200'
-                }`}
-                title="صندوق پیام‌های تماس سایت"
-              >
-                <MessageSquare className="w-4.5 h-4.5" />
-                {unreadMessageCount > 0 && (
-                  <span className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] font-black w-5.5 h-5.5 rounded-full flex items-center justify-center border-2 border-white shadow-sm animate-pulse">
-                    {unreadMessageCount}
-                  </span>
-                )}
-              </button>
-            )}
-
             {/* Tools & Settings Dropdown */}
             <div className="relative" ref={toolsRef}>
               <button
@@ -2325,26 +2306,6 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     setShowToolsDropdown(false);
                   }}
                 >
-                  {/* Messages Inbox Shortcut in Dropdown */}
-                  {(currentStaff.role === 'super_admin' || hasStaffPerm('manage_warehouse_messages')) && (
-                    <button
-                      onClick={() => { setActiveSubTab('warehouse_messages'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right"
-                    >
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="w-4 h-4 text-indigo-600" />
-                        <span>صندوق پیام‌های تماس سایت</span>
-                      </div>
-                      {unreadMessageCount > 0 ? (
-                        <span className="text-[9px] bg-rose-500 text-white px-2 py-0.5 rounded-full font-black animate-pulse">
-                          {unreadMessageCount} جدید
-                        </span>
-                      ) : (
-                        <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
-                      )}
-                    </button>
-                  )}
-
                   <div className="my-1 border-t border-slate-100"></div>
 
                   <button
