@@ -15,6 +15,7 @@ export const CurrencyRateSettings = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [history, setHistory] = useState<any[]>([]);
   const [currentRates, setCurrentRates] = useState<any[]>([]);
+  const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
   const fetchRates = () => {
     currencyRatesApi.getRates().then(setCurrentRates);
@@ -29,11 +30,12 @@ export const CurrencyRateSettings = () => {
 
   const handleSave = async () => {
     if (!formData.code || !formData.rate) {
-      alert('لطفاً کد ارز و نرخ را وارد کنید.');
+      setMessage({ text: 'لطفاً کد ارز و نرخ را وارد کنید.', type: 'error' });
       return;
     }
     
     setIsLoading(true);
+    setMessage(null);
     try {
       const result = await currencyRatesApi.updateRate(
         formData.code, 
@@ -44,14 +46,14 @@ export const CurrencyRateSettings = () => {
         formData.is_base
       );
       if (result.success) {
-        alert('نرخ ارز با موفقیت به‌روزرسانی شد.');
+        setMessage({ text: 'نرخ ارز با موفقیت به‌روزرسانی شد.', type: 'success' });
         setFormData({ code: '', title: '', symbol: '', rate: '', is_active: true, is_base: false });
         fetchRates(); // Refresh list
       } else {
-        alert('خطا در به‌روزرسانی نرخ ارز: ' + (result.message || 'خطای ناشناخته'));
+        setMessage({ text: 'خطا در به‌روزرسانی نرخ ارز: ' + (result.message || 'خطای ناشناخته'), type: 'error' });
       }
     } catch (error) {
-      alert('خطا در اتصال به سرور');
+      setMessage({ text: 'خطا در اتصال به سرور', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -145,6 +147,12 @@ export const CurrencyRateSettings = () => {
           >
             {isLoading ? 'در حال ذخیره...' : <><Save className="w-4 h-4" /> ذخیره در دیتابیس</>}
           </button>
+
+          {message && (
+            <div className={`p-3 rounded-lg text-sm font-bold ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {message.text}
+            </div>
+          )}
         </div>
       ) : activeTab === 'list' ? (
         <div className="space-y-2">
