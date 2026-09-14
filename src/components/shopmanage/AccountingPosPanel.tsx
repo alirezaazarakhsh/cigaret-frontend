@@ -630,7 +630,9 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   const getProductPerformanceData = (productId: string) => {
     const now = new Date();
-    const currentYear = now.getFullYear();
+    // Get current Persian year
+    const currentYear = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric' }).format(now);
+    
     const productReceipts = receiptsList.filter(r => 
       r.items.some(item => item.id === productId)
     );
@@ -640,17 +642,24 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const totalSales = productReceipts.filter(r => new Date(r.timestamp).toDateString() === d.toDateString())
+        const dayStr = d.toLocaleDateString('fa-IR');
+        const totalSales = productReceipts.filter(r => new Date(r.timestamp).toLocaleDateString('fa-IR') === dayStr)
           .reduce((acc, r) => acc + (r.items.find(it => it.id === productId)?.quantity || 0), 0);
         data.push({ name: d.toLocaleDateString('fa-IR', { weekday: 'short' }), sales: totalSales, revenue: 0 });
       }
       return data;
     }
 
-    // Always calculate 12 monthly totals
+    // Always calculate 12 monthly totals based on Persian calendar
     const monthlyTotals = Array.from({ length: 12 }, (_, i) => {
+      // Find receipts where Persian month matches index i
       const monthSales = productReceipts
-        .filter(r => new Date(r.timestamp).getFullYear() === currentYear && new Date(r.timestamp).getMonth() === i)
+        .filter(r => {
+          const date = new Date(r.timestamp);
+          const fYear = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric' }).format(date);
+          const fMonth = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { month: 'numeric' }).format(date);
+          return fYear === currentYear && (parseInt(fMonth) - 1) === i;
+        })
         .reduce((acc, r) => acc + (r.items.find(it => it.id === productId)?.quantity || 0), 0);
       return { 
         name: ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'][i], 
