@@ -662,7 +662,9 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
     receipt.paymentMethod === 'cash' ? 'پرداخت نقدی' :
     receipt.paymentMethod === 'ledger' ? 'حساب دفتری (نسیه)' :
     receipt.paymentMethod === 'split' ? 'ترکیبی (نقد + کارت)' :
-    receipt.paymentMethod === 'foreign' ? `ارزی (دلار/یورو) - ${receipt.foreignCurrencyDetails?.currency || ''}` : 'کارتخوان بانکی';
+    (receipt.paymentMethod === 'foreign' || receipt.paymentMethod === 'usd' || receipt.paymentMethod === 'eur') && receipt.foreignCurrencyDetails 
+      ? `ارزی (${receipt.foreignCurrencyDetails.currency}): ${receipt.foreignCurrencyDetails.amount} (نرخ: ${formatNumberFa(receipt.foreignCurrencyDetails.rate || 0)})` 
+      : 'کارتخوان بانکی';
 
   printContainer.innerHTML = `
     <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #0f172a; background: #ffffff; box-sizing: border-box; font-size: 11px; line-height: 1.6;">

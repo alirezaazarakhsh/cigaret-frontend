@@ -6017,11 +6017,9 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                         ? 'پرداخت نقدی' 
                         : activeReceiptToPrint.paymentMethod === 'ledger'
                           ? 'حساب دفتری (نسیه)'
-                          : activeReceiptToPrint.paymentMethod === 'foreign'
-                            ? `پرداخت ارزی (${activeReceiptToPrint.foreignCurrencyDetails?.currency}): ${activeReceiptToPrint.foreignCurrencyDetails?.amount} (نرخ: ${formatNumberFa(activeReceiptToPrint.foreignCurrencyDetails?.rate || 0)})`
-                            : activeReceiptToPrint.paymentMethod === 'usd' || activeReceiptToPrint.paymentMethod === 'eur'
-                              ? `پرداخت ارزی (${activeReceiptToPrint.foreignCurrencyDetails?.currency}): ${activeReceiptToPrint.foreignCurrencyDetails?.amount} (نرخ: ${formatNumberFa(activeReceiptToPrint.foreignCurrencyDetails?.rate || 0)})`
-                              : `ترکیبی (${activeReceiptToPrint.splitPaymentDetails ? `پرداخت: ${formatToman(activeReceiptToPrint.splitPaymentDetails.paidNow)} / دفتری: ${formatToman(activeReceiptToPrint.splitPaymentDetails.remainingToLedger)}` : 'نقد + نسیه'})`}
+                          : (activeReceiptToPrint.paymentMethod === 'foreign' || activeReceiptToPrint.paymentMethod === 'usd' || activeReceiptToPrint.paymentMethod === 'eur') && activeReceiptToPrint.foreignCurrencyDetails
+                            ? `پرداخت ارزی (${activeReceiptToPrint.foreignCurrencyDetails.currency}): ${activeReceiptToPrint.foreignCurrencyDetails.amount} (نرخ: ${formatNumberFa(activeReceiptToPrint.foreignCurrencyDetails.rate || 0)})`
+                            : `ترکیبی (${activeReceiptToPrint.splitPaymentDetails ? `پرداخت: ${formatToman(activeReceiptToPrint.splitPaymentDetails.paidNow)} / دفتری: ${formatToman(activeReceiptToPrint.splitPaymentDetails.remainingToLedger)}` : 'نقد + نسیه'})`}
                   </span>
                 </div>
               </div>
