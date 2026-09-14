@@ -44,7 +44,16 @@ export const CurrencyRateSettings = () => {
     if (!dateStr) return 'تاریخ نامشخص';
     
     try {
-        return new Date(dateStr).toLocaleDateString('fa-IR');
+        const date = new Date(dateStr);
+        if (isNaN(date.getTime())) return 'تاریخ نامعتبر';
+        
+        return new Intl.DateTimeFormat('fa-IR', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).format(date);
     } catch (e) {
         return 'تاریخ نامعتبر';
     }
@@ -188,7 +197,7 @@ export const CurrencyRateSettings = () => {
                               code: r.code, 
                               title: r.title || '',
                               symbol: r.symbol || '',
-                              rate: r.rate != null ? r.rate.toString() : '',
+                              rate: (r.rate_in_toman ?? r.rate ?? '').toString(),
                               is_active: !!r.is_active,
                               is_base: !!r.is_base
                           });
