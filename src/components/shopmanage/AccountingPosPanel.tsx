@@ -1359,8 +1359,13 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       return;
     }
 
-    if ((paymentMethod === 'ledger' || paymentMethod === 'split') && !selectedLedgerCustomerId && !customerName) {
-      alert('برای فروش حساب دفتری (نسیه) یا پرداخت ترکیبی، انتخاب مشتری الزامی است.');
+    if (paymentMethod === 'ledger' && !selectedLedgerCustomerId) {
+      alert('برای فروش حساب دفتری (نسیه)، انتخاب مشتری عضو الزامی است.');
+      return;
+    }
+
+    if (paymentMethod === 'split' && !selectedLedgerCustomerId && !customerName) {
+      alert('برای پرداخت ترکیبی، انتخاب مشتری یا درج نام مشتری الزامی است.');
       return;
     }
 
@@ -6016,17 +6021,29 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 <div className="flex justify-between items-center text-[10px] text-slate-600 pt-1.5 border-t border-slate-200">
                   <span>روش تسویه:</span>
                   <span className="font-bold text-indigo-900">
-                    {activeReceiptToPrint.paymentMethod === 'pos_terminal' 
-                      ? 'کارتخوان بانکی' 
-                      : activeReceiptToPrint.paymentMethod === 'cash' 
-                        ? 'پرداخت نقدی' 
-                        : activeReceiptToPrint.paymentMethod === 'ledger'
-                          ? 'حساب دفتری (نسیه)'
-                          : activeReceiptToPrint.paymentMethod === 'split' 
-                            ? `ترکیبی (${activeReceiptToPrint.splitPaymentDetails ? `پرداخت: ${formatToman(activeReceiptToPrint.splitPaymentDetails.paidNow)} / دفتری: ${formatToman(activeReceiptToPrint.splitPaymentDetails.remainingToLedger)}` : 'نقد + نسیه'})`
-                            : (activeReceiptToPrint.paymentMethod === 'foreign' || activeReceiptToPrint.paymentMethod === 'usd' || activeReceiptToPrint.paymentMethod === 'eur') && activeReceiptToPrint.foreignCurrencyDetails
-                              ? `پرداخت ارزی (${activeReceiptToPrint.foreignCurrencyDetails.currency}): ${activeReceiptToPrint.foreignCurrencyDetails.amount} (نرخ: ${formatNumberFa(activeReceiptToPrint.foreignCurrencyDetails.rate || 0)})`
-                              : 'روش تسویه نامشخص'}
+                    {(() => {
+                      const paidAmount = activeReceiptToPrint.paymentMethod === 'pos_terminal' || activeReceiptToPrint.paymentMethod === 'cash'
+                        ? activeReceiptToPrint.finalTotal
+                        : activeReceiptToPrint.paymentMethod === 'split'
+                          ? (activeReceiptToPrint.splitPaymentDetails?.paidNow || 0)
+                          : (activeReceiptToPrint.paymentMethod === 'foreign' || activeReceiptToPrint.paymentMethod === 'usd' || activeReceiptToPrint.paymentMethod === 'eur')
+                            ? (activeReceiptToPrint.foreignCurrencyDetails?.tomanEquivalent || 0)
+                            : 0;
+
+                      const debt = Math.max(0, activeReceiptToPrint.finalTotal - paidAmount);
+                      const debtText = debt > 0 ? ` / بدهی: ${formatToman(debt)}` : '';
+
+                      if (activeReceiptToPrint.paymentMethod === 'pos_terminal') return 'کارتخوان بانکی' + debtText;
+                      if (activeReceiptToPrint.paymentMethod === 'cash') return 'پرداخت نقدی' + debtText;
+                      if (activeReceiptToPrint.paymentMethod === 'ledger') return 'حساب دفتری (نسیه)' + debtText;
+                      if (activeReceiptToPrint.paymentMethod === 'split') {
+                        return `ترکیبی (${activeReceiptToPrint.splitPaymentDetails ? `پرداخت: ${formatToman(activeReceiptToPrint.splitPaymentDetails.paidNow)} / دفتری: ${formatToman(activeReceiptToPrint.splitPaymentDetails.remainingToLedger)}` : 'نقد + نسیه'})${debtText}`;
+                      }
+                      if ((activeReceiptToPrint.paymentMethod === 'foreign' || activeReceiptToPrint.paymentMethod === 'usd' || activeReceiptToPrint.paymentMethod === 'eur') && activeReceiptToPrint.foreignCurrencyDetails) {
+                        return `پرداخت ارزی (${activeReceiptToPrint.foreignCurrencyDetails.currency}): ${activeReceiptToPrint.foreignCurrencyDetails.amount} (نرخ: ${formatNumberFa(activeReceiptToPrint.foreignCurrencyDetails.rate || 0)})${debtText}`;
+                      }
+                      return 'روش تسویه نامشخص';
+                    })()}
                   </span>
                 </div>
               </div>

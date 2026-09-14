@@ -657,13 +657,25 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
   printContainer.style.direction = 'rtl';
   printContainer.style.pointerEvents = 'none';
 
-  const paymentMethodText = 
-    receipt.paymentMethod === 'pos_terminal' ? 'کارتخوان بانکی' :
-    receipt.paymentMethod === 'cash' ? 'پرداخت نقدی' :
-    receipt.paymentMethod === 'ledger' ? 'حساب دفتری (نسیه)' :
+  const paidAmount = receipt.paymentMethod === 'pos_terminal' || receipt.paymentMethod === 'cash'
+    ? receipt.finalTotal
+    : receipt.paymentMethod === 'split'
+      ? (receipt.splitPaymentDetails?.paidNow || 0)
+      : (receipt.paymentMethod === 'foreign' || receipt.paymentMethod === 'usd' || receipt.paymentMethod === 'eur')
+        ? (receipt.foreignCurrencyDetails?.tomanEquivalent || 0)
+        : 0;
+
+  const debt = Math.max(0, receipt.finalTotal - paidAmount);
+  const debtText = debt > 0 ? ` / بدهی: ${formatToman(debt)}` : '';
+
+  const paymentMethodText =
+    receipt.paymentMethod === 'pos_terminal' ? 'کارتخوان بانکی' + debtText :
+    receipt.paymentMethod === 'cash' ? 'پرداخت نقدی' + debtText :
+    receipt.paymentMethod === 'ledger' ? 'حساب دفتری (نسیه)' + debtText :
+    receipt.paymentMethod === 'split' ? `ترکیبی (نقد: ${formatToman(receipt.splitPaymentDetails?.paidNow || 0)})${debtText}` :
     (receipt.paymentMethod === 'foreign' || receipt.paymentMethod === 'usd' || receipt.paymentMethod === 'eur') && receipt.foreignCurrencyDetails 
-      ? `ارزی (${receipt.foreignCurrencyDetails.currency}): ${receipt.foreignCurrencyDetails.amount} (نرخ: ${formatNumberFa(receipt.foreignCurrencyDetails.rate || 0)})` 
-      : receipt.paymentMethod === 'split' ? 'ترکیبی (نقد + کارت)' : 'کارتخوان بانکی';
+      ? `ارزی (${receipt.foreignCurrencyDetails.currency}): ${receipt.foreignCurrencyDetails.amount} (نرخ: ${formatNumberFa(receipt.foreignCurrencyDetails.rate || 0)})${debtText}` 
+      : 'روش تسویه نامشخص';
 
   printContainer.innerHTML = `
     <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #0f172a; background: #ffffff; box-sizing: border-box; font-size: 11px; line-height: 1.6;">
