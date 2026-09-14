@@ -1392,8 +1392,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         paidVia: splitPaidVia,
         remainingToLedger,
       } : undefined,
-      foreignCurrencyDetails: (paymentMethod === 'usd' || paymentMethod === 'eur') ? {
-        currency: paymentMethod.toUpperCase() as 'USD' | 'EUR',
+      foreignCurrencyDetails: (paymentMethod === 'foreign' || paymentMethod === 'usd' || paymentMethod === 'eur') ? {
+        currency: (paymentMethod === 'foreign' ? foreignCurrencyDetails?.currency : paymentMethod.toUpperCase()) as 'USD' | 'EUR',
         amount: foreignCurrencyAmount,
         rate: foreignExchangeRate,
         tomanEquivalent: foreignCurrencyAmount * foreignExchangeRate,
@@ -3176,64 +3176,84 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                       {/* Payment Method Tabs */}
                       <div>
                         <label className="block text-[11px] font-bold text-slate-600 mb-1.5">روش پرداخت و تسویه:</label>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                          {[
-                            { id: 'pos_terminal', label: 'کارتخوان بانکی', icon: CreditCard, colorClass: 'indigo' },
-                            { id: 'cash', label: 'پرداخت نقدی', icon: Banknote, colorClass: 'emerald' },
-                            { id: 'ledger', label: 'نسیه دفتری', icon: Clock, colorClass: 'purple' },
-                            { id: 'split', label: 'ترکیبی (نقد/نسیه)', icon: Split, colorClass: 'amber' },
-                          ].map((method) => {
-                            const Icon = method.icon;
-                            const isActive = paymentMethod === method.id;
-                            return (
-                              <button
-                                key={method.id}
-                                type="button"
-                                onClick={() => {
-                                  setPaymentMethod(method.id as any);
-                                  if (method.id === 'split' && splitPaidAmount === 0 && posFinalTotal > 0) {
-                                    setSplitPaidAmount(Math.floor(posFinalTotal / 2));
-                                  }
-                                }}
-                                className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${
-                                  isActive
-                                    ? `bg-${method.colorClass}-50 border-${method.colorClass}-500 shadow-lg ring-2 ring-${method.colorClass}-200`
-                                    : 'bg-white border-slate-200 hover:border-slate-300'
-                                }`}
-                              >
-                                <Icon className={`w-6 h-6 ${isActive ? `text-${method.colorClass}-600` : 'text-slate-500'}`} />
-                                <span className={`text-xs font-bold ${isActive ? `text-${method.colorClass}-900` : 'text-slate-700'}`}>
-                                  {method.label}
-                                </span>
-                              </button>
-                            );
-                          })}
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 sm:gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod('pos_terminal')}
+                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                              paymentMethod === 'pos_terminal'
+                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <CreditCard className="w-4 h-4" />
+                            <span>کارتخوان</span>
+                          </button>
 
-                           {currencyRates.map((r) => {
-                             const isActive = paymentMethod === "foreign" && foreignCurrencyDetails?.currency === r.code;
-                             return (
-                               <button
-                                 key={r.code}
-                                 type="button"
-                                 onClick={() => {
-                                   const latest = currencyRates.find(c => c.code === r.code) || r;
-                                   setPaymentMethod("foreign");
-                                   setForeignCurrencyDetails({ currency: latest.code, rate: latest.rate_in_toman || latest.rate });
-                                   setForeignExchangeRate(latest.rate_in_toman || latest.rate);
-                                 }}
-                                 className={`p-4 rounded-2xl border-2 flex flex-col items-center justify-center gap-2 transition-all duration-200 ${
-                                   isActive
-                                     ? "bg-blue-50 border-blue-500 shadow-lg ring-2 ring-blue-200"
-                                     : "bg-white border-slate-200 hover:border-slate-300"
-                                 }`}
-                               >
-                                 <Coins className={`w-6 h-6 ${isActive ? "text-blue-600" : "text-slate-500"}`} />
-                                 <span className={`text-xs font-bold ${isActive ? "text-blue-900" : "text-slate-700"}`}>
-                                   ارزی ({r.code})
-                                 </span>
-                               </button>
-                             );
-                           })}
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod('cash')}
+                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                              paymentMethod === 'cash'
+                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Banknote className="w-4 h-4" />
+                            <span>نقدی</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => setPaymentMethod('ledger')}
+                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                              paymentMethod === 'ledger'
+                                ? 'bg-purple-600 text-white border-purple-600 shadow-md'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Clock className="w-4 h-4" />
+                            <span>نسیه دفتری</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setPaymentMethod('split');
+                              if (splitPaidAmount === 0 && posFinalTotal > 0) {
+                                setSplitPaidAmount(Math.floor(posFinalTotal / 2));
+                              }
+                            }}
+                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                              paymentMethod === 'split'
+                                ? 'bg-amber-600 text-white border-amber-600 shadow-md'
+                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            <Split className="w-4 h-4" />
+                            <span>ترکیبی (نقد+نسیه)</span>
+                          </button>
+
+                           {currencyRates.map((r) => (
+                             <button
+                               key={r.code}
+                               type="button"
+                               onClick={() => {
+                                 const latest = currencyRates.find(c => c.code === r.code) || r;
+                                 setPaymentMethod("foreign");
+                                 setForeignCurrencyDetails({ currency: latest.code, rate: latest.rate_in_toman || latest.rate });
+                                 setForeignExchangeRate(latest.rate_in_toman || latest.rate);
+                               }}
+                               className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border-2 transition-all ${
+                                 paymentMethod === "foreign" && foreignCurrencyDetails?.currency === r.code
+                                   ? "bg-blue-600 text-white border-blue-800 ring-2 ring-blue-300 shadow-md"
+                                   : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100 hover:border-slate-300"
+                               }`}
+                             >
+                               <Coins className="w-4 h-4" />
+                               <span>{r.code}</span>
+                             </button>
+                           ))}
                         </div>
                       </div>
 
