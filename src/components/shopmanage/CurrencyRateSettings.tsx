@@ -91,6 +91,25 @@ export const CurrencyRateSettings = () => {
     }
   };
 
+  const handleDelete = async (code: string) => {
+    if (!window.confirm(`آیا مطمئن هستید که می‌خواهید ارز ${code} را حذف کنید؟`)) return;
+    
+    setIsLoading(true);
+    try {
+        const result = await currencyRatesApi.deleteRate(code);
+        if (result.success) {
+            setMessage({ text: 'ارز با موفقیت حذف شد.', type: 'success' });
+            fetchRates();
+        } else {
+            setMessage({ text: 'خطا در حذف ارز: ' + (result.message || 'خطای ناشناخته'), type: 'error' });
+        }
+    } catch (error) {
+        setMessage({ text: 'خطای سیستمی', type: 'error' });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
       <div className="flex border-b border-slate-200 mb-6 overflow-x-auto">
@@ -193,21 +212,31 @@ export const CurrencyRateSettings = () => {
               {currentRates.map((r) => (
                   <div 
                       key={r.code} 
-                      onClick={() => {
-                          setFormData({ 
-                              code: r.code, 
-                              title: r.title || '',
-                              symbol: r.symbol || '',
-                              rate: (r.rate_in_toman ?? r.rate ?? '').toString(),
-                              is_active: !!r.is_active,
-                              is_base: !!r.is_base
-                          });
-                          setActiveTab('rates');
-                      }}
-                      className="flex justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors"
+                      className="flex justify-between items-center p-3 bg-slate-50 rounded-lg hover:bg-indigo-50 transition-colors"
                   >
-                      <span className="font-bold">{r.code}</span>
-                      <span>{getRateValue(r) != null && !isNaN(Number(getRateValue(r))) ? Number(getRateValue(r)).toLocaleString('fa-IR') : 'نامشخص'} تومان</span>
+                      <div 
+                        onClick={() => {
+                            setFormData({ 
+                                code: r.code, 
+                                title: r.title || '',
+                                symbol: r.symbol || '',
+                                rate: (r.rate_in_toman ?? r.rate ?? '').toString(),
+                                is_active: !!r.is_active,
+                                is_base: !!r.is_base
+                            });
+                            setActiveTab('rates');
+                        }}
+                        className="flex-grow cursor-pointer flex justify-between"
+                      >
+                        <span className="font-bold">{r.code}</span>
+                        <span>{getRateValue(r) != null && !isNaN(Number(getRateValue(r))) ? Number(getRateValue(r)).toLocaleString('fa-IR') : 'نامشخص'} تومان</span>
+                      </div>
+                      <button 
+                        onClick={() => handleDelete(r.code)}
+                        className="mr-4 text-red-500 hover:text-red-700 font-bold"
+                      >
+                        حذف
+                      </button>
                   </div>
               ))}
           </div>

@@ -3275,8 +3275,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                             <span className="text-blue-800">نرخ روز تبدیل (تومان):</span>
                             <div className="flex items-center gap-1">
                               <input
-                                type="number"
-                                value={foreignExchangeRate || ''}
+                                type="text"
+                                value={foreignExchangeRate ? Number(foreignExchangeRate).toLocaleString('fa-IR') : '۰'}
                                 readOnly
                                 className="w-24 sm:w-28 bg-slate-100 border border-slate-300 rounded-lg px-2 py-1 text-left font-mono font-bold text-xs text-slate-500 focus:outline-none cursor-not-allowed"
                               />

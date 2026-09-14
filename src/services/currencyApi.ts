@@ -35,6 +35,15 @@ export const currencyRatesApi = {
       return { success: false, message: 'خطای سیستمی در ارتباط با سرور' };
     }
   },
+  async deleteRate(code: string): Promise<{success: boolean; message?: string}> {
+      try {
+          const response = await httpClient.post('/currency_rates/delete-rate/', { currency_code: code });
+          return { success: response.success, message: response.data?.message };
+      } catch (error) {
+          console.error('API Exception:', error);
+          return { success: false, message: 'خطای سیستمی در حذف ارز' };
+      }
+  },
   async convert(amount: number, from: string, to: string): Promise<number> {
     const response = await httpClient.get(`/currency_rates/convert/?amount=${amount}&from=${from}&to=${to}`);
     return response.success ? response.data.converted_amount : 0;
