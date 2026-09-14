@@ -642,15 +642,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       for (let i = 6; i >= 0; i--) {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        // Robust date comparison: compare year, month, and date
-        const totalSales = productReceipts.filter(r => {
-          const rd = new Date(r.timestamp);
-          return rd.getFullYear() === d.getFullYear() && 
-                 rd.getMonth() === d.getMonth() && 
-                 rd.getDate() === d.getDate();
-        })
+        const dayStr = d.toLocaleDateString('fa-IR');
+        const totalSales = productReceipts.filter(r => new Date(r.timestamp).toLocaleDateString('fa-IR') === dayStr)
           .reduce((acc, r) => acc + (r.items.find(it => it.id === productId)?.quantity || 0), 0);
-        data.push({ name: d.toLocaleDateString('fa-IR', { weekday: 'long' }), sales: totalSales, revenue: 0 });
+        data.push({ name: d.toLocaleDateString('fa-IR', { weekday: 'short' }), sales: totalSales, revenue: 0 });
       }
       return data;
     }
