@@ -612,19 +612,42 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [showInsightsModal, setShowInsightsModal] = useState(false);
 
   // Function to generate mock performance data for a product
+  const [selectedInsightsPeriod, setSelectedInsightsPeriod] = useState<'monthly' | 'quarterly' | 'sixmonths' | 'yearly'>('sixmonths');
+
   const getProductPerformanceData = (productId: string) => {
-    const seed = productId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-    const months = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور'];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
     
-    return months.map((month, idx) => {
-      const baseValue = (seed % 50) + 20;
-      const seasonalFactor = Math.sin((idx + seed) * 0.5) * 15;
-      return {
-        name: month,
-        sales: Math.max(5, Math.floor(baseValue + seasonalFactor)),
-        revenue: Math.floor((baseValue + seasonalFactor) * 1500000)
-      };
-    });
+    // Filter receipts for the product and current fiscal year
+    const productReceipts = receiptsList.filter(r => 
+      r.items.some(item => item.id === productId) &&
+      new Date(r.timestamp).getFullYear() === currentYear
+    );
+
+    const months = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
+    
+    let monthsToProcess = 6;
+    if (selectedInsightsPeriod === 'monthly') monthsToProcess = 1;
+    if (selectedInsightsPeriod === 'quarterly') monthsToProcess = 3;
+    if (selectedInsightsPeriod === 'yearly') monthsToProcess = 12;
+
+    const data = [];
+    for (let i = monthsToProcess - 1; i >= 0; i--) {
+      const targetMonth = (currentMonth - i + 12) % 12;
+      const monthReceipts = productReceipts.filter(r => new Date(r.timestamp).getMonth() === targetMonth);
+      const totalSales = monthReceipts.reduce((acc, r) => {
+        const item = r.items.find(it => it.id === productId);
+        return acc + (item ? item.quantity : 0);
+      }, 0);
+
+      data.push({
+        name: months[targetMonth],
+        sales: totalSales,
+        revenue: 0 // Could calculate revenue if needed
+      });
+    }
+    return data;
   };
 
   // Past Receipts Ledger
@@ -6385,7 +6408,17 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-indigo-600" />
-                      روند فروش ۶ ماهه (تعداد)
+                      روند فروش
+                      <select 
+                        value={selectedInsightsPeriod}
+                        onChange={(e) => setSelectedInsightsPeriod(e.target.value as any)}
+                        className="bg-slate-100 p-1 rounded-lg text-xs border-none font-bold text-slate-700"
+                      >
+                        <option value="monthly">ماهانه</option>
+                        <option value="quarterly">۳ ماهه</option>
+                        <option value="sixmonths">۶ ماهه</option>
+                        <option value="yearly">سالانه</option>
+                      </select>
                     </h4>
                   </div>
                   <div className="h-48 w-full">
@@ -6417,16 +6450,19 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="bg-indigo-600 p-4 rounded-2xl text-white shadow-lg shadow-indigo-600/20">
-                    <span className="text-[10px] font-bold opacity-80 block">مجموع فروش ۶ ماه</span>
+                    <span className="text-[10px] font-bold opacity-80 block">مجموع فروش دوره</span>
                     <span className="text-xl font-black font-mono block mt-1">
                       {getProductPerformanceData(selectedProductForInsights.id).reduce((acc, d) => acc + d.sales, 0)}
                     </span>
-                    <span className="text-[10px] font-bold block mt-1">واحد (باکس/کارتن)</span>
+                    <span className="text-[10px] font-bold block mt-1">واحد</span>
                   </div>
                   <div className="bg-emerald-500 p-4 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
                     <span className="text-[10px] font-bold opacity-80 block">میانگین فروش ماهانه</span>
                     <span className="text-xl font-black font-mono block mt-1">
-                      {Math.round(getProductPerformanceData(selectedProductForInsights.id).reduce((acc, d) => acc + d.sales, 0) / 6)}
+                      {(() => {
+                        const data = getProductPerformanceData(selectedProductForInsights.id);
+                        return Math.round(data.reduce((acc, d) => acc + d.sales, 0) / (data.length || 1));
+                      })()}
                     </span>
                     <span className="text-[10px] font-bold block mt-1">رشد پایدار</span>
                   </div>
@@ -6442,11 +6478,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-3xl">
                 <h4 className="text-sm font-black text-indigo-900 mb-2 flex items-center gap-2">
                   <Sparkles className="w-4 h-4" />
-                  تحلیل هوشمند دخانیات سرو
+                  تحلیل هوشمند
                 </h4>
                 <p className="text-xs text-indigo-800 leading-relaxed font-medium">
-                  با توجه به روند فروش در ۳ ماه گذشته، این محصول در دسته <strong className="text-indigo-900 underline decoration-indigo-300">«محصولات پرتقاضا»</strong> قرار دارد. 
-                  پیشنهاد می‌شود برای جلوگیری از اتمام موجودی، حداقل به میزان <span className="font-bold">۳۰٪ بیشتر</span> از میانگین فروش ماهانه (حدود {Math.round(getProductPerformanceData(selectedProductForInsights.id)[5].sales * 1.3)} واحد) در انبار موجود داشته باشید.
+                  این محصول با توجه به داده‌های دوره انتخاب شده تحلیل شده است.
                 </p>
               </div>
             </div>
