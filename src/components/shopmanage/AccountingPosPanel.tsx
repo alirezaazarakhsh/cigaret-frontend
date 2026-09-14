@@ -6019,7 +6019,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                           ? 'حساب دفتری (نسیه)'
                           : (activeReceiptToPrint.paymentMethod === 'foreign' || activeReceiptToPrint.paymentMethod === 'usd' || activeReceiptToPrint.paymentMethod === 'eur') && activeReceiptToPrint.foreignCurrencyDetails
                             ? `پرداخت ارزی (${activeReceiptToPrint.foreignCurrencyDetails.currency}): ${activeReceiptToPrint.foreignCurrencyDetails.amount} (نرخ: ${formatNumberFa(activeReceiptToPrint.foreignCurrencyDetails.rate || 0)})`
-                            : `ترکیبی (${activeReceiptToPrint.splitPaymentDetails ? `پرداخت: ${formatToman(activeReceiptToPrint.splitPaymentDetails.paidNow)} / دفتری: ${formatToman(activeReceiptToPrint.splitPaymentDetails.remainingToLedger)}` : 'نقد + نسیه'})`}
+                            : activeReceiptToPrint.paymentMethod === 'split' ? `ترکیبی (${activeReceiptToPrint.splitPaymentDetails ? `پرداخت: ${formatToman(activeReceiptToPrint.splitPaymentDetails.paidNow)} / دفتری: ${formatToman(activeReceiptToPrint.splitPaymentDetails.remainingToLedger)}` : 'نقد + نسیه'})` : 'کارتخوان بانکی'}
                   </span>
                 </div>
               </div>
