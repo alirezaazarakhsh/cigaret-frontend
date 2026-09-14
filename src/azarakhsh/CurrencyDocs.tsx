@@ -189,15 +189,21 @@ currency_rates/admin.py
 from django.contrib import admin
 from django.utils.html import format_html
 from jalali_date.admin import ModelAdminJalaliMixin
+from jalali_date import datetime2jalali
 from .models import Currency, ExchangeRateHistory
 
 
 @admin.register(Currency)
 class CurrencyAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
-    list_display = ['code', 'title', 'symbol', 'formatted_rate', 'is_active', 'updated_at']
+    list_display = ['code', 'title', 'symbol', 'formatted_rate', 'is_active', 'updated_at_jalali']
     list_editable = ['is_active']
     search_fields = ['code', 'title']
     readonly_fields = ['updated_at', 'created_at']
+
+    def updated_at_jalali(self, obj):
+        return datetime2jalali(obj.updated_at).strftime('%Y/%m/%d - %H:%M')
+    updated_at_jalali.short_description = "تاریخ بروزرسانی نرخ"
+    updated_at_jalali.admin_order_field = 'updated_at'
 
     def formatted_rate(self, obj):
         return format_html('<b style="color: #0d9488; font-size: 14px;">{} تومان</b>', f"{obj.rate_in_toman:,}")
@@ -206,9 +212,14 @@ class CurrencyAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
 
 @admin.register(ExchangeRateHistory)
 class ExchangeRateHistoryAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
-    list_display = ['currency', 'formatted_old_rate', 'formatted_new_rate', 'changed_by', 'created_at']
+    list_display = ['currency', 'formatted_old_rate', 'formatted_new_rate', 'changed_by', 'created_at_jalali']
     list_filter = ['currency', 'created_at']
     readonly_fields = ['currency', 'old_rate', 'new_rate', 'changed_by', 'created_at']
+
+    def created_at_jalali(self, obj):
+        return datetime2jalali(obj.created_at).strftime('%Y/%m/%d - %H:%M')
+    created_at_jalali.short_description = "تاریخ تغییر"
+    created_at_jalali.admin_order_field = 'created_at'
 
     def formatted_old_rate(self, obj):
         return f"{obj.old_rate:,} تومان"

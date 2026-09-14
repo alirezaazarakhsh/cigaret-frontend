@@ -508,7 +508,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [customerPhone, setCustomerPhone] = useState('');
   const [selectedLedgerCustomerId, setSelectedLedgerCustomerId] = useState<string>('');
   const [posDiscount, setPosDiscount] = useState<number>(0);
-  const [paymentMethod, setPaymentMethod] = useState<'pos_terminal' | 'cash' | 'ledger' | 'split' | 'usd' | 'eur'>('pos_terminal');
+  const [paymentMethod, setPaymentMethod] = useState<'pos_terminal' | 'cash' | 'ledger' | 'split' | 'foreign'>('pos_terminal');
+  const [foreignCurrencyDetails, setForeignCurrencyDetails] = useState<{ currency: string, rate: number } | null>(null);
   const [foreignCurrencyAmount, setForeignCurrencyAmount] = useState<number>(100);
   const [foreignExchangeRate, setForeignExchangeRate] = useState<number>(71500);
   const [splitPaidAmount, setSplitPaidAmount] = useState<number>(0);
@@ -3228,46 +3229,34 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                             <span>ترکیبی (نقد+نسیه)</span>
                           </button>
 
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPaymentMethod('usd');
-                              setForeignExchangeRate(usdRate);
-                            }}
-                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
-                              paymentMethod === 'usd'
-                                ? 'bg-blue-600 text-white border-blue-600 shadow-md'
-                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                            }`}
-                          >
-                            <Coins className="w-4 h-4" />
-                            <span>دلار (USD)</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setPaymentMethod('eur');
-                              setForeignExchangeRate(eurRate);
-                            }}
-                            className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
-                              paymentMethod === 'eur'
-                                ? 'bg-cyan-600 text-white border-cyan-600 shadow-md'
-                                : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'
-                            }`}
-                          >
-                            <Coins className="w-4 h-4" />
-                            <span>یورو (EUR)</span>
-                          </button>
+                           {currencyRates.map((r) => (
+                             <button
+                               key={r.code}
+                               type="button"
+                               onClick={() => {
+                                 setPaymentMethod("foreign");
+                                 setForeignCurrencyDetails({ currency: r.code, rate: r.rate });
+                                 setForeignExchangeRate(r.rate);
+                               }}
+                               className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
+                                 paymentMethod === "foreign" && foreignCurrencyDetails?.currency === r.code
+                                   ? "bg-blue-600 text-white border-blue-600 shadow-md"
+                                   : "bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100"
+                               }`}
+                             >
+                               <Coins className="w-4 h-4" />
+                               <span>{r.code}</span>
+                             </button>
+                           ))}
                         </div>
                       </div>
 
-                      {(paymentMethod === 'usd' || paymentMethod === 'eur') && (
+                      {(paymentMethod === 'foreign') && (
                         <div className="bg-blue-50/80 border border-blue-200 rounded-2xl p-2.5 sm:p-3 space-y-2 text-xs">
                           <div className="flex items-center justify-between">
                             <span className="font-bold text-blue-900 flex items-center gap-1">
                               <Coins className="w-3.5 h-3.5 text-blue-600" />
-                              ارز دریافتی ({paymentMethod === 'usd' ? '$ USD' : '€ EUR'}):
+                              ارز دریافتی ({foreignCurrencyDetails?.currency}):
                             </span>
                             <div className="flex items-center gap-1">
                               <input
@@ -3277,7 +3266,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                                 placeholder="100"
                                 className="w-20 sm:w-24 bg-white border border-blue-300 rounded-lg px-2 py-1 text-left font-mono font-bold text-xs text-blue-950 focus:outline-none"
                               />
-                              <span className="text-[10px] text-blue-800">{paymentMethod === 'usd' ? '$' : '€'}</span>
+                              <span className="text-[10px] text-blue-800">{foreignCurrencyDetails?.currency}</span>
                             </div>
                           </div>
 

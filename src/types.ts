@@ -17,14 +17,14 @@ export interface PosReceiptInvoice {
   subtotal: number;
   discountAmount: number;
   finalTotal: number;
-  paymentMethod: "pos_terminal" | "cash" | "ledger" | "split" | "usd" | "eur";
+  paymentMethod: "pos_terminal" | "cash" | "ledger" | "split" | "foreign";
   splitPaymentDetails?: {
     paidNow: number;
     paidVia: "pos_terminal" | "cash";
     remainingToLedger: number;
   };
   foreignCurrencyDetails?: {
-    currency: "USD" | "EUR";
+    currency: string;
     amount: number;
     rate: number;
     tomanEquivalent: number;

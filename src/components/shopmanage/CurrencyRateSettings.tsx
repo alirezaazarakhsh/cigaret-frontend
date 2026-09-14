@@ -18,15 +18,37 @@ export const CurrencyRateSettings = () => {
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
   const fetchRates = () => {
-    currencyRatesApi.getRates().then(setCurrentRates);
+    currencyRatesApi.getRates().then(data => {
+        // Assuming API returns results or the list directly
+        setCurrentRates(Array.isArray(data) ? data : (data.results || []));
+    });
   };
 
   useEffect(() => {
     fetchRates();
     if (activeTab === 'history') {
-      currencyRatesApi.getHistory().then(setHistory);
+      currencyRatesApi.getHistory().then(data => {
+        setHistory(Array.isArray(data) ? data : (data.results || []));
+      });
     }
   }, [activeTab]);
+
+  const getRateValue = (r: any) => {
+    // Check possible fields for rate
+    return r.rate_in_toman ?? r.rate ?? r.new_rate ?? null;
+  };
+
+  const getFormattedDate = (h: any) => {
+    // Check possible fields for date
+    const dateStr = h.created_at ?? h.updated_at ?? null;
+    if (!dateStr) return 'تاریخ نامشخص';
+    
+    try {
+        return new Date(dateStr).toLocaleDateString('fa-IR');
+    } catch (e) {
+        return 'تاریخ نامعتبر';
+    }
+  };
 
   const handleSave = async () => {
     if (!formData.code || !formData.rate) {
@@ -175,7 +197,7 @@ export const CurrencyRateSettings = () => {
                       className="flex justify-between p-3 bg-slate-50 rounded-lg cursor-pointer hover:bg-indigo-50 transition-colors"
                   >
                       <span className="font-bold">{r.code}</span>
-                      <span>{r.rate != null && !isNaN(Number(r.rate)) ? Number(r.rate).toLocaleString('fa-IR') : 'نامشخص'} تومان</span>
+                      <span>{getRateValue(r) != null && !isNaN(Number(getRateValue(r))) ? Number(getRateValue(r)).toLocaleString('fa-IR') : 'نامشخص'} تومان</span>
                   </div>
               ))}
           </div>
@@ -185,9 +207,9 @@ export const CurrencyRateSettings = () => {
             {history.length > 0 ? (
                 history.map((h, i) => (
                     <div key={i} className="p-3 border-b border-slate-100 flex justify-between">
-                        <span className="font-bold">{h.code}</span>
-                        <span>{h.rate != null && !isNaN(Number(h.rate)) ? Number(h.rate).toLocaleString('fa-IR') : 'نامشخص'} تومان</span>
-                        <span className="text-slate-400 text-xs">{new Date(h.updated_at).toLocaleString('fa-IR')}</span>
+                        <span className="font-bold">{h.currency_code || h.code}</span>
+                        <span>{getRateValue(h) != null && !isNaN(Number(getRateValue(h))) ? Number(getRateValue(h)).toLocaleString('fa-IR') : 'نامشخص'} تومان</span>
+                        <span className="text-slate-400 text-xs">{getFormattedDate(h)}</span>
                     </div>
                 ))
             ) : (
