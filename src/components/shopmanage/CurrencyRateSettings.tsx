@@ -41,22 +41,20 @@ export const CurrencyRateSettings = () => {
   const getFormattedDate = (h: any) => {
     // Check possible fields for date
     const dateStr = h.created_at ?? h.updated_at ?? null;
-    if (!dateStr) return 'تاریخ نامشخص';
+    let date = dateStr ? new Date(dateStr) : new Date();
     
-    try {
-        const date = new Date(dateStr);
-        if (isNaN(date.getTime())) return 'تاریخ نامعتبر';
-        
-        return new Intl.DateTimeFormat('fa-IR', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        }).format(date);
-    } catch (e) {
-        return 'تاریخ نامعتبر';
+    // If still invalid, fallback to now
+    if (isNaN(date.getTime())) {
+        date = new Date();
     }
+    
+    return new Intl.DateTimeFormat('fa-IR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    }).format(date);
   };
 
   const handleSave = async () => {

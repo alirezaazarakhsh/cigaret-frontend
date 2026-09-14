@@ -3234,9 +3234,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                                key={r.code}
                                type="button"
                                onClick={() => {
+                                 const latest = currencyRates.find(c => c.code === r.code) || r;
                                  setPaymentMethod("foreign");
-                                 setForeignCurrencyDetails({ currency: r.code, rate: r.rate });
-                                 setForeignExchangeRate(r.rate);
+                                 setForeignCurrencyDetails({ currency: latest.code, rate: latest.rate });
+                                 setForeignExchangeRate(latest.rate);
                                }}
                                className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
                                  paymentMethod === "foreign" && foreignCurrencyDetails?.currency === r.code
@@ -3276,9 +3277,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                               <input
                                 type="number"
                                 value={foreignExchangeRate || ''}
-                                onChange={(e) => setForeignExchangeRate(Math.max(0, Number(e.target.value) || 0))}
-                                placeholder="71500"
-                                className="w-24 sm:w-28 bg-white border border-blue-300 rounded-lg px-2 py-1 text-left font-mono font-bold text-xs text-blue-950 focus:outline-none"
+                                readOnly
+                                className="w-24 sm:w-28 bg-slate-100 border border-slate-300 rounded-lg px-2 py-1 text-left font-mono font-bold text-xs text-slate-500 focus:outline-none cursor-not-allowed"
                               />
                               <span className="text-[10px] text-blue-800">تومان</span>
                             </div>
