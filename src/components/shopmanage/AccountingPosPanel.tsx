@@ -612,7 +612,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [showInsightsModal, setShowInsightsModal] = useState(false);
 
   // Function to generate mock performance data for a product
-  const [selectedInsightsPeriod, setSelectedInsightsPeriod] = useState<'daily' | 'monthly' | 'quarterly' | 'sixmonths' | 'yearly'>('sixmonths');
+  const [selectedInsightsPeriod, setSelectedInsightsPeriod] = useState<'daily' | 'monthly' | 'quarterly' | 'sixmonths' | 'yearly'>('daily');
 
   const getPersianMonthIndex = (date: Date) => {
     // Simple Gregorian to Persian approximation for demonstration
