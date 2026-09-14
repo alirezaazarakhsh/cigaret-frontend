@@ -85,6 +85,18 @@ export const CurrencyDocs: React.FC = () => {
     },
     {
       method: 'POST',
+      path: '/api/v1/currency-rates/delete-rate/',
+      auth: 'IsAdminUser',
+      description: 'حذف یک ارز از سیستم',
+      requestBody: JSON.stringify({
+        currency_code: "USD"
+      }, null, 2),
+      responseBody: JSON.stringify({
+        message: "ارز USD با موفقیت حذف شد."
+      }, null, 2)
+    },
+    {
+      method: 'POST',
       path: '/api/v1/currency-rates/convert/',
       auth: 'Public',
       description: 'تبدیل آنلاین مبلغ ارزی به تومان یا برعکس بر اساس آخرین نرخ ثبت‌شده سیستم',
@@ -392,6 +404,25 @@ class UpdateRateAPIView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
+class DeleteRateAPIView(APIView):
+    """
+    حذف ارز از دیتابیس
+    """
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request):
+        code = request.data.get('currency_code', '').upper()
+        if not code:
+            return Response({'error': 'کد ارز ارسال نشده است.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            currency = Currency.objects.get(code=code)
+            currency.delete()
+            return Response({'message': f'ارز {code} با موفقیت حذف شد.'}, status=status.HTTP_200_OK)
+        except Currency.DoesNotExist:
+            return Response({'error': 'ارز یافت نشد.'}, status=status.HTTP_404_NOT_FOUND)
+
+
 class CurrencyConvertAPIView(APIView):
     """
     تبدیل هوشمند مبلغ ارزی به تومان
@@ -449,6 +480,7 @@ from .views import (
     UpdateRateAPIView,
     CurrencyConvertAPIView,
     ExchangeHistoryListAPIView,
+    DeleteRateAPIView,
 )
 
 app_name = 'currency_rates'
@@ -465,6 +497,9 @@ urlpatterns = [
 
     # ۴. تاریخچه تغییرات قیمت ارز
     path('history/', ExchangeHistoryListAPIView.as_view(), name='currency-history'),
+
+    # ۵. حذف ارز
+    path('delete-rate/', DeleteRateAPIView.as_view(), name='currency-delete'),
 ]
 `;
 

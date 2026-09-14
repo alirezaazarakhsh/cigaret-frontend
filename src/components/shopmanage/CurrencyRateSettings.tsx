@@ -206,7 +206,7 @@ export const CurrencyRateSettings = () => {
           )}
         </div>
       ) : activeTab === 'list' ? (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[400px] overflow-y-auto">
           <h3 className="font-bold text-slate-800 mb-4">ارزهای موجود</h3>
           <div className="space-y-2">
               {currentRates.map((r) => (
@@ -242,7 +242,7 @@ export const CurrencyRateSettings = () => {
           </div>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[400px] overflow-y-auto">
             {history.length > 0 ? (
                 history.map((h, i) => (
                     <div key={i} className="p-3 border-b border-slate-100 flex justify-between">
