@@ -647,28 +647,31 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       return data;
     }
 
-    // Monthly totals (12 months)
+    // Always calculate 12 monthly totals
     const monthlyTotals = Array.from({ length: 12 }, (_, i) => {
       const monthSales = productReceipts
         .filter(r => new Date(r.timestamp).getFullYear() === currentYear && new Date(r.timestamp).getMonth() === i)
         .reduce((acc, r) => acc + (r.items.find(it => it.id === productId)?.quantity || 0), 0);
-      return { name: ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'][i], sales: monthSales };
+      return { 
+        name: ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'][i], 
+        sales: monthSales 
+      };
     });
 
-    if (selectedInsightsPeriod === 'monthly') return monthlyTotals.filter(m => m.sales > 0 || monthlyTotals.indexOf(m) <= now.getMonth());
+    if (selectedInsightsPeriod === 'monthly') return monthlyTotals;
     
     if (selectedInsightsPeriod === 'quarterly') {
       return Array.from({ length: 4 }, (_, i) => ({
         name: `فصل ${i + 1}`,
         sales: monthlyTotals.slice(i * 3, i * 3 + 3).reduce((acc, m) => acc + m.sales, 0)
-      })).filter(q => q.sales > 0);
+      }));
     }
 
     if (selectedInsightsPeriod === 'sixmonths') {
       return [
         { name: 'نیمه اول', sales: monthlyTotals.slice(0, 6).reduce((acc, m) => acc + m.sales, 0) },
         { name: 'نیمه دوم', sales: monthlyTotals.slice(6, 12).reduce((acc, m) => acc + m.sales, 0) }
-      ].filter(h => h.sales > 0);
+      ];
     }
 
     return [{ name: 'سالانه', sales: monthlyTotals.reduce((acc, m) => acc + m.sales, 0) }];
