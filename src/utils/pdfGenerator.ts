@@ -661,7 +661,8 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
     receipt.paymentMethod === 'pos_terminal' ? 'کارتخوان بانکی' :
     receipt.paymentMethod === 'cash' ? 'پرداخت نقدی' :
     receipt.paymentMethod === 'ledger' ? 'حساب دفتری (نسیه)' :
-    receipt.paymentMethod === 'split' ? 'ترکیبی (نقد + کارت)' : 'کارتخوان بانکی';
+    receipt.paymentMethod === 'split' ? 'ترکیبی (نقد + کارت)' :
+    receipt.paymentMethod === 'foreign' ? `ارزی (دلار/یورو) - ${receipt.foreignCurrencyDetails?.currency || ''}` : 'کارتخوان بانکی';
 
   printContainer.innerHTML = `
     <div dir="rtl" style="direction: rtl; text-align: right; width: 100%; font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #0f172a; background: #ffffff; box-sizing: border-box; font-size: 11px; line-height: 1.6;">
@@ -1120,7 +1121,7 @@ export async function generateDailyReportPdf(dayData: any): Promise<boolean> {
             <tr style="background: ${idx % 2 === 0 ? '#fff' : '#f0fdf4'}; border-bottom: 1px solid #e2e8f0;">
               <td style="padding: 7px 6px; border: 1px solid #e2e8f0; font-family: monospace; font-weight: bold;">${rcpt.receiptNumber}</td>
               <td style="padding: 7px 6px; border: 1px solid #e2e8f0;">${rcpt.customerName || 'مشتری حضوری'}</td>
-              <td style="padding: 7px 6px; border: 1px solid #e2e8f0; text-align: center;">${rcpt.paymentMethod}</td>
+              <td style="padding: 7px 6px; border: 1px solid #e2e8f0; text-align: center;">${rcpt.paymentMethod === 'foreign' ? 'ارزی' : rcpt.paymentMethod}</td>
               <td style="padding: 7px 6px; border: 1px solid #e2e8f0; text-align: left; font-weight: bold; color: #047857;">${formatToman(rcpt.finalTotal)}</td>
             </tr>
           `).join('')}
