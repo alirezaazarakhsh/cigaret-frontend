@@ -17,6 +17,15 @@ export const CurrencyRateSettings = () => {
   const [currentRates, setCurrentRates] = useState<any[]>([]);
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' } | null>(null);
 
+  useEffect(() => {
+    if (message) {
+      const timer = setTimeout(() => {
+        setMessage(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [message]);
+
   const fetchRates = () => {
     currencyRatesApi.getRates().then(data => {
         // Assuming API returns results or the list directly

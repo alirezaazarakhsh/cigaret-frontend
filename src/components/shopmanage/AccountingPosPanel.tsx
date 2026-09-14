@@ -526,8 +526,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         setCurrencyRates(rates);
         const usd = rates.find(r => r.code === 'USD');
         const eur = rates.find(r => r.code === 'EUR');
-        if (usd) setUsdRate(usd.rate);
-        if (eur) setEurRate(eur.rate);
+        if (usd) setUsdRate(usd.rate_in_toman || usd.rate);
+        if (eur) setEurRate(eur.rate_in_toman || eur.rate);
     });
   }, []);
 
@@ -3236,8 +3236,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                                onClick={() => {
                                  const latest = currencyRates.find(c => c.code === r.code) || r;
                                  setPaymentMethod("foreign");
-                                 setForeignCurrencyDetails({ currency: latest.code, rate: latest.rate });
-                                 setForeignExchangeRate(latest.rate);
+                                 setForeignCurrencyDetails({ currency: latest.code, rate: latest.rate_in_toman || latest.rate });
+                                 setForeignExchangeRate(latest.rate_in_toman || latest.rate);
                                }}
                                className={`p-2 sm:p-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 border transition-all ${
                                  paymentMethod === "foreign" && foreignCurrencyDetails?.currency === r.code
