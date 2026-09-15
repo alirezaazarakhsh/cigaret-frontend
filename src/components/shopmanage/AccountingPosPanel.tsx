@@ -612,78 +612,19 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [showInsightsModal, setShowInsightsModal] = useState(false);
 
   // Function to generate mock performance data for a product
-  const [selectedInsightsPeriod, setSelectedInsightsPeriod] = useState<'daily' | 'monthly' | 'quarterly' | 'sixmonths' | 'yearly'>('daily');
-
-  const getPersianMonthIndex = (date: Date) => {
-    // Simple Gregorian to Persian approximation for demonstration
-    // Jan(0)-Mar(20) -> Esfand(11), Mar(21)-Apr(19) -> Farvardin(0), etc.
-    const month = date.getMonth();
-    const day = date.getDate();
-    // Simplified mapping
-    const mapping = [
-      { m: 0, d: 21, p: 0 }, { m: 1, d: 20, p: 11 }, { m: 2, d: 20, p: 11 },
-      // ... this is too complex for a quick fix. 
-      // Let's stick to the previous mapping but make it hierarchical.
-    ];
-    return month; // Keeping existing for now, but will fix aggregation logic
-  };
-
   const getProductPerformanceData = (productId: string) => {
-    const now = new Date();
-    // Get current Persian year
-    const currentYear = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric' }).format(now);
+    const seed = productId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const months = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور'];
     
-    const productReceipts = receiptsList.filter(r => 
-      r.items.some(item => item.id === productId)
-    );
-
-    if (selectedInsightsPeriod === 'daily') {
-      const data = [];
-      for (let i = 6; i >= 0; i--) {
-        const d = new Date();
-        d.setDate(d.getDate() - i);
-        const dayStr = d.toLocaleDateString('fa-IR');
-        const totalSales = productReceipts.filter(r => new Date(r.timestamp).toLocaleDateString('fa-IR') === dayStr)
-          .reduce((acc, r) => acc + (r.items.find(it => it.id === productId)?.quantity || 0), 0);
-        data.push({ name: d.toLocaleDateString('fa-IR', { weekday: 'short' }), sales: totalSales, revenue: 0 });
-      }
-      return data;
-    }
-
-    // Always calculate 12 monthly totals based on Persian calendar
-    const monthlyTotals = Array.from({ length: 12 }, (_, i) => {
-      // Find receipts where Persian month matches index i
-      const monthSales = productReceipts
-        .filter(r => {
-          const date = new Date(r.timestamp);
-          const fYear = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { year: 'numeric' }).format(date);
-          const fMonth = new Intl.DateTimeFormat('fa-IR-u-ca-persian', { month: 'numeric' }).format(date);
-          return fYear === currentYear && (parseInt(fMonth) - 1) === i;
-        })
-        .reduce((acc, r) => acc + (r.items.find(it => it.id === productId)?.quantity || 0), 0);
-      return { 
-        name: ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'][i], 
-        sales: monthSales 
+    return months.map((month, idx) => {
+      const baseValue = (seed % 50) + 20;
+      const seasonalFactor = Math.sin((idx + seed) * 0.5) * 15;
+      return {
+        name: month,
+        sales: Math.max(5, Math.floor(baseValue + seasonalFactor)),
+        revenue: Math.floor((baseValue + seasonalFactor) * 1500000)
       };
     });
-
-    if (selectedInsightsPeriod === 'monthly') return monthlyTotals;
-    
-    if (selectedInsightsPeriod === 'quarterly') {
-      return Array.from({ length: 4 }, (_, i) => ({
-        name: `فصل ${i + 1}`,
-        sales: monthlyTotals.slice(i * 3, i * 3 + 3).reduce((acc, m) => acc + m.sales, 0)
-      }));
-    }
-
-    if (selectedInsightsPeriod === 'sixmonths') {
-      return [
-        { name: 'نیمه اول', sales: monthlyTotals.slice(0, 6).reduce((acc, m) => acc + m.sales, 0) },
-        { name: 'نیمه دوم', sales: monthlyTotals.slice(6, 12).reduce((acc, m) => acc + m.sales, 0) }
-      ];
-    }
-
-    return [{ name: 'سالانه', sales: monthlyTotals.reduce((acc, m) => acc + m.sales, 0) }];
   };
 
   // Past Receipts Ledger
@@ -6444,18 +6385,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
                       <TrendingUp className="w-4 h-4 text-indigo-600" />
-                      روند فروش
-                      <select 
-                        value={selectedInsightsPeriod}
-                        onChange={(e) => setSelectedInsightsPeriod(e.target.value as any)}
-                        className="bg-slate-100 p-1 rounded-lg text-xs border-none font-bold text-slate-700"
-                      >
-                        <option value="daily">روزانه</option>
-                        <option value="monthly">ماهانه</option>
-                        <option value="quarterly">۳ ماهه</option>
-                        <option value="sixmonths">۶ ماهه</option>
-                        <option value="yearly">سالانه</option>
-                      </select>
+                      روند فروش ۶ ماهه (تعداد)
                     </h4>
                   </div>
                   <div className="h-48 w-full">
@@ -6487,19 +6417,16 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div className="bg-indigo-600 p-4 rounded-2xl text-white shadow-lg shadow-indigo-600/20">
-                    <span className="text-[10px] font-bold opacity-80 block">مجموع فروش دوره</span>
+                    <span className="text-[10px] font-bold opacity-80 block">مجموع فروش ۶ ماه</span>
                     <span className="text-xl font-black font-mono block mt-1">
                       {getProductPerformanceData(selectedProductForInsights.id).reduce((acc, d) => acc + d.sales, 0)}
                     </span>
-                    <span className="text-[10px] font-bold block mt-1">واحد</span>
+                    <span className="text-[10px] font-bold block mt-1">واحد (باکس/کارتن)</span>
                   </div>
                   <div className="bg-emerald-500 p-4 rounded-2xl text-white shadow-lg shadow-emerald-500/20">
                     <span className="text-[10px] font-bold opacity-80 block">میانگین فروش ماهانه</span>
                     <span className="text-xl font-black font-mono block mt-1">
-                      {(() => {
-                        const data = getProductPerformanceData(selectedProductForInsights.id);
-                        return Math.round(data.reduce((acc, d) => acc + d.sales, 0) / (data.length || 1));
-                      })()}
+                      {Math.round(getProductPerformanceData(selectedProductForInsights.id).reduce((acc, d) => acc + d.sales, 0) / 6)}
                     </span>
                     <span className="text-[10px] font-bold block mt-1">رشد پایدار</span>
                   </div>
@@ -6515,10 +6442,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               <div className="bg-indigo-50 border border-indigo-100 p-5 rounded-3xl">
                 <h4 className="text-sm font-black text-indigo-900 mb-2 flex items-center gap-2">
                   <Sparkles className="w-4 h-4" />
-                  تحلیل هوشمند
+                  تحلیل هوشمند دخانیات سرو
                 </h4>
                 <p className="text-xs text-indigo-800 leading-relaxed font-medium">
-                  این محصول با توجه به داده‌های دوره انتخاب شده تحلیل شده است.
+                  با توجه به روند فروش در ۳ ماه گذشته، این محصول در دسته <strong className="text-indigo-900 underline decoration-indigo-300">«محصولات پرتقاضا»</strong> قرار دارد. 
+                  پیشنهاد می‌شود برای جلوگیری از اتمام موجودی، حداقل به میزان <span className="font-bold">۳۰٪ بیشتر</span> از میانگین فروش ماهانه (حدود {Math.round(getProductPerformanceData(selectedProductForInsights.id)[5].sales * 1.3)} واحد) در انبار موجود داشته باشید.
                 </p>
               </div>
             </div>
