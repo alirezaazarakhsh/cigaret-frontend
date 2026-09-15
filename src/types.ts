@@ -306,6 +306,9 @@ export interface CigaretteProduct {
   origin: string; // e.g. 'سوئیس اصل', 'ترکیه', 'ایران', 'ارمنستان'
   tar: string; // قطران
   nicotine: string; // نیکوتین
+  packSize?: string; // سایز پاکت
+  packagingType?: string; // نوع بسته بندی
+  manufacturer?: string; // شرکت سازنده
   cartonPrice: number; // قیمت عمده هر کارتن (تومان)
   baseCartonPrice?: number; // قیمت پایه اولیه قبل از نوسان دلار
   boxPrice: number; // قیمت هر باکس/بسته ۱۰تایی (تومان)

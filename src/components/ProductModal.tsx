@@ -11,7 +11,8 @@ import {
   Zap,
   Plus,
   Minus,
-  ShoppingCart
+  ShoppingCart,
+  X
 } from 'lucide-react';
 import { CigaretteProduct } from '../types';
 import { formatToman, formatNumberFa, getApplicableDiscount } from '../utils/formatters';
@@ -30,6 +31,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [cartonQty, setCartonQty] = useState<number>(product?.moq || 1);
   const [boxQty, setBoxQty] = useState<number>(0);
   const [added, setAdded] = useState(false);
+  const [isImageExpanded, setIsImageExpanded] = useState(false);
 
   if (!product) return null;
 
@@ -74,7 +76,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       >
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row items-start gap-4 mb-5">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0 shadow-sm">
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0 shadow-sm cursor-pointer" onClick={() => setIsImageExpanded(true)}>
             <img 
               src={product.image} 
               alt={product.nameFa} 
@@ -96,62 +98,37 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </span>
               )}
             </div>
-            <h2 className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
               {product.nameFa}
             </h2>
-            <p className="text-xs text-slate-500 font-mono tracking-tight" dir="ltr">
+            <p className="text-sm text-slate-500 font-mono tracking-tight" dir="ltr">
               {product.nameEn}
             </p>
           </div>
         </div>
 
         {/* Full Rich Description */}
-        <div className="mb-5 space-y-1.5">
-          <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 ">
-            <Sparkles className="w-4 h-4 text-blue-600 " />
-            معرفی و مشخصات تخصصی کالا در پخش دخانیات سرو:
+        <div className="mb-5 space-y-2">
+          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-800 ">
+            <Sparkles className="w-5 h-5 text-blue-600 " />
+            معرفی و مشخصات تخصصی کالا:
           </div>
-          <p className="text-xs text-slate-700 leading-relaxed bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-justify font-normal">
+          <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200 text-justify font-normal">
             {product.description}
           </p>
         </div>
 
-        {/* Specifications Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 ">
-            <div className="text-[11px] text-slate-500 mb-1 flex items-center gap-1">
-              <Flame className="w-3 h-3 text-rose-500" />
-              قطران (Tar)
-            </div>
-            <div className="text-xs font-bold text-slate-900 ">{product.tar}</div>
-          </div>
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 ">
-            <div className="text-[11px] text-slate-500 mb-1 flex items-center gap-1">
-              <Wind className="w-3 h-3 text-blue-500" />
-              نیکوتین (Nicotine)
-            </div>
-            <div className="text-xs font-bold text-slate-900 ">{product.nicotine}</div>
-          </div>
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-            <div className="text-[11px] text-slate-500 mb-1 flex items-center gap-1">
-              <Boxes className="w-3 h-3 text-blue-600" />
-              تعداد در هر کارتن
-            </div>
-            <div className="text-xs font-bold text-slate-900">
-              {formatNumberFa(product.boxesPerCarton)} باکس پلمپ
-            </div>
-          </div>
-          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-            <div className="text-[11px] text-slate-500 mb-1 flex items-center gap-1">
-              <Package className="w-3 h-3 text-emerald-600" />
-              موجودی کل انبار
-            </div>
-            <div className="text-xs font-bold text-emerald-700">
-              {product.stockCartons > 0 
-                ? `${formatNumberFa(product.stockCartons)} کارتن (${formatNumberFa(product.stockCartons * (product.boxesPerCarton || 50))} باکس)`
-                : 'ناموجود (در انتظار شارژ)'}
-            </div>
-          </div>
+        {/* Additional Features */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5 text-xs">
+           {product.brand && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">برند:<br/><span className="font-bold text-slate-900">{product.brand}</span></div>}
+           {product.origin && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">کشور تولید کننده:<br/><span className="font-bold text-slate-900">{product.origin}</span></div>}
+           {product.packSize && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">سایز پاکت:<br/><span className="font-bold text-slate-900">{product.packSize}</span></div>}
+           {product.flavor && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">طعم و اسانس:<br/><span className="font-bold text-slate-900">{product.flavor}</span></div>}
+           {product.packagingType && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">نوع بسته بندی:<br/><span className="font-bold text-slate-900">{product.packagingType}</span></div>}
+           {product.manufacturer && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">شرکت سازنده:<br/><span className="font-bold text-slate-900">{product.manufacturer}</span></div>}
+           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">قطران (Tar):<br/><span className="font-bold text-slate-900">{product.tar}</span></div>
+           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">نیکوتین (Nicotine):<br/><span className="font-bold text-slate-900">{product.nicotine}</span></div>
+           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">تعداد در هر کارتن:<br/><span className="font-bold text-slate-900">{formatNumberFa(product.boxesPerCarton)}</span></div>
         </div>
 
         {/* Discount Tier Table (Fix NaN issue) */}
@@ -279,6 +256,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             )}
           </button>
         </div>
+        
+        {isImageExpanded && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm" onClick={() => setIsImageExpanded(false)}>
+            <button className="absolute top-4 right-4 p-2 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors" onClick={() => setIsImageExpanded(false)}>
+              <X className="w-6 h-6" />
+            </button>
+            <img src={product.image} alt={product.nameFa} className="max-w-full max-h-full object-contain" />
+          </div>
+        )}
 
       </div>
     </div>
