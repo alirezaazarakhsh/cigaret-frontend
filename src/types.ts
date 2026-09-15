@@ -331,6 +331,12 @@ export interface CigaretteProduct {
   unitName?: string; // نام واحد (مثلا: فنجان، عدد، کیلو، بسته)
   tierDiscounts: WholesaleTierDiscount[];
   description: string;
+  longDescription?: string;
+  customFeatures?: { label: string; value: string }[];
+  seoTitle?: string;
+  seoDescription?: string;
+  isPublished: boolean;
+  images?: string[];
   isAvailable: boolean;
   hasCarton?: boolean; // آیا فروش کارتنی فعال است؟
   hasBox?: boolean; // آیا فروش باکسی/جعبه‌ای فعال است؟
