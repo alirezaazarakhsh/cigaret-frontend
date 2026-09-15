@@ -95,7 +95,6 @@ import {
 } from '../../types';
 import { formatToman, formatNumberFa, getProductStockInfo } from '../../utils/formatters';
 import { generatePosThermalReceiptPdf, generateMonthlyReportPdf, generateDailyReportPdf, generateAnnualReportPdf } from '../../utils/pdfGenerator';
-import { SalesAnalyticsView } from './SalesAnalyticsView';
 import { StaffAccessManagerModal } from './StaffAccessManagerModal';
 import { MonthlySalesComparisonView } from './MonthlySalesComparisonView';
 import { QuickAddProductModal } from './QuickAddProductModal';
@@ -6058,8 +6057,6 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               </div>
 
             </div>
-
-            <SalesAnalyticsView />
 
             {/* Modal Buttons - Vertical Stack for Better UX */}
             <div className="mt-6 flex flex-col gap-3 print:hidden">
