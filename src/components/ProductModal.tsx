@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
   ShieldCheck, 
   Package, 
@@ -12,7 +13,9 @@ import {
   Plus,
   Minus,
   ShoppingCart,
-  X
+  X,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { CigaretteProduct } from '../types';
 import { formatToman, formatNumberFa, getApplicableDiscount } from '../utils/formatters';
@@ -32,6 +35,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [boxQty, setBoxQty] = useState<number>(0);
   const [added, setAdded] = useState(false);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const images = product.images && product.images.length > 0 ? product.images : [product.image];
 
   if (!product) return null;
 
@@ -76,12 +82,28 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       >
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row items-start gap-4 mb-5">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0 shadow-sm cursor-pointer" onClick={() => setIsImageExpanded(true)}>
-            <img 
-              src={product.image} 
-              alt={product.nameFa} 
-              className="w-full h-full object-cover" 
-            />
+          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0 shadow-sm cursor-pointer relative" onClick={() => setIsImageExpanded(true)}>
+            <AnimatePresence mode="wait">
+              <motion.img 
+                key={currentImageIndex}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                src={images[currentImageIndex]} 
+                alt={product.nameFa} 
+                className="w-full h-full object-cover" 
+              />
+            </AnimatePresence>
+            {images.length > 1 && (
+              <>
+                <button className="absolute left-1 top-1/2 -translate-y-1/2 bg-white/70 p-0.5 rounded-full" onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i - 1 + images.length) % images.length); }}>
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/70 p-0.5 rounded-full" onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i + 1) % images.length); }}>
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </>
+            )}
           </div>
           <div className="flex-1 space-y-1.5 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -262,7 +284,25 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             <button className="absolute top-4 right-4 p-2 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors" onClick={() => setIsImageExpanded(false)}>
               <X className="w-6 h-6" />
             </button>
-            <img src={product.image} alt={product.nameFa} className="max-w-full max-h-full object-contain" />
+            <motion.img 
+              key={currentImageIndex}
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              src={images[currentImageIndex]} 
+              alt={product.nameFa} 
+              className="max-w-full max-h-full object-contain" 
+            />
+            {images.length > 1 && (
+              <>
+                <button className="absolute left-4 top-1/2 -translate-y-1/2 p-3 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors" onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i - 1 + images.length) % images.length); }}>
+                  <ChevronLeft className="w-8 h-8" />
+                </button>
+                <button className="absolute right-4 top-1/2 -translate-y-1/2 p-3 bg-white/20 rounded-full text-white hover:bg-white/30 transition-colors" onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i + 1) % images.length); }}>
+                  <ChevronRight className="w-8 h-8" />
+                </button>
+              </>
+            )}
           </div>
         )}
 

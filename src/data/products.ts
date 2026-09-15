@@ -282,6 +282,11 @@ export const CIGARETTE_PRODUCTS: CigaretteProduct[] = [
     stockCartons: 65,
     moq: 1,
     image: captainDarkCremaImg,
+    images: [
+      captainDarkCremaImg,
+      'https://images.unsplash.com/photo-1627961234471-ccb8c237e89e?auto=format&fit=crop&w=600&q=80',
+      'https://images.unsplash.com/photo-1605559424843-9e4c228caf1c?auto=format&fit=crop&w=600&q=80'
+    ],
     barcode: '071610009841',
     badge: 'معطر',
     priceTrend: 'stable',

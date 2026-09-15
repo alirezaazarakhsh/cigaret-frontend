@@ -319,6 +319,7 @@ export interface CigaretteProduct {
   stockCartons: number; // موجودی انبار به کارتن
   moq: number; // حداقل سفارش به کارتن (حداقل ۱ کارتن)
   image: string;
+  images?: string[];
   barcode: string;
   flavor?: string;
   badge?: 'پرفروش' | 'بار تازه' | 'وارداتی اصل' | 'تخفیف تیراژ' | 'موجودی محدود' | 'بار تازه دخانیات سرو' | 'جدید' | string;
