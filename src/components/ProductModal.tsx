@@ -98,17 +98,17 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </span>
               )}
             </div>
-            <h2 className="text-xl sm:text-2xl font-black text-slate-900 leading-tight">
+            <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-tight mt-2">
               {product.nameFa}
             </h2>
-            <p className="text-sm text-slate-500 font-mono tracking-tight" dir="ltr">
+            <p className="text-xs text-slate-500 font-mono tracking-tight" dir="ltr">
               {product.nameEn}
             </p>
           </div>
         </div>
 
         {/* Full Rich Description */}
-        <div className="mb-5 space-y-2">
+        <div className="mb-5 space-y-2 mt-4">
           <div className="flex items-center gap-1.5 text-sm font-bold text-slate-800 ">
             <Sparkles className="w-5 h-5 text-blue-600 " />
             معرفی و مشخصات تخصصی کالا:
