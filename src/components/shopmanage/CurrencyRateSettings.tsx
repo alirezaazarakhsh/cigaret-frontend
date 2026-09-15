@@ -29,7 +29,7 @@ export const CurrencyRateSettings = () => {
   const fetchRates = () => {
     currencyRatesApi.getRates().then(data => {
         // Assuming API returns results or the list directly
-        setCurrentRates(Array.isArray(data) ? data : (data.results || []));
+        setCurrentRates(Array.isArray(data) ? data : ((data as any)?.results || []));
     });
   };
 
@@ -37,7 +37,7 @@ export const CurrencyRateSettings = () => {
     fetchRates();
     if (activeTab === 'history') {
       currencyRatesApi.getHistory().then(data => {
-        setHistory(Array.isArray(data) ? data : (data.results || []));
+        setHistory(Array.isArray(data) ? data : ((data as any)?.results || []));
       });
     }
   }, [activeTab]);

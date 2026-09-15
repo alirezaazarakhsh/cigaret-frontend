@@ -1372,6 +1372,7 @@ export default function App() {
           }} />
         )}
 
+        {/* TAB 8: Product Management */}
         {/* TAB 5.5: Reportage & Ads */}
         {activeTab === 'reportage' && (
           <BlogSection initialCategory="reportage" onSelectProductTag={(b) => {

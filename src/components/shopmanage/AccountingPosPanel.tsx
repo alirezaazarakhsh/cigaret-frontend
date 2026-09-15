@@ -104,6 +104,7 @@ import { WarehouseContactMessagesPanel } from './WarehouseContactMessagesPanel';
 import { NotificationManagementPanel } from './NotificationManagementPanel';
 import { BlogManagementModal } from './BlogManagementModal';
 import { BlogManagementPanel } from './BlogManagementPanel';
+import { ProductManagementPanel } from '../product-manage/ProductManagementPanel';
 import { BackendConnectionModal } from '../BackendConnectionModal';
 import { SessionSecurityModal } from './SessionSecurityModal';
 import { 
@@ -372,7 +373,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     return currentStaff.permissions?.includes(perm) ?? false;
   };
 
-  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'user_management' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog' | 'site_settings' | 'warehouse_messages';
+  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'user_management' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog' | 'site_settings' | 'warehouse_messages' | 'product-manage';
 
   const getSubTabFromPath = (pathname: string): PosSubTab => {
     const p = pathname.toLowerCase();
@@ -391,6 +392,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     if (p.includes('/shopmanage/sms') || p.includes('/shopmanage/payamak')) return 'sms_management';
     if (p.includes('/shopmanage/notifications') || p.includes('/shopmanage/notif')) return 'notifications';
     if (p.includes('/shopmanage/messages') || p.includes('/shopmanage/warehouse-messages')) return 'warehouse_messages';
+    if (p.includes('/shopmanage/products')) return 'product-manage';
     if (p.includes('/shopmanage/sandogh') || p.includes('/shopmanage/pos')) return 'pos';
     return 'pos';
   };
@@ -413,6 +415,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       blog: '/shopmanage/blog',
       site_settings: '/shopmanage/site-settings',
       warehouse_messages: '/shopmanage/messages',
+      'product-manage': '/shopmanage/products',
     };
     return map[tab] || '/shopmanage/sandogh';
   };
@@ -913,8 +916,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       localStorage.setItem('sovin_usd_rate', newUsd.toString());
       localStorage.setItem('sovin_eur_rate', newEur.toString());
     } catch {}
-    if (paymentMethod === 'usd') setForeignExchangeRate(newUsd);
-    if (paymentMethod === 'eur') setForeignExchangeRate(newEur);
+    if ((paymentMethod as string) === 'usd') setForeignExchangeRate(newUsd);
+    if ((paymentMethod as string) === 'eur') setForeignExchangeRate(newEur);
     setShowCurrencyRateModal(false);
     setSuccessBanner(`نرخ جدید ارز با موفقیت ثبت شد (دلار: ${newUsd.toLocaleString()} / یورو: ${newEur.toLocaleString()})`);
     setTimeout(() => setSuccessBanner(null), 3000);
@@ -1397,8 +1400,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         paidVia: splitPaidVia,
         remainingToLedger,
       } : undefined,
-      foreignCurrencyDetails: (paymentMethod === 'foreign' || paymentMethod === 'usd' || paymentMethod === 'eur') ? {
-        currency: (paymentMethod === 'foreign' ? foreignCurrencyDetails?.currency : paymentMethod.toUpperCase()) as 'USD' | 'EUR',
+      foreignCurrencyDetails: ((paymentMethod as string) === 'foreign' || (paymentMethod as string) === 'usd' || (paymentMethod as string) === 'eur') ? {
+        currency: (paymentMethod === 'foreign' ? foreignCurrencyDetails?.currency : (paymentMethod as string).toUpperCase()) as 'USD' | 'EUR',
         amount: foreignCurrencyAmount,
         rate: foreignExchangeRate,
         tomanEquivalent: foreignCurrencyAmount * foreignExchangeRate,
@@ -2330,8 +2333,6 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     setShowToolsDropdown(false);
                   }}
                 >
-                  <div className="my-1 border-t border-slate-100"></div>
-
                   <button
                     onClick={() => { setShowSessionSecurityModal(true); setShowToolsDropdown(false); setIsMenuOpen(false); }}
                     className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right"
@@ -2597,6 +2598,20 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 )}
               </button>
             )}
+
+            <button
+              onClick={() => { setActiveSubTab('product-manage'); setIsMenuOpen(false); }}
+              className={`flex items-center justify-between md:justify-start gap-1.5 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
+                activeSubTab === 'product-manage'
+                  ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 shrink-0">
+                <Package className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">مدیریت محصولات</span>
+              </div>
+            </button>
 
             {hasStaffPerm('manage_ledger') && (
               <button
@@ -4450,6 +4465,23 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </motion.div>
           )}
 
+          {/* TAB: Product Management */}
+          {activeSubTab === 'product-manage' && (
+            <motion.div
+              key="product-manage-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <ProductManagementPanel
+                products={productsList}
+                onUpdateProducts={setProductsList}
+                onReturnToDashboard={() => setActiveSubTab('pos')}
+                onNavigateToPublicStore={onReturnToStore}
+              />
+            </motion.div>
+          )}
+
           {/* TAB: Monthly Sales Comparison */}
           {activeSubTab === 'monthly_compare' && (
             <motion.div
@@ -6022,11 +6054,12 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   <span>روش تسویه:</span>
                   <span className="font-bold text-indigo-900">
                     {(() => {
-                      const paidAmount = activeReceiptToPrint.paymentMethod === 'pos_terminal' || activeReceiptToPrint.paymentMethod === 'cash'
+                      const pm = activeReceiptToPrint.paymentMethod as string;
+                      const paidAmount = pm === 'pos_terminal' || pm === 'cash'
                         ? activeReceiptToPrint.finalTotal
-                        : activeReceiptToPrint.paymentMethod === 'split'
+                        : pm === 'split'
                           ? (activeReceiptToPrint.splitPaymentDetails?.paidNow || 0)
-                          : (activeReceiptToPrint.paymentMethod === 'foreign' || activeReceiptToPrint.paymentMethod === 'usd' || activeReceiptToPrint.paymentMethod === 'eur')
+                          : (pm === 'foreign' || pm === 'usd' || pm === 'eur')
                             ? (activeReceiptToPrint.foreignCurrencyDetails?.tomanEquivalent || 0)
                             : 0;
 

@@ -111,7 +111,34 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
                   <tr>
                     <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">کشور سازنده / مبدأ</td>
                     {selectedProducts.map((p) => (
-                      <td key={p.id} className="p-4 text-slate-700">{p.origin}</td>
+                      <td key={p.id} className="p-4 text-slate-700">{p.origin || '—'}</td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">قطران (Tar)</td>
+                    {selectedProducts.map((p) => (
+                      <td key={p.id} className="p-4 font-mono font-bold text-slate-800" dir="ltr">{p.tar || '—'}</td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">نیکوتین (Nicotine)</td>
+                    {selectedProducts.map((p) => (
+                      <td key={p.id} className="p-4 font-mono font-bold text-slate-800" dir="ltr">{p.nicotine || '—'}</td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">سایز پاکت / قطع</td>
+                    {selectedProducts.map((p) => (
+                      <td key={p.id} className="p-4 text-slate-700">{p.packSize || 'کینگ سایز'}</td>
+                    ))}
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">طعم و فیلتر</td>
+                    {selectedProducts.map((p) => (
+                      <td key={p.id} className="p-4 text-slate-700 text-xs">
+                        <div>{p.flavor || 'کلاسیک'}</div>
+                        {p.filterType && <div className="text-[11px] text-slate-500 mt-0.5">{p.filterType}</div>}
+                      </td>
                     ))}
                   </tr>
                   <tr>

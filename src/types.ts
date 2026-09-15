@@ -59,7 +59,8 @@ export type NavigationTab =
   | 'django-docs'
   | 'accounting-pos'
   | 'invoice'
-  | 'chat-support';
+  | 'chat-support'
+  | 'product-manage';
 
 export type CustomerTierId = 'bronze' | 'silver' | 'gold' | 'platinum' | 'diamond_black';
 
@@ -331,18 +332,30 @@ export interface CigaretteProduct {
   unitName?: string; // نام واحد (مثلا: فنجان، عدد، کیلو، بسته)
   tierDiscounts: WholesaleTierDiscount[];
   description: string;
-  longDescription?: string;
-  customFeatures?: { label: string; value: string }[];
-  seoTitle?: string;
-  seoDescription?: string;
-  isPublished: boolean;
-  images?: string[];
   isAvailable: boolean;
   hasCarton?: boolean; // آیا فروش کارتنی فعال است؟
   hasBox?: boolean; // آیا فروش باکسی/جعبه‌ای فعال است؟
   hasPack?: boolean; // آیا فروش تک/پاکتی/عددی فعال است؟
   isBoxOnly?: boolean; // اگر true باشد، فقط فروش باکسی فعال است و کارتن ندارد
   isPosOnly?: boolean; // اگر true باشد، کالا مختص به فروش حضوری صندوق بوده و در کاتالوگ آنلاین نمایش داده نمی‌شود
+  slug?: string; // پیوند یکتا و آدرس URL محصول در فروشگاه
+  metaTitle?: string; // عنوان متای سئو در نتایج گوگل
+  metaDescription?: string; // توضیحات متای سئو
+  focusKeyword?: string; // کلمه کلیدی کانونی سئو (Focus Keyphrase)
+  excerpt?: string; // خلاصه و چکیده کوتاه محصول برای کارت‌ها
+  keyTakeaways?: string[]; // نکات کلیدی و برجسته محصول برای ریچ اسنیپت
+  seoScore?: number; // نمره ارزیابی یواست سئو (۰ تا ۱۰۰)
+  filterType?: string; // نوع فیلتر (کربن فعال، نانو، استات...)
+  appliedFeatures?: ProductAppliedFeature[]; // لیست ویژگی‌های تخصصی و سفارشی کالا
+}
+
+export interface ProductAppliedFeature {
+  id: string;
+  featureId?: string; // شناسه ویژگی مادر (از لیست مدیریت ویژگی‌ها)
+  nameFa: string;
+  nameEn?: string;
+  value: string;
+  unit?: string;
 }
 
 export interface CartItem {

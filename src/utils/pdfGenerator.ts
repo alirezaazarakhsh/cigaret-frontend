@@ -657,11 +657,12 @@ export async function generatePosThermalReceiptPdf(receipt: PosReceiptInvoice): 
   printContainer.style.direction = 'rtl';
   printContainer.style.pointerEvents = 'none';
 
-  const paidAmount = receipt.paymentMethod === 'pos_terminal' || receipt.paymentMethod === 'cash'
+  const pm = receipt.paymentMethod as string;
+  const paidAmount = pm === 'pos_terminal' || pm === 'cash'
     ? receipt.finalTotal
-    : receipt.paymentMethod === 'split'
+    : pm === 'split'
       ? (receipt.splitPaymentDetails?.paidNow || 0)
-      : (receipt.paymentMethod === 'foreign' || receipt.paymentMethod === 'usd' || receipt.paymentMethod === 'eur')
+      : (pm === 'foreign' || pm === 'usd' || pm === 'eur')
         ? (receipt.foreignCurrencyDetails?.tomanEquivalent || 0)
         : 0;
 

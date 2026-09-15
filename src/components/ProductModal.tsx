@@ -146,11 +146,23 @@ export const ProductModal: React.FC<ProductModalProps> = ({
            {product.origin && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">کشور تولید کننده:<br/><span className="font-bold text-slate-900">{product.origin}</span></div>}
            {product.packSize && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">سایز پاکت:<br/><span className="font-bold text-slate-900">{product.packSize}</span></div>}
            {product.flavor && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">طعم و اسانس:<br/><span className="font-bold text-slate-900">{product.flavor}</span></div>}
+           {product.filterType && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">نوع فیلتر:<br/><span className="font-bold text-slate-900">{product.filterType}</span></div>}
            {product.packagingType && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">نوع بسته بندی:<br/><span className="font-bold text-slate-900">{product.packagingType}</span></div>}
            {product.manufacturer && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">شرکت سازنده:<br/><span className="font-bold text-slate-900">{product.manufacturer}</span></div>}
            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">قطران (Tar):<br/><span className="font-bold text-slate-900">{product.tar}</span></div>
            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">نیکوتین (Nicotine):<br/><span className="font-bold text-slate-900">{product.nicotine}</span></div>
            <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">تعداد در هر کارتن:<br/><span className="font-bold text-slate-900">{formatNumberFa(product.boxesPerCarton)}</span></div>
+
+           {/* Any custom applied features */}
+           {product.appliedFeatures && product.appliedFeatures
+             .filter(af => !['feat-tar', 'feat-nicotine', 'feat-format', 'feat-flavor', 'feat-origin', 'feat-filter'].includes(af.id) && !['feat-tar', 'feat-nicotine', 'feat-format', 'feat-flavor', 'feat-origin', 'feat-filter'].includes(af.featureId || ''))
+             .map((af) => (
+               <div key={af.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                 {af.nameFa}:<br/>
+                 <span className="font-bold text-slate-900">{af.value} {af.unit ? <span className="font-mono text-[11px] text-slate-600">[{af.unit}]</span> : null}</span>
+               </div>
+             ))
+           }
         </div>
 
         {/* Discount Tier Table (Fix NaN issue) */}
