@@ -58,6 +58,7 @@ export type NavigationTab =
   | 'django-crm'
   | 'django-docs'
   | 'accounting-pos'
+  | 'customer-orders'
   | 'invoice'
   | 'chat-support'
   | 'product-manage';
@@ -318,7 +319,8 @@ export interface CigaretteProduct {
   baseBoxPrice?: number;
   boxesPerCarton: number; // تعداد باکس در هر کارتن (معمولاً ۵۰ یا ۲۵)
   stockCartons: number; // موجودی انبار به کارتن
-  moq: number; // حداقل سفارش به کارتن (حداقل ۱ کارتن)
+  moq: number; // حداقل سفارش به کارتن (می‌تواند ۰ باشد)
+  moqBox?: number; // حداقل سفارش عمده به باکس (می‌تواند ۰ باشد)
   image: string;
   images?: string[];
   barcode: string;
@@ -469,6 +471,13 @@ export interface OrderInvoice {
   receiptImage?: string;
   bankRefCode?: string;
   senderCardLast4?: string;
+  orderStatus?: 'pending_approval' | 'approved' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  approvedAt?: string;
+  approvedBy?: string;
+  rejectionReason?: string;
+  shippingTrackingNumber?: string;
+  shippingCourier?: string;
+  posReceiptNumber?: string;
 }
 
 export interface SupportTicket {

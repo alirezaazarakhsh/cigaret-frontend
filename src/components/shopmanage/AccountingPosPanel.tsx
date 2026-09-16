@@ -73,7 +73,8 @@ import {
   Server,
   Headphones,
   Bell,
-  MessageSquare
+  MessageSquare,
+  ClipboardList
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { currencyRatesApi } from '../../services/currencyApi';
@@ -105,6 +106,7 @@ import { NotificationManagementPanel } from './NotificationManagementPanel';
 import { BlogManagementModal } from './BlogManagementModal';
 import { BlogManagementPanel } from './BlogManagementPanel';
 import { ProductManagementPanel } from '../product-manage/ProductManagementPanel';
+import { OnlineOrdersManagement } from './OnlineOrdersManagement';
 import { BackendConnectionModal } from '../BackendConnectionModal';
 import { SessionSecurityModal } from './SessionSecurityModal';
 import { 
@@ -373,10 +375,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     return currentStaff.permissions?.includes(perm) ?? false;
   };
 
-  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'user_management' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog' | 'site_settings' | 'warehouse_messages' | 'product-manage';
+  type PosSubTab = 'pos' | 'inventory' | 'ledger' | 'customers' | 'user_management' | 'reports' | 'monthly_compare' | 'staff_management' | 'customer_app' | 'analytics' | 'tickets' | 'sms_management' | 'notifications' | 'blog' | 'site_settings' | 'warehouse_messages' | 'product-manage' | 'online_orders';
 
   const getSubTabFromPath = (pathname: string): PosSubTab => {
     const p = pathname.toLowerCase();
+    if (p.includes('/shopmanage/online-orders') || p.includes('/shopmanage/orders') || p.includes('/shopmanage/sefareshat')) return 'online_orders';
     if (p.includes('/shopmanage/site-settings') || p.includes('/shopmanage/sliders') || p.includes('/shopmanage/banners')) return 'site_settings';
     if (p.includes('/shopmanage/blog') || p.includes('/shopmanage/maghale') || p.includes('/shopmanage/maghalat')) return 'blog';
     if (p.includes('/shopmanage/anbar') || p.includes('/shopmanage/inventory')) return 'inventory';
@@ -400,6 +403,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const getPathForSubTab = (tab: PosSubTab): string => {
     const map: Record<PosSubTab, string> = {
       pos: '/shopmanage/sandogh',
+      online_orders: '/shopmanage/online-orders',
       inventory: '/shopmanage/anbar',
       customers: '/shopmanage/customers',
       user_management: '/shopmanage/users',
@@ -475,6 +479,36 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       return () => clearInterval(intervalId);
     }
   }, [isAuthenticated]);
+
+  // Online Customer Orders pending count
+  const [pendingOnlineOrdersCount, setPendingOnlineOrdersCount] = useState<number>(0);
+
+  const updatePendingOnlineOrdersCount = () => {
+    try {
+      const stored = localStorage.getItem('sevin_orders');
+      if (stored) {
+        const orders = JSON.parse(stored);
+        const count = orders.filter((o: any) => {
+          return !o.orderStatus || o.orderStatus === 'pending_approval' || (o.paymentStatus && (o.paymentStatus.includes('در انتظار') || o.paymentStatus.includes('واریز شده')));
+        }).length;
+        setPendingOnlineOrdersCount(count);
+      } else {
+        setPendingOnlineOrdersCount(0);
+      }
+    } catch {
+      setPendingOnlineOrdersCount(0);
+    }
+  };
+
+  useEffect(() => {
+    updatePendingOnlineOrdersCount();
+    window.addEventListener('sevin_orders_updated', updatePendingOnlineOrdersCount);
+    window.addEventListener('storage', updatePendingOnlineOrdersCount);
+    return () => {
+      window.removeEventListener('sevin_orders_updated', updatePendingOnlineOrdersCount);
+      window.removeEventListener('storage', updatePendingOnlineOrdersCount);
+    };
+  }, []);
 
   // Close tools dropdown on click outside
   useEffect(() => {
@@ -882,6 +916,9 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   const [showQuickAddProductModal, setShowQuickAddProductModal] = useState<boolean>(false);
   const [pendingBarcode, setPendingBarcode] = useState<string>('');
+  const [productManagementInitialTab, setProductManagementInitialTab] = useState<'list' | 'editor'>('list');
+  const [productManagementInitialBarcode, setProductManagementInitialBarcode] = useState<string>('');
+  const [productManagementSelectedProduct, setProductManagementSelectedProduct] = useState<CigaretteProduct | null>(null);
 
   useEffect(() => {
     try {
@@ -1282,11 +1319,13 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         setTimeout(() => setSuccessBanner(null), 2500);
         barcodeInputRef.current?.focus();
       } else {
-        // Barcode not found -> Open Quick Add Product popup with this barcode pre-filled
-        setPendingBarcode(query);
-        setShowQuickAddProductModal(true);
+        // Barcode not found -> Navigate directly to full Product Management -> Add Product Editor with this barcode pre-filled
+        setProductManagementInitialTab('editor');
+        setProductManagementInitialBarcode(query);
+        setProductManagementSelectedProduct(null);
         setBarcodeInput('');
-        setSuccessBanner(`کالایی با بارکد «${query}» در انبار یافت نشد. پاپ‌آپ ایجاد محصول جدید باز گردید.`);
+        setActiveSubTab('product-manage');
+        setSuccessBanner(`کالایی با بارکد «${query}» در انبار یافت نشد. صفحه تعریف محصول جدید با این بارکد باز گردید.`);
         setTimeout(() => setSuccessBanner(null), 4000);
       }
     }
@@ -2599,8 +2638,34 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               </button>
             )}
 
+            {/* Online Orders Management Tab */}
             <button
-              onClick={() => { setActiveSubTab('product-manage'); setIsMenuOpen(false); }}
+              onClick={() => { setActiveSubTab('online_orders'); setIsMenuOpen(false); }}
+              className={`flex items-center justify-between md:justify-start gap-2 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
+                activeSubTab === 'online_orders'
+                  ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 shrink-0">
+                <ClipboardList className="w-4 h-4 shrink-0" />
+                <span className="whitespace-nowrap">سفارشات آنلاین مشتریان</span>
+              </div>
+              {pendingOnlineOrdersCount > 0 && (
+                <span className="min-w-[20px] h-5 px-1 bg-amber-500 text-slate-950 text-[10px] rounded-full flex items-center justify-center font-bold animate-pulse shrink-0">
+                  {pendingOnlineOrdersCount}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => {
+                setProductManagementInitialTab('list');
+                setProductManagementInitialBarcode('');
+                setProductManagementSelectedProduct(null);
+                setActiveSubTab('product-manage');
+                setIsMenuOpen(false);
+              }}
               className={`flex items-center justify-between md:justify-start gap-1.5 px-3.5 py-2 md:py-1.5 rounded-xl text-xs font-black transition-all shrink-0 whitespace-nowrap ${
                 activeSubTab === 'product-manage'
                   ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/30'
@@ -2826,8 +2891,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                         <button
                           type="button"
                           onClick={() => {
-                            setPendingBarcode('');
-                            setShowQuickAddProductModal(true);
+                            setProductManagementInitialTab('editor');
+                            setProductManagementInitialBarcode('');
+                            setProductManagementSelectedProduct(null);
+                            setActiveSubTab('product-manage');
                           }}
                           className="px-3 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                         >
@@ -3470,8 +3537,13 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   </div>
 
                   <button
-                    onClick={() => setShowAddProductModal(true)}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black px-4 py-2.5 rounded-2xl shadow-md transition-all flex items-center gap-2 shrink-0"
+                    onClick={() => {
+                      setProductManagementSelectedProduct(null);
+                      setProductManagementInitialBarcode('');
+                      setProductManagementInitialTab('editor');
+                      setActiveSubTab('product-manage');
+                    }}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black px-4 py-2.5 rounded-2xl shadow-md transition-all flex items-center gap-2 shrink-0 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     <span>+ تعریف کالا / جنس جدید در انبار</span>
@@ -3490,7 +3562,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                         <th className="p-3 text-left">قیمت فروش</th>
                         <th className="p-3 text-left">ارزش ریالی</th>
                         <th className="p-3 text-center">وضعیت</th>
-                        <th className="p-3 text-center">اصلاح پیشرفته</th>
+                        <th className="p-3 text-center">ویرایش و مشخصات کالا</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
@@ -3599,19 +3671,19 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                               )}
                             </td>
                             <td className="p-3 text-center">
-                              {prod.category !== 'drinks_coffee' && (
                               <button
                                 onClick={() => {
-                                  setSelectedProductForAdjustment(prod);
-                                  setAdjustType('stock_in');
-                                  setAdjustUnit('carton');
-                                  setAdjustQuantityCartons(1);
+                                  setProductManagementSelectedProduct(prod);
+                                  setProductManagementInitialBarcode(prod.barcode || '');
+                                  setProductManagementInitialTab('editor');
+                                  setActiveSubTab('product-manage');
                                 }}
-                                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 rounded-xl text-xs font-bold transition-colors border border-indigo-200 whitespace-nowrap"
+                                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 rounded-xl text-xs font-bold transition-colors border border-indigo-200 whitespace-nowrap cursor-pointer flex items-center gap-1.5 mx-auto"
+                                title="ویرایش کامل کالا در بخش مدیریت کالا"
                               >
-                                ثبت بار / اصلاح
+                                <Edit2 className="w-3.5 h-3.5" />
+                                <span>ویرایش کالا</span>
                               </button>
-                              )}
                             </td>
                           </tr>
                         );
@@ -4465,6 +4537,21 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </motion.div>
           )}
 
+          {/* TAB: Online Customer Orders */}
+          {activeSubTab === 'online_orders' && (
+            <motion.div
+              key="online-orders-tab"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              <OnlineOrdersManagement
+                onReturnToPos={() => setActiveSubTab('pos')}
+                staffName={currentStaff.fullName || 'متصدی صندوق'}
+              />
+            </motion.div>
+          )}
+
           {/* TAB: Product Management */}
           {activeSubTab === 'product-manage' && (
             <motion.div
@@ -4478,6 +4565,9 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 onUpdateProducts={setProductsList}
                 onReturnToDashboard={() => setActiveSubTab('pos')}
                 onNavigateToPublicStore={onReturnToStore}
+                initialTab={productManagementInitialTab}
+                initialBarcode={productManagementInitialBarcode}
+                initialEditingProduct={productManagementSelectedProduct}
               />
             </motion.div>
           )}

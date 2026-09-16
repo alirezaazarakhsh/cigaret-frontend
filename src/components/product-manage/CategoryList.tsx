@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layers,
   FolderPlus,
@@ -8,7 +8,9 @@ import {
   Package,
   CheckCircle2,
   Tag,
-  AlertTriangle
+  AlertTriangle,
+  X,
+  Save
 } from 'lucide-react';
 import { ProductCategoryItem } from './types';
 import { CigaretteProduct } from '../../types';
@@ -18,6 +20,7 @@ interface CategoryListProps {
   categories: ProductCategoryItem[];
   products: CigaretteProduct[];
   onAddCategory: (category: ProductCategoryItem) => void;
+  onUpdateCategory?: (category: ProductCategoryItem) => void;
   onDeleteCategory: (categoryId: string) => void;
 }
 
@@ -25,6 +28,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({
   categories,
   products,
   onAddCategory,
+  onUpdateCategory,
   onDeleteCategory,
 }) => {
   const [name, setName] = useState('');
@@ -32,6 +36,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
   const [color, setColor] = useState('text-blue-600');
+  const [editingCategory, setEditingCategory] = useState<ProductCategoryItem | null>(null);
 
   const COLOR_OPTIONS = [
     { label: 'آبی تجاری', value: 'text-blue-600', bg: 'bg-blue-600' },
@@ -42,25 +47,60 @@ export const CategoryList: React.FC<CategoryListProps> = ({
     { label: 'رز قرمز', value: 'text-rose-600', bg: 'bg-rose-600' },
   ];
 
-  const handleCreate = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) return;
+  const handleStartEdit = (cat: ProductCategoryItem) => {
+    setEditingCategory(cat);
+    setName(cat.name);
+    setNameEn(cat.nameEn || '');
+    setSlug(cat.slug || cat.id);
+    setDescription(cat.description || '');
+    setColor(cat.color || 'text-blue-600');
+    window.scrollTo({ top: 100, behavior: 'smooth' });
+  };
 
-    const generatedSlug = slug.trim() || nameEn.trim().toLowerCase().replace(/\s+/g, '_') || `cat_${Date.now()}`;
-    const newCategory: ProductCategoryItem = {
-      id: generatedSlug,
-      slug: generatedSlug,
-      name: name.trim(),
-      nameEn: nameEn.trim(),
-      description: description.trim(),
-      color,
-    };
-
-    onAddCategory(newCategory);
+  const handleCancelEdit = () => {
+    setEditingCategory(null);
     setName('');
     setNameEn('');
     setSlug('');
     setDescription('');
+    setColor('text-blue-600');
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+
+    if (editingCategory) {
+      const updatedCat: ProductCategoryItem = {
+        ...editingCategory,
+        name: name.trim(),
+        nameEn: nameEn.trim(),
+        slug: slug.trim() || editingCategory.slug,
+        description: description.trim(),
+        color,
+      };
+
+      if (onUpdateCategory) {
+        onUpdateCategory(updatedCat);
+      }
+      handleCancelEdit();
+    } else {
+      const generatedSlug = slug.trim() || nameEn.trim().toLowerCase().replace(/\s+/g, '_') || `cat_${Date.now()}`;
+      const newCategory: ProductCategoryItem = {
+        id: generatedSlug,
+        slug: generatedSlug,
+        name: name.trim(),
+        nameEn: nameEn.trim(),
+        description: description.trim(),
+        color,
+      };
+
+      onAddCategory(newCategory);
+      setName('');
+      setNameEn('');
+      setSlug('');
+      setDescription('');
+    }
   };
 
   const getProductCountForCat = (catId: string) => {
@@ -70,19 +110,42 @@ export const CategoryList: React.FC<CategoryListProps> = ({
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Right 1 Column: Create Category Box */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-slate-100">
-            <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
-              <FolderPlus className="w-5 h-5" />
+        {/* Right 1 Column: Create / Edit Category Box */}
+        <div className={`p-5 rounded-2xl border shadow-xs space-y-4 transition-all ${
+          editingCategory 
+            ? 'bg-amber-50/40 border-amber-300 ring-2 ring-amber-400/30' 
+            : 'bg-white border-slate-200'
+        }`}>
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="flex items-center gap-2.5">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-bold ${
+                editingCategory ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' : 'bg-blue-50 text-blue-600'
+              }`}>
+                {editingCategory ? <Edit3 className="w-5 h-5" /> : <FolderPlus className="w-5 h-5" />}
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900">
+                  {editingCategory ? 'ویرایش دسته‌بندی' : 'تعریف دسته‌بندی جدید'}
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  {editingCategory ? `در حال ویرایش: ${editingCategory.name}` : 'افزودن گروه کالایی به کاتالوگ و صندوق'}
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-black text-slate-900">تعریف دسته‌بندی جدید</h3>
-              <p className="text-[11px] text-slate-500">افزودن گروه کالایی به کاتالوگ و صندوق</p>
-            </div>
+            {editingCategory && (
+              <button
+                type="button"
+                onClick={handleCancelEdit}
+                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 rounded-lg transition-colors text-xs flex items-center gap-1"
+                title="انصراف از ویرایش"
+              >
+                <X className="w-4 h-4" />
+                <span className="font-bold">انصراف</span>
+              </button>
+            )}
           </div>
 
-          <form onSubmit={handleCreate} className="space-y-3.5">
+          <form onSubmit={handleSubmit} className="space-y-3.5">
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1.5">
                 عنوان دسته‌بندی (فارسی) <span className="text-rose-500">*</span>
@@ -93,7 +156,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
-                  if (!slug) {
+                  if (!slug && !editingCategory) {
                     setSlug(e.target.value.trim().toLowerCase().replace(/\s+/g, '_'));
                   }
                 }}
@@ -118,10 +181,16 @@ export const CategoryList: React.FC<CategoryListProps> = ({
               <input
                 type="text"
                 value={slug}
+                disabled={!!editingCategory}
                 onChange={(e) => setSlug(e.target.value)}
                 placeholder="compact_cigarettes"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white font-mono dir-ltr text-left"
+                className={`w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white font-mono dir-ltr text-left ${
+                  editingCategory ? 'opacity-60 cursor-not-allowed bg-slate-100' : ''
+                }`}
               />
+              {editingCategory && (
+                <p className="text-[10px] text-slate-400 mt-1">شناسه سیستمی در حالت ویرایش ثابت است.</p>
+              )}
             </div>
 
             <div>
@@ -152,13 +221,28 @@ export const CategoryList: React.FC<CategoryListProps> = ({
               />
             </div>
 
-            <button
-              type="submit"
-              className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-600/20 transition-all flex items-center justify-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              <span>افزودن دسته‌بندی به سیستم</span>
-            </button>
+            <div className="pt-1 flex items-center gap-2">
+              <button
+                type="submit"
+                className={`flex-1 py-2.5 rounded-xl text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-2 ${
+                  editingCategory
+                    ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
+                    : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'
+                }`}
+              >
+                {editingCategory ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span>{editingCategory ? 'ذخیره تغییرات دسته‌بندی' : 'افزودن دسته‌بندی به سیستم'}</span>
+              </button>
+              {editingCategory && (
+                <button
+                  type="button"
+                  onClick={handleCancelEdit}
+                  className="px-3.5 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors"
+                >
+                  انصراف
+                </button>
+              )}
+            </div>
           </form>
         </div>
 
@@ -184,20 +268,34 @@ export const CategoryList: React.FC<CategoryListProps> = ({
                     <th className="p-4">شناسه سیستمی</th>
                     <th className="p-4">توضیحات</th>
                     <th className="p-4 text-center">تعداد محصولات</th>
-                    <th className="p-4 text-center w-20">عملیات</th>
+                    <th className="p-4 text-center w-28">عملیات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {categories.map((cat, index) => {
                     const count = getProductCountForCat(cat.id);
+                    const isBeingEdited = editingCategory?.id === cat.id;
+
                     return (
-                      <tr key={cat.id} className="hover:bg-slate-50/80 transition-colors">
+                      <tr 
+                        key={cat.id} 
+                        className={`transition-colors ${
+                          isBeingEdited ? 'bg-amber-50/70' : 'hover:bg-slate-50/80'
+                        }`}
+                      >
                         <td className="p-4 text-center font-bold text-slate-400">{formatNumberFa(index + 1)}</td>
                         <td className="p-4">
                           <div className="flex items-center gap-2">
                             <span className={`w-2.5 h-2.5 rounded-full ${cat.color ? cat.color.replace('text-', 'bg-') : 'bg-blue-600'}`}></span>
                             <div>
-                              <div className="font-black text-slate-900 text-xs">{cat.name}</div>
+                              <div className="font-black text-slate-900 text-xs flex items-center gap-1.5">
+                                <span>{cat.name}</span>
+                                {isBeingEdited && (
+                                  <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold">
+                                    در حال ویرایش
+                                  </span>
+                                )}
+                              </div>
                               {cat.nameEn && (
                                 <div className="text-[10px] text-slate-400 dir-ltr text-left font-mono">
                                   {cat.nameEn}
@@ -215,19 +313,32 @@ export const CategoryList: React.FC<CategoryListProps> = ({
                           </span>
                         </td>
                         <td className="p-4 text-center">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (count > 0) {
-                                if (!window.confirm(`این دسته‌بندی شامل ${count} محصول است. آیا از حذف آن مطمئن هستید؟`)) return;
-                              }
-                              onDeleteCategory(cat.id);
-                            }}
-                            className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
-                            title="حذف دسته‌بندی"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <div className="flex items-center justify-center gap-1">
+                            <button
+                              type="button"
+                              onClick={() => handleStartEdit(cat)}
+                              className="p-1.5 hover:bg-amber-50 text-slate-400 hover:text-amber-600 rounded-lg transition-colors"
+                              title="ویرایش دسته‌بندی"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (count > 0) {
+                                  if (!window.confirm(`این دسته‌بندی شامل ${count} محصول است. آیا از حذف آن مطمئن هستید؟`)) return;
+                                }
+                                onDeleteCategory(cat.id);
+                                if (editingCategory?.id === cat.id) {
+                                  handleCancelEdit();
+                                }
+                              }}
+                              className="p-1.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors"
+                              title="حذف دسته‌بندی"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );

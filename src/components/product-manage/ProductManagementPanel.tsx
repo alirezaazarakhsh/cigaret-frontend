@@ -34,6 +34,10 @@ interface ProductManagementPanelProps {
   onUpdateProducts: (updatedProducts: CigaretteProduct[]) => void;
   onReturnToDashboard?: () => void;
   onNavigateToPublicStore?: () => void;
+  initialTab?: 'list' | 'editor' | 'categories' | 'holograms' | 'features';
+  initialBarcode?: string;
+  initialEditingProduct?: CigaretteProduct | null;
+  onTabChange?: (tab: string) => void;
 }
 
 export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
@@ -41,8 +45,32 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
   onUpdateProducts,
   onReturnToDashboard,
   onNavigateToPublicStore,
+  initialTab,
+  initialBarcode,
+  initialEditingProduct,
+  onTabChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<'list' | 'editor' | 'categories' | 'holograms' | 'features'>('list');
+  const [activeTab, setActiveTab] = useState<'list' | 'editor' | 'categories' | 'holograms' | 'features'>(initialTab || 'list');
+  const [currentInitialBarcode, setCurrentInitialBarcode] = useState<string>(initialBarcode || '');
+  const [selectedProduct, setSelectedProduct] = useState<CigaretteProduct | null>(initialEditingProduct || null);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
+  useEffect(() => {
+    if (initialBarcode !== undefined) {
+      setCurrentInitialBarcode(initialBarcode);
+    }
+  }, [initialBarcode]);
+
+  useEffect(() => {
+    if (initialEditingProduct !== undefined) {
+      setSelectedProduct(initialEditingProduct);
+    }
+  }, [initialEditingProduct]);
 
   // Categories state with persistence
   const [categories, setCategories] = useState<ProductCategoryItem[]>(() => {
@@ -70,9 +98,6 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
     } catch {}
     return INITIAL_PRODUCT_FEATURES;
   });
-
-  // Selected product for full-page editor
-  const [selectedProduct, setSelectedProduct] = useState<CigaretteProduct | null>(null);
 
   // Notification Toast state
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -140,6 +165,15 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
     showToast(`دسته‌بندی «${newCat.name}» با موفقیت ثبت شد.`);
   };
 
+  const handleUpdateCategory = (updatedCat: ProductCategoryItem) => {
+    const updated = categories.map((c) => (c.id === updatedCat.id ? updatedCat : c));
+    setCategories(updated);
+    try {
+      localStorage.setItem('sevin_product_categories', JSON.stringify(updated));
+    } catch {}
+    showToast(`تغییرات دسته‌بندی «${updatedCat.name}» با موفقیت ذخیره شد.`);
+  };
+
   const handleDeleteCategory = (catId: string) => {
     const updated = categories.filter((c) => c.id !== catId);
     setCategories(updated);
@@ -159,6 +193,15 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
     showToast(`استاندارد هولوگرام «${newHolo.title}» ایجاد شد.`);
   };
 
+  const handleUpdateHologram = (updatedHolo: ProductHologramItem) => {
+    const updated = holograms.map((h) => (h.id === updatedHolo.id ? updatedHolo : h));
+    setHolograms(updated);
+    try {
+      localStorage.setItem('sevin_product_holograms', JSON.stringify(updated));
+    } catch {}
+    showToast(`تغییرات هولوگرام «${updatedHolo.title}» با موفقیت ذخیره شد.`);
+  };
+
   const handleDeleteHologram = (holoId: string) => {
     const updated = holograms.filter((h) => h.id !== holoId);
     setHolograms(updated);
@@ -176,6 +219,15 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
       localStorage.setItem('sevin_product_features', JSON.stringify(updated));
     } catch {}
     showToast(`مشخصه فنی «${newFeat.nameFa}» به شناسنامه کالا اضافه شد.`);
+  };
+
+  const handleUpdateFeature = (updatedFeat: ProductFeatureItem) => {
+    const updated = features.map((f) => (f.id === updatedFeat.id ? updatedFeat : f));
+    setFeatures(updated);
+    try {
+      localStorage.setItem('sevin_product_features', JSON.stringify(updated));
+    } catch {}
+    showToast(`تغییرات مشخصه فنی «${updatedFeat.nameFa}» با موفقیت ذخیره شد.`);
   };
 
   const handleDeleteFeature = (featId: string) => {
@@ -367,13 +419,18 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
         {activeTab === 'editor' && (
           <ProductEditorPage
             product={selectedProduct}
+            initialBarcode={currentInitialBarcode}
             categories={categories}
             holograms={holograms}
             features={features}
-            onSave={handleSaveProduct}
+            onSave={(savedProd) => {
+              handleSaveProduct(savedProd);
+              setCurrentInitialBarcode('');
+            }}
             onCancel={() => {
               setActiveTab('list');
               setSelectedProduct(null);
+              setCurrentInitialBarcode('');
             }}
           />
         )}
@@ -394,6 +451,7 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
             categories={categories}
             products={products}
             onAddCategory={handleAddCategory}
+            onUpdateCategory={handleUpdateCategory}
             onDeleteCategory={handleDeleteCategory}
           />
         )}
@@ -403,6 +461,7 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
             holograms={holograms}
             products={products}
             onAddHologram={handleAddHologram}
+            onUpdateHologram={handleUpdateHologram}
             onDeleteHologram={handleDeleteHologram}
           />
         )}
@@ -411,6 +470,7 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
           <FeatureList
             features={features}
             onAddFeature={handleAddFeature}
+            onUpdateFeature={handleUpdateFeature}
             onDeleteFeature={handleDeleteFeature}
           />
         )}

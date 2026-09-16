@@ -13,9 +13,12 @@ import {
   Sparkles,
   Info,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  TrendingDown,
+  Plus,
+  Trash2
 } from 'lucide-react';
-import { CigaretteProduct, CigaretteCategory } from '../../types';
+import { CigaretteProduct, CigaretteCategory, WholesaleTierDiscount } from '../../types';
 import { ProductCategoryItem, ProductHologramItem } from './types';
 import { formatNumberFa, formatToman } from '../../utils/formatters';
 
@@ -64,10 +67,46 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [newTierUnit, setNewTierUnit] = useState<'carton' | 'box'>('carton');
+  const [newTierQty, setNewTierQty] = useState<number | ''>('');
+  const [newTierDiscount, setNewTierDiscount] = useState<number | ''>('');
+
+  const handleAddTier = () => {
+    const qty = Number(newTierQty);
+    const pct = Number(newTierDiscount);
+    if (!qty || qty <= 0 || !pct || pct <= 0) return;
+
+    const newTier: WholesaleTierDiscount = {
+      unit: newTierUnit,
+      minQuantity: qty,
+      minCartons: newTierUnit === 'carton' ? qty : undefined,
+      discountPercentage: pct,
+      discountPercent: pct,
+      label: `خرید بالای ${qty} ${newTierUnit === 'carton' ? 'کارتن' : 'باکس'} (${pct}٪ تخفیف)`
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      tierDiscounts: [...(prev.tierDiscounts || []), newTier]
+    }));
+    setNewTierQty('');
+    setNewTierDiscount('');
+  };
+
+  const handleRemoveTier = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      tierDiscounts: (prev.tierDiscounts || []).filter((_, i) => i !== index)
+    }));
+  };
+
   useEffect(() => {
     if (product) {
       setFormData({
         ...product,
+        moq: (product.moq !== undefined && product.moq !== null) ? Number(product.moq) : 0,
+        moqBox: (product.moqBox !== undefined && product.moqBox !== null) ? Number(product.moqBox) : 0,
+        tierDiscounts: product.tierDiscounts ? [...product.tierDiscounts] : [],
       });
       setImagePreview(product.image || '');
     } else {
@@ -85,16 +124,14 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
         packPrice: 0,
         boxesPerCarton: 50,
         stockCartons: 10,
-        moq: 1,
+        moq: 0,
+        moqBox: 0,
         image: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80',
         barcode: String(Math.floor(1000000000000 + Math.random() * 9000000000000)),
         badge: 'بار تازه',
         hologram: 'اورجینال اروپایی',
         isAvailable: true,
-        tierDiscounts: [
-          { minCartons: 3, discountPercentage: 2, label: '۳ تا ۴ کارتن (۲٪ تخفیف)' },
-          { minCartons: 5, discountPercentage: 4, label: '۵ تا ۹ کارتن (۴٪ تخفیف)' },
-        ],
+        tierDiscounts: [],
         description: '',
       });
       setImagePreview('https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80');
@@ -135,7 +172,8 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
       packPrice: Number(formData.packPrice) || 0,
       boxesPerCarton: Number(formData.boxesPerCarton) || 50,
       stockCartons: Number(formData.stockCartons) || 0,
-      moq: Number(formData.moq) || 1,
+      moq: typeof formData.moq === 'number' ? formData.moq : (Number(formData.moq) || 0),
+      moqBox: typeof formData.moqBox === 'number' ? formData.moqBox : (Number(formData.moqBox) || 0),
       image: imagePreview || formData.image || 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80',
       barcode: formData.barcode || String(Math.floor(1000000000000 + Math.random() * 9000000000000)),
       badge: formData.badge,
@@ -143,10 +181,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
       lastPriceUpdate: 'امروز ' + new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
       hologram: formData.hologram || 'اورجینال اروپایی',
       isAvailable: formData.isAvailable ?? true,
-      tierDiscounts: formData.tierDiscounts || [
-        { minCartons: 3, discountPercentage: 2, label: '۳ تا ۴ کارتن (۲٪ تخفیف)' },
-        { minCartons: 5, discountPercentage: 4, label: '۵ تا ۹ کارتن (۴٪ تخفیف)' },
-      ],
+      tierDiscounts: formData.tierDiscounts || [],
       description: formData.description || '',
     };
 
@@ -326,12 +361,25 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] font-bold text-slate-700 mb-1">حداقل سفارش (MOQ)</label>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">MOQ کارتن (حداقل)</label>
                   <input
                     type="number"
-                    value={formData.moq ?? 1}
-                    onChange={(e) => setFormData({ ...formData, moq: Number(e.target.value) })}
+                    min="0"
+                    value={formData.moq ?? 0}
+                    onChange={(e) => setFormData({ ...formData, moq: Number(e.target.value) || 0 })}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                    placeholder="0 = بدون محدودیت"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">MOQ باکس (حداقل)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.moqBox ?? 0}
+                    onChange={(e) => setFormData({ ...formData, moqBox: Number(e.target.value) || 0 })}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-900"
+                    placeholder="0 = بدون محدودیت"
                   />
                 </div>
                 <div>
@@ -374,6 +422,115 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900"
                   />
                 </div>
+              </div>
+
+              {/* Tiered Discounts (Carton & Box) */}
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <TrendingDown className="w-4 h-4 text-emerald-600" />
+                    <span>تخفیف تیراژ بنکداری (کارتن و باکس)</span>
+                  </div>
+                  <span className="text-[10px] text-slate-500">
+                    {formData.tierDiscounts?.length || 0} پله تخفیف فعال
+                  </span>
+                </div>
+
+                {/* Add Tier input row */}
+                <div className="flex flex-wrap items-end gap-2 bg-white p-2.5 rounded-xl border border-slate-200">
+                  <div className="w-24 shrink-0">
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">واحد:</label>
+                    <select
+                      value={newTierUnit}
+                      onChange={(e) => setNewTierUnit(e.target.value as 'carton' | 'box')}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-800"
+                    >
+                      <option value="carton">کارتن</option>
+                      <option value="box">باکس</option>
+                    </select>
+                  </div>
+
+                  <div className="flex-1 min-w-[90px]">
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                      حداقل ({newTierUnit === 'carton' ? 'کارتن' : 'باکس'}):
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="۳"
+                      value={newTierQty}
+                      onChange={(e) => setNewTierQty(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-slate-900"
+                    />
+                  </div>
+
+                  <div className="flex-1 min-w-[80px]">
+                    <label className="block text-[10px] font-bold text-slate-600 mb-1">درصد تخفیف:</label>
+                    <input
+                      type="number"
+                      min="0.5"
+                      max="99"
+                      step="0.5"
+                      placeholder="۲"
+                      value={newTierDiscount}
+                      onChange={(e) => setNewTierDiscount(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-emerald-700"
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAddTier}
+                    disabled={!newTierQty || !newTierDiscount}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1 shrink-0 cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>افزودن</span>
+                  </button>
+                </div>
+
+                {/* List of active tiers */}
+                {formData.tierDiscounts && formData.tierDiscounts.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {formData.tierDiscounts.map((tier, idx) => {
+                      const isBox = tier.unit === 'box' || (!tier.unit && tier.label?.includes('باکس'));
+                      const qty = tier.minQuantity ?? tier.minCartons ?? 1;
+                      const pct = tier.discountPercentage ?? tier.discountPercent ?? 0;
+
+                      return (
+                        <div
+                          key={idx}
+                          className="bg-white px-2.5 py-1.5 rounded-xl border border-slate-200 flex items-center justify-between text-xs"
+                        >
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                              isBox ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {isBox ? 'باکس' : 'کارتن'}
+                            </span>
+                            <span className="font-bold text-slate-800">
+                              بالای {formatNumberFa(qty)} {isBox ? 'باکس' : 'کارتن'}:
+                            </span>
+                            <span className="font-black text-emerald-600">
+                              {formatNumberFa(pct)}٪
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveTier(idx)}
+                            className="text-slate-400 hover:text-rose-600 p-1 cursor-pointer"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-400 text-center py-1">
+                    پله تخفیفی ثبت نشده است (می‌توانید برای کارتن و باکس تخفیف پله‌ای تعریف کنید).
+                  </p>
+                )}
               </div>
 
               <div>

@@ -95,15 +95,38 @@ export function getApplicableDiscount(
   quantity: number,
   tierDiscounts: WholesaleTierDiscount[]
 ): number {
-  if (unit !== 'carton' || !tierDiscounts || tierDiscounts.length === 0) {
+  if (!tierDiscounts || tierDiscounts.length === 0 || quantity <= 0) {
     return 0;
   }
 
-  const sorted = [...tierDiscounts].sort((a, b) => (b.minCartons || 0) - (a.minCartons || 0));
+  // Filter tiers matching the unit ('carton' vs 'box')
+  const matchedTiers = tierDiscounts.filter((tier) => {
+    if (unit === 'carton') {
+      // Carton tier if unit is explicitly 'carton', or if not specified but minCartons exists, or if unit is undefined and not box
+      return tier.unit === 'carton' || (!tier.unit && (tier.minCartons !== undefined || !tier.label?.includes('باکس')));
+    }
+    if (unit === 'box') {
+      // Box tier if unit is 'box', or label mentions 'باکس'
+      return tier.unit === 'box' || (!tier.unit && tier.label?.includes('باکس'));
+    }
+    return false;
+  });
+
+  if (matchedTiers.length === 0) {
+    return 0;
+  }
+
+  // Sort descending by required minimum quantity
+  const sorted = [...matchedTiers].sort((a, b) => {
+    const minA = a.minQuantity ?? a.minCartons ?? 0;
+    const minB = b.minQuantity ?? b.minCartons ?? 0;
+    return minB - minA;
+  });
 
   for (const tier of sorted) {
-    if (quantity >= (tier.minCartons || 0)) {
-      return tier.discountPercentage || 0;
+    const minRequired = tier.minQuantity ?? tier.minCartons ?? 0;
+    if (minRequired > 0 && quantity >= minRequired) {
+      return tier.discountPercentage ?? tier.discountPercent ?? 0;
     }
   }
 

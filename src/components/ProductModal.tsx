@@ -15,7 +15,8 @@ import {
   ShoppingCart,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  AlertCircle
 } from 'lucide-react';
 import { CigaretteProduct } from '../types';
 import { formatToman, formatNumberFa, getApplicableDiscount } from '../utils/formatters';
@@ -31,9 +32,19 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   onClose,
   onAddToCart,
 }) => {
-  const [cartonQty, setCartonQty] = useState<number>(product?.moq || 1);
-  const [boxQty, setBoxQty] = useState<number>(0);
+  const moqCarton = (product?.moq !== undefined && product?.moq !== null) ? Number(product.moq) : 0;
+  const moqBox = (product?.moqBox !== undefined && product?.moqBox !== null) ? Number(product.moqBox) : 0;
+
+  const [cartonQty, setCartonQty] = useState<number>(() => {
+    if (product?.hasCarton === false) return 0;
+    return moqCarton > 0 ? moqCarton : 1;
+  });
+  const [boxQty, setBoxQty] = useState<number>(() => {
+    if (product?.hasCarton === false) return moqBox > 0 ? moqBox : 1;
+    return 0;
+  });
   const [added, setAdded] = useState(false);
+  const [moqError, setMoqError] = useState<string | null>(null);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -42,14 +53,28 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   if (!product) return null;
 
   const cartonTotalRaw = product.cartonPrice * cartonQty;
-  const discountPercent = getApplicableDiscount('carton', cartonQty, product.tierDiscounts);
-  const cartonDiscountVal = (cartonTotalRaw * discountPercent) / 100;
+  const cartonDiscountPercent = getApplicableDiscount('carton', cartonQty, product.tierDiscounts);
+  const cartonDiscountVal = (cartonTotalRaw * cartonDiscountPercent) / 100;
   const cartonTotalFinal = cartonTotalRaw - cartonDiscountVal;
 
-  const boxTotal = product.boxPrice * boxQty;
-  const grandTotal = (cartonQty > 0 ? cartonTotalFinal : 0) + (boxQty > 0 ? boxTotal : 0);
+  const boxTotalRaw = product.boxPrice * boxQty;
+  const boxDiscountPercent = getApplicableDiscount('box', boxQty, product.tierDiscounts);
+  const boxDiscountVal = (boxTotalRaw * boxDiscountPercent) / 100;
+  const boxTotalFinal = boxTotalRaw - boxDiscountVal;
+
+  const grandTotal = (cartonQty > 0 ? cartonTotalFinal : 0) + (boxQty > 0 ? boxTotalFinal : 0);
 
   const handleAdd = () => {
+    setMoqError(null);
+    if (cartonQty > 0 && moqCarton > 0 && cartonQty < moqCarton) {
+      setMoqError(`حداقل سفارش کارتن برای این محصول ${formatNumberFa(moqCarton)} کارتن است.`);
+      return;
+    }
+    if (boxQty > 0 && moqBox > 0 && boxQty < moqBox) {
+      setMoqError(`حداقل سفارش باکس برای این محصول ${formatNumberFa(moqBox)} باکس است.`);
+      return;
+    }
+
     let hasAdded = false;
     if (cartonQty > 0) {
       onAddToCart(product, 'carton', cartonQty);
@@ -165,25 +190,52 @@ export const ProductModal: React.FC<ProductModalProps> = ({
            }
         </div>
 
-        {/* Discount Tier Table (Fix NaN issue) */}
+        {/* Discount Tier Table (Carton & Box) */}
         {product.tierDiscounts && product.tierDiscounts.length > 0 && (
-          <div className="mb-5 bg-slate-50 p-3.5 sm:p-4 rounded-xl border border-slate-200 ">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 mb-2">
-              <TrendingDown className="w-4 h-4 text-emerald-600 " />
-              جدول تخفیف تیراژ بنکداری و عمده‌فروشی:
+          <div className="mb-5 bg-slate-50 p-3.5 sm:p-4 rounded-xl border border-slate-200">
+            <div className="flex items-center justify-between gap-1.5 text-xs font-bold text-slate-800 mb-2.5">
+              <div className="flex items-center gap-1.5">
+                <TrendingDown className="w-4 h-4 text-emerald-600" />
+                <span>جدول تخفیف تیراژ بنکداری و عمده‌فروشی:</span>
+              </div>
+              <span className="text-[10px] text-slate-500 font-normal">
+                اعمال خودکار با افزایش تعداد
+              </span>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center text-xs">
               {product.tierDiscounts.map((tier: any, idx: number) => {
-                const minQty = tier.minCartons ?? tier.minQuantity ?? 1;
+                const isBox = tier.unit === 'box' || (!tier.unit && tier.label?.includes('باکس'));
+                const minQty = tier.minQuantity ?? tier.minCartons ?? 1;
                 const discountPct = tier.discountPercentage ?? tier.discountPercent ?? 0;
-                const unitName = tier.unit === 'box' ? 'باکس' : 'کارتن';
+                const unitName = isBox ? 'باکس' : 'کارتن';
+                const isCurrentlyActive = isBox
+                  ? (boxQty >= minQty && minQty > 0)
+                  : (cartonQty >= minQty && minQty > 0);
+
                 return (
-                  <div key={idx} className="bg-white p-2.5 rounded-lg border border-slate-200 space-y-1">
-                    <div className="text-slate-500 text-[11px]">
-                      خرید بالای {formatNumberFa(minQty)} {unitName}
+                  <div
+                    key={idx}
+                    className={`p-2.5 rounded-lg border transition-all space-y-1 ${
+                      isCurrentlyActive
+                        ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/20 shadow-xs'
+                        : 'bg-white border-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-center gap-1">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                        isBox ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                      }`}>
+                        {unitName}
+                      </span>
+                      <span className="text-slate-600 text-[11px]">
+                        خرید بالای {formatNumberFa(minQty)}
+                      </span>
                     </div>
-                    <div className="text-emerald-600 font-black text-sm">
+                    <div className="text-emerald-600 font-black text-sm flex items-center justify-center gap-1">
                       {formatNumberFa(discountPct)}٪ تخفیف
+                      {isCurrentlyActive && (
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                      )}
                     </div>
                   </div>
                 );
@@ -194,77 +246,110 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
         {/* Dual Ordering Stepper: Carton & Box */}
         <div className="bg-slate-50 p-3.5 sm:p-4 rounded-xl border border-slate-200 space-y-3">
-          <div className="text-xs font-bold text-slate-800 ">
+          <div className="text-xs font-bold text-slate-800">
             انتخاب تعداد کارتن و باکس برای ثبت در پیش‌فاکتور:
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {/* Carton selector */}
-            <div className="bg-white p-3 rounded-xl border border-blue-200 ">
+            <div className="bg-white p-3 rounded-xl border border-blue-200">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-blue-900 flex items-center gap-1">
-                  <Package className="w-3.5 h-3.5 text-blue-600 " />
+                  <Package className="w-3.5 h-3.5 text-blue-600" />
                   کارتن ({formatNumberFa(product.boxesPerCarton)} باکسی)
                 </span>
-                <span className="text-xs font-black text-blue-700 ">{formatToman(product.cartonPrice)}</span>
+                <span className="text-xs font-black text-blue-700">{formatToman(product.cartonPrice)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200 ">
+                <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
                   <button
                     type="button"
                     onClick={() => setCartonQty(q => q + 1)}
-                    className="w-7 h-7 rounded-md bg-white hover:bg-blue-600 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 "
+                    className="w-7 h-7 rounded-md bg-white hover:bg-blue-600 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
-                  <span className="w-8 text-center font-bold text-xs text-slate-900 ">{formatNumberFa(cartonQty)}</span>
+                  <span className="w-8 text-center font-bold text-xs text-slate-900">{formatNumberFa(cartonQty)}</span>
                   <button
                     type="button"
                     onClick={() => setCartonQty(q => Math.max(0, q - 1))}
-                    className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 "
+                    className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div className="text-xs font-bold text-slate-800 ">{formatToman(cartonTotalFinal)}</div>
+                <div className="text-left">
+                  <div className="text-xs font-bold text-slate-800">{formatToman(cartonTotalFinal)}</div>
+                  {cartonDiscountPercent > 0 && (
+                    <div className="text-[10px] text-emerald-600 font-bold">
+                      ({formatNumberFa(cartonDiscountPercent)}٪ تخفیف)
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                <span>حداقل سفارش کارتن (MOQ):</span>
+                <span className="font-bold text-slate-700">
+                  {moqCarton > 0 ? `${formatNumberFa(moqCarton)} کارتن` : 'بدون محدودیت'}
+                </span>
               </div>
             </div>
 
             {/* Box selector */}
-            <div className="bg-white p-3 rounded-xl border border-slate-200 ">
+            <div className="bg-white p-3 rounded-xl border border-slate-200">
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                  <Boxes className="w-3.5 h-3.5 text-slate-600 " />
+                  <Boxes className="w-3.5 h-3.5 text-slate-600" />
                   باکس (۱۰ پاکتی)
                 </span>
-                <span className="text-xs font-black text-slate-800 ">{formatToman(product.boxPrice)}</span>
+                <span className="text-xs font-black text-slate-800">{formatToman(product.boxPrice)}</span>
               </div>
               <div className="flex items-center justify-between">
-                <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200 ">
+                <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
                   <button
                     type="button"
                     onClick={() => setBoxQty(q => q + 1)}
-                    className="w-7 h-7 rounded-md bg-white hover:bg-slate-800 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 "
+                    className="w-7 h-7 rounded-md bg-white hover:bg-slate-800 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
-                  <span className="w-8 text-center font-bold text-xs text-slate-900 ">{formatNumberFa(boxQty)}</span>
+                  <span className="w-8 text-center font-bold text-xs text-slate-900">{formatNumberFa(boxQty)}</span>
                   <button
                     type="button"
                     onClick={() => setBoxQty(q => Math.max(0, q - 1))}
-                    className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 "
+                    className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
                 </div>
-                <div className="text-xs font-bold text-slate-800 ">{formatToman(boxTotal)}</div>
+                <div className="text-left">
+                  <div className="text-xs font-bold text-slate-800">{formatToman(boxTotalFinal)}</div>
+                  {boxDiscountPercent > 0 && (
+                    <div className="text-[10px] text-emerald-600 font-bold">
+                      ({formatNumberFa(boxDiscountPercent)}٪ تخفیف)
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                <span>حداقل سفارش باکس (MOQ):</span>
+                <span className="font-bold text-slate-700">
+                  {moqBox > 0 ? `${formatNumberFa(moqBox)} باکس` : 'بدون محدودیت'}
+                </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t border-slate-200 ">
-            <span className="text-xs text-slate-600 ">مجموع سفارش این محصول:</span>
-            <span className="text-sm font-black text-blue-700 ">{formatToman(grandTotal)}</span>
+          {moqError && (
+            <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-xs font-bold text-red-700 flex items-center gap-1.5">
+              <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+              <span>{moqError}</span>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between pt-2 border-t border-slate-200">
+            <span className="text-xs text-slate-600">مجموع سفارش این محصول:</span>
+            <span className="text-sm font-black text-blue-700">{formatToman(grandTotal)}</span>
           </div>
         </div>
 

@@ -22,9 +22,11 @@ import {
   AlertCircle,
   HelpCircle,
   TrendingUp,
+  TrendingDown,
+  Percent,
   FileText
 } from 'lucide-react';
-import { CigaretteProduct, CigaretteCategory, ProductAppliedFeature } from '../../types';
+import { CigaretteProduct, CigaretteCategory, ProductAppliedFeature, WholesaleTierDiscount } from '../../types';
 import { ProductCategoryItem, ProductHologramItem, ProductFeatureItem, INITIAL_PRODUCT_FEATURES } from './types';
 import { TinyMceEditor } from '../common/TinyMceEditor';
 import { calculateProductYoastSeo, ProductYoastSeoReport } from './seoUtils';
@@ -33,6 +35,7 @@ import { getFrontendDomain } from '../../services/apiConfig';
 
 interface ProductEditorPageProps {
   product: CigaretteProduct | null;
+  initialBarcode?: string;
   categories: ProductCategoryItem[];
   holograms: ProductHologramItem[];
   features?: ProductFeatureItem[];
@@ -68,6 +71,7 @@ const COMMON_ORIGINS = [
 
 export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
   product,
+  initialBarcode,
   categories,
   holograms,
   features,
@@ -92,6 +96,10 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
 
       return {
         ...product,
+        barcode: product.barcode || initialBarcode || '',
+        moq: (product.moq !== undefined && product.moq !== null) ? Number(product.moq) : 0,
+        moqBox: (product.moqBox !== undefined && product.moqBox !== null) ? Number(product.moqBox) : 0,
+        tierDiscounts: product.tierDiscounts ? [...product.tierDiscounts] : [],
         slug: product.slug || product.nameEn?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `prod-${product.id}`,
         keyTakeaways: product.keyTakeaways || [],
         focusKeyword: product.focusKeyword || `${product.nameFa || ''}`.trim(),
@@ -119,9 +127,10 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       boxesPerCarton: 50,
       packsPerBox: 10,
       stockCartons: 10,
-      moq: 1,
+      moq: 0,
+      moqBox: 0,
       image: '',
-      barcode: '',
+      barcode: initialBarcode || '',
       flavor: 'طعم کلاسیک توتون',
       filterType: 'فیلتر کربن فعال (Active Charcoal)',
       badge: 'بار تازه',
@@ -168,6 +177,75 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
   const [customFeatValue, setCustomFeatValue] = useState<string>('');
   const [customFeatUnit, setCustomFeatUnit] = useState<string>('');
   const [showCustomFeatForm, setShowCustomFeatForm] = useState<boolean>(false);
+
+  // Sync initial barcode if provided dynamically
+  React.useEffect(() => {
+    if (!product && initialBarcode) {
+      setFormData(prev => ({
+        ...prev,
+        barcode: initialBarcode
+      }));
+    }
+  }, [initialBarcode, product]);
+
+  // Tier Discounts UI State (Carton & Box)
+  const [newTierUnit, setNewTierUnit] = useState<'carton' | 'box'>('carton');
+  const [newTierQty, setNewTierQty] = useState<number | ''>('');
+  const [newTierDiscount, setNewTierDiscount] = useState<number | ''>('');
+
+  const handleAddTier = () => {
+    const qty = Number(newTierQty);
+    const pct = Number(newTierDiscount);
+    if (!qty || qty <= 0 || !pct || pct <= 0) return;
+
+    const newTier: WholesaleTierDiscount = {
+      unit: newTierUnit,
+      minQuantity: qty,
+      minCartons: newTierUnit === 'carton' ? qty : undefined,
+      discountPercentage: pct,
+      discountPercent: pct,
+      label: `خرید بالای ${qty} ${newTierUnit === 'carton' ? 'کارتن' : 'باکس'} (${pct}٪ تخفیف)`
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      tierDiscounts: [...(prev.tierDiscounts || []), newTier]
+    }));
+
+    setNewTierQty('');
+    setNewTierDiscount('');
+  };
+
+  const handleRemoveTier = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      tierDiscounts: (prev.tierDiscounts || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleAddCartonPresets = () => {
+    const presets: WholesaleTierDiscount[] = [
+      { unit: 'carton', minQuantity: 3, minCartons: 3, discountPercentage: 2, discountPercent: 2, label: '۳ تا ۴ کارتن (۲٪ تخفیف)' },
+      { unit: 'carton', minQuantity: 5, minCartons: 5, discountPercentage: 4, discountPercent: 4, label: '۵ تا ۹ کارتن (۴٪ تخفیف)' },
+      { unit: 'carton', minQuantity: 10, minCartons: 10, discountPercentage: 7, discountPercent: 7, label: '۱۰ کارتن به بالا (۷٪ تخفیف تجاری)' }
+    ];
+    setFormData(prev => {
+      const boxTiers = (prev.tierDiscounts || []).filter(t => t.unit === 'box' || t.label?.includes('باکس'));
+      return { ...prev, tierDiscounts: [...boxTiers, ...presets] };
+    });
+  };
+
+  const handleAddBoxPresets = () => {
+    const presets: WholesaleTierDiscount[] = [
+      { unit: 'box', minQuantity: 3, discountPercentage: 2, discountPercent: 2, label: 'خرید بالای ۳ باکس (۲٪ تخفیف)' },
+      { unit: 'box', minQuantity: 5, discountPercentage: 4, discountPercent: 4, label: 'خرید بالای ۵ باکس (۴٪ تخفیف)' },
+      { unit: 'box', minQuantity: 10, discountPercentage: 6, discountPercent: 6, label: 'خرید بالای ۱۰ باکس (۶٪ تخفیف)' }
+    ];
+    setFormData(prev => {
+      const cartonTiers = (prev.tierDiscounts || []).filter(t => t.unit === 'carton' || (!t.unit && !t.label?.includes('باکس')));
+      return { ...prev, tierDiscounts: [...cartonTiers, ...presets] };
+    });
+  };
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const frontendDomain = getFrontendDomain();
@@ -408,7 +486,8 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         boxesPerCarton: Number(formData.boxesPerCarton) || 50,
         packsPerBox: Number(formData.packsPerBox) || 10,
         stockCartons: Number(formData.stockCartons) || 0,
-        moq: Number(formData.moq) || 1,
+        moq: typeof formData.moq === 'number' ? formData.moq : (Number(formData.moq) || 0),
+        moqBox: typeof formData.moqBox === 'number' ? formData.moqBox : (Number(formData.moqBox) || 0),
         image: formData.image || '',
         barcode: formData.barcode?.trim() || '',
         flavor: formData.flavor?.trim() || 'ساده',
@@ -762,19 +841,177 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 />
               </div>
 
-              {/* MOQ */}
+              {/* MOQ Carton */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1.5">
                   حداقل سفارش عمده (MOQ کارتن):
                 </label>
                 <input
                   type="number"
-                  value={formData.moq ?? ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, moq: Number(e.target.value) }))}
-                  placeholder="1"
+                  min="0"
+                  value={formData.moq ?? 0}
+                  onChange={(e) => setFormData(prev => ({ ...prev, moq: Number(e.target.value) || 0 }))}
+                  placeholder="0 (بدون حداقل)"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {Number(formData.moq) === 0 ? 'بدون محدودیت حداقل (حتی ۰ کارتن)' : `حداقل ${formatNumberFa(Number(formData.moq))} کارتن`}
+                </p>
               </div>
+
+              {/* MOQ Box */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  حداقل سفارش عمده (MOQ باکس):
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  value={formData.moqBox ?? 0}
+                  onChange={(e) => setFormData(prev => ({ ...prev, moqBox: Number(e.target.value) || 0 }))}
+                  placeholder="0 (بدون حداقل)"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {Number(formData.moqBox) === 0 ? 'بدون محدودیت حداقل (حتی ۰ باکس)' : `حداقل ${formatNumberFa(Number(formData.moqBox))} باکس`}
+                </p>
+              </div>
+            </div>
+
+            {/* TIERED WHOLESALE DISCOUNTS (CARTON & BOX) */}
+            <div className="pt-4 border-t border-slate-200/80 space-y-3.5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <TrendingDown className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div>
+                    <h4 className="text-xs sm:text-sm font-black text-slate-900">
+                      جدول تخفیف تیراژ بنکداری و عمده‌فروشی (کارتن و باکس)
+                    </h4>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      تعیین درصد تخفیف بر اساس حجم خرید کارتن یا تعداد باکس (مثلاً ۳ باکس سفارش بده روبه‌رو ۲٪ تخفیف)
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    type="button"
+                    onClick={handleAddCartonPresets}
+                    className="px-2.5 py-1 text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors cursor-pointer"
+                  >
+                    + الگوی کارتن (۳، ۵، ۱۰)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleAddBoxPresets}
+                    className="px-2.5 py-1 text-[10px] font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors cursor-pointer"
+                  >
+                    + الگوی باکس (۳، ۵، ۱۰)
+                  </button>
+                </div>
+              </div>
+
+              {/* Add New Tier Form Row */}
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 flex flex-wrap sm:flex-nowrap items-end gap-2.5">
+                <div className="w-28 shrink-0">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">نوع واحد:</label>
+                  <select
+                    value={newTierUnit}
+                    onChange={(e) => setNewTierUnit(e.target.value as 'carton' | 'box')}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-2 py-1.5 text-xs font-bold text-slate-800 focus:outline-none focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="carton">کارتن پلمپ</option>
+                    <option value="box">باکس (جین)</option>
+                  </select>
+                </div>
+
+                <div className="flex-1 min-w-[120px]">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">
+                    حداقل سفارش ({newTierUnit === 'carton' ? 'کارتن' : 'باکس'}):
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    placeholder="مثلاً ۳"
+                    value={newTierQty}
+                    onChange={(e) => setNewTierQty(e.target.value === '' ? '' : Number(e.target.value))}
+                    className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-[100px]">
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">درصد تخفیف (٪):</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0.5"
+                      max="99"
+                      step="0.5"
+                      placeholder="مثلاً ۲"
+                      value={newTierDiscount}
+                      onChange={(e) => setNewTierDiscount(e.target.value === '' ? '' : Number(e.target.value))}
+                      className="w-full bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-emerald-700 focus:outline-none focus:border-emerald-500 text-left pl-6"
+                    />
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">٪</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddTier}
+                  disabled={!newTierQty || !newTierDiscount}
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-black transition-colors flex items-center gap-1 shrink-0 h-[34px] cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>ثبت پله تخفیف</span>
+                </button>
+              </div>
+
+              {/* Existing Tiers List */}
+              {(!formData.tierDiscounts || formData.tierDiscounts.length === 0) ? (
+                <div className="text-center py-3.5 bg-white rounded-xl border border-dashed border-slate-200 text-xs text-slate-500">
+                  هنوز هیچ پله تخفیفی ثبت نشده است. می‌توانید با فرم بالا یا دکمه‌های الگو، شرایط تخفیف کارتن و باکس را مشخص کنید.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                  {formData.tierDiscounts.map((tier, idx) => {
+                    const isBox = tier.unit === 'box' || (!tier.unit && tier.label?.includes('باکس'));
+                    const qty = tier.minQuantity ?? tier.minCartons ?? 1;
+                    const pct = tier.discountPercentage ?? tier.discountPercent ?? 0;
+
+                    return (
+                      <div
+                        key={idx}
+                        className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between gap-2"
+                      >
+                        <div className="space-y-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`px-2 py-0.5 rounded-md text-[10px] font-black ${
+                              isBox ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {isBox ? 'حجم باکس' : 'حجم کارتن'}
+                            </span>
+                            <span className="text-xs font-bold text-slate-800">
+                              خرید بالای {formatNumberFa(qty)} {isBox ? 'باکس' : 'کارتن'}
+                            </span>
+                          </div>
+                          <div className="text-xs font-black text-emerald-600 flex items-center gap-1">
+                            <span>{formatNumberFa(pct)}٪ تخفیف بنکداری</span>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTier(idx)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 cursor-pointer"
+                          title="حذف این پله تخفیف"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             {/* Sales Channel Flags */}

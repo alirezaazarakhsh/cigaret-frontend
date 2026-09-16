@@ -35,6 +35,7 @@ interface HeaderProps {
   currentUser: UserProfile | null;
   onLogout?: () => void;
   unreadNotificationsCount?: number;
+  pendingOrdersCount?: number;
   onOpenNotifications?: () => void;
   onOpenInstallGuide?: () => void;
   onOpenProductsMenu?: () => void;
@@ -64,6 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
   currentUser,
   onLogout,
   unreadNotificationsCount = 0,
+  pendingOrdersCount = 0,
   onOpenNotifications,
   onOpenInstallGuide,
   companyTitle,

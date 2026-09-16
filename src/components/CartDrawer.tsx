@@ -272,6 +272,15 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       return;
     }
 
+    // Check MOQ for all items (carton and box)
+    for (const item of cartItems) {
+      const moq = item.unit === 'carton' ? (item.product.moq || 0) : (item.product.moqBox || 0);
+      if (moq > 0 && item.quantity < moq) {
+        setSubmitErrorMsg(`حداقل سفارش برای «${item.product.nameFa}» تعداد ${formatNumberFa(moq)} ${item.unit === 'carton' ? 'کارتن' : 'باکس'} است.`);
+        return;
+      }
+    }
+
     if (paymentMethodChoice === 'wallet') {
       if (!hasSufficientWalletBalance) {
         setSubmitErrorMsg(`موجودی کیف پول شما (${formatToman(currentUser?.walletBalance || 0)}) برای تسویه فاکتور (${formatToman(finalPayable)}) کافی نیست. لطفاً با فیش بانکی اقدام نمایید.`);
@@ -502,10 +511,17 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     const itemDiscount = (itemRawTotal * discountPercent) / 100;
                     const itemFinal = itemRawTotal - itemDiscount;
 
+                    const itemMoq = item.unit === 'carton' ? (item.product.moq || 0) : (item.product.moqBox || 0);
+                    const isBelowMoq = itemMoq > 0 && item.quantity < itemMoq;
+
                     return (
                       <div 
                         key={`${item.product.id}-${item.unit}`}
-                        className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-2 relative"
+                        className={`p-3.5 rounded-2xl border space-y-2 relative transition-all ${
+                          isBelowMoq
+                            ? 'bg-red-50/50 border-red-200'
+                            : 'bg-slate-50 border border-slate-200'
+                        }`}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div>
@@ -520,6 +536,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                             <div className="text-[11px] text-slate-600 ">
                               واحد: <span className="text-slate-900 font-bold">{item.unit === 'carton' ? `کارتن (${item.product.boxesPerCarton} باکسی)` : 'باکس (۱۰ پاکتی)'}</span>
                             </div>
+                            {itemMoq > 0 && (
+                              <div className={`text-[10px] font-bold mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${
+                                isBelowMoq ? 'bg-red-100 text-red-700' : 'bg-slate-200/70 text-slate-700'
+                              }`}>
+                                {isBelowMoq ? '⚠️ کمتر از حداقل مجاز:' : 'حداقل سفارش:'} {formatNumberFa(itemMoq)} {item.unit === 'carton' ? 'کارتن' : 'باکس'}
+                              </div>
+                            )}
                           </div>
 
                           <button

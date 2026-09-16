@@ -66,6 +66,7 @@ import { NotificationModal } from './components/NotificationModal';
 import { PwaInstallGuide } from './components/PwaInstallGuide';
 import { AppUpdateNotifier } from './components/AppUpdateNotifier';
 import { AccountingPosPanel } from './components/shopmanage/AccountingPosPanel';
+import { CustomerOrdersPage } from './components/CustomerOrdersPage';
 import { AzarakhshApiDocs } from './azarakhsh/AzarakhshApiDocs';
 import { HeroBannerSlider } from './components/HeroBannerSlider';
 import { ProductsMegaMenu } from './components/ProductsMegaMenu';
@@ -767,6 +768,36 @@ export default function App() {
     }).length;
   }, [notifications, currentUser]);
 
+  // Track pending customer online orders for badge indicator in Header
+  const [pendingOrdersCount, setPendingOrdersCount] = useState<number>(0);
+
+  const refreshPendingOrdersCount = useCallback(() => {
+    try {
+      const stored = localStorage.getItem('sevin_orders');
+      if (stored) {
+        const orders = JSON.parse(stored);
+        const count = orders.filter((o: any) => {
+          return !o.orderStatus || o.orderStatus === 'pending_approval' || (o.paymentStatus && (o.paymentStatus.includes('در انتظار') || o.paymentStatus.includes('واریز شده')));
+        }).length;
+        setPendingOrdersCount(count);
+      } else {
+        setPendingOrdersCount(0);
+      }
+    } catch {
+      setPendingOrdersCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshPendingOrdersCount();
+    window.addEventListener('sevin_orders_updated', refreshPendingOrdersCount);
+    window.addEventListener('storage', refreshPendingOrdersCount);
+    return () => {
+      window.removeEventListener('sevin_orders_updated', refreshPendingOrdersCount);
+      window.removeEventListener('storage', refreshPendingOrdersCount);
+    };
+  }, [refreshPendingOrdersCount]);
+
   const handleMarkNotifAsRead = async (id: string | number) => {
     setNotifications(prev => prev.map(n => String(n.id) === String(id) ? { ...n, isRead: true, is_read: true } : n));
     try {
@@ -1007,6 +1038,7 @@ export default function App() {
         currentUser={currentUser}
         onLogout={handleLogoutUser}
         unreadNotificationsCount={unreadNotifCount}
+        pendingOrdersCount={pendingOrdersCount}
         onOpenNotifications={() => setIsNotifModalOpen(true)}
         onOpenInstallGuide={() => setIsPwaModalOpen(true)}
         onOpenProductsMenu={() => setIsProductsMenuOpen(true)}
@@ -1389,6 +1421,14 @@ export default function App() {
         {/* TAB 7: Order and Fleet Tracking */}
         {activeTab === 'tracking' && (
           <OrderTracking />
+        )}
+
+        {/* TAB: Customer Online Orders Management */}
+        {activeTab === 'customer-orders' && (
+          <CustomerOrdersPage
+            onNavigate={(tab) => setActiveTab(tab as any)}
+            currentUser={currentUser}
+          />
         )}
 
       </main>

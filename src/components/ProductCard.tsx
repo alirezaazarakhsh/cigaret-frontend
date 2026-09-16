@@ -30,7 +30,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   isSelected,
   onToggleSelect,
 }) => {
-  const [cartonQty, setCartonQty] = useState<number>(product.moq || 1);
+  const moqCarton = (product.moq !== undefined && product.moq !== null) ? Number(product.moq) : 0;
+  const moqBox = (product.moqBox !== undefined && product.moqBox !== null) ? Number(product.moqBox) : 0;
+
+  const [cartonQty, setCartonQty] = useState<number>(() => moqCarton > 0 ? moqCarton : 1);
   const [boxQty, setBoxQty] = useState<number>(0);
   const [cartonJustAdded, setCartonJustAdded] = useState(false);
   const [boxJustAdded, setBoxJustAdded] = useState(false);
@@ -48,9 +51,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const handleAddBox = () => {
     if (!stockInfo.isAvailable) return;
-    const qty = boxQty > 0 ? boxQty : 1;
+    const qty = boxQty > 0 ? boxQty : (moqBox > 0 ? moqBox : 1);
     onAddToCart(product, 'box', qty);
-    if (boxQty === 0) setBoxQty(1);
+    if (boxQty === 0) setBoxQty(qty);
     setBoxJustAdded(true);
     setTimeout(() => setBoxJustAdded(false), 1200);
   };
@@ -72,13 +75,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     }
   };
 
-  // Discounts calculation
+  // Discounts calculation (Carton & Box)
   const cartonTotalRaw = product.cartonPrice * cartonQty;
-  const discountPercent = getApplicableDiscount('carton', cartonQty, product.tierDiscounts);
-  const cartonDiscountVal = (cartonTotalRaw * discountPercent) / 100;
+  const cartonDiscountPercent = getApplicableDiscount('carton', cartonQty, product.tierDiscounts);
+  const cartonDiscountVal = (cartonTotalRaw * cartonDiscountPercent) / 100;
   const cartonTotalFinal = cartonTotalRaw - cartonDiscountVal;
 
-  const combinedTotal = (cartonQty > 0 ? cartonTotalFinal : 0) + (boxQty > 0 ? (product.boxPrice * boxQty) : 0);
+  const boxTotalRaw = product.boxPrice * boxQty;
+  const boxDiscountPercent = getApplicableDiscount('box', boxQty, product.tierDiscounts);
+  const boxDiscountVal = (boxTotalRaw * boxDiscountPercent) / 100;
+  const boxTotalFinal = boxTotalRaw - boxDiscountVal;
+
+  const combinedTotal = (cartonQty > 0 ? cartonTotalFinal : 0) + (boxQty > 0 ? boxTotalFinal : 0);
 
   return (
     <div 
@@ -275,27 +283,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         })()}
 
         {/* Wholesale Tier Discount Notification */}
-        {!product.isBoxOnly && product.tierDiscounts.length > 0 && (
+        {product.tierDiscounts && product.tierDiscounts.length > 0 && (
           <div className="mb-3">
-            {discountPercent > 0 ? (
+            {(cartonDiscountPercent > 0 || boxDiscountPercent > 0) ? (
               <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-[10px] sm:text-[11px] px-2.5 py-1.5 rounded-xl flex items-center justify-between gap-1 font-bold">
                 <span className="flex items-center gap-1 whitespace-nowrap truncate">
                   <TrendingDown className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                  تخفیف تیراژ {formatNumberFa(discountPercent)}٪
+                  تخفیف تیراژ فعال {formatNumberFa(cartonDiscountPercent > 0 ? cartonDiscountPercent : boxDiscountPercent)}٪
                 </span>
-                <span className="whitespace-nowrap shrink-0 text-emerald-900">سود: {formatToman(cartonDiscountVal)}</span>
+                <span className="whitespace-nowrap shrink-0 text-emerald-900">
+                  سود: {formatToman(cartonDiscountVal + boxDiscountVal)}
+                </span>
               </div>
             ) : (
               <div className="text-[10px] text-slate-600 flex items-center justify-between bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-200 gap-1">
                 <span className="flex items-center gap-1 whitespace-nowrap truncate">
                   <Tag className="w-3 h-3 text-blue-600 shrink-0" />
-                  تخفیف از ۳ کارتن به بالا
+                  تخفیف تیراژ کارتن و باکس
                 </span>
                 <button 
                   onClick={() => onOpenDetails(product)}
-                  className="text-blue-600 hover:underline font-bold whitespace-nowrap shrink-0"
+                  className="text-blue-600 hover:underline font-bold whitespace-nowrap shrink-0 cursor-pointer"
                 >
-                  جدول تخفیف
+                  مشاهده جدول
                 </button>
               </div>
             )}
@@ -331,7 +341,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     </span>
                     <button
                       type="button"
-                      onClick={() => setCartonQty(q => Math.max(product.moq || 1, q - 1))}
+                      onClick={() => setCartonQty(q => Math.max(0, q - 1))}
                       className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
                       title="کاهش کارتن"
                     >
