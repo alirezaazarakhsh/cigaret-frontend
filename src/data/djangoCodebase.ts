@@ -992,10 +992,18 @@ class PriceTierInline(admin.TabularInline):
 @admin.register(Brand)
 class BrandAdmin(admin.ModelAdmin):
     """
-    مدیریت برندها (فیلد is_active حذف شده است)
+    مدیریت برندها همراه با پیش‌نمایش تصویر لوگو در دیتابیس
     """
-    list_display = ('id', 'name', 'country_of_origin')
+    list_display = ('id', 'logo_preview', 'name', 'country_of_origin')
+    readonly_fields = ('logo_preview',)
     search_fields = ('name', 'country_of_origin')
+
+    @admin.display(description=_("پیش‌نمایش لوگو"))
+    def logo_preview(self, obj):
+        if obj.logo:
+            url = obj.logo.url if hasattr(obj.logo, 'url') else str(obj.logo)
+            return format_html('<img src="{}" style="max-width: 80px; max-height: 48px; border-radius: 6px; object-fit: contain; border: 1px solid #e2e8f0; padding: 2px; background: #fff;" />', url)
+        return format_html('<span style="color: #9ca3af; font-size: 12px;">بدون لوگو</span>')
 
 
 @admin.register(ProductAttribute)
@@ -1109,11 +1117,27 @@ class PriceTierSerializer(serializers.ModelSerializer):
 
 class BrandSerializer(serializers.ModelSerializer):
     """
-    سریالایزر برندها (بدون is_active)
+    سریالایزر برندها با پشتیبانی از آپلود لوگو و تولید آدرس کامل پیش‌نمایش (logo_preview)
     """
+    logo_preview = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Brand
-        fields = ['id', 'name', 'country_of_origin', 'logo', 'description']
+        fields = ['id', 'name', 'country_of_origin', 'logo', 'logo_preview', 'description']
+        extra_kwargs = {
+            'logo': {'required': False, 'allow_null': True},
+        }
+
+    def get_logo_preview(self, obj):
+        if not obj.logo:
+            return None
+        request = self.context.get('request')
+        if hasattr(obj.logo, 'url'):
+            url = obj.logo.url
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+        return str(obj.logo)
 
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
@@ -1189,17 +1213,25 @@ from .serializers import (
 )
 
 
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+
 class BrandViewSet(ModelViewSet):
     """
-    وب‌سرویس مدیریت برندها
+    وب‌سرویس مدیریت برندها با پشتیبانی از آپلود فایل تصویر لوگو (MultiPartParser) و پیش‌نمایش آدرس تصویر
     آدرس اندپوینت: /api/v1/products/brands/
     """
     queryset = Brand.objects.all()
     serializer_class = BrandSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'country_of_origin']
     ordering_fields = ['name', 'id']
     ordering = ['name']
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:

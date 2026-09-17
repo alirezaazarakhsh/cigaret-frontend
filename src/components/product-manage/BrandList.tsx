@@ -168,15 +168,60 @@ export const BrandList: React.FC<BrandListProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1.5">آدرس تصویر یا لوگوی برند</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={logo}
-                  onChange={(e) => setLogo(e.target.value)}
-                  placeholder="https://.../logo.png"
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-purple-500 focus:bg-white dir-ltr text-left font-mono"
-                />
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">تصویر یا لوگوی برند (آپلود یا لینک)</label>
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={logo}
+                    onChange={(e) => setLogo(e.target.value)}
+                    placeholder="https://.../logo.png یا انتخاب فایل"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs text-slate-900 focus:outline-none focus:border-purple-500 focus:bg-white dir-ltr text-left font-mono"
+                  />
+                  <label className="px-3.5 py-2 bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 rounded-xl text-xs font-bold cursor-pointer transition-colors flex items-center gap-1.5 shrink-0">
+                    <Upload className="w-4 h-4" />
+                    <span>آپلود فایل</span>
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onloadend = () => {
+                            if (typeof reader.result === 'string') {
+                              setLogo(reader.result);
+                            }
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                </div>
+
+                {logo && (
+                  <div className="flex items-center gap-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl">
+                    <img 
+                      src={logo} 
+                      alt="پیش‌نمایش لوگو" 
+                      className="w-12 h-12 rounded-lg object-contain bg-white border border-slate-200 p-1"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-slate-800">پیش‌نمایش لوگوی انتخاب‌شده</p>
+                      <p className="text-[10px] text-slate-400 truncate dir-ltr text-left font-mono">{logo.startsWith('data:') ? 'تصویر آپلود شده (فایل محلی)' : logo}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setLogo('')}
+                      className="p-1 text-slate-400 hover:text-rose-500 rounded-lg transition-colors"
+                      title="حذف لوگو"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

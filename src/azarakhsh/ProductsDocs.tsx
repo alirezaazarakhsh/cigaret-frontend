@@ -777,10 +777,18 @@ class CategoryAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(ProductBrand)
 class ProductBrandAdmin(admin.ModelAdmin):
-    list_display = ['name', 'name_en', 'country']
+    list_display = ['id', 'logo_preview', 'name', 'name_en', 'country', 'created_at']
+    readonly_fields = ['logo_preview']
     list_filter = ['country']
     search_fields = ['name', 'name_en', 'slug']
     prepopulated_fields = {'slug': ('name',)}
+
+    @admin.display(description=_("پیش‌نمایش لوگو"))
+    def logo_preview(self, obj):
+        if obj.logo:
+            url = obj.logo.url if hasattr(obj.logo, 'url') else str(obj.logo)
+            return format_html('<img src="{}" style="max-width: 80px; max-height: 48px; border-radius: 6px; object-fit: contain; border: 1px solid #e2e8f0; padding: 2px; background: #fff;" />', url)
+        return format_html('<span style="color: #9ca3af; font-size: 12px;">بدون لوگو</span>')
 
 
 # ==============================================================================
@@ -934,14 +942,65 @@ products/serializers.py
 """
 
 from rest_framework import serializers
+from django.utils.text import slugify
+import uuid
 from .models import (
     Category,
+    ProductBrand,
     ProductHologram,
     ProductAttribute,
     Product,
     ProductAttributeValue,
     ProductImage
 )
+
+
+class ProductBrandSerializer(serializers.ModelSerializer):
+    """
+    سریالایزر برندها با امکان آپلود فایل تصویر لوگو (logo) و تولید خودکار آدرس پیش‌نمایش لوگو (logo_preview)
+    """
+    slug = serializers.SlugField(required=False, allow_blank=True)
+    logo_preview = serializers.SerializerMethodField(read_only=True)
+
+    class Meta:
+        model = ProductBrand
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'slug',
+            'logo',
+            'logo_preview',
+            'country',
+            'description',
+            'created_at'
+        ]
+        extra_kwargs = {
+            'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'country': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'logo': {'required': False, 'allow_null': True},
+        }
+
+    def get_logo_preview(self, obj):
+        if not obj.logo:
+            return None
+        request = self.context.get('request')
+        if hasattr(obj.logo, 'url'):
+            url = obj.logo.url
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+        return str(obj.logo)
+
+    def validate(self, attrs):
+        if not attrs.get('slug'):
+            base_name = attrs.get('name_en') or attrs.get('name') or ''
+            generated_slug = slugify(base_name, allow_unicode=True)
+            if not generated_slug:
+                generated_slug = f"brand-{uuid.uuid4().hex[:8]}"
+            attrs['slug'] = generated_slug
+        return attrs
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -1182,6 +1241,7 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from drf_yasg import openapi
@@ -1189,6 +1249,7 @@ from drf_yasg.utils import swagger_auto_schema
 
 from .models import (
     Category,
+    ProductBrand,
     ProductHologram,
     ProductAttribute,
     ProductAttributeValue,
@@ -1196,6 +1257,7 @@ from .models import (
 )
 from .serializers import (
     CategorySerializer,
+    ProductBrandSerializer,
     ProductHologramSerializer,
     ProductAttributeSerializer,
     ProductAttributeValueSerializer,
@@ -1203,6 +1265,95 @@ from .serializers import (
     ProductDetailSerializer,
     ProductCreateUpdateSerializer
 )
+
+
+class ProductBrandListCreateAPIView(APIView):
+    """
+    اندپوینت مدیریت برندها با قابلیت آپلود فایل لوگو (MultiPartParser) و مشاهده پیش‌نمایش لوگو
+    آدرس اندپوینت: /api/v1/products/brands/
+    """
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست برندهای کالا (عمومی)",
+        responses={200: ProductBrandSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = ProductBrand.objects.all().order_by('-id')
+        serializer = ProductBrandSerializer(queryset, many=True, context={'request': request})
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="افزودن برند جدید به همراه آپلود فایل تصویر لوگو (مدیریت)",
+        request_body=ProductBrandSerializer,
+        responses={201: ProductBrandSerializer}
+    )
+    def post(self, request):
+        serializer = ProductBrandSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            brand = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'برند جدید با موفقیت به همراه لوگو ثبت شد.',
+                'data': ProductBrandSerializer(brand, context={'request': request}).data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductBrandDetailUpdateDeleteAPIView(APIView):
+    """
+    اندپوینت مشاهده، ویرایش (شامل جایگزینی فایل لوگو) و حذف برند
+    آدرس اندپوینت: /api/v1/products/brands/<id>/
+    """
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_permissions(self):
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات برند",
+        responses={200: ProductBrandSerializer}
+    )
+    def get(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        return Response({'status': 'success', 'data': ProductBrandSerializer(brand, context={'request': request}).data})
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش برند و جایگزینی فایل لوگو (مدیریت)",
+        request_body=ProductBrandSerializer,
+        responses={200: ProductBrandSerializer}
+    )
+    def put(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        serializer = ProductBrandSerializer(brand, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اطلاعات برند و تصویر لوگو با موفقیت بروزرسانی شد.',
+                'data': ProductBrandSerializer(updated, context={'request': request}).data
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(
+        operation_summary="حذف برند (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
+    def delete(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        brand.delete()
+        return Response({'status': 'success', 'message': 'برند مورد نظر حذف گردید.'})
 
 
 class CategoryListCreateAPIView(APIView):
@@ -1711,6 +1862,8 @@ products/urls.py
 
 from django.urls import path
 from .views import (
+    ProductBrandListCreateAPIView,
+    ProductBrandDetailUpdateDeleteAPIView,
     CategoryListCreateAPIView,
     CategoryDetailUpdateDeleteAPIView,
     HologramListCreateAPIView,
@@ -1731,7 +1884,11 @@ from .views import (
 app_name = 'products'
 
 urlpatterns = [
-    # ۱. دسته‌بندی‌ها
+    # ۱. برندهای کالا (با قابلیت آپلود لوگو و پیش‌نمایش)
+    path('brands/', ProductBrandListCreateAPIView.as_view(), name='brand-list-create'),
+    path('brands/<int:pk>/', ProductBrandDetailUpdateDeleteAPIView.as_view(), name='brand-detail-update-delete'),
+
+    # ۲. دسته‌بندی‌ها
     path('categories/', CategoryListCreateAPIView.as_view(), name='category-list-create'),
     path('categories/<int:pk>/', CategoryDetailUpdateDeleteAPIView.as_view(), name='category-detail-update-delete'),
 
