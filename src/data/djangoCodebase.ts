@@ -941,6 +941,7 @@ class CigaretteProductAdmin(admin.ModelAdmin):
     )
     list_filter = ('category', 'brand', 'is_available', 'price_trend', 'origin')
     search_fields = ('name_fa', 'name_en', 'barcode', 'origin')
+    autocomplete_fields = ['brand']
     list_editable = ('is_available',)
     inlines = [PriceTierInline]
     readonly_fields = ('created_at', 'updated_at')

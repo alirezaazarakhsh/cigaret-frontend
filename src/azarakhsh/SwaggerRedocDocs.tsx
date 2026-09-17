@@ -122,7 +122,6 @@ urlpatterns = [
     path('api/v1/roles/', include('roles.urls')),
     path('api/v1/posuser/', include('posuser.urls')),
     path('api/v1/regular-customers/', include('regular_customers.urls')),
-    path('api/v1/categories/', include('categories.urls')),
     path('api/v1/products/', include('products.urls')),
     path('api/v1/orders/', include('orders.urls')),
     path('api/v1/pos/', include('pos.urls')),

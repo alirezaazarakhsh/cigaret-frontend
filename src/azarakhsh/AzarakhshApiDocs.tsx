@@ -29,7 +29,6 @@ import { ReportsDocs } from './ReportsDocs';
 import { KavenegarSmsDocs } from './KavenegarSmsDocs';
 import { SwaggerRedocDocs } from './SwaggerRedocDocs';
 import { AuthUsersDocs } from './AuthUsersDocs';
-import { CategoriesDocs } from './CategoriesDocs';
 import { ProductsDocs } from './ProductsDocs';
 import { OrdersDocs } from './OrdersDocs';
 import { ShippingDocs } from './ShippingDocs';
@@ -192,8 +191,6 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
         return <SwaggerRedocDocs />;
       case 'auth-users':
         return <AuthUsersDocs />;
-      case 'categories':
-        return <CategoriesDocs />;
       case 'products':
         return <ProductsDocs />;
       case 'orders':

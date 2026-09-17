@@ -73,8 +73,7 @@ INSTALLED_APPS = [
     'roles.apps.RolesConfig',                    # مدیریت نقشها، دسترسیها و پین صندوق
     'posuser.apps.PosuserConfig',                # مدیریت پرسنل و کارکنان صندوق فروشگاهی (POS Staff)
     'regular_customers.apps.RegularCustomersConfig', # مشتریان معمولی و عمده
-    'categories.apps.CategoriesConfig',
-    'products.apps.ProductsConfig',
+    'products.apps.ProductsConfig',              # کاتالوگ جامع، دسته‌بندی‌ها، هولوگرام، ویژگی‌ها و همگام‌سازی صندوق
     'orders.apps.OrdersConfig',
     'pos.apps.PosConfig',
     'ledger.apps.LedgerConfig',
@@ -481,7 +480,6 @@ urlpatterns = [
     path('api/v1/accounts/', include('accounts.urls')),
     path('api/v1/roles/', include('roles.urls')),
     path('api/v1/regular-customers/', include('regular_customers.urls')),
-    path('api/v1/categories/', include('categories.urls')),
     path('api/v1/products/', include('products.urls')),
     path('api/v1/orders/', include('orders.urls')),
     path('api/v1/pos/', include('pos.urls')),

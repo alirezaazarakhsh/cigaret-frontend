@@ -90,8 +90,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <div 
-      className={`bg-white border rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-300 group relative ${
-        stockInfo.isAvailable ? 'border-slate-200 hover:border-blue-500 hover:shadow-lg hover:scale-[1.02]' : 'border-slate-200 opacity-80'
+      className={`bg-white border rounded-3xl p-4 sm:p-5 flex flex-col justify-between transition-all duration-300 group relative h-full will-change-transform ${
+        stockInfo.isAvailable 
+          ? 'border-slate-200 hover:border-blue-400 hover:shadow-xl hover:shadow-blue-500/5 hover:-translate-y-1' 
+          : 'border-slate-200/80 bg-slate-50/40 opacity-85'
       }`}
       id={`product-card-${product.id}`}
     >

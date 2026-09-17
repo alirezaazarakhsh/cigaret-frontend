@@ -116,21 +116,11 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'احراز هویت و دسترسی'
   },
   {
-    id: 'categories',
-    title: '۶. اپلیکیشن دسته‌بندی‌های درختی',
-    titleEn: 'categories / Tree Category App',
-    description: 'مدل درختی، اسلاگ فارسی سئو، آیکون و شمارنده هوشمند محصولات',
-    iconName: 'Layers',
-    appFolder: 'categories',
-    group: 'catalog',
-    groupTitle: 'کاتالوگ و انبار'
-  },
-  {
     id: 'products',
-    title: '۷. اپلیکیشن کاتالوگ محصولات',
-    titleEn: 'products / Catalog & Pricing',
-    description: 'محاسبه نرخ کارتن و باکس، فیلد ادیتور TinyMCE، تصاویر گالری و موجودی',
-    badge: 'TinyMCE',
+    title: '۶. اپلیکیشن جامع محصولات، دسته‌بندی، هولوگرام و ویژگی‌ها',
+    titleEn: 'products / Catalog, Categories, Holograms, Attributes & POS Sync',
+    description: 'دسته‌بندی‌ها با پالت رنگی (Choice)، هولوگرام و سطوح امنیتی، مشخصات و ویژگی‌های فنی، محاسبه قیمت کارتن/باکس/پاکت، TinyMCE و همگام‌سازی صندوق (is_pos_only)',
+    badge: 'جامع • کاتالوگ و صندوق',
     iconName: 'Package',
     appFolder: 'products',
     group: 'catalog',
@@ -138,7 +128,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'orders',
-    title: '۸. اپلیکیشن سفارشات و پیش‌فاکتور',
+    title: '۷. اپلیکیشن سفارشات و پیش‌فاکتور',
     titleEn: 'orders / Proforma Invoice App',
     description: 'صدور پیش‌فاکتور رسمی، اسنپ‌شات اقلام، ثبت فیش واریز و اتصال به ترابری',
     badge: 'پیش‌فاکتور',

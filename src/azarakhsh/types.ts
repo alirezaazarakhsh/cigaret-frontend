@@ -5,7 +5,6 @@ export type AzarakhshSectionId =
   | 'site-settings'
   | 'swagger-redoc'
   | 'auth-users'
-  | 'categories'
   | 'products'
   | 'orders'
   | 'shipping'
