@@ -28,6 +28,7 @@ import {
   INITIAL_PRODUCT_FEATURES
 } from './types';
 import { formatNumberFa } from '../../utils/formatters';
+import { categoriesApi } from '../../services/api';
 
 interface ProductManagementPanelProps {
   products: CigaretteProduct[];
@@ -72,14 +73,28 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
     }
   }, [initialEditingProduct]);
 
-  // Categories state with persistence
-  const [categories, setCategories] = useState<ProductCategoryItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('sevin_product_categories');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return INITIAL_PRODUCT_CATEGORIES;
-  });
+  // Categories state from Django API
+  const [categories, setCategories] = useState<ProductCategoryItem[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState<boolean>(false);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCategories = async () => {
+      setIsLoadingCategories(true);
+      try {
+        const fetched = await categoriesApi.getAll();
+        if (isMounted) {
+          setCategories(fetched);
+        }
+      } catch (err) {
+        console.error('Failed to fetch categories:', err);
+      } finally {
+        if (isMounted) setIsLoadingCategories(false);
+      }
+    };
+    fetchCategories();
+    return () => { isMounted = false; };
+  }, []);
 
   // Holograms state with persistence
   const [holograms, setHolograms] = useState<ProductHologramItem[]>(() => {
@@ -155,32 +170,48 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
     showToast(`محصول «${prod.nameFa}» از سیستم حذف شد.`);
   };
 
-  // CRUD for Categories
-  const handleAddCategory = (newCat: ProductCategoryItem) => {
-    const updated = [...categories, newCat];
-    setCategories(updated);
+  // CRUD for Categories (Connected to Django Database)
+  const handleAddCategory = async (newCat: ProductCategoryItem) => {
     try {
-      localStorage.setItem('sevin_product_categories', JSON.stringify(updated));
-    } catch {}
-    showToast(`دسته‌بندی «${newCat.name}» با موفقیت ثبت شد.`);
+      const savedCat = await categoriesApi.create({
+        name: newCat.name,
+        nameEn: newCat.nameEn,
+        slug: newCat.slug,
+        color: newCat.color,
+        description: newCat.description,
+      });
+      setCategories(prev => [savedCat, ...prev]);
+      showToast(`دسته‌بندی «${savedCat.name}» با موفقیت در دیتابیس ثبت شد.`);
+    } catch (err: any) {
+      showToast(err?.message || 'خطا در ثبت دسته‌بندی در دیتابیس', 'error');
+    }
   };
 
-  const handleUpdateCategory = (updatedCat: ProductCategoryItem) => {
-    const updated = categories.map((c) => (c.id === updatedCat.id ? updatedCat : c));
-    setCategories(updated);
+  const handleUpdateCategory = async (updatedCat: ProductCategoryItem) => {
     try {
-      localStorage.setItem('sevin_product_categories', JSON.stringify(updated));
-    } catch {}
-    showToast(`تغییرات دسته‌بندی «${updatedCat.name}» با موفقیت ذخیره شد.`);
+      const savedCat = await categoriesApi.update(updatedCat.id, {
+        name: updatedCat.name,
+        nameEn: updatedCat.nameEn,
+        slug: updatedCat.slug,
+        color: updatedCat.color,
+        description: updatedCat.description,
+      });
+      setCategories(prev => prev.map(c => (c.id === updatedCat.id || c.id === savedCat.id ? savedCat : c)));
+      showToast(`تغییرات دسته‌بندی «${savedCat.name}» با موفقیت در دیتابیس ذخیره شد.`);
+    } catch (err: any) {
+      showToast(err?.message || 'خطا در ویرایش دسته‌بندی در دیتابیس', 'error');
+    }
   };
 
-  const handleDeleteCategory = (catId: string) => {
-    const updated = categories.filter((c) => c.id !== catId);
-    setCategories(updated);
+  const handleDeleteCategory = async (catId: string) => {
+    if (!window.confirm('آیا از حذف این دسته‌بندی از دیتابیس مطمئن هستید؟')) return;
     try {
-      localStorage.setItem('sevin_product_categories', JSON.stringify(updated));
-    } catch {}
-    showToast('دسته‌بندی مورد نظر با موفقیت حذف گردید.');
+      await categoriesApi.delete(catId);
+      setCategories(prev => prev.filter(c => c.id !== catId));
+      showToast('دسته‌بندی مورد نظر با موفقیت از دیتابیس حذف گردید.');
+    } catch (err: any) {
+      showToast(err?.message || 'خطا در حذف دسته‌بندی از دیتابیس', 'error');
+    }
   };
 
   // CRUD for Holograms

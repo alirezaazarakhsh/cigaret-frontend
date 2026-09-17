@@ -52,6 +52,7 @@ import {
   BlogCategoryItem,
   WarehouseMessage
 } from '../types';
+import { ProductCategoryItem } from '../components/product-manage/types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
 import { 
@@ -77,6 +78,126 @@ const STORAGE_KEYS = {
   CRM_CONFIG: 'django_crm_config',
   TICKETS: 'sevin_support_tickets',
   FOOTER_SETTINGS: 'wholesale_footer_settings',
+};
+
+// ==========================================
+// 0. CATEGORIES API
+// ==========================================
+export const categoriesApi = {
+  /**
+   * Fetches all product categories from backend GET /products/categories/
+   */
+  async getAll(): Promise<ProductCategoryItem[]> {
+    let response = await httpClient.get<any>('/products/categories/', {
+      headers: API_CACHE_CONTROL_HEADERS,
+    });
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>('/api/v1/products/categories/', {
+        headers: API_CACHE_CONTROL_HEADERS,
+      });
+    }
+
+    if (response.success && response.data) {
+      const items = Array.isArray(response.data)
+        ? response.data
+        : (response.data.results || response.data.data || []);
+
+      const mapped: ProductCategoryItem[] = items.map((item: any) => ({
+        id: String(item.id || item.slug),
+        slug: item.slug || '',
+        name: item.name || '',
+        nameEn: item.name_en || item.nameEn || '',
+        description: item.description || '',
+        color: item.color || '#3B82F6',
+      }));
+
+      try {
+        localStorage.setItem('sevin_product_categories', JSON.stringify(mapped));
+      } catch {}
+
+      return mapped;
+    }
+
+    // Fallback if offline
+    try {
+      const saved = localStorage.getItem('sevin_product_categories');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  },
+
+  /**
+   * Creates a new category on POST /products/categories/
+   */
+  async create(data: { name: string; nameEn?: string; slug?: string; color?: string; description?: string }): Promise<ProductCategoryItem> {
+    const payload = {
+      name: data.name,
+      name_en: data.nameEn || '',
+      slug: data.slug || '',
+      color: data.color || '#3B82F6',
+      description: data.description || '',
+    };
+
+    let response = await httpClient.post<any>('/products/categories/', payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post<any>('/api/v1/products/categories/', payload);
+    }
+
+    if (response.success && response.data) {
+      const res = response.data.data || response.data;
+      return {
+        id: String(res.id || res.slug),
+        slug: res.slug || '',
+        name: res.name || data.name,
+        nameEn: res.name_en || res.nameEn || data.nameEn || '',
+        description: res.description || data.description || '',
+        color: res.color || data.color || '#3B82F6',
+      };
+    }
+    throw new Error(response.error || 'خطا در برقراری ارتباط با سرور یا ثبت دسته‌بندی در دیتابیس');
+  },
+
+  /**
+   * Updates an existing category on PUT /products/categories/{id}/
+   */
+  async update(id: string | number, data: { name: string; nameEn?: string; slug?: string; color?: string; description?: string }): Promise<ProductCategoryItem> {
+    const payload = {
+      name: data.name,
+      name_en: data.nameEn || '',
+      slug: data.slug || '',
+      color: data.color || '#3B82F6',
+      description: data.description || '',
+    };
+
+    let response = await httpClient.put<any>(`/products/categories/${id}/`, payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.put<any>(`/api/v1/products/categories/${id}/`, payload);
+    }
+
+    if (response.success && response.data) {
+      const res = response.data.data || response.data;
+      return {
+        id: String(res.id || id),
+        slug: res.slug || data.slug || '',
+        name: res.name || data.name,
+        nameEn: res.name_en || res.nameEn || data.nameEn || '',
+        description: res.description || data.description || '',
+        color: res.color || data.color || '#3B82F6',
+      };
+    }
+    throw new Error(response.error || 'خطا در ویرایش دسته‌بندی در دیتابیس');
+  },
+
+  /**
+   * Deletes a category on DELETE /products/categories/{id}/
+   */
+  async delete(id: string | number): Promise<boolean> {
+    let response = await httpClient.delete<any>(`/products/categories/${id}/`);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.delete<any>(`/api/v1/products/categories/${id}/`);
+    }
+    return response.success;
+  }
 };
 
 // ==========================================
@@ -2111,6 +2232,7 @@ export const api = {
     DEFAULT_WEB_APP_URL,
   },
   products: productsApi,
+  categories: categoriesApi,
   orders: ordersApi,
   customers: customersApi,
   accounts: accountsApi,

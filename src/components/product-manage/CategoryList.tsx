@@ -35,16 +35,16 @@ export const CategoryList: React.FC<CategoryListProps> = ({
   const [nameEn, setNameEn] = useState('');
   const [slug, setSlug] = useState('');
   const [description, setDescription] = useState('');
-  const [color, setColor] = useState('text-blue-600');
+  const [color, setColor] = useState('#3B82F6');
   const [editingCategory, setEditingCategory] = useState<ProductCategoryItem | null>(null);
 
   const COLOR_OPTIONS = [
-    { label: 'آبی تجاری', value: 'text-blue-600', bg: 'bg-blue-600' },
-    { label: 'سبز زمردی', value: 'text-emerald-600', bg: 'bg-emerald-600' },
-    { label: 'بنفش لوکس', value: 'text-purple-600', bg: 'bg-purple-600' },
-    { label: 'نیلی انبارداری', value: 'text-indigo-600', bg: 'bg-indigo-600' },
-    { label: 'کهربایی تنباکو', value: 'text-amber-600', bg: 'bg-amber-600' },
-    { label: 'رز قرمز', value: 'text-rose-600', bg: 'bg-rose-600' },
+    { label: 'قرمز / سرخابی', value: '#EF4444' },
+    { label: 'طلایی / نارنجی', value: '#F59E0B' },
+    { label: 'بنفش رویال', value: '#8B5CF6' },
+    { label: 'آبی لاجوردی', value: '#3B82F6' },
+    { label: 'فیروزه‌ای', value: '#06B6D4' },
+    { label: 'سرمه‌ای دیپ', value: '#1E40AF' },
   ];
 
   const handleStartEdit = (cat: ProductCategoryItem) => {
@@ -53,7 +53,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({
     setNameEn(cat.nameEn || '');
     setSlug(cat.slug || cat.id);
     setDescription(cat.description || '');
-    setColor(cat.color || 'text-blue-600');
+    setColor(cat.color || '#3B82F6');
     window.scrollTo({ top: 100, behavior: 'smooth' });
   };
 
@@ -63,7 +63,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({
     setNameEn('');
     setSlug('');
     setDescription('');
-    setColor('text-blue-600');
+    setColor('#3B82F6');
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -201,7 +201,8 @@ export const CategoryList: React.FC<CategoryListProps> = ({
                     key={c.value}
                     type="button"
                     onClick={() => setColor(c.value)}
-                    className={`w-7 h-7 rounded-lg ${c.bg} transition-transform ${
+                    style={{ backgroundColor: c.value }}
+                    className={`w-7 h-7 rounded-lg transition-transform ${
                       color === c.value ? 'scale-110 ring-2 ring-slate-900 ring-offset-2' : 'opacity-80 hover:opacity-100'
                     }`}
                     title={c.label}
@@ -272,22 +273,34 @@ export const CategoryList: React.FC<CategoryListProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {categories.map((cat, index) => {
-                    const count = getProductCountForCat(cat.id);
-                    const isBeingEdited = editingCategory?.id === cat.id;
+                  {categories.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="p-8 text-center text-slate-500">
+                        <Layers className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="font-bold text-xs">هیچ دسته‌بندی در دیتابیس ثبت نشده است.</p>
+                        <p className="text-[11px] text-slate-400 mt-1">از فرم مقابل برای ایجاد اولین دسته‌بندی استفاده نمایید.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    categories.map((cat, index) => {
+                      const count = getProductCountForCat(cat.id);
+                      const isBeingEdited = editingCategory?.id === cat.id;
 
-                    return (
-                      <tr 
-                        key={cat.id} 
-                        className={`transition-colors ${
-                          isBeingEdited ? 'bg-amber-50/70' : 'hover:bg-slate-50/80'
-                        }`}
-                      >
-                        <td className="p-4 text-center font-bold text-slate-400">{formatNumberFa(index + 1)}</td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <span className={`w-2.5 h-2.5 rounded-full ${cat.color ? cat.color.replace('text-', 'bg-') : 'bg-blue-600'}`}></span>
-                            <div>
+                      return (
+                        <tr 
+                          key={cat.id} 
+                          className={`transition-colors ${
+                            isBeingEdited ? 'bg-amber-50/70' : 'hover:bg-slate-50/80'
+                          }`}
+                        >
+                          <td className="p-4 text-center font-bold text-slate-400">{formatNumberFa(index + 1)}</td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <span 
+                                className="w-3 h-3 rounded-full shrink-0 border border-slate-200" 
+                                style={{ backgroundColor: cat.color && cat.color.startsWith('#') ? cat.color : '#3B82F6' }}
+                              />
+                              <div>
                               <div className="font-black text-slate-900 text-xs flex items-center gap-1.5">
                                 <span>{cat.name}</span>
                                 {isBeingEdited && (
@@ -342,7 +355,8 @@ export const CategoryList: React.FC<CategoryListProps> = ({
                         </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
                 </tbody>
               </table>
             </div>

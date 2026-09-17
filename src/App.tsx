@@ -82,7 +82,8 @@ import {
   djangoFetchWholesaleBenefits,
   WholesaleBenefitCard
 } from './services/djangoApi';
-import { api, accountsApi, visitorsApi } from './services/api';
+import { api, accountsApi, visitorsApi, categoriesApi } from './services/api';
+import { ProductCategoryItem } from './components/product-manage/types';
 import { getApiToken, setApiToken } from './services/apiConfig';
 import { generatePriceListPdf } from './utils/pdfGenerator';
 import { formatToman, formatNumberFa, toShamsiDate } from './utils/formatters';
@@ -597,6 +598,9 @@ export default function App() {
     return null;
   });
 
+  // Dynamic Categories from Django backend
+  const [dynamicCategories, setDynamicCategories] = useState<ProductCategoryItem[]>([]);
+
   // Dynamic Hero Banner Sliders from Django backend
   // Note: if backend database has no slider records, sliders stays [] and the slider is completely hidden!
   const [sliders, setSliders] = useState<BannerSlide[]>([]);
@@ -607,6 +611,13 @@ export default function App() {
     let isMounted = true;
 
     const refreshDataFromApi = () => {
+      // Fetch categories from Django backend database
+      categoriesApi.getAll().then((loadedCats) => {
+        if (isMounted && Array.isArray(loadedCats)) {
+          setDynamicCategories(loadedCats);
+        }
+      }).catch(() => {});
+
       // Fetch wholesale benefits
       djangoFetchWholesaleBenefits().then((cards) => {
         if (isMounted && Array.isArray(cards)) {
@@ -671,7 +682,7 @@ export default function App() {
     // Initial fresh fetch on mount
     refreshDataFromApi();
 
-    // Listen for cache-cleared or API URL changes to immediately reload fresh data
+    // Listen for cache-cleared, categories updated, or API URL changes to immediately reload fresh data
     const handleCacheCleared = () => {
       refreshDataFromApi();
     };
@@ -691,12 +702,14 @@ export default function App() {
     window.addEventListener('sevin-cache-cleared', handleCacheCleared);
     window.addEventListener('sevin-api-url-changed', handleCacheCleared);
     window.addEventListener('sevin-footer-updated', handleFooterUpdated);
+    window.addEventListener('sevin-categories-updated', handleCacheCleared);
 
     return () => {
       isMounted = false;
       window.removeEventListener('sevin-cache-cleared', handleCacheCleared);
       window.removeEventListener('sevin-api-url-changed', handleCacheCleared);
       window.removeEventListener('sevin-footer-updated', handleFooterUpdated);
+      window.removeEventListener('sevin-categories-updated', handleCacheCleared);
     };
   }, []);
 
@@ -884,6 +897,27 @@ export default function App() {
     showToast(`محصول «${fullProduct.nameFa}» به کاتالوگ افزوده شد.`);
   };
 
+  // Dynamic Category Pills for the catalog filter bar (synced with Django database)
+  const categoryPills = useMemo(() => {
+    const list: { id: string; label: string; color?: string }[] = [
+      { id: 'all', label: 'همه دسته‌ها' }
+    ];
+    if (dynamicCategories.length > 0) {
+      dynamicCategories.forEach(c => {
+        list.push({
+          id: c.slug || c.id || c.name,
+          label: c.name,
+          color: c.color,
+        });
+      });
+    } else {
+      CATEGORIES.filter(c => c.id !== 'all').forEach(c => {
+        list.push({ id: c.id, label: c.label });
+      });
+    }
+    return list;
+  }, [dynamicCategories]);
+
   // Distinct Brands (Excluding in-person drinks/coffee)
   const uniqueBrands = useMemo(() => {
     const brands = Array.from(
@@ -902,7 +936,13 @@ export default function App() {
       // Exclude in-person POS items (coffee & soft drinks) from the online website
       if (product.isPosOnly || product.category === 'drinks_coffee') return false;
 
-      const matchCat = selectedCategory === 'all' || product.category === selectedCategory;
+      const matchCat = selectedCategory === 'all' 
+        || product.category === selectedCategory
+        || dynamicCategories.some(c => 
+            (c.slug === selectedCategory || c.id === selectedCategory || c.name === selectedCategory) &&
+            (product.category === c.slug || product.category === c.id || product.category === c.name)
+          );
+
       const matchBrand = selectedBrand === 'all' || product.brand === selectedBrand;
       const matchPrice = product.cartonPrice >= priceRange[0] && product.cartonPrice <= priceRange[1];
       const matchQuery = 
@@ -919,7 +959,7 @@ export default function App() {
       if (sortBy === 'stock') return b.stockCartons - a.stockCartons;
       return 0;
     });
-  }, [products, selectedCategory, selectedBrand, priceRange, searchQuery, sortBy]);
+  }, [products, selectedCategory, dynamicCategories, selectedBrand, priceRange, searchQuery, sortBy]);
 
   // Cart operations
   const handleAddToCart = (product: CigaretteProduct, unit: 'carton' | 'box', quantity: number) => {
@@ -1214,19 +1254,25 @@ export default function App() {
                 />
               </div>
 
-              {/* Category Pills */}
+              {/* Category Pills (Connected to Django Database & Admin Panel) */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 pt-1 no-scrollbar">
-                {CATEGORIES.map(cat => (
+                {categoryPills.map(cat => (
                   <button
                     key={cat.id}
-                    onClick={() => setSelectedCategory(cat.id)}
-                    className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all ${
+                    onClick={() => setSelectedCategory(cat.id as any)}
+                    className={`px-3.5 py-2 rounded-2xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 cursor-pointer ${
                       selectedCategory === cat.id
                         ? 'bg-blue-600 text-white shadow-xs font-black'
-                        : 'bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200 '
+                        : 'bg-slate-100 text-slate-600 hover:text-slate-900 border border-slate-200'
                     }`}
                   >
-                    {cat.label}
+                    {cat.color && cat.color.startsWith('#') && (
+                      <span 
+                        className="w-2.5 h-2.5 rounded-full shrink-0 border border-slate-200" 
+                        style={{ backgroundColor: cat.color }} 
+                      />
+                    )}
+                    <span>{cat.label}</span>
                   </button>
                 ))}
               </div>
