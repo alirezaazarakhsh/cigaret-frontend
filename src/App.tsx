@@ -183,8 +183,19 @@ const CATEGORIES: { id: CigaretteCategory; label: string }[] = [
   { id: 'accessories', label: 'ملزومات، فندک کلیپر و اکسسوری عمده' },
 ];
 
+function getCategoryFromPath(pathname: string): string | null {
+  if (typeof pathname !== 'string') return null;
+  const p = pathname.toLowerCase();
+  const match = p.match(/^\/(?:product|products)\/category\/([^\/]+)/);
+  if (match && match[1]) {
+    return decodeURIComponent(match[1]);
+  }
+  return null;
+}
+
 function getTabFromPath(pathname: string): NavigationTab {
   const p = pathname.toLowerCase();
+  if (p.includes('/product/category/') || p.includes('/products/category/')) return 'catalog';
   if (p.includes('/shopmanage')) return 'accounting-pos';
   if (p.includes('/azarakhsh') || p.includes('/api-docs') || p.includes('/django-docs')) return 'django-docs';
   if (p.includes('/contact-us') || p.includes('/contact') || p.includes('/tamas')) return 'contact';
@@ -199,9 +210,10 @@ function getTabFromPath(pathname: string): NavigationTab {
   return 'catalog';
 }
 
-function getPathForTab(tab: NavigationTab): string {
+function getPathForTab(tab: NavigationTab, selectedCat?: string): string {
   switch (tab) {
-    case 'catalog': return '/';
+    case 'catalog': 
+      return (selectedCat && selectedCat !== 'all') ? `/product/category/${selectedCat}` : '/';
     case 'invoice': return '/invoice';
     case 'tracking': return '/tracking';
     case 'contact': return '/contact-us';
@@ -218,6 +230,14 @@ function getPathForTab(tab: NavigationTab): string {
 }
 
 export default function App() {
+  const [selectedCategory, setSelectedCategoryState] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      const catFromUrl = getCategoryFromPath(window.location.pathname);
+      if (catFromUrl) return catFromUrl;
+    }
+    return 'all';
+  });
+
   const [activeTab, setActiveTabState] = useState<NavigationTab>(() => {
     if (typeof window !== 'undefined') {
       return getTabFromPath(window.location.pathname);
@@ -225,17 +245,35 @@ export default function App() {
     return 'catalog';
   });
 
+  const handleSelectCategory = useCallback((catId: string, pushHistory: boolean = true) => {
+    setSelectedCategoryState(catId);
+    if (activeTab !== 'catalog') {
+      setActiveTabState('catalog');
+    }
+    if (pushHistory && typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      const targetUrl = catId === 'all' ? '/' : `/product/category/${catId}`;
+      if (window.location.pathname !== targetUrl) {
+        window.history.pushState({ category: catId, tab: 'catalog' }, '', targetUrl);
+      }
+    }
+  }, [activeTab]);
+
+  const setSelectedCategory = (catId: any) => {
+    handleSelectCategory(String(catId));
+  };
+
   const setActiveTab = (tab: NavigationTab, pushHistory: boolean = true) => {
     setActiveTabState(tab);
     if (typeof window !== 'undefined') {
       window.scrollTo({ top: 0, behavior: 'instant' });
-      const target = getPathForTab(tab);
+      const target = getPathForTab(tab, selectedCategory);
       // If switching to accounting-pos but already on a shopmanage sub-route, preserve it
       if (tab === 'accounting-pos' && window.location.pathname.startsWith('/shopmanage')) {
         return;
       }
       if (window.location.pathname !== target) {
-        window.history.pushState({ tab }, '', target);
+        window.history.pushState({ tab, category: selectedCategory }, '', target);
       }
     }
   };
@@ -253,6 +291,14 @@ export default function App() {
       if (typeof window !== 'undefined') {
         const nextTab = getTabFromPath(window.location.pathname);
         setActiveTabState(nextTab);
+
+        const catFromUrl = getCategoryFromPath(window.location.pathname);
+        if (catFromUrl) {
+          setSelectedCategoryState(catFromUrl);
+        } else if (nextTab === 'catalog') {
+          setSelectedCategoryState('all');
+        }
+
         window.scrollTo({ top: 0, behavior: 'instant' });
       }
     };
@@ -531,7 +577,6 @@ export default function App() {
     });
   };
 
-  const [selectedCategory, setSelectedCategory] = useState<CigaretteCategory>('all');
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 200000000]);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -936,12 +981,16 @@ export default function App() {
       // Exclude in-person POS items (coffee & soft drinks) from the online website
       if (product.isPosOnly || product.category === 'drinks_coffee') return false;
 
-      const matchCat = selectedCategory === 'all' 
-        || product.category === selectedCategory
+      const normSelCat = (selectedCategory || 'all').toLowerCase();
+
+      const matchCat = normSelCat === 'all' 
+        || (product.category || '').toLowerCase() === normSelCat
+        || ((product as any).category_slug || '').toLowerCase() === normSelCat
         || dynamicCategories.some(c => 
-            (c.slug === selectedCategory || c.id === selectedCategory || c.name === selectedCategory) &&
-            (product.category === c.slug || product.category === c.id || product.category === c.name)
-          );
+            ((c.slug || '').toLowerCase() === normSelCat || (c.id || '').toLowerCase() === normSelCat || (c.name || '').toLowerCase() === normSelCat) &&
+            ((product.category || '').toLowerCase() === (c.slug || '').toLowerCase() || (product.category || '').toLowerCase() === (c.id || '').toLowerCase() || product.category === c.name)
+          )
+        || (normSelCat.includes('irani') && (product.category === 'cigarettes' || (product.origin || '').includes('ایران') || (product.nameFa || '').includes('ایرانی') || (product.nameFa || '').includes('سیگار')));
 
       const matchBrand = selectedBrand === 'all' || product.brand === selectedBrand;
       const matchPrice = product.cartonPrice >= priceRange[0] && product.cartonPrice <= priceRange[1];

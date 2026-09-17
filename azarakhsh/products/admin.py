@@ -13,15 +13,76 @@ from .models import (
     ProductImage,
 )
 
+def to_jalali_str(dt):
+    """تبدیل تاریخ و زمان به تاریخ شمسی با پشتیبانی از jalali_date، jdatetime و محاسبات داخلی"""
+    if not dt:
+        return "-"
+    try:
+        from jalali_date import datetime2jalali
+        jalali_dt = datetime2jalali(dt)
+        return jalali_dt.strftime('%Y/%m/%d - %H:%M')
+    except Exception:
+        pass
+
+    try:
+        import jdatetime
+        j_dt = jdatetime.datetime.fromtimestamp(dt.timestamp())
+        return j_dt.strftime('%Y/%m/%d - %H:%M')
+    except Exception:
+        pass
+
+    # الگوریتم تبدیل میلادی به شمسی بدون وابستگی
+    g_y, g_m, g_d = dt.year, dt.month, dt.day
+    g_days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    if (g_y % 4 == 0 and g_y % 100 != 0) or (g_y % 400 == 0):
+        g_days_in_month[2] = 29
+    
+    gy = g_y - 1600
+    gm = g_m - 1
+    gd = g_d - 1
+
+    g_day_no = 365 * gy + gy // 4 - gy // 100 + gy // 400
+    for i in range(gm):
+        g_day_no += g_days_in_month[i + 1]
+    g_day_no += gd
+
+    j_day_no = g_day_no - 79
+    j_np = j_day_no // 12053
+    j_day_no %= 12053
+
+    jy = 979 + 33 * j_np + 4 * (j_day_no // 1461)
+    j_day_no %= 1461
+
+    if j_day_no >= 366:
+        jy += (j_day_no - 1) // 365
+        j_day_no = (j_day_no - 1) % 365
+
+    j_months = [0, 31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29]
+    jm = 0
+    for i in range(1, 13):
+        if j_day_no < j_months[i]:
+            jm = i
+            break
+        j_day_no -= j_months[i]
+    jd = j_day_no + 1
+
+    time_str = dt.strftime('%H:%M')
+    return f"{jy:04d}/{jm:02d}/{jd:02d} - {time_str}"
+
+
 # ==============================================================================
 # ۱. مدیریت دسته‌بندی‌ها (Category Admin)
 # ==============================================================================
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'name_en', 'slug', 'color_badge', 'created_at']
+    list_display = ['name', 'name_en', 'slug', 'color_badge', 'created_at_jalali']
     search_fields = ['name', 'name_en', 'slug', 'description']  # 👈 ضروری برای autocomplete_fields
     prepopulated_fields = {'slug': ('name',)}
     ordering = ['-id']
+
+    @admin.display(description=_('تاریخ ایجاد'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
 
     @admin.display(description=_('رنگ شناسه'))
     def color_badge(self, obj):
@@ -49,17 +110,13 @@ class ProductBrandAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(ProductHologram)
 class ProductHologramAdmin(admin.ModelAdmin):
-    list_display = ['title', 'hologram_code', 'issuer_org', 'security_level', 'badge_preview', 'is_verified', 'updated_at']
+    list_display = ['title', 'issuer_org', 'country_origin', 'security_level', 'is_verified', 'updated_at_jalali']
     list_filter = ['is_verified', 'security_level']
-    search_fields = ['title', 'hologram_code', 'issuer_org']  # 👈 ضروری برای autocomplete_fields
+    search_fields = ['title', 'issuer_org', 'country_origin', 'security_specs']
 
-    def badge_preview(self, obj):
-        return format_html(
-            '<span style="background-color: {}; color: #fff; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
-            obj.badge_color or '#10b981',
-            obj.title
-        )
-    badge_preview.short_description = _('پیش‌نمایش بج')
+    @admin.display(description=_('تاریخ بروزرسانی (شمسی)'), ordering='updated_at')
+    def updated_at_jalali(self, obj):
+        return to_jalali_str(obj.updated_at)
 
 
 # ==============================================================================

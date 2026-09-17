@@ -17,6 +17,61 @@ from .models import (
     ProductImage,
 )
 
+def to_jalali_str(dt):
+    """تبدیل تاریخ و زمان به تاریخ شمسی با پشتیبانی از jalali_date، jdatetime و محاسبات داخلی"""
+    if not dt:
+        return "-"
+    try:
+        from jalali_date import datetime2jalali
+        jalali_dt = datetime2jalali(dt)
+        return jalali_dt.strftime('%Y/%m/%d - %H:%M')
+    except Exception:
+        pass
+
+    try:
+        import jdatetime
+        j_dt = jdatetime.datetime.fromtimestamp(dt.timestamp())
+        return j_dt.strftime('%Y/%m/%d - %H:%M')
+    except Exception:
+        pass
+
+    g_y, g_m, g_d = dt.year, dt.month, dt.day
+    g_days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    if (g_y % 4 == 0 and g_y % 100 != 0) or (g_y % 400 == 0):
+        g_days_in_month[2] = 29
+    
+    gy = g_y - 1600
+    gm = g_m - 1
+    gd = g_d - 1
+
+    g_day_no = 365 * gy + gy // 4 - gy // 100 + gy // 400
+    for i in range(gm):
+        g_day_no += g_days_in_month[i + 1]
+    g_day_no += gd
+
+    j_day_no = g_day_no - 79
+    j_np = j_day_no // 12053
+    j_day_no %= 12053
+
+    jy = 979 + 33 * j_np + 4 * (j_day_no // 1461)
+    j_day_no %= 1461
+
+    if j_day_no >= 366:
+        jy += (j_day_no - 1) // 365
+        j_day_no = (j_day_no - 1) % 365
+
+    j_months = [0, 31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29]
+    jm = 0
+    for i in range(1, 13):
+        if j_day_no < j_months[i]:
+            jm = i
+            break
+        j_day_no -= j_months[i]
+    jd = j_day_no + 1
+
+    time_str = dt.strftime('%H:%M')
+    return f"{jy:04d}/{jm:02d}/{jd:02d} - {time_str}"
+
 @admin.register(CustomerTier)
 class CustomerTierAdmin(admin.ModelAdmin):
     list_display = ['tier_key', 'title_fa', 'colored_badge', 'default_credit_limit_toman', 'cashback_percent', 'discount_percent', 'is_active']
@@ -89,10 +144,14 @@ class CustomerProfileAdmin(admin.ModelAdmin):
 
 @admin.register(BankDepositSlip)
 class BankDepositSlipAdmin(admin.ModelAdmin):
-    list_display = ['tracking_number', 'customer', 'amount_display', 'purpose_display', 'bank_name', 'status_badge', 'created_at']
+    list_display = ['tracking_number', 'customer', 'amount_display', 'purpose_display', 'bank_name', 'status_badge', 'created_at_jalali']
     list_filter = ['status', 'purpose', 'bank_name', 'created_at']
     search_fields = ['tracking_number', 'customer__full_name', 'customer__phone_number', 'sender_account_name']
     actions = ['approve_selected_slips', 'reject_selected_slips']
+
+    @admin.display(description=_('تاریخ واریز (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
 
     def amount_display(self, obj):
         return f"{obj.amount:,} تومان"
@@ -140,9 +199,13 @@ class BankDepositSlipAdmin(admin.ModelAdmin):
 
 @admin.register(WalletTransaction)
 class WalletTransactionAdmin(admin.ModelAdmin):
-    list_display = ['customer', 'amount_display', 'balance_after_display', 'transaction_type', 'created_at']
+    list_display = ['customer', 'amount_display', 'balance_after_display', 'transaction_type', 'created_at_jalali']
     list_filter = ['transaction_type', 'created_at']
     search_fields = ['customer__full_name', 'customer__phone_number', 'description']
+
+    @admin.display(description=_('تاریخ تراکنش (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
 
     def amount_display(self, obj):
         return f"{obj.amount:,} تومان"
@@ -158,11 +221,15 @@ class WalletTransactionAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'parent', 'slug', 'order', 'is_active', 'created_at']
+    list_display = ['name', 'parent', 'slug', 'order', 'is_active', 'created_at_jalali']
     list_filter = ['is_active', 'parent']
     search_fields = ['name', 'slug']  # 👈 ضروری برای کارکرد autocomplete_fields در محصول
     prepopulated_fields = {'slug': ('name',)}
     ordering = ['order', 'name']
+
+    @admin.display(description=_('تاریخ ایجاد'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
 
 
 # ==============================================================================

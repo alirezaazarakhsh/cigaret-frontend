@@ -22,10 +22,10 @@ COLOR_CHOICES = (
 )
 
 SECURITY_LEVEL_CHOICES = (
-    ('maximum', _('فوق امنیتی / لیبل هولوگرام ۳ بعدی ضد جعل')),
-    ('high', _('اعتبار بالا / دارای QR استعلام آنی آنلاین')),
-    ('standard', _('استاندارد شرکتی اصل')),
-    ('economic', _('پایه / اقتصادی بدون استعلام')),
+    ('maximum', _('فوق امنیتی (Maximum)')),
+    ('high', _('بالا (High)')),
+    ('standard', _('استاندارد (Standard)')),
+    ('economic', _('پایه (Economic)')),
 )
 
 DATA_TYPE_CHOICES = (
@@ -73,20 +73,18 @@ class Category(models.Model):
 
 class ProductHologram(models.Model):
     """
-    مدل تعریف برچسب‌های ضمانت اصالت کالا و هولوگرام اختصاصی:
-    شامل عنوان، مرجع صادرکننده، کشور/حوزه، سطح اعتبار امنیتی انتخابی، رنگ بج و مشخصات فنی امنیتی
+    مدل تعریف برچسب‌های ضمانت اصالت کالا و هولوگرام (طابق دقیق ۵ فیلد اصلی اندپوینت و فرم مدیریت):
+    ۱. عنوان هولوگرام / برچسب اصالت * (title)
+    ۲. مرجع صادرکننده یا سازمان ناظر (issuer_org)
+    ۳. کشور / حوزه (country_origin)
+    ۴. سطح اعتبار امنیتی (security_level)
+    ۵. مشخصات فنی و امنیتی (security_specs)
     """
-    title = models.CharField(_("عنوان هولوگرام / برچسب اصالت"), max_length=120)
-    issuer_org = models.CharField(_("مرجع صادرکننده یا سازمان ناظر"), max_length=150, default="شرکت بازرگانی آذرخش")
-    country_origin = models.CharField(_("کشور / حوزه مبدا"), max_length=100, default="امارات / دبی")
+    title = models.CharField(_("عنوان هولوگرام / برچسب اصالت"), max_length=150)
+    issuer_org = models.CharField(_("مرجع صادرکننده یا سازمان ناظر"), max_length=150, blank=True, null=True)
+    country_origin = models.CharField(_("کشور / حوزه"), max_length=100, blank=True, null=True)
     security_level = models.CharField(_("سطح اعتبار امنیتی"), max_length=30, choices=SECURITY_LEVEL_CHOICES, default='high')
-    badge_color = models.CharField(_("رنگ لیبل نمایشی"), max_length=30, choices=COLOR_CHOICES, default="#10B981")
-    security_specs = models.TextField(
-        _("مشخصات فنی و امنیتی"), 
-        blank=True, 
-        null=True,
-        help_text=_("توضیحات مشخصات فنی، کد رهگیری، ویژگی‌های بصری یا فیچرهای امنیتی هولوگرام")
-    )
+    security_specs = models.TextField(_("مشخصات فنی و امنیتی"), blank=True, null=True)
     is_verified = models.BooleanField(_("دارای استعلام اصالت بارکد / QR"), default=True)
     created_at = models.DateTimeField(_("تاریخ ثبت هولوگرام"), auto_now_add=True)
     updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True)

@@ -61,7 +61,6 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ProductHologramSerializer(serializers.ModelSerializer):
     security_level_display = serializers.CharField(source='get_security_level_display', read_only=True)
-    badge_color_display = serializers.CharField(source='get_badge_color_display', read_only=True)
 
     class Meta:
         model = ProductHologram
@@ -72,13 +71,16 @@ class ProductHologramSerializer(serializers.ModelSerializer):
             'country_origin',
             'security_level',
             'security_level_display',
-            'badge_color',
-            'badge_color_display',
             'security_specs',
             'is_verified',
             'created_at',
             'updated_at'
         ]
+        extra_kwargs = {
+            'issuer_org': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'country_origin': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'security_specs': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
 
 
 class ProductAttributeSerializer(serializers.ModelSerializer):

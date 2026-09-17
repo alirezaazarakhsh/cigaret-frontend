@@ -22,16 +22,15 @@ export const ProductsDocs: React.FC = () => {
     {
       name: 'products_producthologram',
       verboseName: 'جدول هولوگرام‌ها و برچسب‌های اصالت کالا (Product Authenticity)',
-      description: 'تعریف جامع هولوگرام با مرجع صادرکننده، کشور/حوزه، سطح اعتبار امنیتی انتخابی (Choice)، رنگ بج و مشخصات فنی امنیتی',
+      description: 'مطابق دقیق ۵ فیلد اصلی فرم اندپوینت: عنوان هولوگرام، مرجع صادرکننده، کشور/حوزه، سطح اعتبار امنیتی و مشخصات فنی امنیتی',
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
-        { name: 'title', type: 'CharField(max_length=120)', verbose: 'عنوان هولوگرام / برچسب اصالت *' },
-        { name: 'issuer_org', type: 'CharField(max_length=150)', verbose: 'مرجع صادرکننده یا سازمان ناظر' },
-        { name: 'country_origin', type: 'CharField(max_length=100)', verbose: 'کشور / حوزه مبدا' },
-        { name: 'security_level', type: 'CharField(max_length=30, choices=SECURITY_LEVELS)', verbose: 'سطح اعتبار امنیتی (انتخابی Choice)' },
-        { name: 'badge_color', type: 'CharField(max_length=30, choices=COLOR_CHOICES)', verbose: 'رنگ لیبل / بج نمایشی' },
+        { name: 'title', type: 'CharField(max_length=150)', verbose: 'عنوان هولوگرام / برچسب اصالت *' },
+        { name: 'issuer_org', type: 'CharField(max_length=150, blank=True)', verbose: 'مرجع صادرکننده یا سازمان ناظر' },
+        { name: 'country_origin', type: 'CharField(max_length=100, blank=True)', verbose: 'کشور / حوزه' },
+        { name: 'security_level', type: 'CharField(max_length=30, choices=SECURITY_LEVEL_CHOICES)', verbose: 'سطح اعتبار امنیتی (انتخابی Choice)' },
         { name: 'security_specs', type: 'TextField(blank=True)', verbose: 'مشخصات فنی و امنیتی (توضیحات)' },
-        { name: 'is_verified', type: 'BooleanField(default=True)', verbose: 'دارای استعلام اصالت بارکد / QR' },
+        { name: 'is_verified', type: 'BooleanField(default=True)', verbose: 'دارای استعلام اصالت بارکد / QR (چک‌باکس)' },
         { name: 'created_at', type: 'DateTimeField', verbose: 'تاریخ ثبت هولوگرام' },
         { name: 'updated_at', type: 'DateTimeField', verbose: 'تاریخ بروزرسانی' },
       ]
@@ -472,31 +471,38 @@ class ProductBrand(models.Model):
 # ==============================================================================
 # ۳. هولوگرام و اصالت کالا (Product Hologram)
 # ==============================================================================
-class ProductHologram(models.Model):
-    SECURITY_LEVEL_CHOICES = (
-        ('maximum', _('فوق امنیتی / ۳ بعدی')),
-        ('high', _('اعتبار بالا / QR آنلاین')),
-        ('standard', _('استاندارد شرکتی')),
-        ('economic', _('پایه')),
-    )
+SECURITY_LEVEL_CHOICES = (
+    ('maximum', _('فوق امنیتی (Maximum)')),
+    ('high', _('بالا (High)')),
+    ('standard', _('استاندارد (Standard)')),
+    ('economic', _('پایه (Economic)')),
+)
 
-    title = models.CharField(_("عنوان هولوگرام"), max_length=150)
-    hologram_code = models.CharField(_("کد یا شناسه هولوگرام"), max_length=100, unique=True, blank=True, null=True)
-    issuer_org = models.CharField(_("مرجع صادرکننده"), max_length=150, default="آذرخش")
-    country_origin = models.CharField(_("کشور / مبدا"), max_length=100, default="امارات")
-    security_level = models.CharField(_("سطح امنیت"), max_length=30, choices=SECURITY_LEVEL_CHOICES, default='high')
-    badge_color = models.CharField(_("رنگ بج"), max_length=30, default="#10b981")
-    security_specs = models.TextField(_("مشخصات امنیتی"), blank=True, null=True)
-    is_verified = models.BooleanField(_("تایید شده"), default=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+class ProductHologram(models.Model):
+    """
+    مدل تعریف برچسب‌های ضمانت اصالت کالا و هولوگرام (طابق دقیق ۵ فیلد اصلی فرم اندپوینت):
+    ۱. عنوان هولوگرام / برچسب اصالت * (title)
+    ۲. مرجع صادرکننده یا سازمان ناظر (issuer_org)
+    ۳. کشور / حوزه (country_origin)
+    ۴. سطح اعتبار امنیتی (security_level)
+    ۵. مشخصات فنی و امنیتی (security_specs)
+    """
+    title = models.CharField(_("عنوان هولوگرام / برچسب اصالت"), max_length=150)
+    issuer_org = models.CharField(_("مرجع صادرکننده یا سازمان ناظر"), max_length=150, blank=True, null=True)
+    country_origin = models.CharField(_("کشور / حوزه"), max_length=100, blank=True, null=True)
+    security_level = models.CharField(_("سطح اعتبار امنیتی"), max_length=30, choices=SECURITY_LEVEL_CHOICES, default='high')
+    security_specs = models.TextField(_("مشخصات فنی و امنیتی"), blank=True, null=True)
+    is_verified = models.BooleanField(_("دارای استعلام اصالت بارکد / QR"), default=True)
+    created_at = models.DateTimeField(_("تاریخ ثبت هولوگرام"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True)
 
     class Meta:
-        verbose_name = _("هولوگرام اصالت")
-        verbose_name_plural = _("هولوگرام‌های اصالت")
+        verbose_name = _("هولوگرام و اصالت")
+        verbose_name_plural = _("هولوگرام‌های اصالت کالا")
+        ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.title} ({self.issuer_org})"
+        return f"{self.title} - {self.get_security_level_display()}"
 
 
 # ==============================================================================
@@ -694,15 +700,76 @@ from .models import (
     ProductImage,
 )
 
+def to_jalali_str(dt):
+    """تبدیل تاریخ میلادی به تاریخ شمسی با پشتیبانی از jalali_date، jdatetime و الگوریتم داخلی"""
+    if not dt:
+        return "-"
+    try:
+        from jalali_date import datetime2jalali
+        jalali_dt = datetime2jalali(dt)
+        return jalali_dt.strftime('%Y/%m/%d - %H:%M')
+    except Exception:
+        pass
+
+    try:
+        import jdatetime
+        j_dt = jdatetime.datetime.fromtimestamp(dt.timestamp())
+        return j_dt.strftime('%Y/%m/%d - %H:%M')
+    except Exception:
+        pass
+
+    # الگوریتم تبدیل میلادی به شمسی بدون نیاز به پکیج خارجی
+    g_y, g_m, g_d = dt.year, dt.month, dt.day
+    g_days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    if (g_y % 4 == 0 and g_y % 100 != 0) or (g_y % 400 == 0):
+        g_days_in_month[2] = 29
+    
+    gy = g_y - 1600
+    gm = g_m - 1
+    gd = g_d - 1
+
+    g_day_no = 365 * gy + gy // 4 - gy // 100 + gy // 400
+    for i in range(gm):
+        g_day_no += g_days_in_month[i + 1]
+    g_day_no += gd
+
+    j_day_no = g_day_no - 79
+    j_np = j_day_no // 12053
+    j_day_no %= 12053
+
+    jy = 979 + 33 * j_np + 4 * (j_day_no // 1461)
+    j_day_no %= 1461
+
+    if j_day_no >= 366:
+        jy += (j_day_no - 1) // 365
+        j_day_no = (j_day_no - 1) % 365
+
+    j_months = [0, 31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29]
+    jm = 0
+    for i in range(1, 13):
+        if j_day_no < j_months[i]:
+            jm = i
+            break
+        j_day_no -= j_months[i]
+    jd = j_day_no + 1
+
+    time_str = dt.strftime('%H:%M')
+    return f"{jy:04d}/{jm:02d}/{jd:02d} - {time_str}"
+
+
 # ==============================================================================
 # ۱. مدیریت دسته‌بندی‌ها (Category Admin)
 # ==============================================================================
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'name_en', 'slug', 'color_badge', 'created_at']
+    list_display = ['name', 'name_en', 'slug', 'color_badge', 'created_at_jalali']
     search_fields = ['name', 'name_en', 'slug', 'description']
     prepopulated_fields = {'slug': ('name',)}
     ordering = ['-id']
+
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
 
     @admin.display(description=_('رنگ شناسه'))
     def color_badge(self, obj):
@@ -730,17 +797,13 @@ class ProductBrandAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(ProductHologram)
 class ProductHologramAdmin(admin.ModelAdmin):
-    list_display = ['title', 'hologram_code', 'issuer_org', 'security_level', 'badge_preview', 'is_verified', 'updated_at']
+    list_display = ['title', 'issuer_org', 'country_origin', 'security_level', 'is_verified', 'updated_at_jalali']
     list_filter = ['is_verified', 'security_level']
-    search_fields = ['title', 'hologram_code', 'issuer_org']
+    search_fields = ['title', 'issuer_org', 'country_origin', 'security_specs']
 
-    def badge_preview(self, obj):
-        return format_html(
-            '<span style="background-color: {}; color: #fff; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
-            obj.badge_color or '#10b981',
-            obj.title
-        )
-    badge_preview.short_description = _('پیش‌نمایش بج')
+    @admin.display(description=_('تاریخ بروزرسانی (شمسی)'), ordering='updated_at')
+    def updated_at_jalali(self, obj):
+        return to_jalali_str(obj.updated_at)
 
 
 # ==============================================================================
@@ -777,6 +840,7 @@ class ProductAdmin(admin.ModelAdmin):
         'stock_cartons',
         'badge_display',
         'is_active',
+        'created_at_jalali',
     ]
     list_filter = [
         'is_active',
@@ -838,6 +902,10 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': ('is_active',),
         }),
     )
+
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
 
     def carton_price_toman(self, obj):
         return f"{obj.carton_price:,} تومان"
@@ -943,12 +1011,16 @@ class ProductHologramSerializer(serializers.ModelSerializer):
             'country_origin',
             'security_level',
             'security_level_display',
-            'badge_color',
             'security_specs',
             'is_verified',
             'created_at',
             'updated_at',
         ]
+        extra_kwargs = {
+            'issuer_org': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'country_origin': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'security_specs': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
 
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
