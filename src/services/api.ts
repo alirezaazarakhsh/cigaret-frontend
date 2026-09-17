@@ -52,7 +52,7 @@ import {
   BlogCategoryItem,
   WarehouseMessage
 } from '../types';
-import { ProductCategoryItem } from '../components/product-manage/types';
+import { ProductCategoryItem, ProductHologramItem } from '../components/product-manage/types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
 import { 
@@ -195,6 +195,138 @@ export const categoriesApi = {
     let response = await httpClient.delete<any>(`/products/categories/${id}/`);
     if (!response.success && response.status === 404) {
       response = await httpClient.delete<any>(`/api/v1/products/categories/${id}/`);
+    }
+    return response.success;
+  }
+};
+
+// ==========================================
+// 0.1 HOLOGRAMS API
+// ==========================================
+export const hologramsApi = {
+  /**
+   * Fetches all product holograms from backend GET /products/holograms/
+   */
+  async getAll(): Promise<ProductHologramItem[]> {
+    let response = await httpClient.get<any>('/products/holograms/', {
+      headers: API_CACHE_CONTROL_HEADERS,
+    });
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>('/api/v1/products/holograms/', {
+        headers: API_CACHE_CONTROL_HEADERS,
+      });
+    }
+
+    if (response.success && response.data) {
+      const items = Array.isArray(response.data)
+        ? response.data
+        : (response.data.results || response.data.data || []);
+
+      const mapped: ProductHologramItem[] = items.map((item: any) => ({
+        id: String(item.id),
+        title: item.title || '',
+        issuer: item.issuer_org || item.issuer || '',
+        country: item.country_origin || item.country || '',
+        securityLevel: (item.security_level || 'high') as any,
+        badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+        description: item.security_specs || item.description || '',
+      }));
+
+      try {
+        localStorage.setItem('sevin_product_holograms', JSON.stringify(mapped));
+      } catch {}
+
+      return mapped;
+    }
+
+    // Fallback if offline
+    try {
+      const saved = localStorage.getItem('sevin_product_holograms');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          // Filter out any stale mock holograms
+          const mockIds = ['holo-iran', 'holo-dubai', 'holo-eu', 'holo-domestic', 'holo-original-bare'];
+          return parsed.filter((h: any) => !mockIds.includes(h.id));
+        }
+      }
+    } catch {}
+    return [];
+  },
+
+  /**
+   * Creates a new hologram on POST /products/holograms/
+   */
+  async create(data: { title: string; issuer?: string; country?: string; securityLevel?: string; description?: string }): Promise<ProductHologramItem> {
+    const payload = {
+      title: data.title,
+      issuer_org: data.issuer || '',
+      country_origin: data.country || '',
+      security_level: data.securityLevel || 'high',
+      security_specs: data.description || '',
+      is_verified: true,
+    };
+
+    let response = await httpClient.post<any>('/products/holograms/', payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post<any>('/api/v1/products/holograms/', payload);
+    }
+
+    if (response.success && response.data) {
+      const res = response.data.data || response.data;
+      return {
+        id: String(res.id),
+        title: res.title || data.title,
+        issuer: res.issuer_org || res.issuer || data.issuer || '',
+        country: res.country_origin || res.country || data.country || '',
+        securityLevel: (res.security_level || data.securityLevel || 'high') as any,
+        badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+        description: res.security_specs || res.description || data.description || '',
+      };
+    }
+    throw new Error(response.error || 'خطا در برقراری ارتباط با سرور یا ثبت هولوگرام در دیتابیس');
+  },
+
+  /**
+   * Updates an existing hologram on PUT /products/holograms/{id}/
+   */
+  async update(id: string | number, data: { title: string; issuer?: string; country?: string; securityLevel?: string; description?: string }): Promise<ProductHologramItem> {
+    const payload = {
+      title: data.title,
+      issuer_org: data.issuer || '',
+      country_origin: data.country || '',
+      security_level: data.securityLevel || 'high',
+      security_specs: data.description || '',
+      is_verified: true,
+    };
+
+    let response = await httpClient.put<any>(`/products/holograms/${id}/`, payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.put<any>(`/api/v1/products/holograms/${id}/`, payload);
+    }
+
+    if (response.success && response.data) {
+      const res = response.data.data || response.data;
+      return {
+        id: String(res.id || id),
+        title: res.title || data.title,
+        issuer: res.issuer_org || res.issuer || data.issuer || '',
+        country: res.country_origin || res.country || data.country || '',
+        securityLevel: (res.security_level || data.securityLevel || 'high') as any,
+        badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
+        description: res.security_specs || res.description || data.description || '',
+      };
+    }
+    throw new Error(response.error || 'خطا در ویرایش هولوگرام در دیتابیس');
+  },
+
+  /**
+   * Deletes a hologram on DELETE /products/holograms/{id}/
+   */
+  async delete(id: string | number): Promise<boolean> {
+    let response = await httpClient.delete<any>(`/products/holograms/${id}/`);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.delete<any>(`/api/v1/products/holograms/${id}/`);
     }
     return response.success;
   }

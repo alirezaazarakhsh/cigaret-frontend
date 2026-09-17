@@ -39,53 +39,7 @@ export const INITIAL_PRODUCT_CATEGORIES: ProductCategoryItem[] = [
   { id: 'drinks_coffee', slug: 'drinks_coffee', name: 'نوشیدنی و قهوه', nameEn: 'Drinks & Coffee', description: 'دان قهوه و سرو بار حضوری', color: 'text-amber-700' },
 ];
 
-export const INITIAL_PRODUCT_HOLOGRAMS: ProductHologramItem[] = [
-  {
-    id: 'holo-iran',
-    title: 'شرکتی اصل (دخانیات ایران)',
-    issuer: 'شرکت دخانیات ایران و وزارت صمت',
-    country: 'ایران',
-    securityLevel: 'high',
-    badgeColor: 'bg-blue-50 text-blue-700 border-blue-200',
-    description: 'دارای هولوگرام رسمی و پلمپ دولتی شرکت دخانیات ایران با کد رهگیری استعلام پیامکی.',
-  },
-  {
-    id: 'holo-dubai',
-    title: 'سفارش دبی (فری شاپ فرودگاهی)',
-    issuer: 'Dubai Duty Free Authority',
-    country: 'امارات متحده عربی',
-    securityLevel: 'ultra',
-    badgeColor: 'bg-purple-50 text-purple-700 border-purple-200',
-    description: 'بار ترخیص مستقیم فرودگاه دبی با بالاترین کیفیت توتون و برچسب اورجینال Duty Free.',
-  },
-  {
-    id: 'holo-eu',
-    title: 'اورجینال اروپایی (Swiss / EU Tax Stamp)',
-    issuer: 'اتحادیه اروپا و اداره مالیات سوئیس',
-    country: 'سوئیس / اتحادیه اروپا',
-    securityLevel: 'ultra',
-    badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    description: 'دارای برچسب مالیاتی رسمی و بارکد معتبر اتحادیه اروپا، بالاترین گرید استاندارد بهداشتی جهانی.',
-  },
-  {
-    id: 'holo-domestic',
-    title: 'تولید داخل (پروانه صنعتی)',
-    issuer: 'صنایع دخانی داخلی',
-    country: 'ایران',
-    securityLevel: 'standard',
-    badgeColor: 'bg-amber-50 text-amber-700 border-amber-200',
-    description: 'تولید شده تحت لیسانس یا پروانه رسمی با قیمت مصوب شرکتی.',
-  },
-  {
-    id: 'holo-original-bare',
-    title: 'اورجینال بدون هولوگرام (بار مسافری)',
-    issuer: 'توزیع مستقیم وارداتی',
-    country: 'بین‌المللی',
-    securityLevel: 'basic',
-    badgeColor: 'bg-slate-100 text-slate-700 border-slate-200',
-    description: 'محصول ۱۰۰٪ اورجینال بدون برچسب مالیات محلی (تضمین برگشت کالا در صورت عدم اصالت).',
-  },
-];
+export const INITIAL_PRODUCT_HOLOGRAMS: ProductHologramItem[] = [];
 
 export const INITIAL_PRODUCT_FEATURES: ProductFeatureItem[] = [
   {

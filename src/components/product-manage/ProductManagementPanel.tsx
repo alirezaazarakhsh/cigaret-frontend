@@ -28,7 +28,7 @@ import {
   INITIAL_PRODUCT_FEATURES
 } from './types';
 import { formatNumberFa } from '../../utils/formatters';
-import { categoriesApi } from '../../services/api';
+import { categoriesApi, hologramsApi } from '../../services/api';
 
 interface ProductManagementPanelProps {
   products: CigaretteProduct[];
@@ -96,14 +96,36 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
     return () => { isMounted = false; };
   }, []);
 
-  // Holograms state with persistence
+  // Holograms state with database synchronization
   const [holograms, setHolograms] = useState<ProductHologramItem[]>(() => {
     try {
       const saved = localStorage.getItem('sevin_product_holograms');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const mockIds = ['holo-iran', 'holo-dubai', 'holo-eu', 'holo-domestic', 'holo-original-bare'];
+          return parsed.filter((h: any) => !mockIds.includes(h.id));
+        }
+      }
     } catch {}
     return INITIAL_PRODUCT_HOLOGRAMS;
   });
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchHolograms = async () => {
+      try {
+        const data = await hologramsApi.getAll();
+        if (isMounted) {
+          setHolograms(data);
+        }
+      } catch (err) {
+        console.error('Error loading holograms from DB:', err);
+      }
+    };
+    fetchHolograms();
+    return () => { isMounted = false; };
+  }, []);
 
   // Features state with persistence
   const [features, setFeatures] = useState<ProductFeatureItem[]>(() => {
@@ -215,25 +237,58 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
   };
 
   // CRUD for Holograms
-  const handleAddHologram = (newHolo: ProductHologramItem) => {
-    const updated = [...holograms, newHolo];
-    setHolograms(updated);
+  const handleAddHologram = async (newHolo: ProductHologramItem) => {
     try {
-      localStorage.setItem('sevin_product_holograms', JSON.stringify(updated));
-    } catch {}
-    showToast(`استاندارد هولوگرام «${newHolo.title}» ایجاد شد.`);
+      const created = await hologramsApi.create({
+        title: newHolo.title,
+        issuer: newHolo.issuer,
+        country: newHolo.country,
+        securityLevel: newHolo.securityLevel,
+        description: newHolo.description,
+      });
+      const updated = [...holograms, created];
+      setHolograms(updated);
+      showToast(`استاندارد هولوگرام «${created.title}» ایجاد شد.`);
+    } catch (err: any) {
+      console.warn('API creation failed, falling back to local state:', err);
+      const updated = [...holograms, newHolo];
+      setHolograms(updated);
+      try {
+        localStorage.setItem('sevin_product_holograms', JSON.stringify(updated));
+      } catch {}
+      showToast(`استاندارد هولوگرام «${newHolo.title}» ایجاد شد.`);
+    }
   };
 
-  const handleUpdateHologram = (updatedHolo: ProductHologramItem) => {
-    const updated = holograms.map((h) => (h.id === updatedHolo.id ? updatedHolo : h));
-    setHolograms(updated);
+  const handleUpdateHologram = async (updatedHolo: ProductHologramItem) => {
     try {
-      localStorage.setItem('sevin_product_holograms', JSON.stringify(updated));
-    } catch {}
-    showToast(`تغییرات هولوگرام «${updatedHolo.title}» با موفقیت ذخیره شد.`);
+      const updatedFromApi = await hologramsApi.update(updatedHolo.id, {
+        title: updatedHolo.title,
+        issuer: updatedHolo.issuer,
+        country: updatedHolo.country,
+        securityLevel: updatedHolo.securityLevel,
+        description: updatedHolo.description,
+      });
+      const updated = holograms.map((h) => (h.id === updatedHolo.id ? updatedFromApi : h));
+      setHolograms(updated);
+      showToast(`تغییرات هولوگرام «${updatedHolo.title}» با موفقیت ذخیره شد.`);
+    } catch (err: any) {
+      console.warn('API update failed, falling back to local state:', err);
+      const updated = holograms.map((h) => (h.id === updatedHolo.id ? updatedHolo : h));
+      setHolograms(updated);
+      try {
+        localStorage.setItem('sevin_product_holograms', JSON.stringify(updated));
+      } catch {}
+      showToast(`تغییرات هولوگرام «${updatedHolo.title}» با موفقیت ذخیره شد.`);
+    }
   };
 
-  const handleDeleteHologram = (holoId: string) => {
+  const handleDeleteHologram = async (holoId: string) => {
+    try {
+      await hologramsApi.delete(holoId);
+    } catch (err) {
+      console.warn('API delete failed:', err);
+    }
     const updated = holograms.filter((h) => h.id !== holoId);
     setHolograms(updated);
     try {
