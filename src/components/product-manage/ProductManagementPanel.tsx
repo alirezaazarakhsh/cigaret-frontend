@@ -4,6 +4,7 @@ import {
   Layers,
   ShieldCheck,
   Tag,
+  Award,
   Plus,
   ArrowRight,
   Eye,
@@ -18,24 +19,27 @@ import { ProductList } from './ProductList';
 import { CategoryList } from './CategoryList';
 import { HologramList } from './HologramList';
 import { FeatureList } from './FeatureList';
+import { BrandList } from './BrandList';
 import { ProductEditorPage } from './ProductEditorPage';
 import {
   ProductCategoryItem,
   ProductHologramItem,
   ProductFeatureItem,
+  ProductBrandItem,
   INITIAL_PRODUCT_CATEGORIES,
   INITIAL_PRODUCT_HOLOGRAMS,
-  INITIAL_PRODUCT_FEATURES
+  INITIAL_PRODUCT_FEATURES,
+  INITIAL_PRODUCT_BRANDS
 } from './types';
 import { formatNumberFa } from '../../utils/formatters';
-import { categoriesApi, hologramsApi, attributesApi } from '../../services/api';
+import { categoriesApi, hologramsApi, attributesApi, brandsApi } from '../../services/api';
 
 interface ProductManagementPanelProps {
   products: CigaretteProduct[];
   onUpdateProducts: (updatedProducts: CigaretteProduct[]) => void;
   onReturnToDashboard?: () => void;
   onNavigateToPublicStore?: () => void;
-  initialTab?: 'list' | 'editor' | 'categories' | 'holograms' | 'features';
+  initialTab?: 'list' | 'editor' | 'categories' | 'brands' | 'holograms' | 'features';
   initialBarcode?: string;
   initialEditingProduct?: CigaretteProduct | null;
   onTabChange?: (tab: string) => void;
@@ -51,7 +55,7 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
   initialEditingProduct,
   onTabChange,
 }) => {
-  const [activeTab, setActiveTab] = useState<'list' | 'editor' | 'categories' | 'holograms' | 'features'>(initialTab || 'list');
+  const [activeTab, setActiveTab] = useState<'list' | 'editor' | 'categories' | 'brands' | 'holograms' | 'features'>(initialTab || 'list');
   const [currentInitialBarcode, setCurrentInitialBarcode] = useState<string>(initialBarcode || '');
   const [selectedProduct, setSelectedProduct] = useState<CigaretteProduct | null>(initialEditingProduct || null);
 
@@ -155,6 +159,34 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
       }
     };
     fetchAttributes();
+    return () => { isMounted = false; };
+  }, []);
+
+  // Brands state with database synchronization
+  const [brands, setBrands] = useState<ProductBrandItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('sevin_product_brands');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return INITIAL_PRODUCT_BRANDS;
+  });
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchBrands = async () => {
+      try {
+        const data = await brandsApi.getAll();
+        if (isMounted) {
+          setBrands(data);
+        }
+      } catch (err) {
+        console.error('Error loading product brands from DB:', err);
+      }
+    };
+    fetchBrands();
     return () => { isMounted = false; };
   }, []);
 
@@ -380,6 +412,59 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
     showToast('مشخصه فنی از سیستم حذف شد.');
   };
 
+  // Brand CRUD Handlers
+  const handleAddBrand = async (brandData: Omit<ProductBrandItem, 'id'>) => {
+    try {
+      const createdFromApi = await brandsApi.create(brandData);
+      const updated = [createdFromApi, ...brands];
+      setBrands(updated);
+      showToast(`برند جدید «${createdFromApi.name}» در سیستم ثبت شد.`);
+    } catch (err: any) {
+      console.warn('API brand creation failed, falling back to local state:', err);
+      const newBrand: ProductBrandItem = {
+        id: `brand-${Date.now()}`,
+        ...brandData,
+      };
+      const updated = [newBrand, ...brands];
+      setBrands(updated);
+      try {
+        localStorage.setItem('sevin_product_brands', JSON.stringify(updated));
+      } catch {}
+      showToast(`برند جدید «${newBrand.name}» در سیستم ثبت شد.`);
+    }
+  };
+
+  const handleUpdateBrand = async (updatedBrand: ProductBrandItem) => {
+    try {
+      const updatedFromApi = await brandsApi.update(updatedBrand.id, updatedBrand);
+      const updated = brands.map((b) => (b.id === updatedBrand.id ? updatedFromApi : b));
+      setBrands(updated);
+      showToast(`تغییرات برند «${updatedBrand.name}» با موفقیت ذخیره شد.`);
+    } catch (err: any) {
+      console.warn('API brand update failed, falling back to local state:', err);
+      const updated = brands.map((b) => (b.id === updatedBrand.id ? updatedBrand : b));
+      setBrands(updated);
+      try {
+        localStorage.setItem('sevin_product_brands', JSON.stringify(updated));
+      } catch {}
+      showToast(`تغییرات برند «${updatedBrand.name}» با موفقیت ذخیره شد.`);
+    }
+  };
+
+  const handleDeleteBrand = async (brandId: string) => {
+    try {
+      await brandsApi.delete(brandId);
+    } catch (err) {
+      console.warn('API brand delete failed:', err);
+    }
+    const updated = brands.filter((b) => b.id !== brandId);
+    setBrands(updated);
+    try {
+      localStorage.setItem('sevin_product_brands', JSON.stringify(updated));
+    } catch {}
+    showToast('برند از سیستم حذف شد.');
+  };
+
   return (
     <div className="w-full min-h-screen bg-slate-50/80 text-slate-900 font-sans pb-16" dir="rtl">
       {/* TOP HEADER BAR - Matching BlogManagementPanel */}
@@ -476,6 +561,23 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
             <span>مدیریت دسته‌بندی‌ها</span>
             <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black">
               {formatNumberFa(categories.length)}
+            </span>
+          </button>
+
+          {/* Tab 2.5: Brands */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('brands')}
+            className={`py-3 px-3 sm:px-4 text-xs font-black border-b-2 flex items-center gap-2 transition-all whitespace-nowrap ${
+              activeTab === 'brands'
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-slate-500 hover:text-slate-900'
+            }`}
+          >
+            <Award className="w-4 h-4" />
+            <span>مدیریت برندها</span>
+            <span className="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-black">
+              {formatNumberFa(brands.length)}
             </span>
           </button>
 
@@ -594,6 +696,15 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
             onAddCategory={handleAddCategory}
             onUpdateCategory={handleUpdateCategory}
             onDeleteCategory={handleDeleteCategory}
+          />
+        )}
+
+        {activeTab === 'brands' && (
+          <BrandList
+            brands={brands}
+            onAddBrand={handleAddBrand}
+            onUpdateBrand={handleUpdateBrand}
+            onDeleteBrand={handleDeleteBrand}
           />
         )}
 

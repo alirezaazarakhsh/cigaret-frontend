@@ -46,8 +46,6 @@ export const ProductsDocs: React.FC = () => {
         { name: 'data_type', type: 'CharField(max_length=20, choices=DATA_TYPES)', verbose: 'نوع داده (متن، عدد، انتخابی، بولی)' },
         { name: 'unit', type: 'CharField(max_length=30, blank=True)', verbose: 'واحد سنجش (اختیاری مثل mg, mm)' },
         { name: 'help_text', type: 'TextField(blank=True)', verbose: 'توضیح راهنما برای خریداران' },
-        { name: 'is_required', type: 'BooleanField(default=False)', verbose: 'تکمیل اجباری' },
-        { name: 'display_order', type: 'PositiveIntegerField(default=0)', verbose: 'ترتیب نمایش' },
         { name: 'created_at', type: 'DateTimeField', verbose: 'تاریخ ایجاد' },
       ]
     },
@@ -254,9 +252,7 @@ export const ProductsDocs: React.FC = () => {
       "data_type": "number",
       "data_type_display": "عددی (صحیح یا اعشاری)",
       "unit": "mg (میلی‌گرم)",
-      "help_text": "میزان نیکوتین آزمایشگاهی در هر نخ",
-      "is_required": false,
-      "display_order": 1
+      "help_text": "میزان نیکوتین آزمایشگاهی در هر نخ"
     },
     {
       "id": 2,
@@ -265,9 +261,7 @@ export const ProductsDocs: React.FC = () => {
       "data_type": "select",
       "data_type_display": "انتخابی / چندگزینه‌ای",
       "unit": null,
-      "help_text": "جنس فیلتر زغالی، استاندارد، استات یا طعم‌دار کپسولی",
-      "is_required": false,
-      "display_order": 2
+      "help_text": "جنس فیلتر زغالی، استاندارد، استات یا طعم‌دار کپسولی"
     }
   ]
 }`
@@ -456,7 +450,6 @@ class ProductBrand(models.Model):
     logo = models.ImageField(_("لوگو برند"), upload_to="brands/", blank=True, null=True)
     country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
     description = models.TextField(_("توضیحات برند"), blank=True, null=True)
-    is_active = models.BooleanField(_("فعال"), default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -631,8 +624,6 @@ class ProductAttribute(models.Model):
     data_type = models.CharField(_("نوع داده"), max_length=20, choices=DATA_TYPE_CHOICES, default='text')
     unit = models.CharField(_("واحد سنجش (اختیاری)"), max_length=30, blank=True, null=True)
     help_text = models.TextField(_("توضیح راهنما برای خریداران"), blank=True, null=True)
-    is_required = models.BooleanField(_("تکمیل اجباری"), default=False)
-    display_order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
     created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
     updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True)
 
@@ -786,8 +777,8 @@ class CategoryAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(ProductBrand)
 class ProductBrandAdmin(admin.ModelAdmin):
-    list_display = ['name', 'name_en', 'country', 'is_active']
-    list_filter = ['is_active', 'country']
+    list_display = ['name', 'name_en', 'country']
+    list_filter = ['country']
     search_fields = ['name', 'name_en', 'slug']
     prepopulated_fields = {'slug': ('name',)}
 
@@ -1036,8 +1027,6 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
             'data_type_display',
             'unit',
             'help_text',
-            'is_required',
-            'display_order',
         ]
 
 
@@ -1403,7 +1392,7 @@ class ProductAttributeListCreateAPIView(APIView):
         responses={200: ProductAttributeSerializer(many=True)}
     )
     def get(self, request):
-        queryset = ProductAttribute.objects.all().order_by('display_order', 'name')
+        queryset = ProductAttribute.objects.all().order_by('name')
         serializer = ProductAttributeSerializer(queryset, many=True)
         return Response({
             'status': 'success',

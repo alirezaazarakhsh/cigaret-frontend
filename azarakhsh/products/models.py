@@ -68,6 +68,38 @@ class Category(models.Model):
 
 
 # ==========================================
+# ۱.۵. مدل برندهای کالا (ProductBrand)
+# ==========================================
+
+class ProductBrand(models.Model):
+    """
+    مدل برندهای کالا (مطابق با فیلدهای فرم مدیریت برند):
+    ۱. نام برند (فارسی)
+    ۲. نام برند (انگلیسی)
+    ۳. اسلاگ سئو
+    ۴. لوگوی برند
+    ۵. کشور سازنده اصلی
+    ۶. توضیحات برند
+    """
+    name = models.CharField(_("نام برند (فارسی)"), max_length=150)
+    name_en = models.CharField(_("نام برند (انگلیسی)"), max_length=150, blank=True, null=True)
+    slug = models.SlugField(_("اسلاگ سئو"), max_length=160, unique=True, allow_unicode=True)
+    logo = models.ImageField(_("لوگو برند"), upload_to='brands/', blank=True, null=True)
+    country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
+    description = models.TextField(_("توضیحات برند"), blank=True, null=True)
+    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ آخرین ویرایش"), auto_now=True)
+
+    class Meta:
+        verbose_name = _("برند کالا")
+        verbose_name_plural = _("برندهای کالا")
+        ordering = ['-id']
+
+    def __str__(self):
+        return f"{self.name} ({self.name_en or self.slug})"
+
+
+# ==========================================
 # ۲. مدل هولوگرام و اصالت کالا (ProductHologram)
 # ==========================================
 
@@ -112,15 +144,13 @@ class ProductAttribute(models.Model):
     data_type = models.CharField(_("نوع داده"), max_length=20, choices=DATA_TYPE_CHOICES, default='text')
     unit = models.CharField(_("واحد سنجش (اختیاری)"), max_length=30, blank=True, null=True, help_text=_("مثال: mg، میلی‌گرم، درصد، mm، سال"))
     help_text = models.TextField(_("توضیح راهنما برای خریداران"), blank=True, null=True)
-    is_required = models.BooleanField(_("تکمیل اجباری"), default=False)
-    display_order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
     created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
     updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True)
 
     class Meta:
         verbose_name = _("ویژگی محصول")
         verbose_name_plural = _("ویژگی‌ها و مشخصات فنی کالاها")
-        ordering = ['display_order', 'name']
+        ordering = ['name']
 
     def __str__(self):
         unit_str = f" ({self.unit})" if self.unit else ""

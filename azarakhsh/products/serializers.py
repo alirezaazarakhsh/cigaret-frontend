@@ -6,6 +6,7 @@ products/serializers.py
 from rest_framework import serializers
 from .models import (
     Category,
+    ProductBrand,
     ProductHologram,
     ProductAttribute,
     ProductAttributeValue,
@@ -16,6 +17,48 @@ from .models import (
 
 from django.utils.text import slugify
 import uuid
+
+class ProductBrandSerializer(serializers.ModelSerializer):
+    """
+    سریالایزر برندهای کالا با ۶ فیلد اصلی (نام فارسی، نام انگلیسی، اسلاگ سئو، لوگو، کشور سازنده، توضیحات)
+    """
+    slug = serializers.SlugField(required=False, allow_blank=True)
+    products_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ProductBrand
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'slug',
+            'logo',
+            'country',
+            'description',
+            'products_count',
+            'created_at',
+            'updated_at'
+        ]
+        extra_kwargs = {
+            'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'country': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'logo': {'required': False, 'allow_null': True},
+        }
+
+    def validate(self, attrs):
+        if not attrs.get('slug'):
+            base_name = attrs.get('name_en') or attrs.get('name') or ''
+            generated_slug = slugify(base_name, allow_unicode=True)
+            if not generated_slug:
+                generated_slug = f"brand-{uuid.uuid4().hex[:8]}"
+            attrs['slug'] = generated_slug
+        return attrs
+
+    def get_products_count(self, obj):
+        # Count products matching this brand name or relation if needed
+        return Product.objects.filter(brand=obj.name).count()
+
 
 class CategorySerializer(serializers.ModelSerializer):
     """
@@ -96,8 +139,6 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
             'data_type_display',
             'unit',
             'help_text',
-            'is_required',
-            'display_order',
             'created_at'
         ]
 

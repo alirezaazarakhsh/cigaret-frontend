@@ -52,7 +52,7 @@ import {
   BlogCategoryItem,
   WarehouseMessage
 } from '../types';
-import { ProductCategoryItem, ProductHologramItem, ProductFeatureItem } from '../components/product-manage/types';
+import { ProductCategoryItem, ProductHologramItem, ProductFeatureItem, ProductBrandItem } from '../components/product-manage/types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
 import { 
@@ -394,8 +394,6 @@ export const attributesApi = {
       data_type: data.type || 'text',
       unit: data.unit || '',
       help_text: data.description || '',
-      is_required: false,
-      display_order: 0,
     };
 
     let response = await httpClient.post<any>('/products/attributes/', payload);
@@ -427,8 +425,6 @@ export const attributesApi = {
       data_type: data.type || 'text',
       unit: data.unit || '',
       help_text: data.description || '',
-      is_required: false,
-      display_order: 0,
     };
 
     let response = await httpClient.put<any>(`/products/attributes/${id}/`, payload);
@@ -457,6 +453,134 @@ export const attributesApi = {
     let response = await httpClient.delete<any>(`/products/attributes/${id}/`);
     if (!response.success && response.status === 404) {
       response = await httpClient.delete<any>(`/api/v1/products/attributes/${id}/`);
+    }
+    return response.success;
+  }
+};
+
+// ==========================================
+// 0.3 BRANDS API
+// ==========================================
+export const brandsApi = {
+  /**
+   * Fetches all product brands from backend GET /products/brands/
+   */
+  async getAll(): Promise<ProductBrandItem[]> {
+    let response = await httpClient.get<any>('/products/brands/', {
+      headers: API_CACHE_CONTROL_HEADERS,
+    });
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>('/api/v1/products/brands/', {
+        headers: API_CACHE_CONTROL_HEADERS,
+      });
+    }
+
+    if (response.success && response.data) {
+      const items = Array.isArray(response.data)
+        ? response.data
+        : (response.data.results || response.data.data || []);
+
+      const mapped: ProductBrandItem[] = items.map((item: any) => ({
+        id: String(item.id),
+        name: item.name || '',
+        nameEn: item.name_en || '',
+        slug: item.slug || '',
+        logo: item.logo || undefined,
+        country: item.country || '',
+        description: item.description || '',
+      }));
+
+      try {
+        localStorage.setItem('sevin_product_brands', JSON.stringify(mapped));
+      } catch {}
+
+      return mapped;
+    }
+
+    // Fallback if offline
+    try {
+      const saved = localStorage.getItem('sevin_product_brands');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  },
+
+  /**
+   * Creates a new brand on POST /products/brands/
+   */
+  async create(data: { name: string; nameEn?: string; slug?: string; logo?: string; country?: string; description?: string }): Promise<ProductBrandItem> {
+    const payload = {
+      name: data.name,
+      name_en: data.nameEn || '',
+      slug: data.slug || '',
+      logo: data.logo || null,
+      country: data.country || '',
+      description: data.description || '',
+    };
+
+    let response = await httpClient.post<any>('/products/brands/', payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post<any>('/api/v1/products/brands/', payload);
+    }
+
+    if (response.success && response.data) {
+      const res = response.data.data || response.data;
+      return {
+        id: String(res.id),
+        name: res.name || data.name,
+        nameEn: res.name_en || data.nameEn || '',
+        slug: res.slug || data.slug || '',
+        logo: res.logo || data.logo || undefined,
+        country: res.country || data.country || '',
+        description: res.description || data.description || '',
+      };
+    }
+    throw new Error(response.error || 'خطا در برقراری ارتباط با سرور یا ثبت برند در دیتابیس');
+  },
+
+  /**
+   * Updates an existing brand on PUT /products/brands/{id}/
+   */
+  async update(id: string | number, data: { name: string; nameEn?: string; slug?: string; logo?: string; country?: string; description?: string }): Promise<ProductBrandItem> {
+    const payload = {
+      name: data.name,
+      name_en: data.nameEn || '',
+      slug: data.slug || '',
+      logo: data.logo || null,
+      country: data.country || '',
+      description: data.description || '',
+    };
+
+    let response = await httpClient.put<any>(`/products/brands/${id}/`, payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.put<any>(`/api/v1/products/brands/${id}/`, payload);
+    }
+
+    if (response.success && response.data) {
+      const res = response.data.data || response.data;
+      return {
+        id: String(res.id || id),
+        name: res.name || data.name,
+        nameEn: res.name_en || data.nameEn || '',
+        slug: res.slug || data.slug || '',
+        logo: res.logo || data.logo || undefined,
+        country: res.country || data.country || '',
+        description: res.description || data.description || '',
+      };
+    }
+    throw new Error(response.error || 'خطا در ویرایش برند در دیتابیس');
+  },
+
+  /**
+   * Deletes a brand on DELETE /products/brands/{id}/
+   */
+  async delete(id: string | number): Promise<boolean> {
+    let response = await httpClient.delete<any>(`/products/brands/${id}/`);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.delete<any>(`/api/v1/products/brands/${id}/`);
     }
     return response.success;
   }

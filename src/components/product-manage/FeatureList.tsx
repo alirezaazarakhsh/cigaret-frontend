@@ -282,19 +282,17 @@ export const FeatureList: React.FC<FeatureListProps> = ({
                       >
                         <td className="p-4 text-center font-bold text-slate-400">{formatNumberFa(index + 1)}</td>
                         <td className="p-4">
-                          <div>
-                            <div className="font-black text-slate-900 text-xs flex items-center gap-1.5">
-                              <span>{feat.nameFa}</span>
-                              {isBeingEdited && (
-                                <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold">
-                                  در حال ویرایش
-                                </span>
-                              )}
-                            </div>
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="font-black text-slate-900 text-xs">{feat.nameFa}</span>
                             {feat.nameEn && (
-                              <div className="text-[10px] text-slate-400 font-mono dir-ltr text-left">
+                              <span className="text-xs text-indigo-600 bg-indigo-50/80 px-2.5 py-1 rounded-lg font-mono font-semibold dir-ltr border border-indigo-100/80 shadow-2xs">
                                 {feat.nameEn}
-                              </div>
+                              </span>
+                            )}
+                            {isBeingEdited && (
+                              <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold shrink-0">
+                                در حال ویرایش
+                              </span>
                             )}
                           </div>
                         </td>

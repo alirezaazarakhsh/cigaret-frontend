@@ -796,21 +796,29 @@ urlpatterns = [
 `,
   },
 
-  catalog: {
-    id: 'catalog',
-    name: 'catalog',
-    nameFa: 'اپ کاتالوگ محصولات و انبارداری (Products & Inventory)',
+  products: {
+    id: 'products',
+    name: 'products',
+    nameFa: 'اپ مدیریت محصولات، برندها و ویژگی‌ها (Products & Brands)',
     icon: 'Package',
-    description: 'مدیریت محصولات سیگار و دخانیات، قیمت کارتن و باکس، موجودی انبار جنت‌آباد، تخفیف‌های تیراژ و هولوگرام',
+    description: 'مدیریت کاتالوگ کالاها، برندها (بدون is_active)، ویژگی‌های فنی (Attributes بدون is_required و display_order)، نرخ کارتن و باکس و تخفیف‌های تیراژ',
     models: `"""
-catalog/models.py
-مدل‌های محصولات دخانیات، نرخ کارتن، باکس، هولوگرام و تخفیف‌های تیراژ
+products/models.py
+مدل‌های مدیریت محصولات دخانیات، برندها، ویژگی‌های کالا (Attributes) و تخفیف‌های تیراژ
 """
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 
 class Category(models.Model):
+    COLOR_CHOICES = (
+        ('#3B82F6', _('آبی')),
+        ('#10B981', _('سبز')),
+        ('#F59E0B', _('نارنجی')),
+        ('#EF4444', _('قرمز')),
+        ('#8B5CF6', _('بنفش')),
+    )
+
     name = models.CharField(_("عنوان دسته‌بندی (فارسی)"), max_length=150, db_index=True)
     name_en = models.CharField(_("نام لاتین (English)"), max_length=150, blank=True, null=True)
     slug = models.SlugField(_("شناسه سیستمی (Slug)"), max_length=160, unique=True, allow_unicode=True)
@@ -835,9 +843,14 @@ class Category(models.Model):
 
 
 class Brand(models.Model):
+    """
+    مدل برندها و تولیدکنندگان محصولات دخانیات
+    توجه: فیلد is_active حذف شده است.
+    """
     name = models.CharField(_("نام تجاری برند"), max_length=80, unique=True)
     country_of_origin = models.CharField(_("کشور مبدأ / کارخانه"), max_length=80, default="سوئیس")
     logo = models.ImageField(_("لوگو برند"), upload_to="brands/", blank=True, null=True)
+    description = models.TextField(_("توضیحات برند"), blank=True, null=True)
 
     class Meta:
         verbose_name = _("برند دخانیات")
@@ -846,6 +859,23 @@ class Brand(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.country_of_origin})"
+
+
+class ProductAttribute(models.Model):
+    """
+    ویژگی‌های متغیر کالا (مانند قطران، نیکوتین، طعم، طعم‌دهی، نوع فیلتر و ...)
+    توجه: فیلدهای is_required و display_order حذف گردیده‌اند.
+    """
+    name_fa = models.CharField(_("نام ویژگی (فارسی)"), max_length=100)
+    name_en = models.CharField(_("نام ویژگی (انگلیسی)"), max_length=100)
+
+    class Meta:
+        verbose_name = _("ویژگی محصول")
+        verbose_name_plural = _("ویژگی‌های فنی محصولات")
+        ordering = ['id']
+
+    def __str__(self):
+        return f"{self.name_fa} | {self.name_en}"
 
 
 class CigaretteProduct(models.Model):
@@ -905,6 +935,23 @@ class CigaretteProduct(models.Model):
         return f"{self.name_fa} - کارتن: {self.carton_price:,} تومان"
 
 
+class ProductAttributeValue(models.Model):
+    """
+    مقدار ویژگی برای محصول خاص
+    """
+    product = models.ForeignKey(CigaretteProduct, on_delete=models.CASCADE, related_name='attribute_values', verbose_name=_("محصول"))
+    attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, related_name='values', verbose_name=_("ویژگی"))
+    value = models.CharField(_("مقدار ویژگی"), max_length=200)
+
+    class Meta:
+        verbose_name = _("مقدار ویژگی محصول")
+        verbose_name_plural = _("مقادیر ویژگی‌های محصولات")
+        unique_together = ['product', 'attribute']
+
+    def __str__(self):
+        return f"{self.product.name_fa} -> {self.attribute.name_fa}: {self.value}"
+
+
 class PriceTier(models.Model):
     product = models.ForeignKey(CigaretteProduct, on_delete=models.CASCADE, related_name="tier_discounts", verbose_name=_("کالا"))
     min_quantity = models.PositiveIntegerField(_("حداقل تعداد کارتن"), default=3)
@@ -919,13 +966,20 @@ class PriceTier(models.Model):
         return f"{self.product.name_fa} -> از {self.min_quantity} کارتن: {self.discount_percent}٪"
 `,
     admin: `"""
-catalog/admin.py
-پنل مدیریت کالاهای دخانیات، ثبت قیمت‌ها، تخفیف‌های پلکانی و موجودی انبار
+products/admin.py
+پنل مدیریت کالاهای دخانیات، برندها (بدون is_active)، ویژگی‌های محصول (بدون is_required و display_order) و تخفیف‌های پلکانی
 """
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 from django.utils.html import format_html
-from .models import Category, Brand, CigaretteProduct, PriceTier
+from .models import Category, Brand, ProductAttribute, ProductAttributeValue, CigaretteProduct, PriceTier
+
+
+class ProductAttributeValueInline(admin.TabularInline):
+    model = ProductAttributeValue
+    extra = 1
+    verbose_name = _("مقدار ویژگی")
+    verbose_name_plural = _("مقادیر ویژگی‌های این محصول")
 
 
 class PriceTierInline(admin.TabularInline):
@@ -933,6 +987,24 @@ class PriceTierInline(admin.TabularInline):
     extra = 1
     verbose_name = _("پله تخفیف تیراژ")
     verbose_name_plural = _("جدول تخفیف‌های پلکانی کارتن")
+
+
+@admin.register(Brand)
+class BrandAdmin(admin.ModelAdmin):
+    """
+    مدیریت برندها (فیلد is_active حذف شده است)
+    """
+    list_display = ('id', 'name', 'country_of_origin')
+    search_fields = ('name', 'country_of_origin')
+
+
+@admin.register(ProductAttribute)
+class ProductAttributeAdmin(admin.ModelAdmin):
+    """
+    مدیریت ویژگی‌های محصولات (فیلدهای is_required و display_order حذف شده‌اند)
+    """
+    list_display = ('id', 'name_fa', 'name_en')
+    search_fields = ('name_fa', 'name_en')
 
 
 @admin.register(CigaretteProduct)
@@ -952,7 +1024,7 @@ class CigaretteProductAdmin(admin.ModelAdmin):
     search_fields = ('name_fa', 'name_en', 'barcode', 'origin')
     autocomplete_fields = ['brand']
     list_editable = ('is_available',)
-    inlines = [PriceTierInline]
+    inlines = [ProductAttributeValueInline, PriceTierInline]
     readonly_fields = ('created_at', 'updated_at')
 
     fieldsets = (
@@ -973,7 +1045,7 @@ class CigaretteProductAdmin(admin.ModelAdmin):
         }),
     )
 
-    actions = ['mark_as_available', 'mark_as_unavailable', 'apply_5_percent_inflation']
+    actions = ['mark_as_available', 'mark_as_unavailable']
 
     @admin.display(description=_("تصویر کالا"))
     def product_thumb(self, obj):
@@ -1006,12 +1078,6 @@ class CigaretteProductAdmin(admin.ModelAdmin):
         queryset.update(is_available=False)
 
 
-@admin.register(Brand)
-class BrandAdmin(admin.ModelAdmin):
-    list_display = ('name', 'country_of_origin')
-    search_fields = ('name', 'country_of_origin')
-
-
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ('name', 'name_en', 'slug', 'color_badge', 'parent', 'display_order', 'is_active')
@@ -1028,11 +1094,11 @@ class CategoryAdmin(admin.ModelAdmin):
         )
 `,
     serializers: `"""
-catalog/serializers.py
-سریالایزرهای کاتالوگ، برندها و تخفیف‌های تیراژ
+products/serializers.py
+سریالایزرهای کاتالوگ محصولات، برندها، ویژگی‌های فنی و تخفیف‌های تیراژ
 """
 from rest_framework import serializers
-from .models import Category, Brand, CigaretteProduct, PriceTier
+from .models import Category, Brand, ProductAttribute, ProductAttributeValue, CigaretteProduct, PriceTier
 
 
 class PriceTierSerializer(serializers.ModelSerializer):
@@ -1042,14 +1108,36 @@ class PriceTierSerializer(serializers.ModelSerializer):
 
 
 class BrandSerializer(serializers.ModelSerializer):
+    """
+    سریالایزر برندها (بدون is_active)
+    """
     class Meta:
         model = Brand
-        fields = ['id', 'name', 'country_of_origin', 'logo']
+        fields = ['id', 'name', 'country_of_origin', 'logo', 'description']
+
+
+class ProductAttributeSerializer(serializers.ModelSerializer):
+    """
+    سریالایزر ویژگی‌های محصول (بدون is_required و display_order)
+    """
+    class Meta:
+        model = ProductAttribute
+        fields = ['id', 'name_fa', 'name_en']
+
+
+class ProductAttributeValueSerializer(serializers.ModelSerializer):
+    attribute_name_fa = serializers.CharField(source='attribute.name_fa', read_only=True)
+    attribute_name_en = serializers.CharField(source='attribute.name_en', read_only=True)
+
+    class Meta:
+        model = ProductAttributeValue
+        fields = ['id', 'attribute', 'attribute_name_fa', 'attribute_name_en', 'value']
 
 
 class CigaretteProductSerializer(serializers.ModelSerializer):
     brand_name = serializers.CharField(source='brand.name', read_only=True)
     tier_discounts = PriceTierSerializer(many=True, read_only=True)
+    attribute_values = ProductAttributeValueSerializer(many=True, read_only=True)
     category_display = serializers.CharField(source='get_category_display', read_only=True)
 
     class Meta:
@@ -1079,24 +1167,82 @@ class CigaretteProductSerializer(serializers.ModelSerializer):
             'image_url',
             'description',
             'tier_discounts',
+            'attribute_values',
             'updated_at',
         ]
 `,
     views: `"""
-catalog/views.py
-ویوهای کاتالوگ محصولات با فیلترهای برند، دسته‌بندی و متدهای محاسبه نرخ
+products/views.py
+ویوهای کاتالوگ محصولات، برندها، ویژگی‌ها و محاسبه‌گر نرخ کارتن و باکس
 """
-from rest_framework.viewsets import ReadOnlyModelViewSet, ModelViewSet
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import permissions, filters
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import CigaretteProduct, Brand, Category
-from .serializers import CigaretteProductSerializer, BrandSerializer
+from .models import CigaretteProduct, Brand, ProductAttribute, ProductAttributeValue, Category
+from .serializers import (
+    CigaretteProductSerializer, 
+    BrandSerializer, 
+    ProductAttributeSerializer, 
+    ProductAttributeValueSerializer
+)
+
+
+class BrandViewSet(ModelViewSet):
+    """
+    وب‌سرویس مدیریت برندها
+    آدرس اندپوینت: /api/v1/products/brands/
+    """
+    queryset = Brand.objects.all()
+    serializer_class = BrandSerializer
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'country_of_origin']
+    ordering_fields = ['name', 'id']
+    ordering = ['name']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAdminUser()]
+        return [permissions.AllowAny()]
+
+
+class ProductAttributeViewSet(ModelViewSet):
+    """
+    وب‌سرویس مدیریت ویژگی‌های کالا (بدون is_required و display_order)
+    آدرس اندپوینت: /api/v1/products/attributes/
+    """
+    queryset = ProductAttribute.objects.all()
+    serializer_class = ProductAttributeSerializer
+    filter_backends = [filters.SearchFilter]
+    search_fields = ['name_fa', 'name_en']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAdminUser()]
+        return [permissions.AllowAny()]
+
+
+class ProductAttributeValueViewSet(ModelViewSet):
+    """
+    وب‌سرویس مقادیر ویژگی‌های محصولات
+    آدرس اندپوینت: /api/v1/products/attribute-values/
+    """
+    queryset = ProductAttributeValue.objects.select_related('product', 'attribute').all()
+    serializer_class = ProductAttributeValueSerializer
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [permissions.IsAdminUser()]
+        return [permissions.AllowAny()]
 
 
 class CigaretteProductViewSet(ModelViewSet):
-    queryset = CigaretteProduct.objects.filter(is_available=True).prefetch_related('tier_discounts', 'brand')
+    """
+    وب‌سرویس محصولات دخانیات و کاتالوگ انبار
+    آدرس اندپوینت: /api/v1/products/products/
+    """
+    queryset = CigaretteProduct.objects.filter(is_available=True).prefetch_related('tier_discounts', 'brand', 'attribute_values')
     serializer_class = CigaretteProductSerializer
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_fields = ['category', 'brand__name', 'origin', 'price_trend']
@@ -1136,16 +1282,29 @@ class CigaretteProductViewSet(ModelViewSet):
         })
 `,
     urls: `"""
-catalog/urls.py
-مسیرهای URL کاتالوگ محصولات و برندها
+products/urls.py
+مسیرهای URL محصولات، برندها، ویژگی‌های فنی و مقادیر ویژگی‌ها
 """
+from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CigaretteProductViewSet
+from .views import (
+    CigaretteProductViewSet, 
+    BrandViewSet, 
+    ProductAttributeViewSet, 
+    ProductAttributeValueViewSet
+)
+
+app_name = 'products'
 
 router = DefaultRouter()
+router.register(r'brands', BrandViewSet, basename='brand')
+router.register(r'attributes', ProductAttributeViewSet, basename='attribute')
+router.register(r'attribute-values', ProductAttributeValueViewSet, basename='attribute-value')
 router.register(r'products', CigaretteProductViewSet, basename='product')
 
-urlpatterns = router.urls
+urlpatterns = [
+    path('', include(router.urls)),
+]
 `,
   },
 

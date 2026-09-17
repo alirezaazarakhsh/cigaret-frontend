@@ -7,6 +7,8 @@ from django.urls import path
 from .views import (
     CategoryListCreateAPIView,
     CategoryDetailUpdateDeleteAPIView,
+    BrandListCreateAPIView,
+    BrandDetailUpdateDeleteAPIView,
     HologramListCreateAPIView,
     HologramDetailUpdateDeleteAPIView,
     ProductAttributeListCreateAPIView,
@@ -28,6 +30,10 @@ urlpatterns = [
     # ۱. دسته‌بندی‌ها
     path('categories/', CategoryListCreateAPIView.as_view(), name='category-list-create'),
     path('categories/<int:pk>/', CategoryDetailUpdateDeleteAPIView.as_view(), name='category-detail-update-delete'),
+
+    # ۱.۵. برندهای کالا
+    path('brands/', BrandListCreateAPIView.as_view(), name='brand-list-create'),
+    path('brands/<int:pk>/', BrandDetailUpdateDeleteAPIView.as_view(), name='brand-detail-update-delete'),
 
     # ۲. هولوگرام و اصالت کالا
     path('holograms/', HologramListCreateAPIView.as_view(), name='hologram-list-create'),

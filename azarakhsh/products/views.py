@@ -14,6 +14,7 @@ from drf_yasg.utils import swagger_auto_schema
 
 from .models import (
     Category,
+    ProductBrand,
     ProductHologram,
     ProductAttribute,
     ProductAttributeValue,
@@ -21,6 +22,7 @@ from .models import (
 )
 from .serializers import (
     CategorySerializer,
+    ProductBrandSerializer,
     ProductHologramSerializer,
     ProductAttributeSerializer,
     ProductAttributeValueSerializer,
@@ -120,6 +122,89 @@ class CategoryDetailUpdateDeleteAPIView(APIView):
         return Response({'status': 'success', 'message': 'دسته‌بندی با موفقیت حذف گردید.'})
 
 
+class BrandListCreateAPIView(APIView):
+    """
+    اندپوینت مدیریت برندهای کالا (دریافت لیست و ایجاد برند جدید)
+    """
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست برندهای کالا",
+        responses={200: ProductBrandSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = ProductBrand.objects.all().order_by('-id')
+        serializer = ProductBrandSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="ایجاد برند جدید (مدیریت)",
+        request_body=ProductBrandSerializer,
+        responses={201: ProductBrandSerializer}
+    )
+    def post(self, request):
+        serializer = ProductBrandSerializer(data=request.data)
+        if serializer.is_valid():
+            brand = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'برند جدید با موفقیت ایجاد گردید.',
+                'data': ProductBrandSerializer(brand).data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BrandDetailUpdateDeleteAPIView(APIView):
+    """
+    اندپوینت مشاهده، ویرایش و حذف یک برند مشخص بر اساس ID
+    """
+    def get_permissions(self):
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات برند",
+        responses={200: ProductBrandSerializer}
+    )
+    def get(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        return Response({'status': 'success', 'data': ProductBrandSerializer(brand).data})
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش برند (مدیریت)",
+        request_body=ProductBrandSerializer,
+        responses={200: ProductBrandSerializer}
+    )
+    def put(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        serializer = ProductBrandSerializer(brand, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اطلاعات برند با موفقیت ویرایش شد.',
+                'data': ProductBrandSerializer(updated).data
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(
+        operation_summary="حذف برند (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
+    def delete(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        brand.delete()
+        return Response({'status': 'success', 'message': 'برند با موفقیت حذف گردید.'})
+
+
 class HologramListCreateAPIView(APIView):
     """
     اندپوینت دریافت لیست هولوگرام‌ها و سطوح اصالت یا ثبت هولوگرام جدید با سطح اعتبار انتخابی (Choice)
@@ -217,7 +302,7 @@ class ProductAttributeListCreateAPIView(APIView):
         responses={200: ProductAttributeSerializer(many=True)}
     )
     def get(self, request):
-        queryset = ProductAttribute.objects.all().order_by('display_order', 'name')
+        queryset = ProductAttribute.objects.all().order_by('name')
         serializer = ProductAttributeSerializer(queryset, many=True)
         return Response({
             'status': 'success',

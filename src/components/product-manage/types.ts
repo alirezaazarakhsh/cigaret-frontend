@@ -29,6 +29,16 @@ export interface ProductFeatureItem {
   description?: string;
 }
 
+export interface ProductBrandItem {
+  id: string;
+  name: string;
+  nameEn?: string;
+  slug: string;
+  logo?: string;
+  country?: string;
+  description?: string;
+}
+
 export const INITIAL_PRODUCT_CATEGORIES: ProductCategoryItem[] = [
   { id: 'cigarettes', slug: 'cigarettes', name: 'سیگارهای اورجینال و شرکتی', nameEn: 'Cigarettes', description: 'مارلبرو، وینستون، سوبرانی، کنت، اسه و برندهای پرفروش', color: 'text-blue-600' },
   { id: 'iqos_devices', slug: 'iqos_devices', name: 'دستگاه‌های ایکاس', nameEn: 'IQOS Devices', description: 'دستگاه‌های گرم‌کننده توتون IQOS ILUMA Prime و ONE', color: 'text-purple-600' },
@@ -42,3 +52,5 @@ export const INITIAL_PRODUCT_CATEGORIES: ProductCategoryItem[] = [
 export const INITIAL_PRODUCT_HOLOGRAMS: ProductHologramItem[] = [];
 
 export const INITIAL_PRODUCT_FEATURES: ProductFeatureItem[] = [];
+
+export const INITIAL_PRODUCT_BRANDS: ProductBrandItem[] = [];

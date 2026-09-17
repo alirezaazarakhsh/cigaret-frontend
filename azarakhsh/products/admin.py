@@ -99,8 +99,8 @@ class CategoryAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(ProductBrand)
 class ProductBrandAdmin(admin.ModelAdmin):
-    list_display = ['name', 'name_en', 'country', 'is_active']
-    list_filter = ['is_active', 'country']
+    list_display = ['name', 'name_en', 'country', 'created_at']
+    list_filter = ['country']
     search_fields = ['name', 'name_en', 'slug']  # 👈 ضروری برای autocomplete_fields
     prepopulated_fields = {'slug': ('name',)}
 
