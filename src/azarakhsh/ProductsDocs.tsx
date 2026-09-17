@@ -441,13 +441,13 @@ class Category(models.Model):
 
 
 # ==============================================================================
-# ۲. برندهای کالا (Product Brands)
+# ۲. برندهای کالا (Product Brands / Brand)
 # ==============================================================================
 class ProductBrand(models.Model):
     name = models.CharField(_("نام برند (فارسی)"), max_length=120)
     name_en = models.CharField(_("نام برند (انگلیسی)"), max_length=120, blank=True, null=True)
     slug = models.SlugField(_("اسلاگ سئو"), max_length=130, unique=True, allow_unicode=True)
-    logo = models.ImageField(_("لوگو برند"), upload_to="brands/", blank=True, null=True)
+    logo = models.ImageField(_("لوگو برند"), upload_to="brands/logos/", blank=True, null=True, help_text=_("آپلود فایل تصویر لوگوی برند"))
     country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
     description = models.TextField(_("توضیحات برند"), blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -459,6 +459,17 @@ class ProductBrand(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def logo_url(self):
+        """آدرس مستقیم تصویر لوگو جهت استفاده در فرانت‌اند و قالب‌ها"""
+        if self.logo and hasattr(self.logo, 'url'):
+            return self.logo.url
+        return None
+
+
+# نام مستعار جهت سازگاری کامل با پروژه‌هایی که از مدل Brand استفاده می‌کنند
+Brand = ProductBrand
 
 
 # ==============================================================================
@@ -779,16 +790,21 @@ class CategoryAdmin(admin.ModelAdmin):
 class ProductBrandAdmin(admin.ModelAdmin):
     list_display = ['id', 'logo_preview', 'name', 'name_en', 'country', 'created_at']
     readonly_fields = ['logo_preview']
+    fields = ['name', 'name_en', 'slug', 'logo', 'logo_preview', 'country', 'description']
     list_filter = ['country']
     search_fields = ['name', 'name_en', 'slug']
     prepopulated_fields = {'slug': ('name',)}
 
-    @admin.display(description=_("پیش‌نمایش لوگو"))
+    @admin.display(description=_("پیش‌نمایش تصویر لوگو"))
     def logo_preview(self, obj):
         if obj.logo:
             url = obj.logo.url if hasattr(obj.logo, 'url') else str(obj.logo)
-            return format_html('<img src="{}" style="max-width: 80px; max-height: 48px; border-radius: 6px; object-fit: contain; border: 1px solid #e2e8f0; padding: 2px; background: #fff;" />', url)
-        return format_html('<span style="color: #9ca3af; font-size: 12px;">بدون لوگو</span>')
+            return format_html('<img src="{}" style="max-width: 100px; max-height: 60px; border-radius: 8px; object-fit: contain; border: 1px solid #cbd5e1; padding: 3px; background: #ffffff;" />', url)
+        return format_html('<span style="color: #94a3b8; font-size: 12px; font-weight: 500;">بدون تصویر لوگو</span>')
+
+
+# نام مستعار جهت پشتیبانی از پروژه‌هایی که از BrandAdmin استفاده می‌کنند
+BrandAdmin = ProductBrandAdmin
 
 
 # ==============================================================================
@@ -1003,6 +1019,10 @@ class ProductBrandSerializer(serializers.ModelSerializer):
         return attrs
 
 
+# نام مستعار جهت پشتیبانی از پروژه‌هایی که از BrandSerializer استفاده می‌کنند
+BrandSerializer = ProductBrandSerializer
+
+
 class CategorySerializer(serializers.ModelSerializer):
     """
     سریالایزر جامع دسته‌بندی با ۵ فیلد اصلی فرم ورودی:
@@ -1115,6 +1135,9 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_color = serializers.CharField(source='category.color', read_only=True)
+    brand_detail = ProductBrandSerializer(source='brand', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True, default='')
+    brand_logo = serializers.SerializerMethodField(read_only=True)
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
     attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
@@ -1127,6 +1150,9 @@ class ProductSerializer(serializers.ModelSerializer):
             'name_en',
             'slug',
             'brand',
+            'brand_detail',
+            'brand_name',
+            'brand_logo',
             'barcode',
             'category',
             'category_name',
@@ -1155,9 +1181,23 @@ class ProductSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
+    def get_brand_logo(self, obj):
+        if obj.brand and obj.brand.logo:
+            request = self.context.get('request')
+            if hasattr(obj.brand.logo, 'url'):
+                url = obj.brand.logo.url
+                if request is not None:
+                    return request.build_absolute_uri(url)
+                return url
+            return str(obj.brand.logo)
+        return None
+
 
 class ProductDetailSerializer(serializers.ModelSerializer):
     category_detail = CategorySerializer(source='category', read_only=True)
+    brand_detail = ProductBrandSerializer(source='brand', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True, default='')
+    brand_logo = serializers.SerializerMethodField(read_only=True)
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
     attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
@@ -1170,6 +1210,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'name_en',
             'slug',
             'brand',
+            'brand_detail',
+            'brand_name',
+            'brand_logo',
             'barcode',
             'category',
             'category_detail',
@@ -1198,6 +1241,17 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
+
+    def get_brand_logo(self, obj):
+        if obj.brand and obj.brand.logo:
+            request = self.context.get('request')
+            if hasattr(obj.brand.logo, 'url'):
+                url = obj.brand.logo.url
+                if request is not None:
+                    return request.build_absolute_uri(url)
+                return url
+            return str(obj.brand.logo)
+        return None
 
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
@@ -1239,6 +1293,8 @@ products/views.py
 
 from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
+from rest_framework import filters
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
@@ -1354,6 +1410,35 @@ class ProductBrandDetailUpdateDeleteAPIView(APIView):
         brand = get_object_or_404(ProductBrand, pk=pk)
         brand.delete()
         return Response({'status': 'success', 'message': 'برند مورد نظر حذف گردید.'})
+
+
+class BrandViewSet(ModelViewSet):
+    """
+    وب‌سرویس مدیریت برندها با الگوی ViewSet (پشتیبانی از DRF Router و MultiPartParser جهت آپلود لوگو)
+    آدرس اندپوینت: /api/v1/products/brands/
+    """
+    queryset = ProductBrand.objects.all()
+    serializer_class = ProductBrandSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'name_en', 'country']
+    ordering_fields = ['name', 'id']
+    ordering = ['name']
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+
+# نام‌های مستعار برای سازگاری کامل با پروژه‌های نام‌گذاری مختلف
+BrandListCreateAPIView = ProductBrandListCreateAPIView
+BrandDetailUpdateDeleteAPIView = ProductBrandDetailUpdateDeleteAPIView
 
 
 class CategoryListCreateAPIView(APIView):
@@ -1911,6 +1996,13 @@ urlpatterns = [
     path('<int:pk>/sync-pos-stock/', ProductSyncPosStockAPIView.as_view(), name='product-sync-pos-stock'),
     path('<int:pk>/delete/', ProductDeleteAPIView.as_view(), name='product-delete'),
 ]
+
+# نکته: در صورت استفاده از الگوی DRF DefaultRouter به جای APIView، می‌توانید به صورت زیر استفاده کنید:
+# from rest_framework.routers import DefaultRouter
+# from .views import BrandViewSet
+# router = DefaultRouter()
+# router.register(r'brands', BrandViewSet, basename='brand')
+# urlpatterns += router.urls
 `;
 
   const notesCode = `## 📌 راهنمای جامع معماری یکپارچه کاتالوگ محصولات، دسته‌بندی‌ها، هولوگرام‌ها و ویژگی‌های فنی (products)

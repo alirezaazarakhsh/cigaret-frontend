@@ -845,11 +845,10 @@ class Category(models.Model):
 class Brand(models.Model):
     """
     مدل برندها و تولیدکنندگان محصولات دخانیات
-    توجه: فیلد is_active حذف شده است.
     """
     name = models.CharField(_("نام تجاری برند"), max_length=80, unique=True)
     country_of_origin = models.CharField(_("کشور مبدأ / کارخانه"), max_length=80, default="سوئیس")
-    logo = models.ImageField(_("لوگو برند"), upload_to="brands/", blank=True, null=True)
+    logo = models.ImageField(_("لوگو برند"), upload_to="brands/logos/", blank=True, null=True, help_text=_("آپلود تصویر لوگوی برند"))
     description = models.TextField(_("توضیحات برند"), blank=True, null=True)
 
     class Meta:
@@ -859,6 +858,16 @@ class Brand(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.country_of_origin})"
+
+    @property
+    def logo_url(self):
+        if self.logo and hasattr(self.logo, 'url'):
+            return self.logo.url
+        return None
+
+
+# نام مستعار جهت سازگاری با پروژه‌های مختلف
+ProductBrand = Brand
 
 
 class ProductAttribute(models.Model):
