@@ -6,20 +6,15 @@ export const ProductsDocs: React.FC = () => {
   const erdTables: TableErdMeta[] = [
     {
       name: 'products_category',
-      verboseName: 'جدول دسته‌بندی‌های درختی محصولات (Categories)',
-      description: 'ساختار درختی دسته‌بندی‌ها با شناسه سیستمی (اسلاگ فارسی سئو)، پالت رنگی استاندارد (Choice)، آیکون، تصویر و شمارنده محصولات',
+      verboseName: 'جدول دسته‌بندی‌های کالاها (Categories)',
+      description: 'دسته‌بندی کالاها با شناسه سیستمی (اسلاگ فارسی سئو)، پالت ۶ رنگی استاندارد (Choice)، عنوان فارسی، نام لاتین و توضیحات کوتاه',
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
         { name: 'name', type: 'CharField(max_length=150)', verbose: 'عنوان دسته‌بندی (فارسی) *' },
         { name: 'name_en', type: 'CharField(max_length=150, blank=True)', verbose: 'نام لاتین (English)' },
         { name: 'slug', type: 'SlugField(max_length=160)', isUnique: true, verbose: 'شناسه سیستمی (Slug / ID)' },
-        { name: 'color', type: 'CharField(max_length=30, choices=COLOR_CHOICES)', verbose: 'رنگ شناسه (انتخابی Choice)' },
+        { name: 'color', type: 'CharField(max_length=30, choices=COLOR_CHOICES)', verbose: 'رنگ شناسه (پالت ۶ رنگ انتخابی Choice)' },
         { name: 'description', type: 'TextField(blank=True)', verbose: 'توضیحات کوتاه دسته‌بندی' },
-        { name: 'icon', type: 'CharField(max_length=60, default="Layers")', verbose: 'نام آیکون نمایشی' },
-        { name: 'image', type: 'ImageField(upload_to="categories/", blank=True)', verbose: 'تصویر شاخص دسته‌بندی' },
-        { name: 'parent_id', type: 'ForeignKey(self)', isFk: true, fkTarget: 'products_category', verbose: 'دسته مادر (والد - ساختار درختی)' },
-        { name: 'display_order', type: 'PositiveIntegerField(default=0)', verbose: 'ترتیب نمایش' },
-        { name: 'is_active', type: 'BooleanField(default=True)', verbose: 'وضعیت فعال بودن' },
         { name: 'created_at', type: 'DateTimeField', verbose: 'تاریخ ایجاد' },
         { name: 'updated_at', type: 'DateTimeField', verbose: 'تاریخ آخرین ویرایش' },
       ]
@@ -124,7 +119,7 @@ export const ProductsDocs: React.FC = () => {
       method: 'GET',
       path: '/api/v1/products/categories/',
       auth: 'AllowAny',
-      description: 'دریافت فهرست تمام دسته‌بندی‌ها به همراه رنگ شناسه، آیکون و تعداد کالاها',
+      description: 'دریافت فهرست تمام دسته‌بندی‌ها به همراه ۵ فیلد اصلی (عنوان، نام لاتین، اسلاگ، رنگ شناسه و توضیحات)',
       curlExample: `curl -X GET "http://localhost:8000/api/v1/products/categories/"`,
       responseBody: `{
   "status": "success",
@@ -136,11 +131,11 @@ export const ProductsDocs: React.FC = () => {
       "name_en": "Iranian Cigarettes",
       "slug": "iranian-cigarettes",
       "color": "#3B82F6",
+      "color_display": "آبی لاجوردی (#3B82F6)",
       "description": "انواع برندهای شرکتی با هولوگرام معتبر دخانیات",
-      "icon": "Layers",
-      "image": "/media/categories/iranian.webp",
       "products_count": 48,
-      "is_active": true
+      "created_at": "2026-09-16T18:00:00Z",
+      "updated_at": "2026-09-16T18:00:00Z"
     }
   ]
 }`
@@ -149,7 +144,7 @@ export const ProductsDocs: React.FC = () => {
       method: 'POST',
       path: '/api/v1/products/categories/',
       auth: 'IsAdminUser',
-      description: 'ایجاد دسته‌بندی جدید با انتخاب پالت رنگی (Choice)، نام فارسی، نام لاتین، اسلاگ و توضیحات',
+      description: 'ایجاد دسته‌بندی جدید با ۵ فیلد فرم: عنوان فارسی (اجباری)، نام لاتین، شناسه سیستمی (اسلاگ)، رنگ شناسه (انتخاب از ۶ رنگ) و توضیحات',
       curlExample: `curl -X POST "http://localhost:8000/api/v1/products/categories/" \\
   -H "Authorization: Bearer <JWT_TOKEN>" \\
   -H "Content-Type: application/json" \\
@@ -157,9 +152,8 @@ export const ProductsDocs: React.FC = () => {
     "name": "سیگار وارداتی اصل",
     "name_en": "Imported Cigarettes",
     "slug": "imported-cigarettes",
-    "color": "#10B981",
-    "description": "محصولات وارداتی اصل سفارش اروپا و امارات",
-    "icon": "Package"
+    "color": "#EF4444",
+    "description": "محصولات وارداتی اصل سفارش اروپا و امارات"
   }'`
     },
     {
@@ -404,8 +398,7 @@ export const ProductsDocs: React.FC = () => {
 
   const modelsCode = `"""
 products/models.py
-مدل یکپارچه کاتالوگ محصولات، دسته‌بندی‌های درختی، هولوگرام اصالت، ویژگی‌های داینامیک،
-همگام‌سازی دوطرفه سایت و صندوق حضوری (is_pos_only)، بارکد اسکنر و ادیتور TinyMCE
+مدل‌های محصولات، دسته‌بندی‌ها، برندها، هولوگرام‌ها، تخفیفات پلکانی و ویژگی‌های فنی
 """
 
 from django.db import models
@@ -417,25 +410,207 @@ from tinymce.models import HTMLField
 # ==========================================
 
 COLOR_CHOICES = (
-    ('#3B82F6', _('آبی لاجوردی (#3B82F6)')),
-    ('#10B981', _('سبز زمردی (#10B981)')),
+    ('#EF4444', _('قرمز / سرخابی (#EF4444)')),
+    ('#F59E0B', _('طلایی / نارنجی (#F59E0B)')),
     ('#8B5CF6', _('بنفش رویال (#8B5CF6)')),
-    ('#F59E0B', _('طلایی کهربایی (#F59E0B)')),
-    ('#EF4444', _('قرمز یاقوتی (#EF4444)')),
+    ('#3B82F6', _('آبی لاجوردی (#3B82F6)')),
     ('#06B6D4', _('فیروزه‌ای (#06B6D4)')),
-    ('#EC4899', _('صورتی سرخابی (#EC4899)')),
-    ('#64748B', _('طوسی اسلیتی (#64748B)')),
-    ('#1E293B', _('دودی تاریک (#1E293B)')),
-    ('#D97706', _('مسی / برنزی (#D97706)')),
+    ('#1E40AF', _('سرمه‌ای دیپ (#1E40AF)')),
 )
 
-SECURITY_LEVEL_CHOICES = (
-    ('maximum', _('فوق امنیتی / لیبل هولوگرام ۳ بعدی ضد جعل')),
-    ('high', _('اعتبار بالا / دارای QR استعلام آنی آنلاین')),
-    ('standard', _('استاندارد شرکتی اصل')),
-    ('economic', _('پایه / اقتصادی بدون استعلام')),
-)
+# ==============================================================================
+# ۱. دسته‌بندی‌ها (Categories)
+# ==============================================================================
+class Category(models.Model):
+    """
+    مدل دسته‌بندی کالاها (شامل ۵ فیلد اصلی فرم اندپوینت):
+    ۱. عنوان دسته‌بندی (فارسی)
+    ۲. نام لاتین (English)
+    ۳. شناسه سیستمی (Slug / ID)
+    ۴. رنگ شناسه (۶ رنگ پالت انتخابی)
+    ۵. توضیحات کوتاه دسته‌بندی
+    """
+    name = models.CharField(_("عنوان دسته‌بندی (فارسی)"), max_length=150)
+    name_en = models.CharField(_("نام لاتین (English)"), max_length=150, blank=True, null=True)
+    slug = models.SlugField(_("شناسه سیستمی (Slug / ID)"), max_length=160, unique=True, allow_unicode=True)
+    color = models.CharField(_("رنگ شناسه"), max_length=30, choices=COLOR_CHOICES, default="#3B82F6")
+    description = models.TextField(_("توضیحات کوتاه دسته‌بندی"), blank=True, null=True)
+    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ آخرین ویرایش"), auto_now=True)
 
+    class Meta:
+        verbose_name = _("دسته‌بندی")
+        verbose_name_plural = _("دسته‌بندی‌های محصولات")
+        ordering = ['-id']
+
+    def __str__(self):
+        return f"{self.name} ({self.slug})"
+
+
+# ==============================================================================
+# ۲. برندهای کالا (Product Brands)
+# ==============================================================================
+class ProductBrand(models.Model):
+    name = models.CharField(_("نام برند (فارسی)"), max_length=120)
+    name_en = models.CharField(_("نام برند (انگلیسی)"), max_length=120, blank=True, null=True)
+    slug = models.SlugField(_("اسلاگ سئو"), max_length=130, unique=True, allow_unicode=True)
+    logo = models.ImageField(_("لوگو برند"), upload_to="brands/", blank=True, null=True)
+    country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
+    description = models.TextField(_("توضیحات برند"), blank=True, null=True)
+    is_active = models.BooleanField(_("فعال"), default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = _("برند کالا")
+        verbose_name_plural = _("برندهای کالا")
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+# ==============================================================================
+# ۳. هولوگرام و اصالت کالا (Product Hologram)
+# ==============================================================================
+class ProductHologram(models.Model):
+    SECURITY_LEVEL_CHOICES = (
+        ('maximum', _('فوق امنیتی / ۳ بعدی')),
+        ('high', _('اعتبار بالا / QR آنلاین')),
+        ('standard', _('استاندارد شرکتی')),
+        ('economic', _('پایه')),
+    )
+
+    title = models.CharField(_("عنوان هولوگرام"), max_length=150)
+    hologram_code = models.CharField(_("کد یا شناسه هولوگرام"), max_length=100, unique=True, blank=True, null=True)
+    issuer_org = models.CharField(_("مرجع صادرکننده"), max_length=150, default="آذرخش")
+    country_origin = models.CharField(_("کشور / مبدا"), max_length=100, default="امارات")
+    security_level = models.CharField(_("سطح امنیت"), max_length=30, choices=SECURITY_LEVEL_CHOICES, default='high')
+    badge_color = models.CharField(_("رنگ بج"), max_length=30, default="#10b981")
+    security_specs = models.TextField(_("مشخصات امنیتی"), blank=True, null=True)
+    is_verified = models.BooleanField(_("تایید شده"), default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("هولوگرام اصالت")
+        verbose_name_plural = _("هولوگرام‌های اصالت")
+
+    def __str__(self):
+        return f"{self.title} ({self.issuer_org})"
+
+
+# ==============================================================================
+# ۴. مدل اصلی محصول (Product)
+# ==============================================================================
+class Product(models.Model):
+    BADGE_CHOICES = (
+        ('none', _('بدون نشان')),
+        ('bestseller', _('پرفروش‌ترین')),
+        ('special', _('پیشنهاد ویژه')),
+        ('new', _('جدیدترین')),
+        ('discount', _('تخفیف ویژه')),
+        ('import', _('وارداتی اصل')),
+    )
+
+    SIZE_CHOICES = (
+        ('king_size', _('کینگ سایز (King Size)')),
+        ('slims', _('اسلیم / باریک (Slims)')),
+        ('super_slims', _('سوپر اسلیم (Super Slims)')),
+        ('nano', _('نانو (Nano)')),
+        ('compact', _('کامپکت (Compact)')),
+        ('queen_size', _('کویین سایز (Queen Size)')),
+    )
+
+    FILTER_CHOICES = (
+        ('white', _('فیلتر سفید استاندارد')),
+        ('yellow', _('فیلتر زرد سنتی')),
+        ('charcoal', _('فیلتر کربن / زغالی')),
+        ('recessed', _('فیلتر مجوف (Recessed)')),
+        ('capsule', _('فیلتر طعم‌دار / پاور (Capsule)')),
+    )
+
+    name = models.CharField(_("نام محصول (فارسی)"), max_length=200)
+    name_en = models.CharField(_("نام محصول (انگلیسی)"), max_length=200, blank=True, null=True)
+    slug = models.SlugField(_("اسلاگ سئو"), max_length=220, unique=True, allow_unicode=True)
+    barcode = models.CharField(_("بارکد اسکنر فروشگاهی"), max_length=60, unique=True, blank=True, null=True, db_index=True)
+
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products', verbose_name=_("دسته‌بندی"))
+    brand = models.ForeignKey(ProductBrand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("برند"))
+    hologram = models.ForeignKey(ProductHologram, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("هولوگرام اصالت"))
+
+    # ساختار بسته‌بندی و قیمت‌گذاری بنکداری
+    carton_price = models.PositiveIntegerField(_("قیمت هر کارتن (تومان)"), default=0)
+    box_price = models.PositiveIntegerField(_("قیمت هر باکس (تومان)"), default=0)
+    pack_price = models.PositiveIntegerField(_("قیمت هر پاکت (تومان)"), default=0)
+    purchase_price = models.PositiveIntegerField(_("قیمت تمام‌شده خرید"), default=0)
+
+    stock_cartons = models.PositiveIntegerField(_("موجودی کارتن"), default=0)
+    stock_boxes = models.PositiveIntegerField(_("موجودی باکس"), default=0)
+    boxes_per_carton = models.PositiveIntegerField(_("تعداد باکس در کارتن"), default=50)
+    packs_per_box = models.PositiveIntegerField(_("تعداد پاکت در باکس"), default=10)
+
+    min_order_carton = models.PositiveIntegerField(_("حداقل سفارش کارتن"), default=1)
+    min_order_box = models.PositiveIntegerField(_("حداقل سفارش باکس"), default=1)
+
+    has_carton = models.BooleanField(_("امکان فروش کارتنی"), default=True)
+    has_box = models.BooleanField(_("امکان فروش باکسی"), default=True)
+    has_pack = models.BooleanField(_("امکان فروش پاکتی"), default=False)
+    is_box_only = models.BooleanField(_("فقط فروش باکسی"), default=False)
+    is_pos_only = models.BooleanField(_("اختصاصی صندوق (POS)"), default=False)
+
+    # مشخصات فنی و تخصصی دخانیات
+    tar = models.CharField(_("میزان قطران (mg)"), max_length=20, blank=True, null=True)
+    nicotine = models.CharField(_("میزان نیکوتین (mg)"), max_length=20, blank=True, null=True)
+    carbon_monoxide = models.CharField(_("میزان کربن مونوکسید"), max_length=20, blank=True, null=True)
+    cigarette_size = models.CharField(_("سایز سیگار"), max_length=30, choices=SIZE_CHOICES, default='king_size')
+    filter_type = models.CharField(_("نوع فیلتر"), max_length=30, choices=FILTER_CHOICES, default='white')
+    country_origin = models.CharField(_("کشور تولیدکننده / مبدا"), max_length=100, blank=True, null=True)
+
+    # اطلاعات رسانه‌ای و محتوا
+    badge = models.CharField(_("نشان ویژه محصول"), max_length=30, choices=BADGE_CHOICES, default='none')
+    main_image = models.ImageField(_("تصویر اصلی محصول"), upload_to="products/", blank=True, null=True)
+    image = models.CharField(_("آدرس / URL تصویر"), max_length=500, blank=True, null=True)
+    excerpt = models.TextField(_("چکیده و خلاصه کوتاه"), blank=True, null=True)
+    full_description = HTMLField(_("توضیحات جامع (TinyMCE)"), blank=True, null=True)
+
+    # سئو پیشرفته Yoast
+    focus_keyword = models.CharField(_("کلیدواژه اصلی سئو"), max_length=100, blank=True, null=True)
+    meta_title = models.CharField(_("عنوان سئو (Meta Title)"), max_length=150, blank=True, null=True)
+    meta_description = models.TextField(_("توضیحات سئو (Meta Description)"), blank=True, null=True)
+    canonical_url = models.URLField(_("لینک کانونیکال (Canonical)"), blank=True, null=True)
+
+    is_active = models.BooleanField(_("فعال"), default=True)
+    is_featured = models.BooleanField(_("پیشنهاد ویژه"), default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("محصول")
+        verbose_name_plural = _("محصولات")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.barcode or 'بدون بارکد'})"
+
+
+# ==============================================================================
+# ۵. جدول تخفیف‌های پلکانی حجم عمده (Tier Discounts)
+# ==============================================================================
+class ProductTierDiscount(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='tier_discounts', verbose_name=_("محصول"))
+    min_quantity = models.PositiveIntegerField(_("حداقل تعداد (کارتن/باکس)"))
+    discount_percent = models.DecimalField(_("درصد تخفیف"), max_digits=5, decimal_places=2)
+    discount_price_per_unit = models.PositiveIntegerField(_("قیمت تخفیف‌خورده به ازای هر واحد"), blank=True, null=True)
+
+    class Meta:
+        verbose_name = _("تخفیف پلکانی عمده")
+        verbose_name_plural = _("تخفیف‌های پلکانی عمده")
+        ordering = ['min_quantity']
+
+
+# ==============================================================================
+# ۶. مشخصات و ویژگی‌های داینامیک کالا (Attributes & Values)
+# ==============================================================================
 DATA_TYPE_CHOICES = (
     ('text', _('متن کوتاه / رشته')),
     ('number', _('عددی (صحیح یا اعشاری)')),
@@ -444,91 +619,11 @@ DATA_TYPE_CHOICES = (
     ('color', _('کد رنگ')),
 )
 
-
-# ==========================================
-# ۱. مدل دسته‌بندی‌های درختی (Category)
-# ==========================================
-
-class Category(models.Model):
-    """
-    مدل دسته‌بندی جامع کالاها (انتقال‌یافته به اپ products):
-    دارای عنوان فارسی، نام لاتین، شناسه سیستمی (اسلاگ)، پالت رنگی انتخابی، آیکون و ساختار درختی
-    """
-    name = models.CharField(_("عنوان دسته‌بندی (فارسی)"), max_length=150)
-    name_en = models.CharField(_("نام لاتین (English)"), max_length=150, blank=True, null=True)
-    slug = models.SlugField(_("شناسه سیستمی (Slug / ID)"), max_length=160, unique=True, allow_unicode=True)
-    color = models.CharField(_("رنگ شناسه"), max_length=30, choices=COLOR_CHOICES, default="#3B82F6")
-    description = models.TextField(_("توضیحات کوتاه دسته‌بندی"), blank=True, null=True)
-    icon = models.CharField(_("نام آیکون نمایشی"), max_length=60, default='Layers')
-    image = models.ImageField(_("تصویر شاخص دسته‌بندی"), upload_to='categories/', blank=True, null=True)
-    parent = models.ForeignKey(
-        'self', 
-        on_delete=models.CASCADE, 
-        null=True, 
-        blank=True, 
-        related_name='children',
-        verbose_name=_("دسته مادر (والد)")
-    )
-    display_order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
-    is_active = models.BooleanField(_("وضعیت فعال"), default=True)
-    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
-    updated_at = models.DateTimeField(_("تاریخ آخرین ویرایش"), auto_now=True)
-
-    class Meta:
-        verbose_name = _("دسته‌بندی")
-        verbose_name_plural = _("دسته‌بندی‌های محصولات")
-        ordering = ['display_order', 'name']
-
-    def __str__(self):
-        return f"{self.name} ({self.slug})"
-
-
-# ==========================================
-# ۲. مدل هولوگرام و اصالت کالا (ProductHologram)
-# ==========================================
-
-class ProductHologram(models.Model):
-    """
-    مدل تعریف برچسب‌های ضمانت اصالت کالا و هولوگرام اختصاصی:
-    شامل عنوان، مرجع صادرکننده، کشور/حوزه، سطح اعتبار امنیتی انتخابی، رنگ بج و مشخصات فنی امنیتی
-    """
-    title = models.CharField(_("عنوان هولوگرام / برچسب اصالت"), max_length=120)
-    issuer_org = models.CharField(_("مرجع صادرکننده یا سازمان ناظر"), max_length=150, default="شرکت بازرگانی آذرخش")
-    country_origin = models.CharField(_("کشور / حوزه مبدا"), max_length=100, default="امارات / دبی")
-    security_level = models.CharField(_("سطح اعتبار امنیتی"), max_length=30, choices=SECURITY_LEVEL_CHOICES, default='high')
-    badge_color = models.CharField(_("رنگ لیبل نمایشی"), max_length=30, choices=COLOR_CHOICES, default="#10B981")
-    security_specs = models.TextField(
-        _("مشخصات فنی و امنیتی"), 
-        blank=True, 
-        null=True,
-        help_text=_("توضیحات مشخصات فنی، کد رهگیری، ویژگی‌های بصری یا فیچرهای امنیتی هولوگرام")
-    )
-    is_verified = models.BooleanField(_("دارای استعلام اصالت بارکد / QR"), default=True)
-    created_at = models.DateTimeField(_("تاریخ ثبت هولوگرام"), auto_now_add=True)
-    updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True)
-
-    class Meta:
-        verbose_name = _("هولوگرام و اصالت")
-        verbose_name_plural = _("هولوگرام‌های اصالت کالا")
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.title} - {self.get_security_level_display()}"
-
-
-# ==========================================
-# ۳. مدل ویژگی‌های محصول (ProductAttribute)
-# ==========================================
-
 class ProductAttribute(models.Model):
-    """
-    تعریف مشخصات و ویژگی‌های فنی کالا:
-    مانند میزان نیکوتین، قطران، نوع فیلتر، سال ساخت، کشور سازنده، جنس توتون و ...
-    """
     name = models.CharField(_("عنوان ویژگی به فارسی"), max_length=100)
     name_en = models.CharField(_("عنوان لاتین (English)"), max_length=100, blank=True, null=True)
     data_type = models.CharField(_("نوع داده"), max_length=20, choices=DATA_TYPE_CHOICES, default='text')
-    unit = models.CharField(_("واحد سنجش (اختیاری)"), max_length=30, blank=True, null=True, help_text=_("مثال: mg، میلی‌گرم، درصد، mm، سال"))
+    unit = models.CharField(_("واحد سنجش (اختیاری)"), max_length=30, blank=True, null=True)
     help_text = models.TextField(_("توضیح راهنما برای خریداران"), blank=True, null=True)
     is_required = models.BooleanField(_("تکمیل اجباری"), default=False)
     display_order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
@@ -536,127 +631,46 @@ class ProductAttribute(models.Model):
     updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True)
 
     class Meta:
-        verbose_name = _("ویژگی محصول")
-        verbose_name_plural = _("ویژگی‌ها و مشخصات فنی کالاها")
-        ordering = ['display_order', 'name']
+        verbose_name = _("تعریف ویژگی")
+        verbose_name_plural = _("تعاریف ویژگی‌ها")
 
     def __str__(self):
-        unit_str = f" ({self.unit})" if self.unit else ""
-        return f"{self.name}{unit_str} [{self.get_data_type_display()}]"
+        return self.name
 
-
-# ==========================================
-# ۴. مدل کاتالوگ کالا و همگام‌سازی صندوق (Product)
-# ==========================================
-
-class Product(models.Model):
-    """
-    مدل جامع کاتالوگ محصولات با همگام‌سازی دوطرفه آنلاین و صندوق حضوری:
-    - فیلد is_pos_only: اگر True باشد کالا فقط در صندوق حضوری فروش می‌رود و در سایت آنلاین نمایش داده نمی‌شود.
-    - اگر False باشد، کالا هم در سایت و هم در صندوق به صورت همگام در دسترس است.
-    """
-    name = models.CharField(_("نام کالا (فارسی)"), max_length=200)
-    name_en = models.CharField(_("نام انگلیسی / لاتین"), max_length=200, blank=True, null=True)
-    slug = models.SlugField(_("اسلاگ سئو (URL)"), max_length=220, unique=True, allow_unicode=True)
-    brand = models.CharField(_("برند کالا"), max_length=100)
-    category = models.ForeignKey(
-        Category, 
-        on_delete=models.CASCADE, 
-        related_name='products',
-        verbose_name=_("دسته‌بندی")
-    )
-    barcode = models.CharField(_("بارکد اسکنر فروشگاهی (GTIN/EAN)"), max_length=60, blank=True, null=True, db_index=True)
-    hologram = models.ForeignKey(
-        ProductHologram,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='products',
-        verbose_name=_("هولوگرام و اصالت کالا")
-    )
-    
-    # ساختار قیمت‌گذاری چند سطحی
-    box_price = models.DecimalField(_("قیمت هر باکس (تومان)"), max_digits=12, decimal_places=0)
-    boxes_per_carton = models.PositiveIntegerField(_("تعداد باکس در هر کارتن"), default=50)
-    carton_price = models.DecimalField(_("قیمت هر کارتن (تومان)"), max_digits=14, decimal_places=0, blank=True, null=True)
-    pack_price = models.DecimalField(_("قیمت هر پاکت (تومان)"), max_digits=12, decimal_places=0, default=0)
-    packs_per_box = models.PositiveIntegerField(_("تعداد پاکت در هر باکس"), default=10)
-    purchase_price = models.DecimalField(_("قیمت تمام‌شده خرید انبار"), max_digits=14, decimal_places=0, default=0)
-    
-    # موجودی انبار
-    stock_cartons = models.PositiveIntegerField(_("موجودی انبار (کارتن)"), default=0)
-    stock_boxes = models.PositiveIntegerField(_("موجودی انبار (باکس خرد)"), default=0)
-    
-    # مدیا و محتوا با TinyMCE
-    image = models.ImageField(_("تصویر شاخص"), upload_to='products/', blank=True, null=True)
-    full_description = HTMLField(_("توضیحات غنی (TinyMCE)"), blank=True, null=True)
-    excerpt = models.TextField(_("خلاصه کوتاه کالا"), blank=True, null=True)
-    
-    # کنترل کانال فروش و همگام‌سازی آنلاین / صندوق (POS Sync)
-    is_pos_only = models.BooleanField(
-        _("اختصاصی صندوق فروشگاهی (عدم نمایش آنلاین)"), 
-        default=False, 
-        db_index=True,
-        help_text=_("اگر فعال باشد، محصول فقط در سیستم صندوق حضوری اضافه و فروخته می‌شود و در سایت آنلاین نمایش داده نمی‌شود.")
-    )
-    is_box_only = models.BooleanField(_("فروش منحصراً باکسی"), default=False)
-    has_carton = models.BooleanField(_("امکان فروش کارتنی"), default=True)
-    has_box = models.BooleanField(_("امکان فروش باکسی"), default=True)
-    has_pack = models.BooleanField(_("امکان فروش پاکتی"), default=False)
-    
-    is_active = models.BooleanField(_("فعال جهت سفارش"), default=True)
-    is_featured = models.BooleanField(_("پیشنهاد ویژه صفحه اصلی"), default=False)
-    created_at = models.DateTimeField(_("تاریخ ثبت"), auto_now_add=True)
-    updated_at = models.DateTimeField(_("تاریخ آخرین بروزرسانی"), auto_now=True)
-
-    class Meta:
-        verbose_name = _("محصول")
-        verbose_name_plural = _("مدیریت کاتالوگ کالاها و انبار")
-        ordering = ['-created_at']
-
-    def __str__(self):
-        pos_badge = " [صندوق حضوری]" if self.is_pos_only else " [آنلاین و صندوق]"
-        return f"{self.name} ({self.brand}){pos_badge}"
-
-    def save(self, *args, **kwargs):
-        if self.box_price and self.boxes_per_carton and not self.carton_price:
-            self.carton_price = self.box_price * self.boxes_per_carton
-        super().save(*args, **kwargs)
-
-
-# ==========================================
-# ۵. مدل مقادیر ویژگی‌های محصول (AttributeValue)
-# ==========================================
 
 class ProductAttributeValue(models.Model):
-    """
-    مقدار ویژگی برای یک محصول مشخص
-    """
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='attributes_values', verbose_name=_("محصول"))
-    attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, related_name='product_values', verbose_name=_("ویژگی"))
-    value = models.CharField(_("مقدار متنی ویژگی"), max_length=255, blank=True, null=True)
+    attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, verbose_name=_("ویژگی"))
+    value = models.CharField(_("مقدار متنی"), max_length=255, blank=True, null=True)
     value_number = models.DecimalField(_("مقدار عددی"), max_digits=10, decimal_places=2, blank=True, null=True)
-    value_boolean = models.BooleanField(_("مقدار بولی"), blank=True, null=True)
+    value_boolean = models.BooleanField(_("مقدار بله/خیر"), blank=True, null=True)
 
     class Meta:
-        verbose_name = _("مقدار ویژگی کالا")
-        verbose_name_plural = _("مقادیر ویژگی‌های کالاها")
+        verbose_name = _("مقدار ویژگی محصول")
+        verbose_name_plural = _("مقادیر ویژگی‌های محصولات")
         unique_together = ('product', 'attribute')
 
-    def __str__(self):
-        return f"{self.product.name} -> {self.attribute.name}: {self.value or self.value_number or self.value_boolean}"
+
+# ==============================================================================
+# ۷. نقاط قوت / ویژگی‌های کلیدی کالا (Key Features)
+# ==============================================================================
+class ProductKeyFeature(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='key_features', verbose_name=_("محصول"))
+    title = models.CharField(_("عنوان نقطه قوت"), max_length=150)
+    display_order = models.PositiveIntegerField(_("ترتیب"), default=0)
+
+    class Meta:
+        verbose_name = _("نقطه قوت کالا")
+        verbose_name_plural = _("نقاط قوت کالا")
+        ordering = ['display_order']
 
 
-# ==========================================
-# ۶. مدل تصاویر گالری کالا (ProductImage)
-# ==========================================
-
+# ==============================================================================
+# ۸. گالری تصاویر محصول (Product Gallery)
+# ==============================================================================
 class ProductImage(models.Model):
-    """
-    گالری چندگانه تصاویر کالا
-    """
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='gallery', verbose_name=_("محصول"))
-    image = models.ImageField(_("تصویر گالری"), upload_to='products/gallery/')
+    image = models.ImageField(_("تصویر گالری"), upload_to="products/gallery/")
     order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
 
     class Meta:
@@ -665,315 +679,199 @@ class ProductImage(models.Model):
         ordering = ['order']
 `;
 
-  const adminCode = `"""
-products/admin.py
-پنل مدیریت یکپارچه محصولات، دسته‌بندی‌ها، هولوگرام‌ها و ویژگی‌های کالا در جنگو
-با قابلیت جستجوی خودکار (autocomplete_fields)، اکشن‌های دسته‌جمعی، نمایش بج‌های رنگی و فیلترهای پیشرفته
-"""
-
-from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
+  const adminCode = `from django.contrib import admin
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 from .models import (
     Category,
+    ProductBrand,
     ProductHologram,
+    Product,
+    ProductTierDiscount,
     ProductAttribute,
     ProductAttributeValue,
-    Product,
-    ProductImage
+    ProductKeyFeature,
+    ProductImage,
 )
 
+# ==============================================================================
+# ۱. مدیریت دسته‌بندی‌ها (Category Admin)
+# ==============================================================================
+@admin.register(Category)
+class CategoryAdmin(admin.ModelAdmin):
+    list_display = ['name', 'name_en', 'slug', 'color_badge', 'created_at']
+    search_fields = ['name', 'name_en', 'slug', 'description']
+    prepopulated_fields = {'slug': ('name',)}
+    ordering = ['-id']
 
-class ProductImageInline(admin.TabularInline):
-    model = ProductImage
-    extra = 2
-    fields = ('image', 'order', 'preview_image')
-    readonly_fields = ('preview_image',)
+    @admin.display(description=_('رنگ شناسه'))
+    def color_badge(self, obj):
+        color = obj.color or '#3B82F6'
+        return format_html(
+            '<span style="background-color: {}; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
+            color,
+            color
+        )
 
-    @admin.display(description=_("پیش‌نمایش تصویر"))
-    def preview_image(self, obj):
-        if obj.image:
-            return format_html(
-                '<img src="{}" style="max-height: 50px; max-width: 80px; border-radius: 6px; object-fit: cover;" />',
-                obj.image.url
-            )
-        return "-"
 
+# ==============================================================================
+# ۲. مدیریت برندهای کالا (Product Brand Admin)
+# ==============================================================================
+@admin.register(ProductBrand)
+class ProductBrandAdmin(admin.ModelAdmin):
+    list_display = ['name', 'name_en', 'country', 'is_active']
+    list_filter = ['is_active', 'country']
+    search_fields = ['name', 'name_en', 'slug']
+    prepopulated_fields = {'slug': ('name',)}
+
+
+# ==============================================================================
+# ۳. مدیریت هولوگرام و اصالت کالا (Product Hologram Admin)
+# ==============================================================================
+@admin.register(ProductHologram)
+class ProductHologramAdmin(admin.ModelAdmin):
+    list_display = ['title', 'hologram_code', 'issuer_org', 'security_level', 'badge_preview', 'is_verified', 'updated_at']
+    list_filter = ['is_verified', 'security_level']
+    search_fields = ['title', 'hologram_code', 'issuer_org']
+
+    def badge_preview(self, obj):
+        return format_html(
+            '<span style="background-color: {}; color: #fff; padding: 3px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
+            obj.badge_color or '#10b981',
+            obj.title
+        )
+    badge_preview.short_description = _('پیش‌نمایش بج')
+
+
+# ==============================================================================
+# ۴. اینلاین‌های محصول (Product Inlines)
+# ==============================================================================
+class ProductTierDiscountInline(admin.TabularInline):
+    model = ProductTierDiscount
+    extra = 1
 
 class ProductAttributeValueInline(admin.TabularInline):
     model = ProductAttributeValue
     extra = 1
-    autocomplete_fields = ['attribute']
-    fields = ('attribute', 'value', 'value_number', 'value_boolean')
+
+class ProductKeyFeatureInline(admin.TabularInline):
+    model = ProductKeyFeature
+    extra = 1
+
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 1
 
 
-@admin.register(Category)
-class CategoryAdmin(admin.ModelAdmin):
-    list_display = (
-        'name', 
-        'name_en', 
-        'slug', 
-        'color_badge', 
-        'parent', 
-        'display_order', 
-        'is_active',
-        'created_at'
-    )
-    list_filter = ('is_active', 'color', 'created_at')
-    search_fields = ('name', 'name_en', 'slug', 'description')
-    prepopulated_fields = {'slug': ('name',)}
-    autocomplete_fields = ['parent']
-    list_editable = ('display_order', 'is_active')
-    ordering = ('display_order', 'name')
-
-    @admin.display(description=_("پالت رنگی"))
-    def color_badge(self, obj):
-        return format_html(
-            '<span style="background-color: {}; color: #fff; padding: 3px 10px; border-radius: 6px; font-weight: bold; font-size: 11px;">{}</span>',
-            obj.color or '#3B82F6',
-            obj.get_color_display() if hasattr(obj, 'get_color_display') else obj.color
-        )
-
-
-@admin.register(ProductHologram)
-class ProductHologramAdmin(admin.ModelAdmin):
-    list_display = (
-        'title', 
-        'issuer_org', 
-        'country_origin', 
-        'security_badge', 
-        'badge_color_display', 
-        'is_verified',
-        'updated_at'
-    )
-    list_filter = ('security_level', 'is_verified', 'badge_color')
-    search_fields = ('title', 'issuer_org', 'country_origin', 'security_specs')
-    ordering = ('-id',)
-
-    @admin.display(description=_("سطح امنیت"))
-    def security_badge(self, obj):
-        colors = {
-            'maximum': '#10B981',
-            'high': '#3B82F6',
-            'standard': '#F59E0B',
-            'economic': '#64748B',
-        }
-        color = colors.get(obj.security_level, '#64748B')
-        return format_html(
-            '<span style="background-color: {}; color: #fff; padding: 3px 8px; border-radius: 6px; font-weight: bold; font-size: 11px;">{}</span>',
-            color,
-            obj.get_security_level_display() if hasattr(obj, 'get_security_level_display') else obj.security_level
-        )
-
-    @admin.display(description=_("رنگ لیبل"))
-    def badge_color_display(self, obj):
-        return format_html(
-            '<span style="background-color: {}; color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 10px;">{}</span>',
-            obj.badge_color or '#10B981',
-            obj.badge_color
-        )
-
-
-@admin.register(ProductAttribute)
-class ProductAttributeAdmin(admin.ModelAdmin):
-    list_display = (
-        'name', 
-        'name_en', 
-        'data_type_badge', 
-        'unit', 
-        'is_required', 
-        'display_order'
-    )
-    list_filter = ('data_type', 'is_required')
-    search_fields = ('name', 'name_en', 'unit', 'help_text')
-    list_editable = ('display_order', 'is_required')
-    ordering = ('display_order', 'name')
-
-    @admin.display(description=_("نوع داده"))
-    def data_type_badge(self, obj):
-        return format_html(
-            '<span style="background-color: #f1f5f9; color: #1e293b; padding: 3px 8px; border-radius: 6px; font-weight: bold; font-size: 11px; border: 1px solid #cbd5e1;">{}</span>',
-            obj.get_data_type_display() if hasattr(obj, 'get_data_type_display') else obj.data_type
-        )
-
-
-@admin.register(ProductAttributeValue)
-class ProductAttributeValueAdmin(admin.ModelAdmin):
-    list_display = ('product', 'attribute', 'value', 'value_number', 'value_boolean')
-    list_filter = ('attribute', 'value_boolean')
-    search_fields = ('product__name', 'attribute__name', 'value')
-    autocomplete_fields = ['product', 'attribute']
-
-
+# ==============================================================================
+# ۵. مدیریت اصلی محصولات (Product Admin)
+# ==============================================================================
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
-    list_display = (
-        'product_thumb',
-        'name', 
-        'brand', 
-        'category', 
-        'hologram',
-        'barcode', 
-        'box_price_formatted', 
-        'carton_price_formatted', 
-        'stock_status_badge', 
-        'is_pos_only_badge', 
-        'is_active', 
-        'is_featured'
-    )
-    list_filter = (
-        'is_pos_only', 
-        'is_active', 
-        'is_featured', 
-        'category', 
-        'brand', 
-        'hologram',
-        'created_at'
-    )
-    search_fields = ('name', 'name_en', 'brand', 'slug', 'barcode', 'excerpt')
+    list_display = [
+        'name',
+        'barcode',
+        'category',
+        'brand',
+        'carton_price_toman',
+        'stock_cartons',
+        'badge_display',
+        'is_active',
+    ]
+    list_filter = [
+        'is_active',
+        'badge',
+        'category',
+        'brand',
+        'has_carton',
+        'has_box',
+        'is_pos_only',
+    ]
+    search_fields = ['name', 'name_en', 'barcode', 'slug', 'focus_keyword']
     prepopulated_fields = {'slug': ('name',)}
-    autocomplete_fields = ['category', 'hologram']
-    inlines = [ProductAttributeValueInline, ProductImageInline]
-    list_editable = ('is_active', 'is_featured')
-    readonly_fields = ('created_at', 'updated_at', 'preview_main_image')
-    actions = [
-        'make_active', 
-        'make_inactive', 
-        'toggle_pos_only_on', 
-        'toggle_pos_only_off',
-        'mark_as_featured',
-        'unmark_as_featured'
+    autocomplete_fields = ['category', 'brand', 'hologram']
+
+    inlines = [
+        ProductTierDiscountInline,
+        ProductAttributeValueInline,
+        ProductKeyFeatureInline,
+        ProductImageInline,
     ]
 
     fieldsets = (
-        (_('مشخصات اصلی کالا'), {
+        (_('شناسنامه و اطلاعات پایه کالا'), {
             'fields': (
-                ('name', 'name_en'),
-                ('slug', 'brand'),
-                ('category', 'hologram'),
-                ('barcode', 'is_active', 'is_featured')
+                'name',
+                'name_en',
+                'slug',
+                'barcode',
+                'category',
+                'brand',
+                'hologram',
+                'country_origin',
+                'badge',
             )
         }),
-        (_('کانال عرضه و دسترسی'), {
+        (_('قیمت‌گذاری و انبارداری بنکداری (جنت‌آباد)'), {
             'fields': (
-                ('is_pos_only', 'has_carton', 'has_box', 'has_pack', 'is_box_only'),
+                ('carton_price', 'box_price', 'pack_price'),
+                ('stock_cartons', 'boxes_per_carton', 'packs_per_box'),
+                ('min_order_carton', 'min_order_box'),
+                ('has_carton', 'has_box', 'is_pos_only'),
+            )
+        }),
+        (_('مشخصات فنی و دخانیات (قطران و نیکوتین)'), {
+            'fields': (
+                ('tar', 'nicotine', 'carbon_monoxide'),
+                ('cigarette_size', 'filter_type'),
             ),
-            'description': _('تعیین اینکه آیا محصول فقط اختصاصی صندوق حضوری است یا در سایت آنلاین نیز به فروش می‌رسد.')
+            'classes': ('collapse',),
         }),
-        (_('قیمت‌گذاری و انبارداری (تومان)'), {
-            'fields': (
-                ('box_price', 'boxes_per_carton', 'carton_price'),
-                ('pack_price', 'packs_per_box', 'purchase_price'),
-                ('stock_cartons', 'stock_boxes')
-            )
+        (_('توضیحات و رسانه'), {
+            'fields': ('excerpt', 'full_description', 'main_image'),
         }),
-        (_('تصویر شاخص و توضیحات ادیتور'), {
-            'fields': (
-                ('image', 'preview_main_image'),
-                'excerpt',
-                'full_description'
-            )
+        (_('تنظیمات سئو پیشرفته (Yoast SEO)'), {
+            'fields': ('focus_keyword', 'meta_title', 'meta_description', 'canonical_url'),
+            'classes': ('collapse',),
         }),
-        (_('اطلاعات سیستمی'), {
-            'fields': ('created_at', 'updated_at'),
-            'classes': ('collapse',)
-        })
+        (_('وضعیت فعالیت'), {
+            'fields': ('is_active',),
+        }),
     )
 
-    @admin.display(description=_("تصویر"))
-    def product_thumb(self, obj):
-        if obj.image:
-            return format_html(
-                '<img src="{}" style="width: 40px; height: 40px; border-radius: 8px; object-fit: cover;" />',
-                obj.image.url
-            )
-        return format_html('<div style="width: 40px; height: 40px; border-radius: 8px; background: #e2e8f0; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #64748b;">بدون عکس</div>')
+    def carton_price_toman(self, obj):
+        return f"{obj.carton_price:,} تومان"
+    carton_price_toman.short_description = _('قیمت کارتن')
 
-    @admin.display(description=_("پیش‌نمایش تصویر اصلی"))
-    def preview_main_image(self, obj):
-        if obj.image:
-            return format_html(
-                '<img src="{}" style="max-height: 150px; border-radius: 12px; object-fit: contain; border: 1px solid #e2e8f0;" />',
-                obj.image.url
-            )
-        return _("تصویری آپلود نشده است")
-
-    @admin.display(description=_("قیمت باکس"))
-    def box_price_formatted(self, obj):
-        if obj.box_price:
-            return f"{int(obj.box_price):,} تومان"
-        return "-"
-
-    @admin.display(description=_("قیمت کارتن"))
-    def carton_price_formatted(self, obj):
-        if obj.carton_price:
-            return f"{int(obj.carton_price):,} تومان"
-        return "-"
-
-    @admin.display(description=_("موجودی انبار"))
-    def stock_status_badge(self, obj):
-        if obj.stock_cartons > 10:
-            color = '#10B981'
-            label = f"{obj.stock_cartons} کارتن"
-        elif obj.stock_cartons > 0:
-            color = '#F59E0B'
-            label = f"{obj.stock_cartons} کارتن (موجودی محدود)"
-        else:
-            color = '#EF4444'
-            label = "اتمام موجودی"
+    def badge_display(self, obj):
+        colors = {
+            'none': '#64748b',
+            'bestseller': '#ef4444',
+            'special': '#f59e0b',
+            'new': '#10b981',
+            'discount': '#8b5cf6',
+            'import': '#06b6d4',
+        }
         return format_html(
-            '<span style="background-color: {}; color: #fff; padding: 2px 8px; border-radius: 6px; font-weight: bold; font-size: 11px;">{}</span>',
-            color,
-            label
+            '<span style="background-color: {}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px;">{}</span>',
+            colors.get(obj.badge, '#64748b'),
+            obj.get_badge_display()
         )
+    badge_display.short_description = _('نشان محصول')
 
-    @admin.display(description=_("کانال فروش"))
-    def is_pos_only_badge(self, obj):
-        if obj.is_pos_only:
-            return format_html(
-                '<span style="background-color: #8b5cf6; color: #fff; padding: 2px 8px; border-radius: 6px; font-weight: bold; font-size: 10px;">فقط صندوق POS</span>'
-            )
-        return format_html(
-            '<span style="background-color: #06b6d4; color: #fff; padding: 2px 8px; border-radius: 6px; font-weight: bold; font-size: 10px;">آنلاین + صندوق</span>'
-        )
 
-    # -----------------------------
-    # اکشن‌های اختصاصی ادمین جنگو
-    # -----------------------------
-    @admin.action(description=_("✔ فعال‌سازی محصولات انتخاب‌شده"))
-    def make_active(self, request, queryset):
-        updated = queryset.update(is_active=True)
-        self.message_user(request, f"{updated} محصول با موفقیت فعال گردید.")
-
-    @admin.action(description=_("⛔ غیرفعال‌سازی محصولات انتخاب‌شده"))
-    def make_inactive(self, request, queryset):
-        updated = queryset.update(is_active=False)
-        self.message_user(request, f"{updated} محصول غیرفعال شد.")
-
-    @admin.action(description=_("🏢 تغییر کانال به «فقط صندوق حضوری POS»"))
-    def toggle_pos_only_on(self, request, queryset):
-        updated = queryset.update(is_pos_only=True)
-        self.message_user(request, f"{updated} محصول به حالت اختصاصی صندوق حضوری تغییر یافتند.")
-
-    @admin.action(description=_("🌐 تغییر کانال به «فروش آنلاین سایت + صندوق»"))
-    def toggle_pos_only_off(self, request, queryset):
-        updated = queryset.update(is_pos_only=False)
-        self.message_user(request, f"{updated} محصول جهت فروش آنلاین در سایت فعال گردیدند.")
-
-    @admin.action(description=_("⭐ افزودن به پیشنهادات ویژه صفحه اصلی"))
-    def mark_as_featured(self, request, queryset):
-        updated = queryset.update(is_featured=True)
-        self.message_user(request, f"{updated} محصول به عنوان پیشنهاد ویژه علامت‌گذاری شدند.")
-
-    @admin.action(description=_("✖ حذف از پیشنهادات ویژه"))
-    def unmark_as_featured(self, request, queryset):
-        updated = queryset.update(is_featured=False)
-        self.message_user(request, f"{updated} محصول از پیشنهاد ویژه خارج شدند.")
+# ==============================================================================
+# ۶. مدیریت تعاریف ویژگی‌ها (Product Attribute Admin)
+# ==============================================================================
+@admin.register(ProductAttribute)
+class ProductAttributeAdmin(admin.ModelAdmin):
+    list_display = ['name']
+    search_fields = ['name']
 `;
 
   const serializersCode = `"""
 products/serializers.py
-سریالایزرهای جامع DRF برای کاتالوگ، دسته‌بندی‌ها، هولوگرام‌ها، ویژگی‌های کالا و همگام‌سازی صندوق
+سریالایزرهای DRF برای دسته‌بندی‌های درختی، هولوگرام، ویژگی‌های فنی و کاتالوگ محصولات (همگام با صندوق و آنلاین)
 """
 
 from rest_framework import serializers
@@ -981,20 +879,24 @@ from .models import (
     Category,
     ProductHologram,
     ProductAttribute,
-    ProductAttributeValue,
     Product,
+    ProductAttributeValue,
     ProductImage
 )
 
 
-# ==========================================
-# ۱. سریالایزر دسته‌بندی‌ها
-# ==========================================
-
 class CategorySerializer(serializers.ModelSerializer):
+    """
+    سریالایزر جامع دسته‌بندی با ۵ فیلد اصلی فرم ورودی:
+    ۱. عنوان دسته‌بندی (فارسی) - name *
+    ۲. نام لاتین - name_en
+    ۳. شناسه سیستمی - slug (در صورت عدم ارسال، خودکار تولید می‌شود)
+    ۴. رنگ شناسه - color (۶ پالت رنگی)
+    ۵. توضیحات کوتاه - description
+    """
+    slug = serializers.SlugField(required=False, allow_blank=True)
     color_display = serializers.CharField(source='get_color_display', read_only=True)
     products_count = serializers.SerializerMethodField()
-    children = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
@@ -1006,33 +908,31 @@ class CategorySerializer(serializers.ModelSerializer):
             'color',
             'color_display',
             'description',
-            'icon',
-            'image',
-            'parent',
-            'display_order',
-            'is_active',
             'products_count',
-            'children',
             'created_at',
             'updated_at'
         ]
+        extra_kwargs = {
+            'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'color': {'required': False},
+        }
+
+    def validate(self, attrs):
+        if not attrs.get('slug'):
+            base_name = attrs.get('name_en') or attrs.get('name') or ''
+            generated_slug = slugify(base_name, allow_unicode=True)
+            if not generated_slug:
+                generated_slug = f"cat-{uuid.uuid4().hex[:8]}"
+            attrs['slug'] = generated_slug
+        return attrs
 
     def get_products_count(self, obj):
-        return obj.products.filter(is_active=True).count()
+        return obj.products.count()
 
-    def get_children(self, obj):
-        if obj.children.exists():
-            return CategorySerializer(obj.children.filter(is_active=True), many=True).data
-        return []
-
-
-# ==========================================
-# ۲. سریالایزر هولوگرام و اصالت کالا
-# ==========================================
 
 class ProductHologramSerializer(serializers.ModelSerializer):
     security_level_display = serializers.CharField(source='get_security_level_display', read_only=True)
-    badge_color_display = serializers.CharField(source='get_badge_color_display', read_only=True)
 
     class Meta:
         model = ProductHologram
@@ -1044,17 +944,12 @@ class ProductHologramSerializer(serializers.ModelSerializer):
             'security_level',
             'security_level_display',
             'badge_color',
-            'badge_color_display',
             'security_specs',
             'is_verified',
             'created_at',
-            'updated_at'
+            'updated_at',
         ]
 
-
-# ==========================================
-# ۳. سریالایزر ویژگی‌ها و مشخصات فنی کالا
-# ==========================================
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
     data_type_display = serializers.CharField(source='get_data_type_display', read_only=True)
@@ -1071,15 +966,12 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
             'help_text',
             'is_required',
             'display_order',
-            'created_at'
         ]
 
 
 class ProductAttributeValueSerializer(serializers.ModelSerializer):
     attribute_name = serializers.CharField(source='attribute.name', read_only=True)
-    attribute_name_en = serializers.CharField(source='attribute.name_en', read_only=True)
-    unit = serializers.CharField(source='attribute.unit', read_only=True)
-    data_type = serializers.CharField(source='attribute.data_type', read_only=True)
+    attribute_unit = serializers.CharField(source='attribute.unit', read_only=True)
 
     class Meta:
         model = ProductAttributeValue
@@ -1087,18 +979,12 @@ class ProductAttributeValueSerializer(serializers.ModelSerializer):
             'id',
             'attribute',
             'attribute_name',
-            'attribute_name_en',
-            'unit',
-            'data_type',
+            'attribute_unit',
             'value',
             'value_number',
-            'value_boolean'
+            'value_boolean',
         ]
 
-
-# ==========================================
-# ۴. سریالایزر تصاویر و کاتالوگ محصول
-# ==========================================
 
 class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -1228,8 +1114,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
   const viewsCode = `"""
 products/views.py
-ویوهای اختصاصی APIView برای مدیریت جامع دسته‌بندی‌ها، هولوگرام‌ها، ویژگی‌های کالا،
-کاتالوگ آنلاین و همگام‌سازی لحظه‌ای صندوق فروشگاهی (POS Sync)
+ویوهای اختصاصی صریح با استفاده از APIView (بدون ViewSet) جهت مدیریت کاتالوگ محصولات، دسته‌بندی‌ها، هولوگرام‌ها، ویژگی‌های فنی و همگام‌سازی صندوق (POS Sync)
 """
 
 from rest_framework import status
@@ -1246,8 +1131,7 @@ from .models import (
     ProductHologram,
     ProductAttribute,
     ProductAttributeValue,
-    Product,
-    ProductImage
+    Product
 )
 from .serializers import (
     CategorySerializer,
@@ -1260,13 +1144,16 @@ from .serializers import (
 )
 
 
-# ==========================================
-# ۱. ویوهای مدیریت دسته‌بندی‌ها (CRUD)
-# ==========================================
-
 class CategoryListCreateAPIView(APIView):
     """
-    دریافت فهرست دسته‌بندی‌ها یا ثبت دسته‌بندی جدید با انتخاب پالت رنگی (Choice)
+    اندپوینت مدیریت دسته‌بندی‌ها (دریافت لیست و ایجاد دسته‌بندی جدید)
+    
+    فیلدهای فرم ورودی (مطابق با رابط کاربری صندوق و مدیریت):
+    ۱. عنوان دسته‌بندی (فارسی) * -> name (اجباری)
+    ۲. نام لاتین (English) -> name_en (اختیاری)
+    ۳. شناسه سیستمی (Slug / ID) -> slug (یکتا / در صورت خالی بودن خودکار تولید می‌شود)
+    ۴. رنگ شناسه -> color (کد رنگ پالت انتخابی Choice)
+    ۵. توضیحات کوتاه دسته‌بندی -> description (اختیاری)
     """
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -1278,7 +1165,7 @@ class CategoryListCreateAPIView(APIView):
         responses={200: CategorySerializer(many=True)}
     )
     def get(self, request):
-        queryset = Category.objects.filter(is_active=True).order_by('display_order', 'name')
+        queryset = Category.objects.all().order_by('-id')
         serializer = CategorySerializer(queryset, many=True)
         return Response({
             'status': 'success',
@@ -1305,17 +1192,26 @@ class CategoryListCreateAPIView(APIView):
 
 class CategoryDetailUpdateDeleteAPIView(APIView):
     """
-    مشاهده، ویرایش و حذف یک دسته‌بندی مشخص
+    اندپوینت مشاهده، ویرایش و حذف یک دسته‌بندی مشخص بر اساس ID
     """
     def get_permissions(self):
         if self.request.method in ['PUT', 'PATCH', 'DELETE']:
             return [IsAdminUser()]
         return [AllowAny()]
 
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات دسته‌بندی",
+        responses={200: CategorySerializer}
+    )
     def get(self, request, pk):
         category = get_object_or_404(Category, pk=pk)
         return Response({'status': 'success', 'data': CategorySerializer(category).data})
 
+    @swagger_auto_schema(
+        operation_summary="ویرایش دسته‌بندی (مدیریت)",
+        request_body=CategorySerializer,
+        responses={200: CategorySerializer}
+    )
     def put(self, request, pk):
         category = get_object_or_404(Category, pk=pk)
         serializer = CategorySerializer(category, data=request.data, partial=True)
@@ -1328,19 +1224,19 @@ class CategoryDetailUpdateDeleteAPIView(APIView):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_summary="حذف دسته‌بندی (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
     def delete(self, request, pk):
         category = get_object_or_404(Category, pk=pk)
         category.delete()
         return Response({'status': 'success', 'message': 'دسته‌بندی با موفقیت حذف گردید.'})
 
 
-# ==========================================
-# ۲. ویوهای مدیریت هولوگرام‌ها و اصالت کالا (CRUD)
-# ==========================================
-
 class HologramListCreateAPIView(APIView):
     """
-    دریافت لیست هولوگرام‌ها و سطوح اصالت، یا ایجاد هولوگرام جدید با سطح اعتبار انتخابی (Choice)
+    اندپوینت دریافت لیست هولوگرام‌ها و سطوح اصالت یا ثبت هولوگرام جدید با سطح اعتبار انتخابی (Choice)
     """
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -1379,17 +1275,26 @@ class HologramListCreateAPIView(APIView):
 
 class HologramDetailUpdateDeleteAPIView(APIView):
     """
-    مشاهده، ویرایش و حذف برچسب هولوگرام
+    اندپوینت مشاهده، ویرایش و حذف برچسب هولوگرام اصالت کالا
     """
     def get_permissions(self):
         if self.request.method in ['PUT', 'PATCH', 'DELETE']:
             return [IsAdminUser()]
         return [AllowAny()]
 
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات هولوگرام اصالت",
+        responses={200: ProductHologramSerializer}
+    )
     def get(self, request, pk):
         hologram = get_object_or_404(ProductHologram, pk=pk)
         return Response({'status': 'success', 'data': ProductHologramSerializer(hologram).data})
 
+    @swagger_auto_schema(
+        operation_summary="ویرایش هولوگرام اصالت (مدیریت)",
+        request_body=ProductHologramSerializer,
+        responses={200: ProductHologramSerializer}
+    )
     def put(self, request, pk):
         hologram = get_object_or_404(ProductHologram, pk=pk)
         serializer = ProductHologramSerializer(hologram, data=request.data, partial=True)
@@ -1402,19 +1307,19 @@ class HologramDetailUpdateDeleteAPIView(APIView):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_summary="حذف هولوگرام اصالت (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
     def delete(self, request, pk):
         hologram = get_object_or_404(ProductHologram, pk=pk)
         hologram.delete()
         return Response({'status': 'success', 'message': 'هولوگرام مورد نظر حذف گردید.'})
 
 
-# ==========================================
-# ۳. ویوهای ویژگی‌های کالا (Product Attributes)
-# ==========================================
-
 class ProductAttributeListCreateAPIView(APIView):
     """
-    دریافت لیست ویژگی‌های کالا و تعریف ویژگی جدید با نوع داده انتخابی (Choice)
+    اندپوینت دریافت لیست ویژگی‌های کالا و تعریف ویژگی جدید با نوع داده انتخابی (Choice)
     """
     def get_permissions(self):
         if self.request.method == 'POST':
@@ -1453,17 +1358,26 @@ class ProductAttributeListCreateAPIView(APIView):
 
 class ProductAttributeDetailUpdateDeleteAPIView(APIView):
     """
-    مشاهده، ویرایش و حذف ویژگی
+    اندپوینت مشاهده، ویرایش و حذف تعریف ویژگی مشخص
     """
     def get_permissions(self):
         if self.request.method in ['PUT', 'PATCH', 'DELETE']:
             return [IsAdminUser()]
         return [AllowAny()]
 
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات تعریف ویژگی",
+        responses={200: ProductAttributeSerializer}
+    )
     def get(self, request, pk):
         attr = get_object_or_404(ProductAttribute, pk=pk)
         return Response({'status': 'success', 'data': ProductAttributeSerializer(attr).data})
 
+    @swagger_auto_schema(
+        operation_summary="ویرایش تعریف ویژگی (مدیریت)",
+        request_body=ProductAttributeSerializer,
+        responses={200: ProductAttributeSerializer}
+    )
     def put(self, request, pk):
         attr = get_object_or_404(ProductAttribute, pk=pk)
         serializer = ProductAttributeSerializer(attr, data=request.data, partial=True)
@@ -1476,6 +1390,10 @@ class ProductAttributeDetailUpdateDeleteAPIView(APIView):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_summary="حذف تعریف ویژگی (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
     def delete(self, request, pk):
         attr = get_object_or_404(ProductAttribute, pk=pk)
         attr.delete()
@@ -1484,12 +1402,12 @@ class ProductAttributeDetailUpdateDeleteAPIView(APIView):
 
 class ProductAttributeValuesSetAPIView(APIView):
     """
-    ثبت و ویرایش دسته‌جمعی مقادیر ویژگی‌ها برای یک کالای مشخص
+    اندپوینت ثبت و ویرایش دسته‌جمعی مقادیر ویژگی‌های فنی برای یک کالای مشخص
     """
     permission_classes = [IsAdminUser]
 
     @swagger_auto_schema(
-        operation_summary="ثبت مقادیر ویژگی‌های یک کالا",
+        operation_summary="ثبت و بروزرسانی مقادیر ویژگی‌های فنی یک کالا (مدیریت)",
         responses={200: ProductSerializer}
     )
     def post(self, request, pk):
@@ -1518,15 +1436,9 @@ class ProductAttributeValuesSetAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
 
-# ==========================================
-# ۴. ویوهای کاتالوگ محصولات و صندوق (POS Sync)
-# ==========================================
-
 class ProductListAPIView(APIView):
     """
-    کاتالوگ محصولات آنلاین سایت:
-    - فیلتر خودکار کالاهای فعال و غیرحضوری (is_pos_only=False)
-    - فیلتر بازه قیمت، دسته‌بندی و برند
+    اندپوینت کاتالوگ محصولات آنلاین سایت با فیلتر خودکار کالاهای فعال و غیرحضوری (is_pos_only=False)
     """
     permission_classes = [AllowAny]
 
@@ -1573,9 +1485,7 @@ class ProductListAPIView(APIView):
 
 class PosCatalogAPIView(APIView):
     """
-    کاتالوگ کامل صندوق حضوری (POS):
-    - لود کلیه اقلام آنلاین و اقلام اختصاصی صندوق (is_pos_only=True)
-    - پشتیبانی از اسکنر بارکد
+    اندپوینت کاتالوگ کامل صندوق حضوری (POS) شامل اقلام آنلاین و اختصاصی صندوق (is_pos_only=True) و جستجوی اسکنر بارکد
     """
     permission_classes = [IsAuthenticated]
 
@@ -1607,8 +1517,15 @@ class PosCatalogAPIView(APIView):
 
 
 class ProductFeaturedAPIView(APIView):
+    """
+    اندپوینت دریافت لیست محصولات پیشنهاد ویژه صفحه اصلی
+    """
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست پیشنهادهای ویژه صفحه اصلی",
+        responses={200: ProductSerializer(many=True)}
+    )
     def get(self, request):
         queryset = Product.objects.filter(is_active=True, is_featured=True, is_pos_only=False).select_related('category', 'hologram')
         serializer = ProductSerializer(queryset, many=True)
@@ -1616,6 +1533,9 @@ class ProductFeaturedAPIView(APIView):
 
 
 class ProductCreateAPIView(APIView):
+    """
+    اندپوینت ثبت محصول جدید در کاتالوگ آنلاین / صندوق حضوری (مخصوص ادمین)
+    """
     permission_classes = [IsAdminUser]
 
     @swagger_auto_schema(
@@ -1637,8 +1557,15 @@ class ProductCreateAPIView(APIView):
 
 
 class ProductDetailAPIView(APIView):
+    """
+    اندپوینت دریافت جزئیات کامل یک محصول بر اساس ID
+    """
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات کامل محصول به همراه گالری و ویژگی‌ها",
+        responses={200: ProductDetailSerializer}
+    )
     def get(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
         serializer = ProductDetailSerializer(product)
@@ -1646,8 +1573,16 @@ class ProductDetailAPIView(APIView):
 
 
 class ProductUpdateAPIView(APIView):
+    """
+    اندپوینت ویرایش کامل یا جزئی اطلاعات محصول (مخصوص ادمین)
+    """
     permission_classes = [IsAdminUser]
 
+    @swagger_auto_schema(
+        operation_summary="ویرایش اطلاعات محصول (مدیریت)",
+        request_body=ProductCreateUpdateSerializer,
+        responses={200: ProductSerializer}
+    )
     def put(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
         serializer = ProductCreateUpdateSerializer(product, data=request.data, partial=True)
@@ -1662,8 +1597,15 @@ class ProductUpdateAPIView(APIView):
 
 
 class ProductSyncPosStockAPIView(APIView):
+    """
+    اندپوینت همگام‌سازی لحظه‌ای موجودی انبار و تغییر وضعیت اختصاصی صندوق (POS Stock Sync)
+    """
     permission_classes = [IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary="همگام‌سازی موجودی و کانال عرضه صندوق حضوری",
+        responses={200: ProductSerializer}
+    )
     def patch(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
         cartons_delta = request.data.get('stock_cartons_delta')
@@ -1686,8 +1628,15 @@ class ProductSyncPosStockAPIView(APIView):
 
 
 class ProductDeleteAPIView(APIView):
+    """
+    اندپوینت حذف محصول از سیستم (مخصوص ادمین)
+    """
     permission_classes = [IsAdminUser]
 
+    @swagger_auto_schema(
+        operation_summary="حذف محصول از کاتالوگ (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
     def delete(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
         product.delete()
@@ -1696,25 +1645,18 @@ class ProductDeleteAPIView(APIView):
 
   const urlsCode = `"""
 products/urls.py
-مسیرهای صریح API برای دسته‌بندی‌ها، هولوگرام‌ها، ویژگی‌های کالا، کاتالوگ و همگام‌سازی صندوق
+مسیرهای صریح صادرشده برای APIView (بدون استفاده از Router یا ViewSet) جهت کاتالوگ، دسته‌بندی‌ها، هولوگرام‌ها و ویژگی‌های کالا
 """
 
 from django.urls import path
 from .views import (
-    # Categories
     CategoryListCreateAPIView,
     CategoryDetailUpdateDeleteAPIView,
-    
-    # Holograms
     HologramListCreateAPIView,
     HologramDetailUpdateDeleteAPIView,
-    
-    # Attributes
     ProductAttributeListCreateAPIView,
     ProductAttributeDetailUpdateDeleteAPIView,
     ProductAttributeValuesSetAPIView,
-    
-    # Products & POS Sync
     ProductListAPIView,
     PosCatalogAPIView,
     ProductFeaturedAPIView,
@@ -1728,29 +1670,21 @@ from .views import (
 app_name = 'products'
 
 urlpatterns = [
-    # ==========================================
-    # ۱. مسیرهای دسته‌بندی‌ها (Categories CRUD)
-    # ==========================================
+    # ۱. دسته‌بندی‌ها
     path('categories/', CategoryListCreateAPIView.as_view(), name='category-list-create'),
     path('categories/<int:pk>/', CategoryDetailUpdateDeleteAPIView.as_view(), name='category-detail-update-delete'),
 
-    # ==========================================
-    # ۲. مسیرهای هولوگرام‌ها و اصالت کالا (Holograms CRUD)
-    # ==========================================
+    # ۲. هولوگرام و اصالت کالا
     path('holograms/', HologramListCreateAPIView.as_view(), name='hologram-list-create'),
     path('holograms/<int:pk>/', HologramDetailUpdateDeleteAPIView.as_view(), name='hologram-detail-update-delete'),
 
-    # ==========================================
-    # ۳. مسیرهای مشخصات و ویژگی‌های کالا (Attributes CRUD)
-    # ==========================================
+    # ۳. ویژگی‌ها و مشخصات فنی کالا
     path('attributes/', ProductAttributeListCreateAPIView.as_view(), name='attribute-list-create'),
     path('attributes/<int:pk>/', ProductAttributeDetailUpdateDeleteAPIView.as_view(), name='attribute-detail-update-delete'),
-    path('<int:pk>/attributes/', ProductAttributeValuesSetAPIView.as_view(), name='product-attributes-set'),
+    path('<int:pk>/attributes/set/', ProductAttributeValuesSetAPIView.as_view(), name='product-attribute-values-set'),
 
-    # ==========================================
-    # ۴. مسیرهای کاتالوگ محصولات و همگام‌سازی صندوق (POS Sync)
-    # ==========================================
-    path('list/', ProductListAPIView.as_view(), name='product-list'),
+    # ۴. کاتالوگ محصولات و همگام‌سازی صندوق (POS Sync)
+    path('', ProductListAPIView.as_view(), name='product-list'),
     path('pos-catalog/', PosCatalogAPIView.as_view(), name='pos-catalog'),
     path('featured/', ProductFeaturedAPIView.as_view(), name='product-featured'),
     path('create/', ProductCreateAPIView.as_view(), name='product-create'),

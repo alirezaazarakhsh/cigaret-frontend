@@ -13,16 +13,12 @@ from tinymce.models import HTMLField
 # ==========================================
 
 COLOR_CHOICES = (
-    ('#3B82F6', _('آبی لاجوردی (#3B82F6)')),
-    ('#10B981', _('سبز زمردی (#10B981)')),
+    ('#EF4444', _('قرمز / سرخابی (#EF4444)')),
+    ('#F59E0B', _('طلایی / نارنجی (#F59E0B)')),
     ('#8B5CF6', _('بنفش رویال (#8B5CF6)')),
-    ('#F59E0B', _('طلایی کهربایی (#F59E0B)')),
-    ('#EF4444', _('قرمز یاقوتی (#EF4444)')),
+    ('#3B82F6', _('آبی لاجوردی (#3B82F6)')),
     ('#06B6D4', _('فیروزه‌ای (#06B6D4)')),
-    ('#EC4899', _('صورتی سرخابی (#EC4899)')),
-    ('#64748B', _('طوسی اسلیتی (#64748B)')),
-    ('#1E293B', _('دودی تاریک (#1E293B)')),
-    ('#D97706', _('مسی / برنزی (#D97706)')),
+    ('#1E40AF', _('سرمه‌ای دیپ (#1E40AF)')),
 )
 
 SECURITY_LEVEL_CHOICES = (
@@ -42,38 +38,30 @@ DATA_TYPE_CHOICES = (
 
 
 # ==========================================
-# ۱. مدل دسته‌بندی‌های درختی (Category)
+# ۱. مدل دسته‌بندی محصولات (Category)
 # ==========================================
 
 class Category(models.Model):
     """
-    مدل دسته‌بندی جامع کالاها (انتقال‌یافته به اپ products):
-    دارای عنوان فارسی، نام لاتین، شناسه سیستمی (اسلاگ)، پالت رنگی انتخابی، آیکون و ساختار درختی
+    مدل دسته‌بندی کالاها (شامل ۵ فیلد اصلی فرم اندپوینت):
+    ۱. عنوان دسته‌بندی (فارسی)
+    ۲. نام لاتین (English)
+    ۳. شناسه سیستمی (Slug / ID)
+    ۴. رنگ شناسه (۶ رنگ پالت انتخابی)
+    ۵. توضیحات کوتاه دسته‌بندی
     """
     name = models.CharField(_("عنوان دسته‌بندی (فارسی)"), max_length=150)
     name_en = models.CharField(_("نام لاتین (English)"), max_length=150, blank=True, null=True)
     slug = models.SlugField(_("شناسه سیستمی (Slug / ID)"), max_length=160, unique=True, allow_unicode=True)
     color = models.CharField(_("رنگ شناسه"), max_length=30, choices=COLOR_CHOICES, default="#3B82F6")
     description = models.TextField(_("توضیحات کوتاه دسته‌بندی"), blank=True, null=True)
-    icon = models.CharField(_("نام آیکون نمایشی"), max_length=60, default='Layers')
-    image = models.ImageField(_("تصویر شاخص دسته‌بندی"), upload_to='categories/', blank=True, null=True)
-    parent = models.ForeignKey(
-        'self', 
-        on_delete=models.CASCADE, 
-        null=True, 
-        blank=True, 
-        related_name='children',
-        verbose_name=_("دسته مادر (والد)")
-    )
-    display_order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
-    is_active = models.BooleanField(_("وضعیت فعال"), default=True)
     created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
     updated_at = models.DateTimeField(_("تاریخ آخرین ویرایش"), auto_now=True)
 
     class Meta:
         verbose_name = _("دسته‌بندی")
         verbose_name_plural = _("دسته‌بندی‌های محصولات")
-        ordering = ['display_order', 'name']
+        ordering = ['-id']
 
     def __str__(self):
         return f"{self.name} ({self.slug})"

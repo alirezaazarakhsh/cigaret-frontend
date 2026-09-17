@@ -18,11 +18,19 @@ from .models import (
 # ==============================================================================
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ['name', 'parent', 'slug', 'order', 'is_active', 'created_at']
-    list_filter = ['is_active', 'parent']
-    search_fields = ['name', 'slug']  # 👈 ضروری برای autocomplete_fields
+    list_display = ['name', 'name_en', 'slug', 'color_badge', 'created_at']
+    search_fields = ['name', 'name_en', 'slug', 'description']  # 👈 ضروری برای autocomplete_fields
     prepopulated_fields = {'slug': ('name',)}
-    ordering = ['order', 'name']
+    ordering = ['-id']
+
+    @admin.display(description=_('رنگ شناسه'))
+    def color_badge(self, obj):
+        color = obj.color or '#3B82F6'
+        return format_html(
+            '<span style="background-color: {}; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
+            color,
+            color
+        )
 
 
 # ==============================================================================

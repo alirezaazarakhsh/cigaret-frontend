@@ -811,18 +811,27 @@ from django.utils.translation import gettext_lazy as _
 
 
 class Category(models.Model):
-    name_fa = models.CharField(_("نام فارسی دسته‌بندی"), max_length=100)
-    name_en = models.CharField(_("نام انگلیسی (Slug)"), max_length=100, unique=True)
-    icon = models.CharField(_("آیکون"), max_length=50, default="Package")
-    order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
+    name = models.CharField(_("عنوان دسته‌بندی (فارسی)"), max_length=150, db_index=True)
+    name_en = models.CharField(_("نام لاتین (English)"), max_length=150, blank=True, null=True)
+    slug = models.SlugField(_("شناسه سیستمی (Slug)"), max_length=160, unique=True, allow_unicode=True)
+    color = models.CharField(_("رنگ شناسه"), max_length=20, choices=COLOR_CHOICES, default='#3B82F6')
+    description = models.TextField(_("توضیحات کوتاه دسته‌بندی"), blank=True, null=True)
+    icon = models.CharField(_("نام آیکون نمایشی"), max_length=60, default='Layers')
+    image = models.ImageField(_("تصویر شاخص دسته‌بندی"), upload_to='categories/', blank=True, null=True)
+    parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children', verbose_name=_("دسته مادر (والد)"))
+    display_order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
+    is_active = models.BooleanField(_("وضعیت فعال"), default=True)
+
+    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True, null=True)
+    updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True, null=True)
 
     class Meta:
         verbose_name = _("دسته‌بندی کالا")
-        verbose_name_plural = _("دسته‌بندی‌های دخانیات")
-        ordering = ['order', 'name_fa']
+        verbose_name_plural = _("دسته‌بندی‌های کالا")
+        ordering = ['display_order', 'name']
 
     def __str__(self):
-        return self.name_fa
+        return self.name
 
 
 class Brand(models.Model):
@@ -1005,8 +1014,18 @@ class BrandAdmin(admin.ModelAdmin):
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name_fa', 'name_en', 'order')
-    ordering = ('order',)
+    list_display = ('name', 'name_en', 'slug', 'color_badge', 'parent', 'display_order', 'is_active')
+    list_filter = ('is_active', 'color')
+    search_fields = ('name', 'name_en', 'slug', 'description')
+    prepopulated_fields = {'slug': ('name',)}
+
+    @admin.display(description=_("رنگ شناسه"))
+    def color_badge(self, obj):
+        return format_html(
+            '<span style="background-color: {}; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
+            obj.color or '#3B82F6',
+            obj.color or '#3B82F6'
+        )
 `,
     serializers: `"""
 catalog/serializers.py
