@@ -28,7 +28,7 @@ import {
   INITIAL_PRODUCT_FEATURES
 } from './types';
 import { formatNumberFa } from '../../utils/formatters';
-import { categoriesApi, hologramsApi } from '../../services/api';
+import { categoriesApi, hologramsApi, attributesApi } from '../../services/api';
 
 interface ProductManagementPanelProps {
   products: CigaretteProduct[];
@@ -127,14 +127,36 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
     return () => { isMounted = false; };
   }, []);
 
-  // Features state with persistence
+  // Features state with database synchronization
   const [features, setFeatures] = useState<ProductFeatureItem[]>(() => {
     try {
       const saved = localStorage.getItem('sevin_product_features');
-      if (saved) return JSON.parse(saved);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const mockIds = ['feat-tar', 'feat-nicotine', 'feat-format', 'feat-filter', 'feat-flavor', 'feat-origin'];
+          return parsed.filter((f: any) => !mockIds.includes(f.id));
+        }
+      }
     } catch {}
     return INITIAL_PRODUCT_FEATURES;
   });
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchAttributes = async () => {
+      try {
+        const data = await attributesApi.getAll();
+        if (isMounted) {
+          setFeatures(data);
+        }
+      } catch (err) {
+        console.error('Error loading product features/attributes from DB:', err);
+      }
+    };
+    fetchAttributes();
+    return () => { isMounted = false; };
+  }, []);
 
   // Notification Toast state
   const [notification, setNotification] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
@@ -298,25 +320,58 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
   };
 
   // CRUD for Features
-  const handleAddFeature = (newFeat: ProductFeatureItem) => {
-    const updated = [...features, newFeat];
-    setFeatures(updated);
+  const handleAddFeature = async (newFeat: ProductFeatureItem) => {
     try {
-      localStorage.setItem('sevin_product_features', JSON.stringify(updated));
-    } catch {}
-    showToast(`مشخصه فنی «${newFeat.nameFa}» به شناسنامه کالا اضافه شد.`);
+      const created = await attributesApi.create({
+        nameFa: newFeat.nameFa,
+        nameEn: newFeat.nameEn,
+        type: newFeat.type,
+        unit: newFeat.unit,
+        description: newFeat.description,
+      });
+      const updated = [...features, created];
+      setFeatures(updated);
+      showToast(`مشخصه فنی «${created.nameFa}» به شناسنامه کالا اضافه شد.`);
+    } catch (err: any) {
+      console.warn('API feature creation failed, falling back to local state:', err);
+      const updated = [...features, newFeat];
+      setFeatures(updated);
+      try {
+        localStorage.setItem('sevin_product_features', JSON.stringify(updated));
+      } catch {}
+      showToast(`مشخصه فنی «${newFeat.nameFa}» به شناسنامه کالا اضافه شد.`);
+    }
   };
 
-  const handleUpdateFeature = (updatedFeat: ProductFeatureItem) => {
-    const updated = features.map((f) => (f.id === updatedFeat.id ? updatedFeat : f));
-    setFeatures(updated);
+  const handleUpdateFeature = async (updatedFeat: ProductFeatureItem) => {
     try {
-      localStorage.setItem('sevin_product_features', JSON.stringify(updated));
-    } catch {}
-    showToast(`تغییرات مشخصه فنی «${updatedFeat.nameFa}» با موفقیت ذخیره شد.`);
+      const updatedFromApi = await attributesApi.update(updatedFeat.id, {
+        nameFa: updatedFeat.nameFa,
+        nameEn: updatedFeat.nameEn,
+        type: updatedFeat.type,
+        unit: updatedFeat.unit,
+        description: updatedFeat.description,
+      });
+      const updated = features.map((f) => (f.id === updatedFeat.id ? updatedFromApi : f));
+      setFeatures(updated);
+      showToast(`تغییرات مشخصه فنی «${updatedFeat.nameFa}» با موفقیت ذخیره شد.`);
+    } catch (err: any) {
+      console.warn('API feature update failed, falling back to local state:', err);
+      const updated = features.map((f) => (f.id === updatedFeat.id ? updatedFeat : f));
+      setFeatures(updated);
+      try {
+        localStorage.setItem('sevin_product_features', JSON.stringify(updated));
+      } catch {}
+      showToast(`تغییرات مشخصه فنی «${updatedFeat.nameFa}» با موفقیت ذخیره شد.`);
+    }
   };
 
-  const handleDeleteFeature = (featId: string) => {
+  const handleDeleteFeature = async (featId: string) => {
+    try {
+      await attributesApi.delete(featId);
+    } catch (err) {
+      console.warn('API feature delete failed:', err);
+    }
     const updated = features.filter((f) => f.id !== featId);
     setFeatures(updated);
     try {

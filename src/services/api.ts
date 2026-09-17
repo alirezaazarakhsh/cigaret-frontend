@@ -52,7 +52,7 @@ import {
   BlogCategoryItem,
   WarehouseMessage
 } from '../types';
-import { ProductCategoryItem, ProductHologramItem } from '../components/product-manage/types';
+import { ProductCategoryItem, ProductHologramItem, ProductFeatureItem } from '../components/product-manage/types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { INITIAL_RETAIL_SHOPS } from '../data/retailShops';
 import { 
@@ -327,6 +327,136 @@ export const hologramsApi = {
     let response = await httpClient.delete<any>(`/products/holograms/${id}/`);
     if (!response.success && response.status === 404) {
       response = await httpClient.delete<any>(`/api/v1/products/holograms/${id}/`);
+    }
+    return response.success;
+  }
+};
+
+// ==========================================
+// 0.2 ATTRIBUTES / FEATURES API
+// ==========================================
+export const attributesApi = {
+  /**
+   * Fetches all product attributes/features from backend GET /products/attributes/
+   */
+  async getAll(): Promise<ProductFeatureItem[]> {
+    let response = await httpClient.get<any>('/products/attributes/', {
+      headers: API_CACHE_CONTROL_HEADERS,
+    });
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>('/api/v1/products/attributes/', {
+        headers: API_CACHE_CONTROL_HEADERS,
+      });
+    }
+
+    if (response.success && response.data) {
+      const items = Array.isArray(response.data)
+        ? response.data
+        : (response.data.results || response.data.data || []);
+
+      const mapped: ProductFeatureItem[] = items.map((item: any) => ({
+        id: String(item.id),
+        nameFa: item.name || '',
+        nameEn: item.name_en || '',
+        type: (item.data_type || 'text') as any,
+        unit: item.unit || undefined,
+        description: item.help_text || item.description || '',
+      }));
+
+      try {
+        localStorage.setItem('sevin_product_features', JSON.stringify(mapped));
+      } catch {}
+
+      return mapped;
+    }
+
+    // Fallback if offline
+    try {
+      const saved = localStorage.getItem('sevin_product_features');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          const mockIds = ['feat-tar', 'feat-nicotine', 'feat-format', 'feat-filter', 'feat-flavor', 'feat-origin'];
+          return parsed.filter((f: any) => !mockIds.includes(f.id));
+        }
+      }
+    } catch {}
+    return [];
+  },
+
+  /**
+   * Creates a new attribute on POST /products/attributes/
+   */
+  async create(data: { nameFa: string; nameEn?: string; type?: string; unit?: string; description?: string }): Promise<ProductFeatureItem> {
+    const payload = {
+      name: data.nameFa,
+      name_en: data.nameEn || '',
+      data_type: data.type || 'text',
+      unit: data.unit || '',
+      help_text: data.description || '',
+      is_required: false,
+      display_order: 0,
+    };
+
+    let response = await httpClient.post<any>('/products/attributes/', payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post<any>('/api/v1/products/attributes/', payload);
+    }
+
+    if (response.success && response.data) {
+      const res = response.data.data || response.data;
+      return {
+        id: String(res.id),
+        nameFa: res.name || data.nameFa,
+        nameEn: res.name_en || data.nameEn || '',
+        type: (res.data_type || data.type || 'text') as any,
+        unit: res.unit || data.unit || undefined,
+        description: res.help_text || data.description || '',
+      };
+    }
+    throw new Error(response.error || 'خطا در ثبت ویژگی کالا در دیتابیس');
+  },
+
+  /**
+   * Updates an existing attribute on PUT /products/attributes/{id}/
+   */
+  async update(id: string | number, data: { nameFa: string; nameEn?: string; type?: string; unit?: string; description?: string }): Promise<ProductFeatureItem> {
+    const payload = {
+      name: data.nameFa,
+      name_en: data.nameEn || '',
+      data_type: data.type || 'text',
+      unit: data.unit || '',
+      help_text: data.description || '',
+      is_required: false,
+      display_order: 0,
+    };
+
+    let response = await httpClient.put<any>(`/products/attributes/${id}/`, payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.put<any>(`/api/v1/products/attributes/${id}/`, payload);
+    }
+
+    if (response.success && response.data) {
+      const res = response.data.data || response.data;
+      return {
+        id: String(res.id || id),
+        nameFa: res.name || data.nameFa,
+        nameEn: res.name_en || data.nameEn || '',
+        type: (res.data_type || data.type || 'text') as any,
+        unit: res.unit || data.unit || undefined,
+        description: res.help_text || data.description || '',
+      };
+    }
+    throw new Error(response.error || 'خطا در ویرایش ویژگی کالا در دیتابیس');
+  },
+
+  /**
+   * Deletes an attribute on DELETE /products/attributes/{id}/
+   */
+  async delete(id: string | number): Promise<boolean> {
+    let response = await httpClient.delete<any>(`/products/attributes/${id}/`);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.delete<any>(`/api/v1/products/attributes/${id}/`);
     }
     return response.success;
   }
