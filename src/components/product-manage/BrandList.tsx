@@ -24,6 +24,7 @@ export const BrandList: React.FC<BrandListProps> = ({
   const [slug, setSlug] = useState('');
   const [country, setCountry] = useState('');
   const [logo, setLogo] = useState('');
+  const [logoFile, setLogoFile] = useState<File | null>(null);
   const [description, setDescription] = useState('');
 
   const handleStartEdit = (brand: ProductBrandItem) => {
@@ -32,7 +33,8 @@ export const BrandList: React.FC<BrandListProps> = ({
     setNameEn(brand.nameEn || '');
     setSlug(brand.slug || '');
     setCountry(brand.country || '');
-    setLogo(brand.logo || '');
+    setLogo(brand.logo as string || '');
+    setLogoFile(null);
     setDescription(brand.description || '');
   };
 
@@ -43,6 +45,7 @@ export const BrandList: React.FC<BrandListProps> = ({
     setSlug('');
     setCountry('');
     setLogo('');
+    setLogoFile(null);
     setDescription('');
   };
 
@@ -57,7 +60,7 @@ export const BrandList: React.FC<BrandListProps> = ({
         nameEn: nameEn.trim() || undefined,
         slug: slug.trim() || nameEn.trim().toLowerCase().replace(/\s+/g, '-') || name.trim(),
         country: country.trim() || undefined,
-        logo: logo.trim() || undefined,
+        logo: logoFile || logo.trim() || undefined,
         description: description.trim() || undefined,
       });
       handleCancelEdit();
@@ -67,7 +70,7 @@ export const BrandList: React.FC<BrandListProps> = ({
         nameEn: nameEn.trim() || undefined,
         slug: slug.trim() || nameEn.trim().toLowerCase().replace(/\s+/g, '-') || name.trim(),
         country: country.trim() || undefined,
-        logo: logo.trim() || undefined,
+        logo: logoFile || logo.trim() || undefined,
         description: description.trim() || undefined,
       });
       setName('');
@@ -75,6 +78,7 @@ export const BrandList: React.FC<BrandListProps> = ({
       setSlug('');
       setCountry('');
       setLogo('');
+      setLogoFile(null);
       setDescription('');
     }
   };
@@ -188,6 +192,7 @@ export const BrandList: React.FC<BrandListProps> = ({
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          setLogoFile(file);
                           const reader = new FileReader();
                           reader.onloadend = () => {
                             if (typeof reader.result === 'string') {

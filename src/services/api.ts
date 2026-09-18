@@ -511,19 +511,18 @@ export const brandsApi = {
   /**
    * Creates a new brand on POST /products/brands/
    */
-  async create(data: { name: string; nameEn?: string; slug?: string; logo?: string; country?: string; description?: string }): Promise<ProductBrandItem> {
-    const payload = {
-      name: data.name,
-      name_en: data.nameEn || '',
-      slug: data.slug || '',
-      logo: data.logo || null,
-      country: data.country || '',
-      description: data.description || '',
-    };
+  async create(data: { name: string; nameEn?: string; slug?: string; logo?: string | File; country?: string; description?: string }): Promise<ProductBrandItem> {
+    const formData = new FormData();
+    formData.append('name', data.name);
+    if (data.nameEn) formData.append('name_en', data.nameEn);
+    if (data.slug) formData.append('slug', data.slug);
+    if (data.logo) formData.append('logo', data.logo);
+    if (data.country) formData.append('country', data.country);
+    if (data.description) formData.append('description', data.description);
 
-    let response = await httpClient.post<any>('/products/brands/', payload);
+    let response = await httpClient.post<any>('/products/brands/', formData);
     if (!response.success && response.status === 404) {
-      response = await httpClient.post<any>('/api/v1/products/brands/', payload);
+      response = await httpClient.post<any>('/api/v1/products/brands/', formData);
     }
 
     if (response.success && response.data) {
@@ -531,11 +530,11 @@ export const brandsApi = {
       return {
         id: String(res.id),
         name: res.name || data.name,
-        nameEn: res.name_en || data.nameEn || '',
-        slug: res.slug || data.slug || '',
-        logo: res.logo || data.logo || undefined,
-        country: res.country || data.country || '',
-        description: res.description || data.description || '',
+        nameEn: res.name_en || (typeof data.nameEn === 'string' ? data.nameEn : ''),
+        slug: res.slug || (typeof data.slug === 'string' ? data.slug : ''),
+        logo: res.logo || (typeof data.logo === 'string' ? data.logo : undefined),
+        country: res.country || (typeof data.country === 'string' ? data.country : ''),
+        description: res.description || (typeof data.description === 'string' ? data.description : ''),
       };
     }
     throw new Error(response.error || 'خطا در برقراری ارتباط با سرور یا ثبت برند در دیتابیس');
@@ -544,19 +543,18 @@ export const brandsApi = {
   /**
    * Updates an existing brand on PUT /products/brands/{id}/
    */
-  async update(id: string | number, data: { name: string; nameEn?: string; slug?: string; logo?: string; country?: string; description?: string }): Promise<ProductBrandItem> {
-    const payload = {
-      name: data.name,
-      name_en: data.nameEn || '',
-      slug: data.slug || '',
-      logo: data.logo || null,
-      country: data.country || '',
-      description: data.description || '',
-    };
+  async update(id: string | number, data: { name: string; nameEn?: string; slug?: string; logo?: string | File; country?: string; description?: string }): Promise<ProductBrandItem> {
+    const formData = new FormData();
+    formData.append('name', data.name);
+    if (data.nameEn) formData.append('name_en', data.nameEn);
+    if (data.slug) formData.append('slug', data.slug);
+    if (data.logo) formData.append('logo', data.logo);
+    if (data.country) formData.append('country', data.country);
+    if (data.description) formData.append('description', data.description);
 
-    let response = await httpClient.put<any>(`/products/brands/${id}/`, payload);
+    let response = await httpClient.put<any>(`/products/brands/${id}/`, formData);
     if (!response.success && response.status === 404) {
-      response = await httpClient.put<any>(`/api/v1/products/brands/${id}/`, payload);
+      response = await httpClient.put<any>(`/api/v1/products/brands/${id}/`, formData);
     }
 
     if (response.success && response.data) {
@@ -564,11 +562,11 @@ export const brandsApi = {
       return {
         id: String(res.id || id),
         name: res.name || data.name,
-        nameEn: res.name_en || data.nameEn || '',
-        slug: res.slug || data.slug || '',
-        logo: res.logo || data.logo || undefined,
-        country: res.country || data.country || '',
-        description: res.description || data.description || '',
+        nameEn: res.name_en || (typeof data.nameEn === 'string' ? data.nameEn : ''),
+        slug: res.slug || (typeof data.slug === 'string' ? data.slug : ''),
+        logo: res.logo || (typeof data.logo === 'string' ? data.logo : undefined),
+        country: res.country || (typeof data.country === 'string' ? data.country : ''),
+        description: res.description || (typeof data.description === 'string' ? data.description : ''),
       };
     }
     throw new Error(response.error || 'خطا در ویرایش برند در دیتابیس');

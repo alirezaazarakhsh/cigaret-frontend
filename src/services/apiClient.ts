@@ -72,10 +72,13 @@ async function request<T = any>(
 
   const headers: Record<string, string> = {
     'Accept': 'application/json',
-    'Content-Type': 'application/json',
     ...DEFAULT_NO_CACHE_HEADERS,
     ...(options.headers || {}),
   };
+
+  if (!(body instanceof FormData)) {
+    headers['Content-Type'] = 'application/json';
+  }
 
   if (token && !options.skipAuth) {
     // Standard Bearer or Token header
@@ -89,7 +92,11 @@ async function request<T = any>(
   };
 
   if (body !== undefined && method !== 'GET') {
-    reqInit.body = typeof body === 'string' ? body : JSON.stringify(body);
+    if (body instanceof FormData) {
+      reqInit.body = body;
+    } else {
+      reqInit.body = typeof body === 'string' ? body : JSON.stringify(body);
+    }
   }
 
   const parseResponse = async (response: Response): Promise<ApiResponse<T>> => {

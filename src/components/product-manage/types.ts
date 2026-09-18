@@ -34,7 +34,7 @@ export interface ProductBrandItem {
   name: string;
   nameEn?: string;
   slug: string;
-  logo?: string;
+  logo?: string | File;
   country?: string;
   description?: string;
 }
