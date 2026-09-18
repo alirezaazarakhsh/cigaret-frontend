@@ -788,12 +788,16 @@ class CategoryAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(ProductBrand)
 class ProductBrandAdmin(admin.ModelAdmin):
-    list_display = ['id', 'logo_preview', 'name', 'name_en', 'country', 'created_at']
+    list_display = ['id', 'logo_preview', 'name', 'name_en', 'country', 'created_at_jalali']
     readonly_fields = ['logo_preview']
     fields = ['name', 'name_en', 'slug', 'logo', 'logo_preview', 'country', 'description']
     list_filter = ['country']
     search_fields = ['name', 'name_en', 'slug']
     prepopulated_fields = {'slug': ('name',)}
+
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
 
     @admin.display(description=_("پیش‌نمایش تصویر لوگو"))
     def logo_preview(self, obj):
