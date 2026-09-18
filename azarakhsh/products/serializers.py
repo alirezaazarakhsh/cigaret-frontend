@@ -4,6 +4,8 @@ products/serializers.py
 """
 
 from rest_framework import serializers
+from django.utils.text import slugify
+import uuid
 from .models import (
     Category,
     ProductBrand,
@@ -14,16 +16,14 @@ from .models import (
     ProductImage
 )
 
-
-from django.utils.text import slugify
-import uuid
-
 class ProductBrandSerializer(serializers.ModelSerializer):
     """
-    سریالایزر برندهای کالا با ۶ فیلد اصلی (نام فارسی، نام انگلیسی، اسلاگ سئو، لوگو، کشور سازنده، توضیحات)
+    سریالایزر برندهای کالا با پشتیبانی کامل از آپلود فایل و ذخیره توضیحات
     """
     slug = serializers.SlugField(required=False, allow_blank=True)
     products_count = serializers.SerializerMethodField()
+    # تعریف صریح برای اطمینان از قابلیت نوشتن (writable)
+    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
 
     class Meta:
         model = ProductBrand
@@ -42,7 +42,6 @@ class ProductBrandSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
             'country': {'required': False, 'allow_blank': True, 'allow_null': True},
-            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
             'logo': {'required': False, 'allow_null': True},
         }
 
@@ -56,8 +55,8 @@ class ProductBrandSerializer(serializers.ModelSerializer):
         return attrs
 
     def get_products_count(self, obj):
-        # Count products matching this brand name or relation if needed
-        return Product.objects.filter(brand=obj.name).count()
+        # شمارش محصولات مرتبط با این برند
+        return Product.objects.filter(brand=obj).count()
 
 
 class CategorySerializer(serializers.ModelSerializer):

@@ -1,59 +1,24 @@
-# 📦 کد کامل و اصلاح‌شده فایل `products/models.py` (سامانه آذرخش / دخانیات سرو)
+# 📦 کد کامل و اصلاح‌شده فایل `products/models.py` (سامانه آذرخش)
 
-این فایل تمام مدل‌های مرتبط با محصولات، دسته‌بندی‌ها، هولوگرام‌ها، برندها، تخفیف‌های پلکانی، گالری تصاویر و سئو را به همراه تمامی فیلدهای اختصاصی انبار بنکداری در بر می‌گیرد.
-
-### ⚠️ نکته مهم برای حل ارور مایگریشن:
-مدل `Category` به صورت مستقیم داخل همین فایل قرار گرفته است و فیلد `category` در مدل `Product` به همین کلاس اشاره می‌کند. این کار به طور کامل خطای `NodeNotFoundError` و `ValueError (categories.category reference)` را برطرف می‌سازد.
+این فایل مدل‌های محصول، برند، هولوگرام و... را در بر می‌گیرد.
 
 ---
 
+### ۲. مدل برندهای تجاری محصولات (Product Brand)
 ```python
-from django.db import models
-from django.utils.translation import gettext_lazy as _
-from django.core.validators import MinValueValidator
-
-# ==============================================================================
-# ۱. مدل دسته‌بندی محصولات (Category Model)
-# ==============================================================================
-class Category(models.Model):
-    name = models.CharField(_('نام دسته‌بندی'), max_length=150)
-    slug = models.SlugField(_('اسلاگ (آدرس یکتا)'), max_length=150, unique=True, allow_unicode=True)
-    icon = models.CharField(_('آیکون یا کلاس Lucide'), max_length=100, blank=True, null=True)
-    description = models.TextField(_('توضیحات دسته‌بندی'), blank=True, null=True)
-    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', verbose_name=_('دسته‌بندی مادر'))
-    is_active = models.BooleanField(_('فعال بودن'), default=True)
-    order = models.PositiveIntegerField(_('ترتیب نمایش'), default=0)
-    created_at = models.DateTimeField(_('تاریخ ایجاد'), auto_now_add=True)
-
-    class Meta:
-        verbose_name = _('دسته‌بندی کالا')
-        verbose_name_plural = _('دسته‌بندی‌های کالاها')
-        ordering = ['order', 'name']
-
-    def __str__(self):
-        if self.parent:
-            return f"{self.parent.name} > {self.name}"
-        return self.name
-
-
-# ==============================================================================
-# ۲. مدل برندهای تجاری محصولات (Product Brand)
-# ==============================================================================
 class ProductBrand(models.Model):
-    name = models.CharField(_('نام فارسی برند'), max_length=100)
-    name_en = models.CharField(_('نام انگلیسی برند'), max_length=100, blank=True, null=True)
-    slug = models.SlugField(_('اسلاگ برند'), max_length=100, unique=True, allow_unicode=True)
-    logo = models.ImageField(_('لوگوی برند'), upload_to='brands/', blank=True, null=True)
-    country = models.CharField(_('کشور اصلی برند'), max_length=100, blank=True, null=True, default='سوئیس')
-    is_active = models.BooleanField(_('فعال بودن'), default=True)
-
-    class Meta:
-        verbose_name = _('برند کالا')
-        verbose_name_plural = _('برندهای کالاها')
-        ordering = ['name']
-
-    def __str__(self):
-        return self.name
+    """
+    مدل برندهای کالا
+    """
+    name = models.CharField(_("نام برند (فارسی)"), max_length=150)
+    name_en = models.CharField(_("نام برند (انگلیسی)"), max_length=150, blank=True, null=True)
+    slug = models.SlugField(_("اسلاگ سئو"), max_length=160, unique=True, allow_unicode=True)
+    logo = models.ImageField(_("لوگو برند"), upload_to='brands/', blank=True, null=True)
+    country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
+    description = models.TextField(_("توضیحات برند"), blank=True, null=True)
+    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ آخرین ویرایش"), auto_now=True)
+```
 
 
 # ==============================================================================
