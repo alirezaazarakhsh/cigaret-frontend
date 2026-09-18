@@ -389,7 +389,8 @@ export const ProductsDocs: React.FC = () => {
     }
   ];
 
-  const modelsCode = `"""
+  const modelsCode = `
+"""
 products/models.py
 مدلهای محصولات، دستهبندیها، برندها، هولوگرامها، تخفیفات پلکانی و ویژگیهای فنی
 """
@@ -451,6 +452,7 @@ class ProductBrand(models.Model):
     country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
     description = models.TextField(_("توضیحات برند"), blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ آخرین بروزرسانی"), auto_now=True)
 
     class Meta:
         verbose_name = _("برند کالا")
@@ -686,6 +688,7 @@ class ProductImage(models.Model):
         verbose_name_plural = _("گالری تصاویر کالا")
         ordering = ['order']
 `;
+
 
   const adminCode = `from django.contrib import admin
 from django.utils.html import format_html

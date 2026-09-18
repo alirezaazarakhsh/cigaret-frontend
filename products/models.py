@@ -24,6 +24,14 @@ COLOR_CHOICES = (
 # ۱. دستهبندیها (Categories)
 # ==============================================================================
 class Category(models.Model):
+    """
+    مدل دستهبندی کالاها (شامل ۵ فیلد اصلی فرم اندپوینت):
+    ۱. عنوان دستهبندی (فارسی)
+    ۲. نام لاتین (English)
+    ۳. شناسه سیستمی (Slug / ID)
+    ۴. رنگ شناسه (۶ رنگ پالت انتخابی)
+    ۵. توضیحات کوتاه دستهبندی
+    """
     name = models.CharField(_("عنوان دستهبندی (فارسی)"), max_length=150)
     name_en = models.CharField(_("نام لاتین (English)"), max_length=150, blank=True, null=True)
     slug = models.SlugField(_("شناسه سیستمی (Slug / ID)"), max_length=160, unique=True, allow_unicode=True)
@@ -51,7 +59,7 @@ class ProductBrand(models.Model):
     logo = models.ImageField(_("لوگو برند"), upload_to="brands/logos/", blank=True, null=True, help_text=_("آپلود فایل تصویر لوگوی برند"))
     country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
     description = models.TextField(_("توضیحات برند"), blank=True, null=True)
-    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(_("تاریخ آخرین بروزرسانی"), auto_now=True)
 
     class Meta:
@@ -64,9 +72,11 @@ class ProductBrand(models.Model):
 
     @property
     def logo_url(self):
+        """آدرس مستقیم تصویر لوگو جهت استفاده در فرانتاند و قالبها"""
         if self.logo and hasattr(self.logo, 'url'):
             return self.logo.url
         return None
+
 
 # نام مستعار جهت سازگاری کامل با پروژههایی که از مدل Brand استفاده میکنند
 Brand = ProductBrand
@@ -83,6 +93,14 @@ SECURITY_LEVEL_CHOICES = (
 )
 
 class ProductHologram(models.Model):
+    """
+    مدل تعریف برچسبهای ضمانت اصالت کالا و هولوگرام (طابق دقیق ۵ فیلد اصلی فرم اندپوینت):
+    ۱. عنوان هولوگرام / برچسب اصالت * (title)
+    ۲. مرجع صادرکننده یا سازمان ناظر (issuer_org)
+    ۳. کشور / حوزه (country_origin)
+    ۴. سطح اعتبار امنیتی (security_level)
+    ۵. مشخصات فنی و امنیتی (security_specs)
+    """
     title = models.CharField(_("عنوان هولوگرام / برچسب اصالت"), max_length=150)
     issuer_org = models.CharField(_("مرجع صادرکننده یا سازمان ناظر"), max_length=150, blank=True, null=True)
     country_origin = models.CharField(_("کشور / حوزه"), max_length=100, blank=True, null=True)
