@@ -78,13 +78,15 @@ class ProductBrand(models.Model):
     ۲. نام برند (انگلیسی)
     ۳. اسلاگ سئو
     ۴. لوگوی برند
-    ۵. کشور سازنده اصلی
-    ۶. توضیحات برند
+    ۵. لینک لوگو (اختیاری)
+    ۶. کشور سازنده اصلی
+    ۷. توضیحات برند
     """
     name = models.CharField(_("نام برند (فارسی)"), max_length=150)
     name_en = models.CharField(_("نام برند (انگلیسی)"), max_length=150, blank=True, null=True)
     slug = models.SlugField(_("اسلاگ سئو"), max_length=160, unique=True, allow_unicode=True)
     logo = models.ImageField(_("لوگو برند"), upload_to='brands/', blank=True, null=True)
+    logo_url = models.URLField(_("لینک لوگو (اختیاری)"), blank=True, null=True, help_text=_("در صورت عدم آپلود فایل، لینک تصویر را وارد کنید"))
     country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
     description = models.TextField(_("توضیحات برند"), blank=True, null=True)
     created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
@@ -97,6 +99,13 @@ class ProductBrand(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.name_en or self.slug})"
+
+    @property
+    def logo_path(self):
+        """بازگرداندن آدرس لوگو (ترجیح با فایل آپلود شده)"""
+        if self.logo and hasattr(self.logo, 'url'):
+            return self.logo.url
+        return self.logo_url
 
 
 # ==========================================
@@ -170,7 +179,7 @@ class Product(models.Model):
     name = models.CharField(_("نام کالا (فارسی)"), max_length=200)
     name_en = models.CharField(_("نام انگلیسی / لاتین"), max_length=200, blank=True, null=True)
     slug = models.SlugField(_("اسلاگ سئو (URL)"), max_length=220, unique=True, allow_unicode=True)
-    brand = models.CharField(_("برند کالا"), max_length=100)
+    brand = models.ForeignKey(ProductBrand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("برند"))
     category = models.ForeignKey(
         Category, 
         on_delete=models.CASCADE, 
@@ -228,7 +237,7 @@ class Product(models.Model):
 
     def __str__(self):
         pos_badge = " [صندوق حضوری]" if self.is_pos_only else " [آنلاین و صندوق]"
-        return f"{self.name} ({self.brand}){pos_badge}"
+        return f"{self.name} ({self.brand.name if self.brand else 'بدون برند'}){pos_badge}"
 
     def save(self, *args, **kwargs):
         if self.box_price and self.boxes_per_carton and not self.carton_price:

@@ -65,16 +65,16 @@ export const ProductsDocs: React.FC = () => {
     {
       name: 'products_product',
       verboseName: 'جدول کاتالوگ جامع محصولات و همگام‌سازی صندوق (POS)',
-      description: 'کاتالوگ کالاها شامل قیمت کارتن، باکس، پاکت، بارکدخوان، دسته‌بندی، هولوگرام، همگام‌سازی دوطرفه آنلاین/صندوق (is_pos_only) و ادیتور TinyMCE',
+      description: 'کاتالوگ کالاها شامل قیمت کارتن، باکس، پاکت، بارکدخوان، دسته‌بندی، برند، هولوگرام، همگام‌سازی دوطرفه آنلاین/صندوق و ادیتور TinyMCE',
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
         { name: 'name', type: 'CharField(max_length=200)', verbose: 'نام کامل کالا (فارسی) *' },
         { name: 'name_en', type: 'CharField(max_length=200, blank=True)', verbose: 'نام انگلیسی / لاتین' },
-        { name: 'slug', type: 'SlugField(max_length=220)', isUnique: true, verbose: 'اسلاگ فارسی سئو' },
-        { name: 'brand', type: 'CharField(max_length=100)', verbose: 'برند (وینستون، کنت، مارلبرو و ...)' },
-        { name: 'category_id', type: 'ForeignKey', isFk: true, fkTarget: 'products_category', verbose: 'دسته‌بندی مربوطه' },
+        { name: 'slug', type: 'SlugField(max_length=220)', isUnique: true, verbose: 'اسلاگ سئو (URL)' },
+        { name: 'brand', type: 'ForeignKey', isFk: true, fkTarget: 'products_productbrand', verbose: 'برند' },
+        { name: 'category', type: 'ForeignKey', isFk: true, fkTarget: 'products_category', verbose: 'دسته‌بندی' },
         { name: 'barcode', type: 'CharField(max_length=60, blank=True, db_index=True)', verbose: 'بارکد اسکنر فروشگاهی / GTIN' },
-        { name: 'hologram_id', type: 'ForeignKey', isFk: true, fkTarget: 'products_producthologram', verbose: 'هولوگرام و اصالت کالا' },
+        { name: 'hologram', type: 'ForeignKey', isFk: true, fkTarget: 'products_producthologram', verbose: 'هولوگرام و اصالت کالا' },
         { name: 'box_price', type: 'DecimalField(max_digits=12)', verbose: 'قیمت هر باکس (تومان)' },
         { name: 'boxes_per_carton', type: 'PositiveIntegerField(default=50)', verbose: 'تعداد باکس در هر کارتن' },
         { name: 'carton_price', type: 'DecimalField(max_digits=14)', verbose: 'قیمت هر کارتن (تومان محاسبه خودکار)' },
@@ -391,7 +391,7 @@ export const ProductsDocs: React.FC = () => {
 
   const modelsCode = `"""
 products/models.py
-مدل‌های محصولات، دسته‌بندی‌ها، برندها، هولوگرام‌ها، تخفیفات پلکانی و ویژگی‌های فنی
+مدلهای محصولات، دستهبندیها، برندها، هولوگرامها، تخفیفات پلکانی و ویژگیهای فنی
 """
 
 from django.db import models
@@ -399,7 +399,7 @@ from django.utils.translation import gettext_lazy as _
 from tinymce.models import HTMLField
 
 # ==========================================
-# گزینه‌های انتخابی ثابت (Choice Tuples)
+# گزینههای انتخابی ثابت (Choice Tuples)
 # ==========================================
 
 COLOR_CHOICES = (
@@ -407,33 +407,33 @@ COLOR_CHOICES = (
     ('#F59E0B', _('طلایی / نارنجی (#F59E0B)')),
     ('#8B5CF6', _('بنفش رویال (#8B5CF6)')),
     ('#3B82F6', _('آبی لاجوردی (#3B82F6)')),
-    ('#06B6D4', _('فیروزه‌ای (#06B6D4)')),
-    ('#1E40AF', _('سرمه‌ای دیپ (#1E40AF)')),
+    ('#06B6D4', _('فیروزهای (#06B6D4)')),
+    ('#1E40AF', _('سرمهای دیپ (#1E40AF)')),
 )
 
 # ==============================================================================
-# ۱. دسته‌بندی‌ها (Categories)
+# ۱. دستهبندیها (Categories)
 # ==============================================================================
 class Category(models.Model):
     """
-    مدل دسته‌بندی کالاها (شامل ۵ فیلد اصلی فرم اندپوینت):
-    ۱. عنوان دسته‌بندی (فارسی)
+    مدل دستهبندی کالاها (شامل ۵ فیلد اصلی فرم اندپوینت):
+    ۱. عنوان دستهبندی (فارسی)
     ۲. نام لاتین (English)
     ۳. شناسه سیستمی (Slug / ID)
     ۴. رنگ شناسه (۶ رنگ پالت انتخابی)
-    ۵. توضیحات کوتاه دسته‌بندی
+    ۵. توضیحات کوتاه دستهبندی
     """
-    name = models.CharField(_("عنوان دسته‌بندی (فارسی)"), max_length=150)
+    name = models.CharField(_("عنوان دستهبندی (فارسی)"), max_length=150)
     name_en = models.CharField(_("نام لاتین (English)"), max_length=150, blank=True, null=True)
     slug = models.SlugField(_("شناسه سیستمی (Slug / ID)"), max_length=160, unique=True, allow_unicode=True)
     color = models.CharField(_("رنگ شناسه"), max_length=30, choices=COLOR_CHOICES, default="#3B82F6")
-    description = models.TextField(_("توضیحات کوتاه دسته‌بندی"), blank=True, null=True)
+    description = models.TextField(_("توضیحات کوتاه دستهبندی"), blank=True, null=True)
     created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
     updated_at = models.DateTimeField(_("تاریخ آخرین ویرایش"), auto_now=True)
 
     class Meta:
-        verbose_name = _("دسته‌بندی")
-        verbose_name_plural = _("دسته‌بندی‌های محصولات")
+        verbose_name = _("دستهبندی")
+        verbose_name_plural = _("دستهبندیهای محصولات")
         ordering = ['-id']
 
     def __str__(self):
@@ -462,13 +462,13 @@ class ProductBrand(models.Model):
 
     @property
     def logo_url(self):
-        """آدرس مستقیم تصویر لوگو جهت استفاده در فرانت‌اند و قالب‌ها"""
+        """آدرس مستقیم تصویر لوگو جهت استفاده در فرانتاند و قالبها"""
         if self.logo and hasattr(self.logo, 'url'):
             return self.logo.url
         return None
 
 
-# نام مستعار جهت سازگاری کامل با پروژه‌هایی که از مدل Brand استفاده می‌کنند
+# نام مستعار جهت سازگاری کامل با پروژههایی که از مدل Brand استفاده میکنند
 Brand = ProductBrand
 
 
@@ -484,7 +484,7 @@ SECURITY_LEVEL_CHOICES = (
 
 class ProductHologram(models.Model):
     """
-    مدل تعریف برچسب‌های ضمانت اصالت کالا و هولوگرام (طابق دقیق ۵ فیلد اصلی فرم اندپوینت):
+    مدل تعریف برچسبهای ضمانت اصالت کالا و هولوگرام (طابق دقیق ۵ فیلد اصلی فرم اندپوینت):
     ۱. عنوان هولوگرام / برچسب اصالت * (title)
     ۲. مرجع صادرکننده یا سازمان ناظر (issuer_org)
     ۳. کشور / حوزه (country_origin)
@@ -502,7 +502,7 @@ class ProductHologram(models.Model):
 
     class Meta:
         verbose_name = _("هولوگرام و اصالت")
-        verbose_name_plural = _("هولوگرام‌های اصالت کالا")
+        verbose_name_plural = _("هولوگرامهای اصالت کالا")
         ordering = ['-created_at']
 
     def __str__(self):
@@ -515,7 +515,7 @@ class ProductHologram(models.Model):
 class Product(models.Model):
     BADGE_CHOICES = (
         ('none', _('بدون نشان')),
-        ('bestseller', _('پرفروش‌ترین')),
+        ('bestseller', _('پرفروشترین')),
         ('special', _('پیشنهاد ویژه')),
         ('new', _('جدیدترین')),
         ('discount', _('تخفیف ویژه')),
@@ -536,7 +536,7 @@ class Product(models.Model):
         ('yellow', _('فیلتر زرد سنتی')),
         ('charcoal', _('فیلتر کربن / زغالی')),
         ('recessed', _('فیلتر مجوف (Recessed)')),
-        ('capsule', _('فیلتر طعم‌دار / پاور (Capsule)')),
+        ('capsule', _('فیلتر طعمدار / پاور (Capsule)')),
     )
 
     name = models.CharField(_("نام محصول (فارسی)"), max_length=200)
@@ -544,15 +544,15 @@ class Product(models.Model):
     slug = models.SlugField(_("اسلاگ سئو"), max_length=220, unique=True, allow_unicode=True)
     barcode = models.CharField(_("بارکد اسکنر فروشگاهی"), max_length=60, unique=True, blank=True, null=True, db_index=True)
 
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products', verbose_name=_("دسته‌بندی"))
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products', verbose_name=_("دستهبندی"))
     brand = models.ForeignKey(ProductBrand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("برند"))
     hologram = models.ForeignKey(ProductHologram, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("هولوگرام اصالت"))
 
-    # ساختار بسته‌بندی و قیمت‌گذاری بنکداری
+    # ساختار بستهبندی و قیمتگذاری بنکداری
     carton_price = models.PositiveIntegerField(_("قیمت هر کارتن (تومان)"), default=0)
     box_price = models.PositiveIntegerField(_("قیمت هر باکس (تومان)"), default=0)
     pack_price = models.PositiveIntegerField(_("قیمت هر پاکت (تومان)"), default=0)
-    purchase_price = models.PositiveIntegerField(_("قیمت تمام‌شده خرید"), default=0)
+    purchase_price = models.PositiveIntegerField(_("قیمت تمامشده خرید"), default=0)
 
     stock_cartons = models.PositiveIntegerField(_("موجودی کارتن"), default=0)
     stock_boxes = models.PositiveIntegerField(_("موجودی باکس"), default=0)
@@ -576,7 +576,7 @@ class Product(models.Model):
     filter_type = models.CharField(_("نوع فیلتر"), max_length=30, choices=FILTER_CHOICES, default='white')
     country_origin = models.CharField(_("کشور تولیدکننده / مبدا"), max_length=100, blank=True, null=True)
 
-    # اطلاعات رسانه‌ای و محتوا
+    # اطلاعات رسانهای و محتوا
     badge = models.CharField(_("نشان ویژه محصول"), max_length=30, choices=BADGE_CHOICES, default='none')
     main_image = models.ImageField(_("تصویر اصلی محصول"), upload_to="products/", blank=True, null=True)
     image = models.CharField(_("آدرس / URL تصویر"), max_length=500, blank=True, null=True)
@@ -604,27 +604,27 @@ class Product(models.Model):
 
 
 # ==============================================================================
-# ۵. جدول تخفیف‌های پلکانی حجم عمده (Tier Discounts)
+# ۵. جدول تخفیفهای پلکانی حجم عمده (Tier Discounts)
 # ==============================================================================
 class ProductTierDiscount(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='tier_discounts', verbose_name=_("محصول"))
     min_quantity = models.PositiveIntegerField(_("حداقل تعداد (کارتن/باکس)"))
     discount_percent = models.DecimalField(_("درصد تخفیف"), max_digits=5, decimal_places=2)
-    discount_price_per_unit = models.PositiveIntegerField(_("قیمت تخفیف‌خورده به ازای هر واحد"), blank=True, null=True)
+    discount_price_per_unit = models.PositiveIntegerField(_("قیمت تخفیفخورده به ازای هر واحد"), blank=True, null=True)
 
     class Meta:
         verbose_name = _("تخفیف پلکانی عمده")
-        verbose_name_plural = _("تخفیف‌های پلکانی عمده")
+        verbose_name_plural = _("تخفیفهای پلکانی عمده")
         ordering = ['min_quantity']
 
 
 # ==============================================================================
-# ۶. مشخصات و ویژگی‌های داینامیک کالا (Attributes & Values)
+# ۶. مشخصات و ویژگیهای داینامیک کالا (Attributes & Values)
 # ==============================================================================
 DATA_TYPE_CHOICES = (
     ('text', _('متن کوتاه / رشته')),
     ('number', _('عددی (صحیح یا اعشاری)')),
-    ('select', _('انتخابی / چندگزینه‌ای')),
+    ('select', _('انتخابی / چندگزینهای')),
     ('boolean', _('بله / خیر (سوئیچ دو وضعیتی)')),
     ('color', _('کد رنگ')),
 )
@@ -640,7 +640,7 @@ class ProductAttribute(models.Model):
 
     class Meta:
         verbose_name = _("تعریف ویژگی")
-        verbose_name_plural = _("تعاریف ویژگی‌ها")
+        verbose_name_plural = _("تعاریف ویژگیها")
 
     def __str__(self):
         return self.name
@@ -655,12 +655,12 @@ class ProductAttributeValue(models.Model):
 
     class Meta:
         verbose_name = _("مقدار ویژگی محصول")
-        verbose_name_plural = _("مقادیر ویژگی‌های محصولات")
+        verbose_name_plural = _("مقادیر ویژگیهای محصولات")
         unique_together = ('product', 'attribute')
 
 
 # ==============================================================================
-# ۷. نقاط قوت / ویژگی‌های کلیدی کالا (Key Features)
+# ۷. نقاط قوت / ویژگیهای کلیدی کالا (Key Features)
 # ==============================================================================
 class ProductKeyFeature(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='key_features', verbose_name=_("محصول"))

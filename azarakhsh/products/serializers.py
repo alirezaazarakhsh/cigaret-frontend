@@ -258,6 +258,12 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
+    brand = serializers.PrimaryKeyRelatedField(
+        queryset=ProductBrand.objects.all(),
+        required=False,
+        allow_null=True
+    )
+
     class Meta:
         model = Product
         fields = [

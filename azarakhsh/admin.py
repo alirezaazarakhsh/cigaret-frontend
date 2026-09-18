@@ -6,6 +6,8 @@ from .models import (
     CustomerProfile, 
     BankDepositSlip, 
     WalletTransaction,
+)
+from .products.models import (
     Category,
     ProductBrand,
     ProductHologram,
