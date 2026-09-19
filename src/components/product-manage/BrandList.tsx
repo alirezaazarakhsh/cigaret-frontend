@@ -16,6 +16,7 @@ export const BrandList: React.FC<BrandListProps> = ({
   onUpdateBrand,
   onDeleteBrand,
 }) => {
+  const [isLoading, setIsLoading] = useState(false);
   const [editingBrand, setEditingBrand] = useState<ProductBrandItem | null>(null);
 
   // Form states
@@ -49,12 +50,14 @@ export const BrandList: React.FC<BrandListProps> = ({
     setDescription('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
 
+    setIsLoading(true);
+
     if (editingBrand) {
-      onUpdateBrand({
+      await onUpdateBrand({
         ...editingBrand,
         name: name.trim(),
         nameEn: nameEn.trim() || undefined,
@@ -65,7 +68,7 @@ export const BrandList: React.FC<BrandListProps> = ({
       });
       handleCancelEdit();
     } else {
-      onAddBrand({
+      await onAddBrand({
         name: name.trim(),
         nameEn: nameEn.trim() || undefined,
         slug: slug.trim() || nameEn.trim().toLowerCase().replace(/\s+/g, '-') || name.trim(),
@@ -81,6 +84,7 @@ export const BrandList: React.FC<BrandListProps> = ({
       setLogoFile(null);
       setDescription('');
     }
+    setIsLoading(false);
   };
 
   return (
@@ -244,14 +248,17 @@ export const BrandList: React.FC<BrandListProps> = ({
             <div className="pt-1 flex items-center gap-2">
               <button
                 type="submit"
+                disabled={isLoading}
                 className={`flex-1 py-2.5 rounded-xl text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-2 ${
                   editingBrand
                     ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
                     : 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/20'
-                }`}
+                } ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
-                {editingBrand ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                <span>{editingBrand ? 'ذخیره تغییرات برند' : 'افزودن برند به لیست'}</span>
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : editingBrand ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span>{isLoading ? 'در حال ثبت...' : editingBrand ? 'ذخیره تغییرات برند' : 'افزودن برند به لیست'}</span>
               </button>
               {editingBrand && (
                 <button
@@ -311,7 +318,7 @@ export const BrandList: React.FC<BrandListProps> = ({
                           <td className="p-4 text-center font-bold text-slate-400">{formatNumberFa(index + 1)}</td>
                           <td className="p-4">
                             <div className="flex items-center gap-3">
-                              {brand.logo ? (
+                              {brand.logo && typeof brand.logo === 'string' ? (
                                 <img src={brand.logo} alt={brand.name} className="w-8 h-8 rounded-lg object-contain border border-slate-200 bg-slate-50" />
                               ) : (
                                 <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 font-bold flex items-center justify-center text-xs border border-purple-100">

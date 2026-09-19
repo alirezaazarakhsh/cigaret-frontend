@@ -31,6 +31,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({
   onUpdateCategory,
   onDeleteCategory,
 }) => {
+  const [isLoading, setIsLoading] = useState(false);
   const [name, setName] = useState('');
   const [nameEn, setNameEn] = useState('');
   const [slug, setSlug] = useState('');
@@ -66,9 +67,11 @@ export const CategoryList: React.FC<CategoryListProps> = ({
     setColor('#3B82F6');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
+
+    setIsLoading(true);
 
     if (editingCategory) {
       const updatedCat: ProductCategoryItem = {
@@ -81,7 +84,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({
       };
 
       if (onUpdateCategory) {
-        onUpdateCategory(updatedCat);
+        await onUpdateCategory(updatedCat);
       }
       handleCancelEdit();
     } else {
@@ -95,12 +98,13 @@ export const CategoryList: React.FC<CategoryListProps> = ({
         color,
       };
 
-      onAddCategory(newCategory);
+      await onAddCategory(newCategory);
       setName('');
       setNameEn('');
       setSlug('');
       setDescription('');
     }
+    setIsLoading(false);
   };
 
   const getProductCountForCat = (catId: string) => {
@@ -225,14 +229,17 @@ export const CategoryList: React.FC<CategoryListProps> = ({
             <div className="pt-1 flex items-center gap-2">
               <button
                 type="submit"
+                disabled={isLoading}
                 className={`flex-1 py-2.5 rounded-xl text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-2 ${
                   editingCategory
                     ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
                     : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20'
-                }`}
+                } ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
-                {editingCategory ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                <span>{editingCategory ? 'ذخیره تغییرات دسته‌بندی' : 'افزودن دسته‌بندی به سیستم'}</span>
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : editingCategory ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span>{isLoading ? 'در حال ثبت...' : editingCategory ? 'ذخیره تغییرات دسته‌بندی' : 'افزودن دسته‌بندی به سیستم'}</span>
               </button>
               {editingCategory && (
                 <button

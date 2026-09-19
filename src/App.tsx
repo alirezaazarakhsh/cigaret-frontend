@@ -194,7 +194,10 @@ function getCategoryFromPath(pathname: string): string | null {
 }
 
 function getTabFromPath(pathname: string): NavigationTab {
-  const p = pathname.toLowerCase();
+  // Normalize path by checking both the pathname and the hash (for legacy or fallback support)
+  const hash = typeof window !== 'undefined' ? window.location.hash : '';
+  const p = (pathname + hash).toLowerCase();
+  
   if (p.includes('/product/category/') || p.includes('/products/category/')) return 'catalog';
   if (p.includes('/shopmanage')) return 'accounting-pos';
   if (p.includes('/azarakhsh') || p.includes('/api-docs') || p.includes('/django-docs')) return 'django-docs';
@@ -207,6 +210,7 @@ function getTabFromPath(pathname: string): NavigationTab {
   if (p.includes('/blog') || p.includes('/maghalat')) return 'blog';
   if (p.includes('/live-prices') || p.includes('/gheymat')) return 'live-prices';
   if (p.includes('/django-crm') || p.includes('/crm')) return 'django-crm';
+  
   return 'catalog';
 }
 
@@ -232,7 +236,7 @@ function getPathForTab(tab: NavigationTab, selectedCat?: string): string {
 export default function App() {
   const [selectedCategory, setSelectedCategoryState] = useState<string>(() => {
     if (typeof window !== 'undefined') {
-      const catFromUrl = getCategoryFromPath(window.location.pathname);
+      const catFromUrl = getCategoryFromPath(window.location.pathname + window.location.hash);
       if (catFromUrl) return catFromUrl;
     }
     return 'all';
@@ -265,7 +269,7 @@ export default function App() {
 
   const setActiveTab = (tab: NavigationTab, pushHistory: boolean = true) => {
     setActiveTabState(tab);
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && pushHistory) {
       window.scrollTo({ top: 0, behavior: 'instant' });
       const target = getPathForTab(tab, selectedCategory);
       // If switching to accounting-pos but already on a shopmanage sub-route, preserve it
@@ -1095,6 +1099,7 @@ export default function App() {
         products={products}
         onUpdateProductsStock={setProducts}
         onReturnToStore={() => setActiveTab('catalog')}
+        showToast={showToast}
       />
     );
   }

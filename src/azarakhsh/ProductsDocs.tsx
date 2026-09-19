@@ -20,6 +20,22 @@ export const ProductsDocs: React.FC = () => {
       ]
     },
     {
+      name: 'products_productbrand',
+      verboseName: 'جدول برندهای کالا (Brands)',
+      description: 'مدیریت برندها و سازندگان محصولات با نام فارسی، نام لاتین، اسلاگ سئو، لوگو، کشور سازنده و توضیحات',
+      fields: [
+        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
+        { name: 'name', type: 'CharField(max_length=120)', verbose: 'نام برند (فارسی) *' },
+        { name: 'name_en', type: 'CharField(max_length=120, blank=True)', verbose: 'نام برند (انگلیسی / لاتین)' },
+        { name: 'slug', type: 'SlugField(max_length=130)', isUnique: true, verbose: 'اسلاگ سئو (URL)' },
+        { name: 'logo', type: 'ImageField(blank=True)', verbose: 'فایل لوگوی برند' },
+        { name: 'country', type: 'CharField(max_length=100, blank=True)', verbose: 'کشور سازنده اصلی' },
+        { name: 'description', type: 'TextField(blank=True)', verbose: 'توضیحات برند' },
+        { name: 'created_at', type: 'DateTimeField', verbose: 'تاریخ ثبت' },
+        { name: 'updated_at', type: 'DateTimeField', verbose: 'تاریخ آخرین ویرایش' },
+      ]
+    },
+    {
       name: 'products_producthologram',
       verboseName: 'جدول هولوگرام‌ها و برچسب‌های اصالت کالا (Product Authenticity)',
       description: 'مطابق دقیق ۵ فیلد اصلی فرم اندپوینت: عنوان هولوگرام، مرجع صادرکننده، کشور/حوزه، سطح اعتبار امنیتی و مشخصات فنی امنیتی',
@@ -172,7 +188,66 @@ export const ProductsDocs: React.FC = () => {
       description: 'حذف دسته‌بندی از سیستم'
     },
 
-    // 2. Holograms
+    // 2. Brands
+    {
+      method: 'GET',
+      path: '/api/v1/products/brands/',
+      auth: 'AllowAny',
+      description: 'دریافت فهرست تمام برندهای ثبت‌شده همراه با لوگو، اسلاگ و کشور سازنده',
+      curlExample: `curl -X GET "http://localhost:8000/api/v1/products/brands/"`,
+      responseBody: `{
+  "status": "success",
+  "count": 5,
+  "results": [
+    {
+      "id": 1,
+      "name": "مارلبرو",
+      "name_en": "Marlboro",
+      "slug": "marlboro",
+      "logo_url": "/media/brands/logos/marlboro.png",
+      "country": "سوئیس / آمریکا",
+      "description": "معروف‌ترین برند دخانیات جهان با بالاترین کیفیت برگ توتون",
+      "products_count": 14
+    }
+  ]
+}`
+    },
+    {
+      method: 'POST',
+      path: '/api/v1/products/brands/',
+      auth: 'IsAdminUser',
+      description: 'ثبت برند تجاری جدید با آپلود لوگو، نام فارسی و انگلیسی، اسلاگ سئو و کشور سازنده',
+      curlExample: `curl -X POST "http://localhost:8000/api/v1/products/brands/" \\
+  -H "Authorization: Bearer <JWT_TOKEN>" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "کنت",
+    "name_en": "Kent",
+    "slug": "kent",
+    "country": "ژاپن / انگلستان",
+    "description": "برند مطرح با فیلتر سه لایه و مدرن"
+  }'`
+    },
+    {
+      method: 'GET',
+      path: '/api/v1/products/brands/<id>/',
+      auth: 'AllowAny',
+      description: 'مشاهده مشخصات یک برند خاص'
+    },
+    {
+      method: 'PUT',
+      path: '/api/v1/products/brands/<id>/',
+      auth: 'IsAdminUser',
+      description: 'ویرایش اطلاعات برند، لوگو، کشور و توضیحات'
+    },
+    {
+      method: 'DELETE',
+      path: '/api/v1/products/brands/<id>/',
+      auth: 'IsAdminUser',
+      description: 'حذف برند از کاتالوگ'
+    },
+
+    // 3. Holograms
     {
       method: 'GET',
       path: '/api/v1/products/holograms/',
@@ -955,79 +1030,1102 @@ class ProductAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(ProductAttribute)
 class ProductAttributeAdmin(admin.ModelAdmin):
-    list_display = ['name']
-    search_fields = ['name']
+    list_display = ['id', 'name', 'name_en', 'data_type', 'unit', 'help_text_short', 'created_at_jalali']
+    list_filter = ['data_type']
+    search_fields = ['name', 'name_en', 'help_text']
+    ordering = ['-id']
+
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
+
+    @admin.display(description=_('توضیح راهنما'))
+    def help_text_short(self, obj):
+        if not obj.help_text:
+            return '-'
+        return obj.help_text[:50] + ('...' if len(obj.help_text) > 50 else '')
+
+
+# ==============================================================================
+# ۷. مقادیر ویژگی‌های کالاها (Product Attribute Value Admin)
+# ==============================================================================
+@admin.register(ProductAttributeValue)
+class ProductAttributeValueAdmin(admin.ModelAdmin):
+    list_display = ['id', 'product', 'attribute', 'display_val']
+    list_filter = ['attribute__data_type', 'attribute']
+    search_fields = ['product__name', 'product__name_en', 'attribute__name', 'value']
+    autocomplete_fields = ['product', 'attribute']
+
+    @admin.display(description=_('مقدار ویژگی'))
+    def display_val(self, obj):
+        if obj.value:
+            return obj.value
+        if obj.value_number is not None:
+            return f"{obj.value_number} {obj.attribute.unit or ''}".strip()
+        if obj.value_boolean is not None:
+            return _("بله") if obj.value_boolean else _("خیر")
+        return "-"
 `;
 
-  const serializersCode = `"""
+  const serializersCode = `\"\"\"
 products/serializers.py
-سریالایزر DRF برای برندهای محصولات
-"""
+سریالایزرهای DRF برای دسته‌بندی‌های درختی، هولوگرام، ویژگی‌های فنی و کاتالوگ محصولات (همگام با صندوق و آنلاین)
+\"\"\"
 
 from rest_framework import serializers
 from django.utils.text import slugify
-from .models import ProductBrand
+import uuid
+from .models import (
+    Category,
+    ProductBrand,
+    ProductHologram,
+    ProductAttribute,
+    Product,
+    ProductAttributeValue,
+    ProductImage
+)
+
 
 class ProductBrandSerializer(serializers.ModelSerializer):
+    \"\"\"
+    سریالایزر برندها با امکان آپلود فایل تصویر لوگو (logo) و تولید خودکار آدرس پیش‌نمایش لوگو (logo_preview)
+    \"\"\"
+    slug = serializers.SlugField(required=False, allow_blank=True)
+    logo_preview = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = ProductBrand
-        fields = ['id', 'name', 'name_en', 'slug', 'logo', 'country', 'description', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'slug',
+            'logo',
+            'logo_preview',
+            'country',
+            'description',
+            'created_at'
+        ]
+        extra_kwargs = {
+            'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'country': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'logo': {'required': False, 'allow_null': True},
+        }
+
+    def get_logo_preview(self, obj):
+        if not obj.logo:
+            return None
+        request = self.context.get('request')
+        if hasattr(obj.logo, 'url'):
+            url = obj.logo.url
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+        return str(obj.logo)
 
     def validate(self, attrs):
-        name = attrs.get('name')
-        slug = attrs.get('slug')
-        
-        # If slug is not provided, generate it from name
-        if not slug and name:
-            slug = slugify(name, allow_unicode=True)
-            # Ensure slug is unique
-            original_slug = slug
-            counter = 1
-            while ProductBrand.objects.filter(slug=slug).exists():
-                slug = f"{original_slug}-{counter}"
-                counter += 1
-            attrs['slug'] = slug
-        elif slug:
-            # If slug IS provided, ensure it is unique
-            if ProductBrand.objects.filter(slug=slug).exclude(pk=self.instance.pk if self.instance else None).exists():
-                raise serializers.ValidationError({"slug": "این اسلاگ قبلاً ثبت شده است."})
-                
+        if not attrs.get('slug'):
+            base_name = attrs.get('name_en') or attrs.get('name') or ''
+            generated_slug = slugify(base_name, allow_unicode=True)
+            if not generated_slug:
+                generated_slug = f"brand-{uuid.uuid4().hex[:8]}"
+            attrs['slug'] = generated_slug
         return attrs
+
+
+# نام مستعار جهت پشتیبانی از پروژه‌هایی که از BrandSerializer استفاده می‌کنند
+BrandSerializer = ProductBrandSerializer
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    \"\"\"
+    سریالایزر جامع دسته‌بندی با ۵ فیلد اصلی فرم ورودی:
+    ۱. عنوان دسته‌بندی (فارسی) - name *
+    ۲. نام لاتین - name_en
+    ۳. شناسه سیستمی - slug (در صورت عدم ارسال، خودکار تولید می‌شود)
+    ۴. رنگ شناسه - color (۶ پالت رنگی)
+    ۵. توضیحات کوتاه - description
+    \"\"\"
+    slug = serializers.SlugField(required=False, allow_blank=True)
+    color_display = serializers.CharField(source='get_color_display', read_only=True)
+    products_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'slug',
+            'color',
+            'color_display',
+            'description',
+            'products_count',
+            'created_at',
+            'updated_at'
+        ]
+        extra_kwargs = {
+            'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'color': {'required': False},
+        }
+
+    def validate(self, attrs):
+        if not attrs.get('slug'):
+            base_name = attrs.get('name_en') or attrs.get('name') or ''
+            generated_slug = slugify(base_name, allow_unicode=True)
+            if not generated_slug:
+                generated_slug = f"cat-{uuid.uuid4().hex[:8]}"
+            attrs['slug'] = generated_slug
+        return attrs
+
+    def get_products_count(self, obj):
+        return obj.products.count()
+
+
+class ProductHologramSerializer(serializers.ModelSerializer):
+    security_level_display = serializers.CharField(source='get_security_level_display', read_only=True)
+
+    class Meta:
+        model = ProductHologram
+        fields = [
+            'id',
+            'title',
+            'issuer_org',
+            'country_origin',
+            'security_level',
+            'security_level_display',
+            'security_specs',
+            'is_verified',
+            'created_at',
+            'updated_at',
+        ]
+        extra_kwargs = {
+            'issuer_org': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'country_origin': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'security_specs': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
+
+
+class ProductAttributeSerializer(serializers.ModelSerializer):
+    data_type_display = serializers.CharField(source='get_data_type_display', read_only=True)
+
+    class Meta:
+        model = ProductAttribute
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'data_type',
+            'data_type_display',
+            'unit',
+            'help_text',
+        ]
+
+
+class ProductAttributeValueSerializer(serializers.ModelSerializer):
+    attribute_name = serializers.CharField(source='attribute.name', read_only=True)
+    attribute_unit = serializers.CharField(source='attribute.unit', read_only=True)
+
+    class Meta:
+        model = ProductAttributeValue
+        fields = [
+            'id',
+            'attribute',
+            'attribute_name',
+            'attribute_unit',
+            'value',
+            'value_number',
+            'value_boolean',
+        ]
+
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ['id', 'image', 'order']
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_color = serializers.CharField(source='category.color', read_only=True)
+    brand_detail = ProductBrandSerializer(source='brand', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True, default='')
+    brand_logo = serializers.SerializerMethodField(read_only=True)
+    hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
+    gallery = ProductImageSerializer(many=True, read_only=True)
+    attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'slug',
+            'brand',
+            'brand_detail',
+            'brand_name',
+            'brand_logo',
+            'barcode',
+            'category',
+            'category_name',
+            'category_color',
+            'hologram',
+            'hologram_detail',
+            'box_price',
+            'boxes_per_carton',
+            'carton_price',
+            'pack_price',
+            'packs_per_box',
+            'purchase_price',
+            'stock_cartons',
+            'stock_boxes',
+            'image',
+            'gallery',
+            'attributes_values',
+            'is_pos_only',
+            'is_box_only',
+            'has_carton',
+            'has_box',
+            'has_pack',
+            'is_active',
+            'is_featured',
+            'created_at',
+            'updated_at'
+        ]
+
+    def get_brand_logo(self, obj):
+        if obj.brand and obj.brand.logo:
+            request = self.context.get('request')
+            if hasattr(obj.brand.logo, 'url'):
+                url = obj.brand.logo.url
+                if request is not None:
+                    return request.build_absolute_uri(url)
+                return url
+            return str(obj.brand.logo)
+        return None
+
+
+class ProductDetailSerializer(serializers.ModelSerializer):
+    category_detail = CategorySerializer(source='category', read_only=True)
+    brand_detail = ProductBrandSerializer(source='brand', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True, default='')
+    brand_logo = serializers.SerializerMethodField(read_only=True)
+    hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
+    gallery = ProductImageSerializer(many=True, read_only=True)
+    attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'slug',
+            'brand',
+            'brand_detail',
+            'brand_name',
+            'brand_logo',
+            'barcode',
+            'category',
+            'category_detail',
+            'hologram',
+            'hologram_detail',
+            'box_price',
+            'boxes_per_carton',
+            'carton_price',
+            'pack_price',
+            'packs_per_box',
+            'purchase_price',
+            'stock_cartons',
+            'stock_boxes',
+            'image',
+            'gallery',
+            'attributes_values',
+            'full_description',
+            'excerpt',
+            'is_pos_only',
+            'is_box_only',
+            'has_carton',
+            'has_box',
+            'has_pack',
+            'is_active',
+            'is_featured',
+            'created_at',
+            'updated_at'
+        ]
+
+    def get_brand_logo(self, obj):
+        if obj.brand and obj.brand.logo:
+            request = self.context.get('request')
+            if hasattr(obj.brand.logo, 'url'):
+                url = obj.brand.logo.url
+                if request is not None:
+                    return request.build_absolute_uri(url)
+                return url
+            return str(obj.brand.logo)
+        return None
+
+
+class ProductCreateUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Product
+        fields = [
+            'name',
+            'name_en',
+            'slug',
+            'brand',
+            'barcode',
+            'category',
+            'hologram',
+            'box_price',
+            'boxes_per_carton',
+            'carton_price',
+            'pack_price',
+            'packs_per_box',
+            'purchase_price',
+            'stock_cartons',
+            'stock_boxes',
+            'image',
+            'full_description',
+            'excerpt',
+            'is_pos_only',
+            'is_box_only',
+            'has_carton',
+            'has_box',
+            'has_pack',
+            'is_active',
+            'is_featured'
+        ]
 `;
 
 
   const viewsCode = `"""
 products/views.py
-ویوهای محصولات با استفاده از ModelViewSet
+ویوهای اختصاصی صریح با استفاده از APIView (بدون ViewSet) جهت مدیریت کاتالوگ محصولات، دسته‌بندی‌ها، هولوگرام‌ها، ویژگی‌های فنی و همگام‌سازی صندوق (POS Sync)
 """
 
-from rest_framework import viewsets, permissions
-from .models import ProductBrand
-from .serializers import ProductBrandSerializer
+from rest_framework import status
+from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
+from rest_framework import filters
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.shortcuts import get_object_or_404
+from django.db.models import Q
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
 
-class ProductBrandViewSet(viewsets.ModelViewSet):
+from .models import (
+    Category,
+    ProductBrand,
+    ProductHologram,
+    ProductAttribute,
+    ProductAttributeValue,
+    Product
+)
+from .serializers import (
+    CategorySerializer,
+    ProductBrandSerializer,
+    ProductHologramSerializer,
+    ProductAttributeSerializer,
+    ProductAttributeValueSerializer,
+    ProductSerializer,
+    ProductDetailSerializer,
+    ProductCreateUpdateSerializer
+)
+
+
+class ProductBrandListCreateAPIView(APIView):
+    """
+    اندپوینت مدیریت برندها با قابلیت آپلود فایل لوگو (MultiPartParser) و مشاهده پیش‌نمایش لوگو
+    آدرس اندپوینت: /api/v1/products/brands/
+    """
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست برندهای کالا (عمومی)",
+        responses={200: ProductBrandSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = ProductBrand.objects.all().order_by('-id')
+        serializer = ProductBrandSerializer(queryset, many=True, context={'request': request})
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="افزودن برند جدید به همراه آپلود فایل تصویر لوگو (مدیریت)",
+        request_body=ProductBrandSerializer,
+        responses={201: ProductBrandSerializer}
+    )
+    def post(self, request):
+        serializer = ProductBrandSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            brand = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'برند جدید با موفقیت به همراه لوگو ثبت شد.',
+                'data': ProductBrandSerializer(brand, context={'request': request}).data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductBrandDetailUpdateDeleteAPIView(APIView):
+    """
+    اندپوینت مشاهده، ویرایش (شامل جایگزینی فایل لوگو) و حذف برند
+    آدرس اندپوینت: /api/v1/products/brands/<id>/
+    """
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_permissions(self):
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات برند",
+        responses={200: ProductBrandSerializer}
+    )
+    def get(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        return Response({'status': 'success', 'data': ProductBrandSerializer(brand, context={'request': request}).data})
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش برند و جایگزینی فایل لوگو (مدیریت)",
+        request_body=ProductBrandSerializer,
+        responses={200: ProductBrandSerializer}
+    )
+    def put(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        serializer = ProductBrandSerializer(brand, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اطلاعات برند و تصویر لوگو با موفقیت بروزرسانی شد.',
+                'data': ProductBrandSerializer(updated, context={'request': request}).data
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(
+        operation_summary="حذف برند (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
+    def delete(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        brand.delete()
+        return Response({'status': 'success', 'message': 'برند مورد نظر حذف گردید.'})
+
+
+class BrandViewSet(ModelViewSet):
+    """
+    وب‌سرویس مدیریت برندها با الگوی ViewSet (پشتیبانی از DRF Router و MultiPartParser جهت آپلود لوگو)
+    آدرس اندپوینت: /api/v1/products/brands/
+    """
     queryset = ProductBrand.objects.all()
     serializer_class = ProductBrandSerializer
-    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'name_en', 'country']
+    ordering_fields = ['name', 'id']
+    ordering = ['name']
 
-    def perform_create(self, serializer):
-        serializer.save()
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+
+# نام‌های مستعار برای سازگاری کامل با پروژه‌های نام‌گذاری مختلف
+BrandListCreateAPIView = ProductBrandListCreateAPIView
+BrandDetailUpdateDeleteAPIView = ProductBrandDetailUpdateDeleteAPIView
+
+
+class CategoryListCreateAPIView(APIView):
+    """
+    اندپوینت مدیریت دسته‌بندی‌ها (دریافت لیست و ایجاد دسته‌بندی جدید)
+    
+    فیلدهای فرم ورودی (مطابق با رابط کاربری صندوق و مدیریت):
+    ۱. عنوان دسته‌بندی (فارسی) * -> name (اجباری)
+    ۲. نام لاتین (English) -> name_en (اختیاری)
+    ۳. شناسه سیستمی (Slug / ID) -> slug (یکتا / در صورت خالی بودن خودکار تولید می‌شود)
+    ۴. رنگ شناسه -> color (کد رنگ پالت انتخابی Choice)
+    ۵. توضیحات کوتاه دسته‌بندی -> description (اختیاری)
+    """
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست دسته‌بندی‌های کالاها (عمومی)",
+        responses={200: CategorySerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = Category.objects.all().order_by('-id')
+        serializer = CategorySerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="ایجاد دسته‌بندی جدید (مدیریت)",
+        request_body=CategorySerializer,
+        responses={201: CategorySerializer}
+    )
+    def post(self, request):
+        serializer = CategorySerializer(data=request.data)
+        if serializer.is_valid():
+            category = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'دسته‌بندی جدید با موفقیت ایجاد گردید.',
+                'data': CategorySerializer(category).data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CategoryDetailUpdateDeleteAPIView(APIView):
+    """
+    اندپوینت مشاهده، ویرایش و حذف یک دسته‌بندی مشخص بر اساس ID
+    """
+    def get_permissions(self):
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات دسته‌بندی",
+        responses={200: CategorySerializer}
+    )
+    def get(self, request, pk):
+        category = get_object_or_404(Category, pk=pk)
+        return Response({'status': 'success', 'data': CategorySerializer(category).data})
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش دسته‌بندی (مدیریت)",
+        request_body=CategorySerializer,
+        responses={200: CategorySerializer}
+    )
+    def put(self, request, pk):
+        category = get_object_or_404(Category, pk=pk)
+        serializer = CategorySerializer(category, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اطلاعات دسته‌بندی با موفقیت ویرایش شد.',
+                'data': CategorySerializer(updated).data
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(
+        operation_summary="حذف دسته‌بندی (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
+    def delete(self, request, pk):
+        category = get_object_or_404(Category, pk=pk)
+        category.delete()
+        return Response({'status': 'success', 'message': 'دسته‌بندی با موفقیت حذف گردید.'})
+
+
+class HologramListCreateAPIView(APIView):
+    """
+    اندپوینت دریافت لیست هولوگرام‌ها و سطوح اصالت یا ثبت هولوگرام جدید با سطح اعتبار انتخابی (Choice)
+    """
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست هولوگرام‌های اصالت کالا",
+        responses={200: ProductHologramSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = ProductHologram.objects.all().order_by('-created_at')
+        serializer = ProductHologramSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="ثبت هولوگرام اصالت جدید (مدیریت)",
+        request_body=ProductHologramSerializer,
+        responses={201: ProductHologramSerializer}
+    )
+    def post(self, request):
+        serializer = ProductHologramSerializer(data=request.data)
+        if serializer.is_valid():
+            hologram = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'برچسب هولوگرام با موفقیت ثبت شد.',
+                'data': ProductHologramSerializer(hologram).data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class HologramDetailUpdateDeleteAPIView(APIView):
+    """
+    اندپوینت مشاهده، ویرایش و حذف برچسب هولوگرام اصالت کالا
+    """
+    def get_permissions(self):
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات هولوگرام اصالت",
+        responses={200: ProductHologramSerializer}
+    )
+    def get(self, request, pk):
+        hologram = get_object_or_404(ProductHologram, pk=pk)
+        return Response({'status': 'success', 'data': ProductHologramSerializer(hologram).data})
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش هولوگرام اصالت (مدیریت)",
+        request_body=ProductHologramSerializer,
+        responses={200: ProductHologramSerializer}
+    )
+    def put(self, request, pk):
+        hologram = get_object_or_404(ProductHologram, pk=pk)
+        serializer = ProductHologramSerializer(hologram, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اطلاعات هولوگرام با موفقیت بروزرسانی شد.',
+                'data': ProductHologramSerializer(updated).data
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(
+        operation_summary="حذف هولوگرام اصالت (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
+    def delete(self, request, pk):
+        hologram = get_object_or_404(ProductHologram, pk=pk)
+        hologram.delete()
+        return Response({'status': 'success', 'message': 'هولوگرام مورد نظر حذف گردید.'})
+
+
+class ProductAttributeListCreateAPIView(APIView):
+    """
+    اندپوینت دریافت لیست ویژگی‌های کالا و تعریف ویژگی جدید با نوع داده انتخابی (Choice)
+    """
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست ویژگی‌ها و مشخصات فنی کالا",
+        responses={200: ProductAttributeSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = ProductAttribute.objects.all().order_by('name')
+        serializer = ProductAttributeSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="تعریف ویژگی جدید برای کالاها (مدیریت)",
+        request_body=ProductAttributeSerializer,
+        responses={201: ProductAttributeSerializer}
+    )
+    def post(self, request):
+        serializer = ProductAttributeSerializer(data=request.data)
+        if serializer.is_valid():
+            attr = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'ویژگی جدید با موفقیت در سیستم ثبت گردید.',
+                'data': ProductAttributeSerializer(attr).data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductAttributeDetailUpdateDeleteAPIView(APIView):
+    """
+    اندپوینت مشاهده، ویرایش و حذف تعریف ویژگی مشخص
+    """
+    def get_permissions(self):
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات تعریف ویژگی",
+        responses={200: ProductAttributeSerializer}
+    )
+    def get(self, request, pk):
+        attr = get_object_or_404(ProductAttribute, pk=pk)
+        return Response({'status': 'success', 'data': ProductAttributeSerializer(attr).data})
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش تعریف ویژگی (مدیریت)",
+        request_body=ProductAttributeSerializer,
+        responses={200: ProductAttributeSerializer}
+    )
+    def put(self, request, pk):
+        attr = get_object_or_404(ProductAttribute, pk=pk)
+        serializer = ProductAttributeSerializer(attr, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'مشخصات ویژگی با موفقیت بروز شد.',
+                'data': ProductAttributeSerializer(updated).data
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(
+        operation_summary="حذف تعریف ویژگی (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
+    def delete(self, request, pk):
+        attr = get_object_or_404(ProductAttribute, pk=pk)
+        attr.delete()
+        return Response({'status': 'success', 'message': 'ویژگی با موفقیت از سیستم حذف شد.'})
+
+
+class ProductAttributeValuesSetAPIView(APIView):
+    """
+    اندپوینت ثبت و ویرایش دسته‌جمعی مقادیر ویژگی‌های فنی برای یک کالای مشخص
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="ثبت و بروزرسانی مقادیر ویژگی‌های فنی یک کالا (مدیریت)",
+        responses={200: ProductSerializer}
+    )
+    def post(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        attributes_data = request.data.get('attributes', [])
+
+        for item in attributes_data:
+            attr_id = item.get('attribute_id')
+            if not attr_id:
+                continue
+            attribute = get_object_or_404(ProductAttribute, pk=attr_id)
+            ProductAttributeValue.objects.update_or_create(
+                product=product,
+                attribute=attribute,
+                defaults={
+                    'value': item.get('value'),
+                    'value_number': item.get('value_number'),
+                    'value_boolean': item.get('value_boolean')
+                }
+            )
+
+        return Response({
+            'status': 'success',
+            'message': 'مقادیر مشخصات فنی کالا با موفقیت ذخیره گردید.',
+            'data': ProductSerializer(product).data
+        }, status=status.HTTP_200_OK)
+
+
+class ProductListAPIView(APIView):
+    """
+    اندپوینت کاتالوگ محصولات آنلاین سایت با فیلتر خودکار کالاهای فعال و غیرحضوری (is_pos_only=False)
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت کاتالوگ محصولات آنلاین سایت (عمومی)",
+        responses={200: ProductSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = Product.objects.filter(
+            is_active=True, 
+            is_pos_only=False
+        ).select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'attributes_values__attribute')
+
+        brand = request.query_params.get('brand')
+        if brand:
+            if str(brand).isdigit():
+                queryset = queryset.filter(brand_id=int(brand))
+            else:
+                queryset = queryset.filter(
+                    Q(brand__name__icontains=brand) | 
+                    Q(brand__name_en__icontains=brand) | 
+                    Q(brand__slug__iexact=brand)
+                )
+
+        category_id = request.query_params.get('category')
+        if category_id:
+            queryset = queryset.filter(category_id=category_id)
+
+        min_price = request.query_params.get('min_price')
+        max_price = request.query_params.get('max_price')
+        if min_price:
+            queryset = queryset.filter(carton_price__gte=min_price)
+        if max_price:
+            queryset = queryset.filter(carton_price__lte=max_price)
+
+        search = request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) | 
+                Q(name_en__icontains=search) | 
+                Q(barcode__icontains=search)
+            )
+
+        serializer = ProductSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class PosCatalogAPIView(APIView):
+    """
+    اندپوینت کاتالوگ کامل صندوق حضوری (POS) شامل اقلام آنلاین و اختصاصی صندوق (is_pos_only=True) و جستجوی اسکنر بارکد
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت کاتالوگ کامل صندوق حضوری شامل بارکد و کلیه اقلام",
+        responses={200: ProductSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = Product.objects.filter(is_active=True).select_related('category', 'brand', 'hologram')
+
+        barcode = request.query_params.get('barcode')
+        if barcode:
+            queryset = queryset.filter(barcode=barcode.strip())
+
+        search = request.query_params.get('search')
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search) | 
+                Q(name_en__icontains=search) | 
+                Q(barcode__icontains=search)
+            )
+
+        serializer = ProductSerializer(queryset, many=True)
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class ProductFeaturedAPIView(APIView):
+    """
+    اندپوینت دریافت لیست محصولات پیشنهاد ویژه صفحه اصلی
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست پیشنهادهای ویژه صفحه اصلی",
+        responses={200: ProductSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = Product.objects.filter(is_active=True, is_featured=True, is_pos_only=False).select_related('category', 'brand', 'hologram')
+        serializer = ProductSerializer(queryset, many=True)
+        return Response({'status': 'success', 'count': queryset.count(), 'results': serializer.data})
+
+
+class ProductCreateAPIView(APIView):
+    """
+    اندپوینت ثبت محصول جدید در کاتالوگ آنلاین / صندوق حضوری (مخصوص ادمین)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="ثبت محصول جدید در کاتالوگ آنلاین / صندوق حضوری",
+        request_body=ProductCreateUpdateSerializer,
+        responses={201: ProductSerializer}
+    )
+    def post(self, request):
+        serializer = ProductCreateUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            product = serializer.save()
+            target_scope = "صندوق حضوری" if product.is_pos_only else "سایت آنلاین و صندوق فروشگاهی"
+            return Response({
+                'status': 'success',
+                'message': f'محصول جدید با موفقیت ذخیره شد و به {target_scope} اضافه گردید.',
+                'data': ProductSerializer(product).data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductDetailAPIView(APIView):
+    """
+    اندپوینت دریافت جزئیات کامل یک محصول بر اساس ID
+    """
+    permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات کامل محصول به همراه گالری و ویژگی‌ها",
+        responses={200: ProductDetailSerializer}
+    )
+    def get(self, request, pk):
+        product = get_object_or_404(
+            Product.objects.select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'attributes_values__attribute'), 
+            pk=pk
+        )
+        serializer = ProductDetailSerializer(product)
+        return Response({'status': 'success', 'data': serializer.data})
+
+
+class ProductUpdateAPIView(APIView):
+    """
+    اندپوینت ویرایش کامل یا جزئی اطلاعات محصول (مخصوص ادمین)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش اطلاعات محصول (مدیریت)",
+        request_body=ProductCreateUpdateSerializer,
+        responses={200: ProductSerializer}
+    )
+    def put(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        serializer = ProductCreateUpdateSerializer(product, data=request.data, partial=True)
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اطلاعات کالا با موفقیت بروزرسانی گردید.',
+                'data': ProductSerializer(updated).data
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductSyncPosStockAPIView(APIView):
+    """
+    اندپوینت همگام‌سازی لحظه‌ای موجودی انبار و تغییر وضعیت اختصاصی صندوق (POS Stock Sync)
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="همگام‌سازی موجودی و کانال عرضه صندوق حضوری",
+        responses={200: ProductSerializer}
+    )
+    def patch(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        cartons_delta = request.data.get('stock_cartons_delta')
+        boxes_delta = request.data.get('stock_boxes_delta')
+        is_pos_only = request.data.get('is_pos_only')
+
+        if cartons_delta is not None:
+            product.stock_cartons = max(0, product.stock_cartons + int(cartons_delta))
+        if boxes_delta is not None:
+            product.stock_boxes = max(0, product.stock_boxes + int(boxes_delta))
+        if is_pos_only is not None:
+            product.is_pos_only = bool(is_pos_only)
+
+        product.save()
+        return Response({
+            'status': 'success',
+            'message': 'موجودی و وضعیت صندوق با موفقیت اعمال شد.',
+            'data': ProductSerializer(product).data
+        })
+
+
+class ProductDeleteAPIView(APIView):
+    """
+    اندپوینت حذف محصول از سیستم (مخصوص ادمین)
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        operation_summary="حذف محصول از کاتالوگ (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
+    def delete(self, request, pk):
+        product = get_object_or_404(Product, pk=pk)
+        product.delete()
+        return Response({'status': 'success', 'message': 'محصول با موفقیت از کاتالوگ حذف شد.'})
 `;
   const urlsCode = `"""
 products/urls.py
-مسیرهای برندها با استفاده از Router
+مسیرهای جامع REST API برای دسته‌بندی‌ها، برندها، هولوگرام، ویژگی‌ها، کاتالوگ محصولات و صندوق (POS Sync)
 """
 
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ProductBrandViewSet
+from .views import (
+    BrandViewSet,
+    ProductBrandListCreateAPIView,
+    ProductBrandDetailUpdateDeleteAPIView,
+    CategoryListCreateAPIView,
+    CategoryDetailUpdateDeleteAPIView,
+    HologramListCreateAPIView,
+    HologramDetailUpdateDeleteAPIView,
+    ProductAttributeListCreateAPIView,
+    ProductAttributeDetailUpdateDeleteAPIView,
+    ProductAttributeValuesSetAPIView,
+    ProductListAPIView,
+    PosCatalogAPIView,
+    ProductFeaturedAPIView,
+    ProductCreateAPIView,
+    ProductDetailAPIView,
+    ProductUpdateAPIView,
+    ProductSyncPosStockAPIView,
+    ProductDeleteAPIView,
+)
 
 router = DefaultRouter()
-router.register(r'brands', ProductBrandViewSet)
+router.register(r'brands-router', BrandViewSet, basename='brand-viewset')
 
 urlpatterns = [
+    # روتر اختیاری ویوست برند
     path('', include(router.urls)),
+
+    # برندها (APIView)
+    path('brands/', ProductBrandListCreateAPIView.as_view(), name='product-brand-list-create'),
+    path('brands/<int:pk>/', ProductBrandDetailUpdateDeleteAPIView.as_view(), name='product-brand-detail'),
+
+    # دسته‌بندی‌ها (APIView)
+    path('categories/', CategoryListCreateAPIView.as_view(), name='category-list-create'),
+    path('categories/<int:pk>/', CategoryDetailUpdateDeleteAPIView.as_view(), name='category-detail'),
+
+    # هولوگرام‌ها (APIView)
+    path('holograms/', HologramListCreateAPIView.as_view(), name='hologram-list-create'),
+    path('holograms/<int:pk>/', HologramDetailUpdateDeleteAPIView.as_view(), name='hologram-detail'),
+
+    # ویژگی‌های فنی (APIView)
+    path('attributes/', ProductAttributeListCreateAPIView.as_view(), name='attribute-list-create'),
+    path('attributes/<int:pk>/', ProductAttributeDetailUpdateDeleteAPIView.as_view(), name='attribute-detail'),
+    path('items/<int:pk>/attributes/', ProductAttributeValuesSetAPIView.as_view(), name='product-attribute-values-set'),
+
+    # کاتالوگ محصولات، پیشنهاد ویژه و صندوق (APIView)
+    path('items/', ProductListAPIView.as_view(), name='product-list'),
+    path('items/create/', ProductCreateAPIView.as_view(), name='product-create'),
+    path('items/featured/', ProductFeaturedAPIView.as_view(), name='product-featured'),
+    path('items/pos-catalog/', PosCatalogAPIView.as_view(), name='product-pos-catalog'),
+    path('items/<int:pk>/', ProductDetailAPIView.as_view(), name='product-detail'),
+    path('items/<int:pk>/update/', ProductUpdateAPIView.as_view(), name='product-update'),
+    path('items/<int:pk>/delete/', ProductDeleteAPIView.as_view(), name='product-delete'),
+    path('items/<int:pk>/pos-sync-stock/', ProductSyncPosStockAPIView.as_view(), name='product-pos-sync-stock'),
 ]
 `;
 

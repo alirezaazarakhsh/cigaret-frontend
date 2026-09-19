@@ -47,7 +47,7 @@ interface HeaderProps {
   setSearchQuery?: (query: string) => void;
 }
 
-const ALL_NAV_TABS: { id: NavigationTab; label: string; icon: React.ComponentType<{ className?: string }>; color?: string; requiresAuth?: boolean }[] = [
+const ALL_NAV_TABS: { id: NavigationTab; label: string; icon: React.ComponentType<{ className?: string }>; color?: string; requiresAuth?: boolean; requiresAdmin?: boolean }[] = [
   { id: 'catalog', label: 'کاتالوگ کالاها', icon: Layers },
   { id: 'live-prices', label: 'لیست قیمت لحظه‌ای', icon: TrendingUp, color: 'text-amber-500' },
   { id: 'invoice', label: 'فاکتور رسمی', icon: FileText, color: 'text-blue-500', requiresAuth: true },
@@ -105,7 +105,11 @@ export const Header: React.FC<HeaderProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const navTabs = ALL_NAV_TABS.filter(tab => !tab.requiresAuth || currentUser !== null);
+  const navTabs = ALL_NAV_TABS.filter(tab => {
+    if (tab.requiresAuth && !currentUser) return false;
+    if (tab.requiresAdmin && currentUser?.role !== 'admin') return false;
+    return true;
+  });
 
   const handleSelectTab = (tab: NavigationTab) => {
     setActiveTab(tab);

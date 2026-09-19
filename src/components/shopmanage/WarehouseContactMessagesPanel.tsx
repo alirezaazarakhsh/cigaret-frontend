@@ -62,9 +62,10 @@ export function formatPersianDateTime(dateStr?: string | null, jalaliStr?: strin
 
 interface WarehouseContactMessagesPanelProps {
   onRefreshBadge?: () => void;
+  showToast?: (msg: string) => void;
 }
 
-export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPanelProps> = ({ onRefreshBadge }) => {
+export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPanelProps> = ({ onRefreshBadge, showToast }) => {
   const [messages, setMessages] = useState<WarehouseMessage[]>([]);
   const [selectedMessage, setSelectedMessage] = useState<WarehouseMessage | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -221,9 +222,9 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
         if (onRefreshBadge) {
           onRefreshBadge();
         }
-        alert('پیام با موفقیت حذف گردید.');
+        if (showToast) showToast('پیام با موفقیت حذف گردید.');
       } else {
-        alert('حذف پیام با خطا مواجه شد.');
+        if (showToast) showToast('حذف پیام با خطا مواجه شد.');
       }
     } catch (err) {
       console.error('Error deleting message:', err);
@@ -237,7 +238,7 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
       if (onRefreshBadge) {
         onRefreshBadge();
       }
-      alert('پیام با موفقیت حذف گردید (حالت آفلاین/فال‌بک).');
+      if (showToast) showToast('پیام حذف شد (حالت آفلاین).');
     }
   };
 
@@ -303,7 +304,7 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
       </div>
 
       {/* Main Grid: Inbox Table + Detail Pane */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch min-h-[500px]">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start min-h-[500px]">
         
         {/* Left Side: Message List & Filters (8 Cols or 7 Cols) */}
         <div className={`flex flex-col gap-4 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm ${selectedMessage ? 'lg:col-span-7 xl:col-span-8' : 'lg:col-span-12'}`}>
@@ -388,57 +389,63 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
               <p className="text-[10px] text-slate-400 font-medium">فرم ارسالی تماس با ما از سمت مشتریان وب‌سایت در این بخش نمایش می‌یابد.</p>
             </div>
           ) : (
-            <div className="overflow-x-auto border border-slate-100 rounded-xl">
-              <table className="w-full text-right border-collapse text-xs">
-                <thead>
-                  <tr className="bg-slate-50 text-slate-500 border-b border-slate-100 font-bold">
-                    <th className="py-3 px-4 font-black">نام و نام خانوادگی</th>
-                    <th className="py-3 px-3 font-black">شماره تماس</th>
-                    <th className="py-3 px-3 font-black">موضوع درخواست</th>
-                    <th className="py-3 px-3 text-center font-black">خوانده شده</th>
-                    <th className="py-3 px-4 text-left font-black">تاریخ ثبت پیام (شمسی)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {filteredMessages.map((msg) => {
-                    const isSelected = selectedMessage?.id === msg.id;
-                    return (
-                      <tr
-                        key={msg.id}
-                        onClick={() => handleSelectMessage(msg)}
-                        className={`hover:bg-slate-50/80 cursor-pointer transition-all ${
-                          isSelected ? 'bg-indigo-50/50 hover:bg-indigo-50' : ''
-                        } ${!msg.is_read ? 'font-bold text-slate-900 bg-amber-50/10' : 'text-slate-600'}`}
-                      >
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2">
-                            {!msg.is_read && (
-                              <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0" title="خوانده نشده"></span>
-                            )}
-                            <span>{msg.full_name || 'بدون نام'}</span>
-                          </div>
-                        </td>
-                        <td className="py-3.5 px-3 font-mono text-slate-700">{msg.phone || '—'}</td>
-                        <td className="py-3.5 px-3">
-                          <span className="truncate max-w-[200px] inline-block">{msg.subject || 'استعلام قیمت و خرید عمده'}</span>
-                        </td>
-                        <td className="py-3.5 px-3 text-center">
-                          <span className="inline-flex justify-center items-center" title={msg.is_read ? "خوانده شده" : "خوانده نشده"}>
+            <div className="overflow-hidden border border-slate-100 rounded-xl bg-white shadow-xs">
+              <div className="overflow-x-auto overflow-y-auto max-h-[580px] scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                <table className="w-full text-right border-collapse text-xs relative">
+                  <thead className="sticky top-0 z-20 bg-slate-50 shadow-sm ring-1 ring-slate-100">
+                    <tr className="text-slate-500 font-bold">
+                      <th className="py-3 px-4 font-black bg-slate-50">نام و نام خانوادگی</th>
+                      <th className="py-3 px-3 font-black bg-slate-50">شماره تماس</th>
+                      <th className="py-3 px-3 font-black bg-slate-50">موضوع درخواست</th>
+                      <th className="py-3 px-3 text-center font-black bg-slate-50">وضعیت</th>
+                      <th className="py-3 px-4 text-left font-black bg-slate-50">تاریخ ثبت</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredMessages.map((msg) => {
+                      const isSelected = selectedMessage?.id === msg.id;
+                      return (
+                        <tr
+                          key={msg.id}
+                          onClick={() => handleSelectMessage(msg)}
+                          className={`hover:bg-slate-50 cursor-pointer transition-colors ${
+                            isSelected ? 'bg-indigo-50/70' : ''
+                          } ${!msg.is_read ? 'font-bold text-slate-900' : 'text-slate-600'}`}
+                        >
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2">
+                              {!msg.is_read && (
+                                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 shadow-sm animate-pulse"></span>
+                              )}
+                              <span className="truncate max-w-[140px]">{msg.full_name || 'بدون نام'}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-3 font-mono text-slate-700 tracking-tighter whitespace-nowrap">{msg.phone || '—'}</td>
+                          <td className="py-3 px-3">
+                            <span className="truncate max-w-[180px] inline-block">{msg.subject || 'استعلام قیمت'}</span>
+                          </td>
+                          <td className="py-3 px-3 text-center">
                             {msg.is_read ? (
-                              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                              <span className="inline-flex items-center gap-1 text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded-lg border border-emerald-100">
+                                <CheckCircle2 className="w-3 h-3" />
+                                <span>خوانده شد</span>
+                              </span>
                             ) : (
-                              <XCircle className="w-4 h-4 text-rose-400" />
+                              <span className="inline-flex items-center gap-1 text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-lg border border-amber-100">
+                                <Clock className="w-3 h-3" />
+                                <span>جدید</span>
+                              </span>
                             )}
-                          </span>
-                        </td>
-                        <td className="py-3.5 px-4 text-left font-mono text-[10px] text-slate-400">
-                          {formatPersianDateTime(msg.created_at, msg.jalali_created_at || msg.created_at_jalali)}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                          </td>
+                          <td className="py-3 px-4 text-left font-mono text-[10px] text-slate-400 whitespace-nowrap">
+                            {formatPersianDateTime(msg.created_at, msg.jalali_created_at || msg.created_at_jalali)}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
@@ -451,7 +458,7 @@ export const WarehouseContactMessagesPanel: React.FC<WarehouseContactMessagesPan
 
         {/* Right Side: Detailed View Pane (4 Cols or 5 Cols) */}
         {selectedMessage && (
-          <div className="lg:col-span-5 xl:col-span-4 flex flex-col bg-white rounded-2xl border border-indigo-100 shadow-md shadow-indigo-600/5 animate-fade-in relative overflow-hidden">
+          <div className="lg:col-span-5 xl:col-span-4 flex flex-col bg-white rounded-2xl border border-indigo-100 shadow-md shadow-indigo-600/5 animate-fade-in relative overflow-hidden sticky top-[80px] h-fit">
             
             {/* Colored top header edge */}
             <div className="h-1 bg-gradient-to-l from-indigo-500 to-blue-600"></div>

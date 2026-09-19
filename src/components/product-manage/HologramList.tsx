@@ -37,6 +37,7 @@ export const HologramList: React.FC<HologramListProps> = ({
   const [country, setCountry] = useState('');
   const [securityLevel, setSecurityLevel] = useState<'ultra' | 'high' | 'standard' | 'basic'>('high');
   const [description, setDescription] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [editingHologram, setEditingHologram] = useState<ProductHologramItem | null>(null);
 
   const handleStartEdit = (holo: ProductHologramItem) => {
@@ -58,9 +59,11 @@ export const HologramList: React.FC<HologramListProps> = ({
     setDescription('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
+
+    setIsLoading(true);
 
     let badgeColor = 'bg-blue-50 text-blue-700 border-blue-200';
     if (securityLevel === 'ultra') badgeColor = 'bg-purple-50 text-purple-700 border-purple-200';
@@ -79,7 +82,7 @@ export const HologramList: React.FC<HologramListProps> = ({
       };
 
       if (onUpdateHologram) {
-        onUpdateHologram(updatedHolo);
+        await onUpdateHologram(updatedHolo);
       }
       handleCancelEdit();
     } else {
@@ -93,12 +96,13 @@ export const HologramList: React.FC<HologramListProps> = ({
         description: description.trim(),
       };
 
-      onAddHologram(newHolo);
+      await onAddHologram(newHolo);
       setTitle('');
       setIssuer('');
       setCountry('');
       setDescription('');
     }
+    setIsLoading(false);
   };
 
   const getProductCountForHolo = (holoTitle: string) => {
@@ -209,14 +213,17 @@ export const HologramList: React.FC<HologramListProps> = ({
             <div className="pt-1 flex items-center gap-2">
               <button
                 type="submit"
+                disabled={isLoading}
                 className={`flex-1 py-2.5 rounded-xl text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-2 ${
                   editingHologram
                     ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
                     : 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/20'
-                }`}
+                } ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
-                {editingHologram ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                <span>{editingHologram ? 'ذخیره تغییرات هولوگرام' : 'افزودن هولوگرام جدید'}</span>
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : editingHologram ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span>{isLoading ? 'در حال ثبت...' : editingHologram ? 'ذخیره تغییرات هولوگرام' : 'افزودن هولوگرام جدید'}</span>
               </button>
               {editingHologram && (
                 <button

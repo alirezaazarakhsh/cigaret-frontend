@@ -32,7 +32,7 @@ import {
   INITIAL_PRODUCT_BRANDS
 } from './types';
 import { formatNumberFa } from '../../utils/formatters';
-import { categoriesApi, hologramsApi, attributesApi, brandsApi } from '../../services/api';
+import { categoriesApi, hologramsApi, attributesApi, brandsApi, productsApi } from '../../services/api';
 
 interface ProductManagementPanelProps {
   products: CigaretteProduct[];
@@ -213,37 +213,47 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleSaveProduct = (savedProd: CigaretteProduct) => {
-    let updated: CigaretteProduct[];
-    const exists = products.some((p) => p.id === savedProd.id);
-
-    if (exists) {
-      updated = products.map((p) => (p.id === savedProd.id ? savedProd : p));
-      showToast(`محصول «${savedProd.nameFa}» با موفقیت ویرایش و در انبار مرکزی ذخیره شد.`);
-    } else {
-      updated = [savedProd, ...products];
-      showToast(`کالای جدید «${savedProd.nameFa}» با موفقیت به انبار و کاتالوگ فروشگاه اضافه شد.`);
-    }
-
-    onUpdateProducts(updated);
+  const handleSaveProduct = async (savedProd: CigaretteProduct) => {
+    setIsLoadingCategories(true); // Reusing a loading state or could add a new one
     try {
-      localStorage.setItem('wholesale_products', JSON.stringify(updated));
-    } catch {}
+      const exists = products.some((p) => p.id === savedProd.id);
+      let finalProd: CigaretteProduct;
 
-    setActiveTab('list');
-    setSelectedProduct(null);
+      if (exists) {
+        finalProd = await productsApi.update(savedProd.id, savedProd);
+        showToast(`محصول «${finalProd.nameFa}» با موفقیت ویرایش و در دیتابیس بروزرسانی شد.`);
+      } else {
+        finalProd = await productsApi.create(savedProd);
+        showToast(`کالای جدید «${finalProd.nameFa}» با موفقیت در دیتابیس ثبت و به کاتالوگ اضافه شد.`);
+      }
+
+      // Update local state via parent to keep UI in sync
+      const updated = exists 
+        ? products.map(p => p.id === finalProd.id ? finalProd : p)
+        : [finalProd, ...products];
+      
+      onUpdateProducts(updated);
+      
+      setActiveTab('list');
+      setSelectedProduct(null);
+    } catch (err: any) {
+      showToast(err?.message || 'خطا در ثبت محصول در دیتابیس', 'error');
+    } finally {
+      setIsLoadingCategories(false);
+    }
   };
 
-  const handleDeleteProduct = (prod: CigaretteProduct) => {
-    if (!window.confirm(`آیا از حذف کالای «${prod.nameFa}» از لیست محصولات مطمئن هستید؟`)) return;
+  const handleDeleteProduct = async (prod: CigaretteProduct) => {
+    if (!window.confirm(`آیا از حذف کالای «${prod.nameFa}» از لیست محصولات و دیتابیس مطمئن هستید؟`)) return;
 
-    const updated = products.filter((p) => p.id !== prod.id);
-    onUpdateProducts(updated);
     try {
-      localStorage.setItem('wholesale_products', JSON.stringify(updated));
-    } catch {}
-
-    showToast(`محصول «${prod.nameFa}» از سیستم حذف شد.`);
+      await productsApi.delete(prod.id);
+      const updated = products.filter((p) => p.id !== prod.id);
+      onUpdateProducts(updated);
+      showToast(`محصول «${prod.nameFa}» با موفقیت از دیتابیس حذف شد.`);
+    } catch (err: any) {
+      showToast(err?.message || 'خطا در حذف محصول از دیتابیس', 'error');
+    }
   };
 
   // CRUD for Categories (Connected to Django Database)

@@ -132,6 +132,7 @@ interface AccountingPosPanelProps {
   products: CigaretteProduct[];
   onUpdateProductsStock?: (updatedProducts: CigaretteProduct[]) => void;
   onReturnToStore: () => void;
+  showToast?: (msg: string) => void;
 }
 
 const DEFAULT_STAFF_MEMBERS: WarehouseStaffUser[] = [
@@ -331,6 +332,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   products: initialProducts,
   onUpdateProductsStock,
   onReturnToStore,
+  showToast,
 }) => {
   // Authentication state with proactive token expiration check
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
@@ -933,17 +935,34 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   }, [currentStaff]);
 
   // Quick Add Product Handler
-  const handleQuickAddProduct = (newProduct: CigaretteProduct, addToCartDirectly: boolean) => {
-    const updated = [newProduct, ...productsList];
-    setProductsList(updated);
-    if (onUpdateProductsStock) {
-      onUpdateProductsStock(updated);
+  const handleQuickAddProduct = async (newProduct: CigaretteProduct, addToCartDirectly: boolean) => {
+    try {
+      // 1. First sync with database
+      const created = await api.products.create(newProduct);
+      
+      // 2. Update local state
+      const updated = [created, ...productsList];
+      setProductsList(updated);
+      
+      if (onUpdateProductsStock) {
+        onUpdateProductsStock(updated);
+      }
+      
+      if (addToCartDirectly) {
+        handleAddProductToPos(created, created.isBoxOnly ? 'box' : 'box');
+      }
+      
+      setSuccessBanner(`کالای «${created.nameFa}» با موفقیت در دیتابیس ثبت و به انبار اضافه شد.`);
+      setTimeout(() => setSuccessBanner(null), 3000);
+    } catch (err: any) {
+      if (showToast) showToast(err?.message || 'خطا در ثبت سریع محصول در دیتابیس');
+      console.error('Quick Add error:', err);
+      
+      // Fallback to local only if API fails
+      const updated = [newProduct, ...productsList];
+      setProductsList(updated);
+      if (onUpdateProductsStock) onUpdateProductsStock(updated);
     }
-    if (addToCartDirectly) {
-      handleAddProductToPos(newProduct, newProduct.isBoxOnly ? 'box' : 'box');
-    }
-    setSuccessBanner(`کالای «${newProduct.nameFa}» با موفقیت در انبار و صندوق ثبت شد.`);
-    setTimeout(() => setSuccessBanner(null), 3000);
   };
 
   const handleSaveCurrencyRates = (newUsd: number, newEur: number) => {
@@ -1683,7 +1702,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   };
 
   // Handle Manual Stock Adjustment
-  const handleSaveStockAdjustment = () => {
+  const handleSaveStockAdjustment = async () => {
     if (!selectedProductForAdjustment || adjustQuantityCartons <= 0) return;
 
     const boxesPerCarton = selectedProductForAdjustment.boxesPerCarton || 50;
@@ -1699,42 +1718,53 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     }
 
     const finalDeltaCartons = adjustType === 'stock_in' ? deltaCartons : -deltaCartons;
-
-    const updatedProducts = productsList.map(p => {
-      if (p.id !== selectedProductForAdjustment.id) return p;
-      const newStock = Math.max(0, Math.round((p.stockCartons + finalDeltaCartons) * 1000) / 1000);
-      return {
-        ...p,
-        stockCartons: newStock,
-        isAvailable: newStock > 0,
-      };
-    });
-
-    const now = new Date();
-    const unitLabel = adjustUnit === 'carton' ? 'کارتن' : adjustUnit === 'box' ? 'باکس' : 'پاکت';
-    const newLog: StockAdjustmentLog = {
-      id: `adj_${Date.now()}`,
-      productId: selectedProductForAdjustment.id,
-      productName: selectedProductForAdjustment.nameFa,
-      type: adjustType === 'stock_in' ? 'stock_in' : adjustType === 'damage' ? 'damage' : 'adjustment',
-      deltaCartons: finalDeltaCartons,
-      deltaBoxes: finalDeltaCartons * boxesPerCarton,
-      finalStockCartons: updatedProducts.find(p => p.id === selectedProductForAdjustment.id)?.stockCartons || 0,
-      date: `${now.toLocaleDateString('fa-IR')} ${now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`,
-      note: adjustNote || (adjustType === 'stock_in' ? `ورود بار جدید به انبار (${formatNumberFa(adjustQuantityCartons)} ${unitLabel})` : 'اصلاح انبارگردانی'),
-    };
-
-    const updatedLogs = [newLog, ...stockLogs];
-    setStockLogs(updatedLogs);
-    setProductsList(updatedProducts);
+    const newStock = Math.max(0, Math.round((selectedProductForAdjustment.stockCartons + finalDeltaCartons) * 1000) / 1000);
 
     try {
-      localStorage.setItem('sovin_pos_stock_logs', JSON.stringify(updatedLogs));
-      localStorage.setItem('wholesale_products', JSON.stringify(updatedProducts));
-    } catch {}
+      // 1. Sync stock with database
+      await api.products.updateStock(selectedProductForAdjustment.id, newStock);
 
-    if (onUpdateProductsStock) {
-      onUpdateProductsStock(updatedProducts);
+      const updatedProducts = productsList.map(p => {
+        if (p.id !== selectedProductForAdjustment.id) return p;
+        return {
+          ...p,
+          stockCartons: newStock,
+          isAvailable: newStock > 0,
+        };
+      });
+
+      const now = new Date();
+      const unitLabel = adjustUnit === 'carton' ? 'کارتن' : adjustUnit === 'box' ? 'باکس' : 'پاکت';
+      const newLog: StockAdjustmentLog = {
+        id: `adj_${Date.now()}`,
+        productId: selectedProductForAdjustment.id,
+        productName: selectedProductForAdjustment.nameFa,
+        type: adjustType === 'stock_in' ? 'stock_in' : adjustType === 'damage' ? 'damage' : 'adjustment',
+        deltaCartons: finalDeltaCartons,
+        deltaBoxes: finalDeltaCartons * boxesPerCarton,
+        finalStockCartons: newStock,
+        date: `${now.toLocaleDateString('fa-IR')} ${now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`,
+        note: adjustNote || (adjustType === 'stock_in' ? `ورود بار جدید به انبار (${formatNumberFa(adjustQuantityCartons)} ${unitLabel})` : 'اصلاح انبارگردانی'),
+      };
+
+      const updatedLogs = [newLog, ...stockLogs];
+      setStockLogs(updatedLogs);
+      setProductsList(updatedProducts);
+
+      try {
+        localStorage.setItem('sovin_pos_stock_logs', JSON.stringify(updatedLogs));
+        localStorage.setItem('wholesale_products', JSON.stringify(updatedProducts));
+      } catch {}
+
+      if (onUpdateProductsStock) {
+        onUpdateProductsStock(updatedProducts);
+      }
+
+      setSuccessBanner(`موجودی کالا با موفقیت در دیتابیس بروزرسانی شد.`);
+      setTimeout(() => setSuccessBanner(null), 3000);
+    } catch (err: any) {
+      if (showToast) showToast('خطا در بروزرسانی موجودی در سرور');
+      console.error('Stock adjust error:', err);
     }
 
     setSelectedProductForAdjustment(null);
@@ -1744,7 +1774,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   };
 
   // Quick adjustment (+ / -) by Carton, Box, or Pack in Inventory Table
-  const handleQuickAdjustStock = (product: CigaretteProduct, unit: 'carton' | 'box' | 'pack', delta: number) => {
+  const handleQuickAdjustStock = async (product: CigaretteProduct, unit: 'carton' | 'box' | 'pack', delta: number) => {
     const boxesPerCarton = product.boxesPerCarton || 50;
     const packsPerBox = product.packsPerBox || 10;
     
@@ -1757,52 +1787,59 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       deltaCartons = delta / (boxesPerCarton * packsPerBox);
     }
 
-    const updatedProducts = productsList.map(p => {
-      if (p.id !== product.id) return p;
-      const newStock = Math.max(0, Math.round((p.stockCartons + deltaCartons) * 1000) / 1000);
-      return {
-        ...p,
-        stockCartons: newStock,
-        isAvailable: newStock > 0,
-      };
-    });
-
-    const now = new Date();
-    const unitLabel = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
-    const newLog: StockAdjustmentLog = {
-      id: `adj_${Date.now()}`,
-      productId: product.id,
-      productName: product.nameFa,
-      type: delta > 0 ? 'stock_in' : 'adjustment',
-      deltaCartons: deltaCartons,
-      deltaBoxes: deltaCartons * boxesPerCarton,
-      finalStockCartons: updatedProducts.find(p => p.id === product.id)?.stockCartons || 0,
-      date: `${now.toLocaleDateString('fa-IR')} ${now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`,
-      note: `تغییر سریع موجودی صندوق: ${delta > 0 ? '+' : ''}${formatNumberFa(delta)} ${unitLabel}`,
-    };
-
-    const updatedLogs = [newLog, ...stockLogs];
-    setStockLogs(updatedLogs);
-    setProductsList(updatedProducts);
+    const newStock = Math.max(0, Math.round((product.stockCartons + deltaCartons) * 1000) / 1000);
 
     try {
-      localStorage.setItem('sovin_pos_stock_logs', JSON.stringify(updatedLogs));
-      localStorage.setItem('wholesale_products', JSON.stringify(updatedProducts));
-    } catch {}
+      // Sync with DB
+      await api.products.updateStock(product.id, newStock);
 
-    if (onUpdateProductsStock) {
-      onUpdateProductsStock(updatedProducts);
+      const updatedProducts = productsList.map(p => {
+        if (p.id !== product.id) return p;
+        return {
+          ...p,
+          stockCartons: newStock,
+          isAvailable: newStock > 0,
+        };
+      });
+
+      const now = new Date();
+      const unitLabel = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
+      const newLog: StockAdjustmentLog = {
+        id: `adj_${Date.now()}`,
+        productId: product.id,
+        productName: product.nameFa,
+        type: delta > 0 ? 'stock_in' : 'adjustment',
+        deltaCartons: deltaCartons,
+        deltaBoxes: deltaCartons * boxesPerCarton,
+        finalStockCartons: newStock,
+        date: `${now.toLocaleDateString('fa-IR')} ${now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`,
+        note: `تغییر سریع موجودی صندوق: ${delta > 0 ? '+' : ''}${formatNumberFa(delta)} ${unitLabel}`,
+      };
+
+      const updatedLogs = [newLog, ...stockLogs];
+      setStockLogs(updatedLogs);
+      setProductsList(updatedProducts);
+
+      try {
+        localStorage.setItem('sovin_pos_stock_logs', JSON.stringify(updatedLogs));
+        localStorage.setItem('wholesale_products', JSON.stringify(updatedProducts));
+      } catch {}
+
+      if (onUpdateProductsStock) {
+        onUpdateProductsStock(updatedProducts);
+      }
+    } catch (err: any) {
+      if (showToast) showToast('خطا در بروزرسانی موجودی در سرور');
     }
   };
 
   // Create New Product in Store Inventory
-  const handleCreateNewProduct = () => {
+  const handleCreateNewProduct = async () => {
     if (!newProdNameFa.trim()) return;
 
     const isCoffeeOrDrink = newProdCategory === 'drinks_coffee';
     
-    const newProduct: CigaretteProduct = {
-      id: `prod_${Date.now()}`,
+    const newProduct: Partial<CigaretteProduct> = {
       nameFa: newProdNameFa.trim(),
       nameEn: newProdNameEn.trim() || newProdNameFa.trim(),
       brand: newProdBrand.trim() || 'دخانیات سرو',
@@ -1831,22 +1868,29 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       description: `کالای ${newProdNameFa} ثبت شده در سیستم انبار و صندوق.`
     };
 
-    const updatedProducts = [newProduct, ...productsList];
-    setProductsList(updatedProducts);
-
     try {
-      localStorage.setItem('wholesale_products', JSON.stringify(updatedProducts));
-    } catch {}
+      const created = await api.products.create(newProduct);
+      const updatedProducts = [created, ...productsList];
+      setProductsList(updatedProducts);
 
-    if (onUpdateProductsStock) {
-      onUpdateProductsStock(updatedProducts);
+      try {
+        localStorage.setItem('wholesale_products', JSON.stringify(updatedProducts));
+      } catch {}
+
+      if (onUpdateProductsStock) {
+        onUpdateProductsStock(updatedProducts);
+      }
+
+      setShowAddProductModal(false);
+      setNewProdNameFa('');
+      setNewProdNameEn('');
+      setNewProdBrand('');
+      setNewProdBarcode('');
+      setSuccessBanner(`محصول «${created.nameFa}» با موفقیت در دیتابیس انبار ثبت شد.`);
+      setTimeout(() => setSuccessBanner(null), 3000);
+    } catch (err: any) {
+      if (showToast) showToast('خطا در ثبت محصول در دیتابیس');
     }
-
-    setShowAddProductModal(false);
-    setNewProdNameFa('');
-    setNewProdNameEn('');
-    setNewProdBrand('');
-    setNewProdBarcode('');
   };
 
   // Filtered products for POS quick shelf
@@ -4651,7 +4695,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   </div>
                 </div>
               ) : (
-                <WarehouseContactMessagesPanel onRefreshBadge={fetchUnreadMessagesCount} />
+                <WarehouseContactMessagesPanel 
+                  onRefreshBadge={fetchUnreadMessagesCount} 
+                  showToast={showToast}
+                />
               )}
             </motion.div>
           )}

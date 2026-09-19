@@ -1631,6 +1631,94 @@ export async function syncWithDjangoApi(config: DjangoCrmConfig): Promise<Cigare
   });
 }
 
+/**
+ * Fetches all products directly from Django REST API (/products/)
+ * This ensures the product catalog is synchronized with the Django database.
+ */
+export async function fetchAllProducts(config?: DjangoCrmConfig): Promise<CigaretteProduct[]> {
+  const baseUrl = config?.apiUrl || getBlogApiBaseUrl(config);
+  
+  // Attempt to fetch from real API if URL is provided
+  if (baseUrl && baseUrl.startsWith('http')) {
+    const res = await executeDjangoAxiosRequest<DjangoProductItem[]>(
+      '/api/v1/products/',
+      'GET',
+      undefined,
+      { token: config?.apiToken, apiUrl: baseUrl }
+    );
+
+    if (res.success && Array.isArray(res.data)) {
+      const fetched = res.data.map((item, idx) => mapDjangoItemToProduct(item, idx));
+      // Sync local store
+      fetched.forEach(p => djangoDatabaseStore.addProduct(p));
+      return fetched;
+    }
+  }
+  
+  // Fallback to local store simulation
+  return djangoDatabaseStore.getProducts();
+}
+
+/**
+ * Fetches detail of a specific product from Django REST API
+ */
+export async function fetchProductDetail(id: string | number, config?: DjangoCrmConfig): Promise<CigaretteProduct | null> {
+  const baseUrl = config?.apiUrl || getBlogApiBaseUrl(config);
+  
+  if (baseUrl && baseUrl.startsWith('http')) {
+    const res = await executeDjangoAxiosRequest<DjangoProductItem>(
+      `/api/v1/products/${id}/`,
+      'GET',
+      undefined,
+      { token: config?.apiToken, apiUrl: baseUrl }
+    );
+
+    if (res.success && res.data) {
+      const product = mapDjangoItemToProduct(res.data, 0);
+      djangoDatabaseStore.addProduct(product);
+      return product;
+    }
+  }
+  
+  return djangoDatabaseStore.getProducts().find(p => String(p.id) === String(id) || String(p.djangoId) === String(id)) || null;
+}
+
+/**
+ * Updates product stock levels in the Django database
+ */
+export async function updateProductStock(id: string | number, newStock: number, config?: DjangoCrmConfig): Promise<boolean> {
+  const baseUrl = config?.apiUrl || getBlogApiBaseUrl(config);
+  
+  if (baseUrl && baseUrl.startsWith('http')) {
+    const res = await executeDjangoAxiosRequest(
+      `/api/v1/products/${id}/update-stock/`,
+      'PATCH',
+      { stock_cartons: newStock },
+      { token: config?.apiToken, apiUrl: baseUrl }
+    );
+
+    if (res.success) {
+      // Update local store as well
+      const products = djangoDatabaseStore.getProducts();
+      const product = products.find(p => String(p.id) === String(id) || String(p.djangoId) === String(id));
+      if (product) {
+        djangoDatabaseStore.addProduct({ ...product, stockCartons: newStock, isAvailable: newStock > 0 });
+      }
+      return true;
+    }
+    return false;
+  }
+  
+  // Local simulation
+  const products = djangoDatabaseStore.getProducts();
+  const product = products.find(p => String(p.id) === String(id) || String(p.djangoId) === String(id));
+  if (product) {
+    djangoDatabaseStore.addProduct({ ...product, stockCartons: newStock, isAvailable: newStock > 0 });
+    return true;
+  }
+  return false;
+}
+
 function mapDjangoItemToProduct(item: DjangoProductItem, index: number): CigaretteProduct {
   const defaultBase = CIGARETTE_PRODUCTS[index % CIGARETTE_PRODUCTS.length];
   const cartonPrice = item.carton_price || defaultBase.cartonPrice;

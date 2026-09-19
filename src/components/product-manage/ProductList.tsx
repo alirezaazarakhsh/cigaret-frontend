@@ -42,6 +42,30 @@ export const ProductList: React.FC<ProductListProps> = ({
   // Stats Calculations
   const totalProducts = products.length;
   const inStockProducts = products.filter((p) => Boolean(p.isAvailable) && p.stockCartons > 0).length;
+  
+  // Stats by Category - Hologram
+  const categoryHologramStats = useMemo(() => {
+    const stats: Record<string, Record<string, number>> = {};
+    
+    categories.forEach(cat => {
+      stats[cat.name] = {};
+      holograms.forEach(holo => {
+        stats[cat.name][holo.title] = 0;
+      });
+      stats[cat.name]['سایر'] = 0; // Default bucket
+    });
+
+    products.forEach(p => {
+      const cat = categories.find(c => c.id === p.category)?.name || 'نامشخص';
+      const holo = p.hologram || 'سایر';
+      
+      if (!stats[cat]) stats[cat] = {};
+      stats[cat][holo] = (stats[cat][holo] || 0) + 1;
+    });
+
+    return stats;
+  }, [products, categories, holograms]);
+
   const uniqueBrandsCount = new Set(products.map((p) => p.brand).filter(Boolean)).size;
   const activeCategoriesCount = categories.length;
 
@@ -77,56 +101,39 @@ export const ProductList: React.FC<ProductListProps> = ({
   return (
     <div className="space-y-6">
       {/* STATS OVERVIEW CARDS (Grid 4) */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        {/* Card 1 */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black shrink-0">
-            <Package className="w-5 h-5" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Main Stats */}
+        <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-black">
+            <Package className="w-6 h-6" />
           </div>
-          <div className="min-w-0">
-            <div className="text-[11px] text-slate-500 font-bold truncate">کل محصولات ثبت شده</div>
-            <div className="text-sm sm:text-base md:text-lg font-black text-slate-900 mt-0.5">
-              {formatNumberFa(totalProducts)} <span className="text-xs font-normal text-slate-500">محصول</span>
+          <div>
+            <div className="text-xs text-slate-500 font-bold">کل محصولات ثبت شده</div>
+            <div className="text-xl font-black text-slate-900 mt-1">
+              {formatNumberFa(totalProducts)} <span className="text-sm font-normal text-slate-500">محصول</span>
             </div>
           </div>
         </div>
 
-        {/* Card 2 */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-black shrink-0">
-            <CheckCircle2 className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] text-slate-500 font-bold truncate">موجود در انبار جنت‌آباد</div>
-            <div className="text-sm sm:text-base md:text-lg font-black text-emerald-600 mt-0.5">
-              {formatNumberFa(inStockProducts)} <span className="text-xs font-normal text-slate-500">قلم کالا</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3 */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-black shrink-0">
-            <ShieldCheck className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] text-slate-500 font-bold truncate">تنوع برند و هولوگرام</div>
-            <div className="text-sm sm:text-base md:text-lg font-black text-slate-900 mt-0.5">
-              {formatNumberFa(uniqueBrandsCount)} <span className="text-xs font-normal text-slate-500">برند فعال</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 4 */}
-        <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-slate-200/90 shadow-xs flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-black shrink-0">
-            <Layers className="w-5 h-5" />
-          </div>
-          <div className="min-w-0">
-            <div className="text-[11px] text-slate-500 font-bold truncate">دسته‌بندی‌های فعال</div>
-            <div className="text-sm sm:text-base md:text-lg font-black text-slate-900 mt-0.5">
-              {formatNumberFa(activeCategoriesCount)} <span className="text-xs font-normal text-slate-500">دسته</span>
-            </div>
+        {/* Dynamic Category/Hologram Stats */}
+        <div className="lg:col-span-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
+          <div className="text-xs font-black text-slate-700 mb-3">آمار موجودی بر اساس دسته‌بندی و هولوگرام</div>
+          <div className="flex flex-wrap gap-2">
+            {Object.entries(categoryHologramStats).map(([catName, holos]) => (
+              <div key={catName} className="bg-slate-50 border border-slate-100 rounded-lg p-2 min-w-[120px]">
+                <div className="text-[10px] font-bold text-slate-500 mb-1">{catName}</div>
+                <div className="space-y-0.5">
+                  {Object.entries(holos).map(([holoName, count]) => (
+                    count > 0 && (
+                      <div key={holoName} className="flex justify-between items-center text-[10px]">
+                        <span className="text-slate-600">{holoName}:</span>
+                        <span className="font-bold text-slate-900">{formatNumberFa(count)}</span>
+                      </div>
+                    )
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>

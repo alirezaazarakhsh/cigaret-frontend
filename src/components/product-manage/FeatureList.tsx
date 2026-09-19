@@ -34,6 +34,7 @@ export const FeatureList: React.FC<FeatureListProps> = ({
   const [unit, setUnit] = useState('');
   const [optionsStr, setOptionsStr] = useState('');
   const [description, setDescription] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [editingFeature, setEditingFeature] = useState<ProductFeatureItem | null>(null);
 
   const handleStartEdit = (feat: ProductFeatureItem) => {
@@ -57,9 +58,11 @@ export const FeatureList: React.FC<FeatureListProps> = ({
     setDescription('');
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nameFa.trim()) return;
+
+    setIsLoading(true);
 
     const options = optionsStr
       ? optionsStr
@@ -80,7 +83,7 @@ export const FeatureList: React.FC<FeatureListProps> = ({
       };
 
       if (onUpdateFeature) {
-        onUpdateFeature(updatedFeat);
+        await onUpdateFeature(updatedFeat);
       }
       handleCancelEdit();
     } else {
@@ -94,13 +97,14 @@ export const FeatureList: React.FC<FeatureListProps> = ({
         description: description.trim(),
       };
 
-      onAddFeature(newFeat);
+      await onAddFeature(newFeat);
       setNameFa('');
       setNameEn('');
       setUnit('');
       setOptionsStr('');
       setDescription('');
     }
+    setIsLoading(false);
   };
 
   return (
@@ -223,14 +227,17 @@ export const FeatureList: React.FC<FeatureListProps> = ({
             <div className="pt-1 flex items-center gap-2">
               <button
                 type="submit"
+                disabled={isLoading}
                 className={`flex-1 py-2.5 rounded-xl text-white text-xs font-black shadow-md transition-all flex items-center justify-center gap-2 ${
                   editingFeature
                     ? 'bg-amber-600 hover:bg-amber-700 shadow-amber-600/20'
                     : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'
-                }`}
+                } ${isLoading ? 'opacity-70 cursor-not-allowed' : ''}`}
               >
-                {editingFeature ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                <span>{editingFeature ? 'ذخیره تغییرات مشخصه' : 'افزودن ویژگی به لیست'}</span>
+                {isLoading ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : editingFeature ? <Save className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span>{isLoading ? 'در حال ثبت...' : editingFeature ? 'ذخیره تغییرات مشخصه' : 'افزودن ویژگی به لیست'}</span>
               </button>
               {editingFeature && (
                 <button
