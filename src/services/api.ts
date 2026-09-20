@@ -589,7 +589,7 @@ export const brandsApi = {
 // ==========================================
 export const productsApi = {
   /**
-   * Fetches all products from backend GET /products/ with fallback to local state
+   * Fetches all products from backend GET /products/items/ with fallback to real local state
    */
   async getAll(params?: { category?: string; brand?: string; search?: string }): Promise<CigaretteProduct[]> {
     const query = new URLSearchParams();
@@ -598,83 +598,133 @@ export const productsApi = {
     if (params?.search) query.append('search', params.search);
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
-    // 1. Try DRF explicit list view: /products/list/
-    let response = await httpClient.get<any>(`/products/list/${queryString}`);
-    // 2. Fallback to /products/ if list/ doesn't exist
+    
+    // Primary: DRF Product List View (/products/ and /products/items/)
+    let response = await httpClient.get<any>(`/products/${queryString}`);
     if (!response.success && response.status === 404) {
-      response = await httpClient.get<any>(`/products/${queryString}`);
+      response = await httpClient.get<any>(`/products/items/${queryString}`);
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>(`/api/v1/products/${queryString}`);
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>(`/api/v1/products/items/${queryString}`);
     }
 
     if (response.success && response.data) {
-      const items = Array.isArray(response.data) ? response.data : (response.data.results || []);
-      if (items.length > 0) {
-        const mappedProducts: CigaretteProduct[] = items.map((item: any, idx: number) => ({
+      const items = Array.isArray(response.data) 
+        ? response.data 
+        : (response.data.results || response.data.data || []);
+      
+      const mappedProducts: CigaretteProduct[] = items.map((item: any, idx: number) => {
+        // Handle key_features (نقاط قوت کالا)
+        let keyTakeawaysList: string[] = [];
+        if (Array.isArray(item.key_features)) {
+          keyTakeawaysList = item.key_features.map((kf: any) => 
+            typeof kf === 'string' ? kf : (kf.title || '')
+          ).filter(Boolean);
+        } else if (Array.isArray(item.key_takeaways)) {
+          keyTakeawaysList = item.key_takeaways;
+        } else if (Array.isArray(item.keyTakeaways)) {
+          keyTakeawaysList = item.keyTakeaways;
+        }
+
+        return {
           id: String(item.id || `p-${idx + 1}`),
-          nameFa: item.name_fa || item.nameFa || item.title || 'سیگار بدون نام',
+          nameFa: item.name || item.name_fa || item.nameFa || item.title || 'کالای بدون نام',
           nameEn: item.name_en || item.nameEn || '',
-          brand: item.brand || 'مارلبرو',
-          category: item.category || 'cigarettes',
-          origin: item.origin || 'سوییس',
-          tar: item.tar || '8mg',
-          nicotine: item.nicotine || '0.6mg',
+          slug: item.slug || '',
+          brand: item.brand_name || (typeof item.brand === 'object' ? item.brand?.name : item.brand) || '',
+          category: item.category_name || (typeof item.category === 'object' ? item.category?.name || item.category?.id : item.category) || 'cigarettes',
+          origin: item.country_origin || item.origin || 'ایران',
+          tar: item.tar || '',
+          nicotine: item.nicotine || '',
           cartonPrice: Number(item.carton_price || item.cartonPrice || 0),
           boxPrice: Number(item.box_price || item.boxPrice || 0),
+          packPrice: Number(item.pack_price || item.packPrice || 0),
           singlePrice: item.single_price ? Number(item.single_price) : item.singlePrice,
+          purchasePrice: Number(item.purchase_price || item.purchasePrice || 0),
           boxesPerCarton: Number(item.boxes_per_carton || item.boxesPerCarton || 50),
           packsPerBox: Number(item.packs_per_box || item.packsPerBox || 10),
-          stockCartons: Number(item.stock_cartons !== undefined ? item.stock_cartons : (item.stockCartons ?? 10)),
-          moq: Number(item.moq || 1),
-          image: item.image || 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=400&q=80',
+          stockCartons: Number(item.stock_cartons !== undefined ? item.stock_cartons : (item.stockCartons ?? 0)),
+          stockBoxes: Number(item.stock_boxes !== undefined ? item.stock_boxes : (item.stockBoxes ?? 0)),
+          moq: Number(item.min_order_carton || item.moq || 1),
+          moqBox: Number(item.min_order_box || item.moqBox || 1),
+          image: item.image || item.main_image || '',
           barcode: item.barcode || '',
           priceTrend: item.price_trend || item.priceTrend || 'stable',
-          lastPriceUpdate: item.last_price_update || item.lastPriceUpdate || 'به‌روزرسانی خودکار سرور',
-          hologram: item.hologram || 'دخانیات ایران',
-          tierDiscounts: item.tier_discounts || item.tierDiscounts,
-          description: item.description || '',
-          isAvailable: item.is_available !== undefined ? Boolean(item.is_available) : (item.isAvailable ?? true),
-        }));
+          lastPriceUpdate: item.last_price_update || item.lastPriceUpdate || 'به‌روزرسانی خودکار دیتابیس',
+          hologram: item.hologram_name || (typeof item.hologram === 'object' ? item.hologram?.title : item.hologram) || '',
+          tierDiscounts: item.tier_discounts || item.tierDiscounts || [],
+          description: item.full_description || item.description || '',
+          excerpt: item.excerpt || '',
+          isAvailable: item.is_active !== undefined ? Boolean(item.is_active) : (item.is_available !== undefined ? Boolean(item.is_available) : true),
+          hasCarton: item.has_carton !== undefined ? Boolean(item.has_carton) : true,
+          hasBox: item.has_box !== undefined ? Boolean(item.has_box) : true,
+          hasPack: Boolean(item.has_pack),
+          isBoxOnly: Boolean(item.is_box_only),
+          isPosOnly: Boolean(item.is_pos_only),
+          badge: item.badge || (item.is_featured ? 'پیشنهاد ویژه' : undefined),
+          keyTakeaways: keyTakeawaysList,
+        };
+      });
 
-        // Cache for offline resilience
-        try {
-          localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(mappedProducts));
-        } catch {}
+      // Cache real products in localStorage
+      try {
+        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(mappedProducts));
+      } catch {}
 
-        return mappedProducts;
-      }
+      return mappedProducts;
     }
 
-    // Fallback: local storage or initial dataset
-    try {
-      const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return CIGARETTE_PRODUCTS;
+    // Fallback: local storage (only real products, never fake ones)
+    return getLocalProducts();
   },
 
   /**
-   * Creates a new product on POST /products/
+   * Creates a new product on POST /products/items/create/ (or /products/items/)
    */
   async create(product: Partial<CigaretteProduct>): Promise<CigaretteProduct> {
+    const keyFeatures = (product.keyTakeaways || []).map((t, idx) => ({
+      title: t,
+      display_order: idx + 1
+    }));
+
     const payload = {
+      name: product.nameFa,
       name_fa: product.nameFa,
-      name_en: product.nameEn,
-      brand: product.brand,
-      category: product.category,
-      origin: product.origin,
-      carton_price: product.cartonPrice,
-      box_price: product.boxPrice,
-      pack_price: product.packPrice,
-      boxes_per_carton: product.boxesPerCarton || 50,
-      packs_per_box: product.packsPerBox || 10,
-      stock_cartons: product.stockCartons ?? 10,
-      moq: product.moq || 1,
+      name_en: product.nameEn || '',
+      slug: product.slug || `prod-${Date.now()}`,
       barcode: product.barcode || '',
+      category: !isNaN(Number(product.category)) ? Number(product.category) : product.category,
+      brand: !isNaN(Number(product.brand)) ? Number(product.brand) : (product.brand || null),
+      hologram: !isNaN(Number(product.hologram)) ? Number(product.hologram) : (product.hologram || null),
+      carton_price: Number(product.cartonPrice) || 0,
+      box_price: Number(product.boxPrice) || 0,
+      pack_price: Number(product.packPrice) || 0,
+      purchase_price: Number(product.purchasePrice) || 0,
+      boxes_per_carton: Number(product.boxesPerCarton) || 50,
+      packs_per_box: Number(product.packsPerBox) || 10,
+      stock_cartons: Number(product.stockCartons) || 0,
+      stock_boxes: Number(product.stockBoxes) || 0,
+      min_order_carton: Number(product.moq) || 1,
+      min_order_box: Number(product.moqBox) || 1,
+      image: product.image || '',
+      full_description: product.description || '',
+      excerpt: product.excerpt || '',
+      country_origin: product.origin || '',
       tar: product.tar || '',
       nicotine: product.nicotine || '',
-      image: product.image || 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=400&q=80',
-      description: product.description || '',
-      hologram: product.hologram || 'دخانیات ایران',
-      is_available: product.isAvailable ?? true,
+      is_pos_only: Boolean(product.isPosOnly),
+      is_box_only: Boolean(product.isBoxOnly),
+      has_carton: product.hasCarton !== false,
+      has_box: product.hasBox !== false,
+      has_pack: Boolean(product.hasPack),
+      is_active: product.isAvailable !== false,
+      is_featured: Boolean(product.badge && product.badge !== 'none'),
+      key_features: keyFeatures,
+      key_takeaways: product.keyTakeaways || [],
+      tier_discounts: product.tierDiscounts || [],
     };
 
     const newProdId = product.id || `prod_${Date.now()}`;
@@ -682,64 +732,110 @@ export const productsApi = {
       id: newProdId,
       nameFa: product.nameFa || 'محصول جدید',
       nameEn: product.nameEn || '',
-      brand: product.brand || 'مارلبرو',
+      brand: product.brand || '',
       category: (product.category as any) || 'cigarettes',
-      origin: product.origin || 'سوییس',
-      tar: product.tar || '8mg',
-      nicotine: product.nicotine || '0.6mg',
-      cartonPrice: product.cartonPrice || 0,
-      boxPrice: product.boxPrice || 0,
-      packPrice: product.packPrice,
-      boxesPerCarton: product.boxesPerCarton || 50,
-      packsPerBox: product.packsPerBox || 10,
-      stockCartons: product.stockCartons ?? 10,
-      moq: product.moq || 1,
-      image: product.image || 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=400&q=80',
+      origin: product.origin || 'ایران',
+      tar: product.tar || '',
+      nicotine: product.nicotine || '',
+      cartonPrice: Number(product.cartonPrice) || 0,
+      boxPrice: Number(product.boxPrice) || 0,
+      packPrice: Number(product.packPrice) || 0,
+      purchasePrice: Number(product.purchasePrice) || 0,
+      boxesPerCarton: Number(product.boxesPerCarton) || 50,
+      packsPerBox: Number(product.packsPerBox) || 10,
+      stockCartons: Number(product.stockCartons) || 0,
+      stockBoxes: Number(product.stockBoxes) || 0,
+      moq: Number(product.moq) || 1,
+      moqBox: Number(product.moqBox) || 1,
+      image: product.image || '',
       barcode: product.barcode || '',
+      slug: product.slug || `prod-${Date.now()}`,
       priceTrend: 'stable',
       lastPriceUpdate: 'لحظاتی پیش',
-      hologram: (product.hologram as any) || 'دخانیات ایران',
+      hologram: (product.hologram as any) || '',
       description: product.description || '',
+      excerpt: product.excerpt || '',
       tierDiscounts: product.tierDiscounts || [],
-      isAvailable: product.isAvailable ?? true,
+      isAvailable: product.isAvailable !== false,
+      hasCarton: product.hasCarton !== false,
+      hasBox: product.hasBox !== false,
+      hasPack: Boolean(product.hasPack),
+      isBoxOnly: Boolean(product.isBoxOnly),
+      isPosOnly: Boolean(product.isPosOnly),
+      badge: product.badge,
+      keyTakeaways: product.keyTakeaways || [],
     };
 
-    // Attempt remote POST
-    const response = await httpClient.post('/products/', payload);
+    // Attempt remote POST to DRF endpoint
+    let response = await httpClient.post('/products/create/', payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post('/products/items/create/', payload);
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post('/products/items/', payload);
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post('/products/', payload);
+    }
+
     if (response.success && response.data) {
+      const respData = response.data.data || response.data;
       const created = {
         ...newProductFull,
-        id: String(response.data.id || newProdId),
+        id: String(respData.id || newProdId),
       };
-      // update local
       updateLocalProductList(created, 'add');
       return created;
     }
 
-    // Local fallback update
+    // Local resilience update
     updateLocalProductList(newProductFull, 'add');
     return newProductFull;
   },
 
   /**
-   * Updates an existing product on PUT /products/:id/
+   * Updates an existing product on PATCH /products/items/:id/update/
    */
   async update(id: string, productData: Partial<CigaretteProduct>): Promise<CigaretteProduct> {
-    const payload = {
+    const keyFeatures = (productData.keyTakeaways || []).map((t, idx) => ({
+      title: t,
+      display_order: idx + 1
+    }));
+
+    const payload: Record<string, any> = {
+      name: productData.nameFa,
       name_fa: productData.nameFa,
       name_en: productData.nameEn,
-      brand: productData.brand,
-      category: productData.category,
+      brand: !isNaN(Number(productData.brand)) ? Number(productData.brand) : productData.brand,
+      category: !isNaN(Number(productData.category)) ? Number(productData.category) : productData.category,
+      hologram: !isNaN(Number(productData.hologram)) ? Number(productData.hologram) : productData.hologram,
       carton_price: productData.cartonPrice,
       box_price: productData.boxPrice,
       pack_price: productData.packPrice,
+      purchase_price: productData.purchasePrice,
       stock_cartons: productData.stockCartons,
-      is_available: productData.isAvailable,
+      stock_boxes: productData.stockBoxes,
+      is_active: productData.isAvailable,
       barcode: productData.barcode,
+      slug: productData.slug,
+      image: productData.image,
+      full_description: productData.description,
+      excerpt: productData.excerpt,
+      key_features: keyFeatures,
+      key_takeaways: productData.keyTakeaways,
     };
 
-    // Attempt remote PUT / PATCH
-    await httpClient.patch(`/products/${id}/`, payload).catch(() => {});
+    // Attempt remote PATCH
+    let response = await httpClient.patch(`/products/${id}/update/`, payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.patch(`/products/items/${id}/update/`, payload);
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.patch(`/products/${id}/`, payload);
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.patch(`/products/items/${id}/`, payload);
+    }
 
     // Update locally
     const currentProducts = getLocalProducts();
@@ -750,10 +846,20 @@ export const productsApi = {
   },
 
   /**
-   * Deletes a product on DELETE /products/:id/
+   * Deletes a product on DELETE /products/:id/delete/
    */
   async delete(id: string): Promise<boolean> {
-    await httpClient.delete(`/products/${id}/`).catch(() => {});
+    let response = await httpClient.delete(`/products/${id}/delete/`);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.delete(`/products/items/${id}/delete/`);
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.delete(`/products/${id}/`);
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.delete(`/products/items/${id}/`);
+    }
+
     const currentProducts = getLocalProducts();
     const updated = currentProducts.filter(p => p.id !== id);
     saveLocalProducts(updated);
@@ -761,10 +867,12 @@ export const productsApi = {
   },
 
   /**
-   * Deducts or increases stock on PATCH /products/:id/stock/
+   * Deducts or increases stock on PATCH /products/:id/sync-pos-stock/
    */
   async updateStock(id: string, newStockCartons: number): Promise<boolean> {
-    await httpClient.patch(`/products/${id}/stock/`, { stock_cartons: newStockCartons }).catch(() => {});
+    await httpClient.patch(`/products/${id}/sync-pos-stock/`, { stock_cartons: newStockCartons })
+      .catch(() => httpClient.patch(`/products/items/${id}/pos-sync-stock/`, { stock_cartons: newStockCartons }))
+      .catch(() => {});
     const currentProducts = getLocalProducts();
     const updated = currentProducts.map(p => p.id === id ? { ...p, stockCartons: newStockCartons, isAvailable: newStockCartons > 0 } : p);
     saveLocalProducts(updated);
@@ -772,7 +880,7 @@ export const productsApi = {
   },
 
   /**
-   * Bulk sync local products to backend (e.g. when connecting backend for the first time)
+   * Bulk sync local products to backend
    */
   async syncBulk(products: CigaretteProduct[]): Promise<{ synced: number; success: boolean }> {
     const response = await httpClient.post('/products/bulk-sync/', { products });
@@ -1784,12 +1892,43 @@ export const footerApi = {
 // ==========================================
 // HELPER FUNCTIONS FOR LOCAL DATA
 // ==========================================
-function getLocalProducts(): CigaretteProduct[] {
+const MOCK_PRODUCT_IDS = new Set(CIGARETTE_PRODUCTS.map(m => m.id));
+const MOCK_PRODUCT_NAMES = new Set(CIGARETTE_PRODUCTS.map(m => m.nameFa));
+
+export function isMockProduct(p: any): boolean {
+  if (!p) return false;
+  if (p.id && MOCK_PRODUCT_IDS.has(p.id)) return true;
+  if (p.nameFa && MOCK_PRODUCT_NAMES.has(p.nameFa) && typeof p.id === 'string' && (
+    p.id.startsWith('prod_winston') || 
+    p.id.startsWith('prod_marlboro') || 
+    p.id.startsWith('prod_kent') || 
+    p.id.startsWith('prod_esse') || 
+    p.id.startsWith('prod_bahman') ||
+    p.id.startsWith('prod_sobranie') ||
+    p.id.startsWith('prod_cavallo')
+  )) {
+    return true;
+  }
+  return false;
+}
+
+export function getLocalProducts(): CigaretteProduct[] {
   try {
-    const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
-    if (saved) return JSON.parse(saved);
+    const keysToCheck = [STORAGE_KEYS.PRODUCTS, 'wholesale_products', 'sevin_local_products'];
+    for (const key of keysToCheck) {
+      const saved = localStorage.getItem(key);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const realProducts = parsed.filter(p => !isMockProduct(p));
+          if (realProducts.length > 0) {
+            return realProducts;
+          }
+        }
+      }
+    }
   } catch {}
-  return CIGARETTE_PRODUCTS;
+  return [];
 }
 
 function saveLocalProducts(products: CigaretteProduct[]): void {

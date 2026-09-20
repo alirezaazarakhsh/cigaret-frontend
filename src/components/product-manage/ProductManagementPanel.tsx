@@ -12,7 +12,8 @@ import {
   AlertCircle,
   X,
   Sparkles,
-  Edit3
+  Edit3,
+  RefreshCw
 } from 'lucide-react';
 import { CigaretteProduct } from '../../types';
 import { ProductList } from './ProductList';
@@ -199,6 +200,26 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
       setNotification(null);
     }, 4000);
   };
+
+  // Live Products synchronization directly with backend database
+  const [isRefreshingProducts, setIsRefreshingProducts] = useState<boolean>(false);
+
+  const fetchProductsFromDatabase = async () => {
+    setIsRefreshingProducts(true);
+    try {
+      const liveProducts = await productsApi.getAll();
+      onUpdateProducts(liveProducts);
+      showToast(`فهرست محصولات با موفقیت از دیتابیس همگام شد (${formatNumberFa(liveProducts.length)} محصول).`);
+    } catch (err: any) {
+      showToast('خطا در دریافت لیست محصولات از دیتابیس', 'error');
+    } finally {
+      setIsRefreshingProducts(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProductsFromDatabase();
+  }, []);
 
   // Switch to Full-Page Editor for Products
   const handleOpenCreateProduct = () => {
@@ -529,6 +550,17 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
 
             <button
               type="button"
+              onClick={fetchProductsFromDatabase}
+              disabled={isRefreshingProducts}
+              className="px-3 sm:px-3.5 py-2 rounded-xl border border-slate-300 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-colors flex items-center gap-1.5 disabled:opacity-60"
+              title="بروزرسانی زنده لیست کالاها از دیتابیس جنگو"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-blue-600 ${isRefreshingProducts ? 'animate-spin' : ''}`} />
+              <span>{isRefreshingProducts ? 'در حال همگام‌سازی...' : 'همگام‌سازی با دیتابیس'}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={handleOpenCreateProduct}
               className="px-3.5 sm:px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5 sm:gap-2 hover:scale-[1.02]"
             >
@@ -696,6 +728,8 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
             onOpenCreate={handleOpenCreateProduct}
             onEditProduct={handleEditProduct}
             onDeleteProduct={handleDeleteProduct}
+            onRefreshFromDatabase={fetchProductsFromDatabase}
+            isRefreshingProducts={isRefreshingProducts}
           />
         )}
 

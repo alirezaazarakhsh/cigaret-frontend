@@ -82,7 +82,7 @@ import {
   djangoFetchWholesaleBenefits,
   WholesaleBenefitCard
 } from './services/djangoApi';
-import { api, accountsApi, visitorsApi, categoriesApi } from './services/api';
+import { api, accountsApi, visitorsApi, categoriesApi, getLocalProducts } from './services/api';
 import { ProductCategoryItem } from './components/product-manage/types';
 import { getApiToken, setApiToken } from './services/apiConfig';
 import { generatePriceListPdf } from './utils/pdfGenerator';
@@ -463,17 +463,9 @@ export default function App() {
     localStorage.setItem('sevin_retail_shops', JSON.stringify(shops));
   };
 
-  // Products state
+  // Products state - initialized only from database/real storage, never hardcoded mock products
   const [products, setProducts] = useState<CigaretteProduct[]>(() => {
-    const saved = localStorage.getItem('wholesale_products');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch (e) {
-        return CIGARETTE_PRODUCTS;
-      }
-    }
-    return CIGARETTE_PRODUCTS;
+    return getLocalProducts();
   });
 
   // Django CRM Configuration
@@ -675,7 +667,7 @@ export default function App() {
       }).catch(() => {});
       // 1. Fetch Products with zero cache
       api.products.getAll().then((loadedProducts) => {
-        if (isMounted && loadedProducts && loadedProducts.length > 0) {
+        if (isMounted && Array.isArray(loadedProducts)) {
           setProducts(loadedProducts);
         }
       }).catch(() => {});

@@ -26,6 +26,8 @@ import {
   Package,
   Layers,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   ArrowRight,
   ShieldCheck,
   Building,
@@ -68,6 +70,10 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'shipped' | 'cancelled'>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'bank_transfer' | 'wallet'>('all');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Pagination (10 items per page as requested)
+  const ITEMS_PER_PAGE = 10;
+  const [currentPage, setCurrentPage] = useState<number>(1);
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -203,8 +209,15 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
       }
     });
 
+    // Orders waiting in queue (excluding approved and shipped which have their own tabs)
+    const activeInAllCount = orders.filter(o => {
+      const st = getOrderStatusKey(o);
+      return st !== 'approved' && st !== 'shipped';
+    }).length;
+
     return {
       total: orders.length,
+      activeInAll: activeInAllCount,
       pending: pendingCount,
       approved: approvedCount,
       shipped: shippedCount,
@@ -216,9 +229,15 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
   // Filtered orders list
   const filteredOrders = useMemo(() => {
     return orders.filter(order => {
-      // Status Filter
-      if (statusFilter !== 'all') {
-        const orderSt = getOrderStatusKey(order);
+      const orderSt = getOrderStatusKey(order);
+
+      // Status Filter:
+      // سفارش های تایید شده بره تو تایید شده توی همه سفارش ها دیگه نمایش داده نشه
+      if (statusFilter === 'all') {
+        if (orderSt === 'approved' || orderSt === 'shipped') {
+          return false;
+        }
+      } else {
         if (orderSt !== statusFilter) return false;
       }
 
@@ -251,6 +270,41 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
       return true;
     });
   }, [orders, statusFilter, paymentFilter, searchQuery]);
+
+  // Pagination calculation
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ITEMS_PER_PAGE));
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, paymentFilter, searchQuery]);
+
+  // Ensure current page is valid when total items decrease
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [totalPages, currentPage]);
+
+  // Sliced orders for current page
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredOrders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredOrders, currentPage]);
+
+  // Helper for generating page numbers with ellipsis
+  const getPageNumbers = (current: number, total: number): (number | '...')[] => {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, i) => i + 1);
+    }
+    if (current <= 4) {
+      return [1, 2, 3, 4, 5, '...', total];
+    }
+    if (current >= total - 3) {
+      return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+    }
+    return [1, '...', current - 1, current, current + 1, '...', total];
+  };
 
   // Handler: Approve order & register in POS receipts and reduce stock
   const handleApproveOrder = (order: OrderInvoice) => {
@@ -346,7 +400,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
     if (selectedOrder && (selectedOrder.orderId === order.orderId)) {
       setSelectedOrder(prev => prev ? { ...prev, orderStatus: 'approved', approvedAt: nowFa, approvedBy: staffName, posReceiptNumber: posRcptNumber } : null);
     }
-    showToast(`سفارش «${order.customer.shopOwnerName}» با موفقیت تایید و فاکتور فروش در صندوق ثبت گردید.`);
+    showToast(`سفارش «${order.customer.shopOwnerName}» با موفقیت تایید و به بخش «تایید شده» منتقل گردید.`);
   };
 
   // Handler: Reject order
@@ -1000,7 +1054,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
       {/* Summary Metrics Bar */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         <div 
-          onClick={() => setStatusFilter('all')}
+          onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
           className={`p-4 rounded-2xl border transition-all cursor-pointer ${
             statusFilter === 'all' 
               ? 'bg-blue-50/80 border-blue-300 ring-2 ring-blue-500/20' 
@@ -1017,7 +1071,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
         </div>
 
         <div 
-          onClick={() => setStatusFilter('pending')}
+          onClick={() => { setStatusFilter('pending'); setCurrentPage(1); }}
           className={`p-4 rounded-2xl border transition-all cursor-pointer ${
             statusFilter === 'pending' 
               ? 'bg-amber-50 border-amber-300 ring-2 ring-amber-500/20' 
@@ -1035,7 +1089,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
         </div>
 
         <div 
-          onClick={() => setStatusFilter('approved')}
+          onClick={() => { setStatusFilter('approved'); setCurrentPage(1); }}
           className={`p-4 rounded-2xl border transition-all cursor-pointer ${
             statusFilter === 'approved' 
               ? 'bg-emerald-50 border-emerald-300 ring-2 ring-emerald-500/20' 
@@ -1052,7 +1106,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
         </div>
 
         <div 
-          onClick={() => setStatusFilter('shipped')}
+          onClick={() => { setStatusFilter('shipped'); setCurrentPage(1); }}
           className={`p-4 rounded-2xl border transition-all cursor-pointer ${
             statusFilter === 'shipped' 
               ? 'bg-indigo-50 border-indigo-300 ring-2 ring-indigo-500/20' 
@@ -1084,17 +1138,17 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
           <button
-            onClick={() => setStatusFilter('all')}
+            onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               statusFilter === 'all'
-                ? 'bg-slate-900 text-white'
+                ? 'bg-slate-900 text-white shadow-xs'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            همه سفارشات ({formatNumberFa(stats.total)})
+            همه سفارشات ({formatNumberFa(stats.activeInAll)})
           </button>
           <button
-            onClick={() => setStatusFilter('pending')}
+            onClick={() => { setStatusFilter('pending'); setCurrentPage(1); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 ${
               statusFilter === 'pending'
                 ? 'bg-amber-500 text-slate-950 font-black'
@@ -1109,7 +1163,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
             )}
           </button>
           <button
-            onClick={() => setStatusFilter('approved')}
+            onClick={() => { setStatusFilter('approved'); setCurrentPage(1); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               statusFilter === 'approved'
                 ? 'bg-emerald-600 text-white'
@@ -1119,7 +1173,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
             تایید شده ({formatNumberFa(stats.approved)})
           </button>
           <button
-            onClick={() => setStatusFilter('shipped')}
+            onClick={() => { setStatusFilter('shipped'); setCurrentPage(1); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               statusFilter === 'shipped'
                 ? 'bg-indigo-600 text-white'
@@ -1129,7 +1183,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
             ارسال شده ({formatNumberFa(stats.shipped)})
           </button>
           <button
-            onClick={() => setStatusFilter('cancelled')}
+            onClick={() => { setStatusFilter('cancelled'); setCurrentPage(1); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
               statusFilter === 'cancelled'
                 ? 'bg-rose-600 text-white'
@@ -1175,20 +1229,39 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
 
       {/* Orders List */}
       {filteredOrders.length === 0 ? (
-        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200">
+        <div className="bg-white rounded-3xl p-12 text-center border border-slate-200 shadow-xs">
           <div className="w-16 h-16 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
-            <ClipboardList className="w-8 h-8" />
+            {statusFilter === 'all' && stats.approved > 0 ? (
+              <CheckCircle className="w-8 h-8 text-emerald-600" />
+            ) : (
+              <ClipboardList className="w-8 h-8" />
+            )}
           </div>
-          <h3 className="text-base font-black text-slate-800 mb-1">هیچ سفارشی یافت نشد</h3>
-          <p className="text-xs text-slate-500 max-w-md mx-auto">
-            {searchQuery.trim() || statusFilter !== 'all' 
-              ? 'موردی با فیلترهای انتخابی پیدا نشد. لطفاً عبارت جستجو یا وضعیت را تغییر دهید.'
-              : 'هنوز هیچ سفارش آنلاینی توسط مشتریان ثبت نگردیده است.'}
+          <h3 className="text-base font-black text-slate-800 mb-1">
+            {statusFilter === 'all' && stats.approved > 0 
+              ? 'سفارش بررسی‌نشده‌ای در صف نمانده است'
+              : 'هیچ سفارشی یافت نشد'}
+          </h3>
+          <p className="text-xs text-slate-500 max-w-md mx-auto mb-4 leading-relaxed">
+            {statusFilter === 'all' && stats.approved > 0
+              ? 'سفارش‌های تایید شده در برگه «تایید شده» ذخیره شده‌اند و می‌توانید آن‌ها را از آنجا مشاهده یا مدیریت نمایید.'
+              : searchQuery.trim() || statusFilter !== 'all' 
+                ? 'موردی با فیلترهای انتخابی پیدا نشد. لطفاً عبارت جستجو یا وضعیت را تغییر دهید.'
+                : 'هنوز هیچ سفارش آنلاینی توسط مشتریان ثبت نگردیده است.'}
           </p>
+          {statusFilter === 'all' && stats.approved > 0 && (
+            <button
+              onClick={() => { setStatusFilter('approved'); setCurrentPage(1); }}
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black text-white bg-emerald-600 hover:bg-emerald-700 shadow-sm transition-all active:scale-95"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span>مشاهده سفارش‌های تایید شده ({formatNumberFa(stats.approved)})</span>
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4">
-          {filteredOrders.map(order => {
+          {paginatedOrders.map(order => {
             const st = getOrderStatusKey(order);
             const isBank = order.paymentStatus.includes('فیش') || Boolean(order.receiptImage) || Boolean(order.bankRefCode);
 
@@ -1451,6 +1524,105 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls when total items > 10 */}
+      {filteredOrders.length > ITEMS_PER_PAGE && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xs mt-4">
+          <div className="text-xs text-slate-500 font-medium">
+            نمایش{' '}
+            <span className="font-bold text-slate-800 font-mono">
+              {formatNumberFa((currentPage - 1) * ITEMS_PER_PAGE + 1)}
+            </span>{' '}
+            تا{' '}
+            <span className="font-bold text-slate-800 font-mono">
+              {formatNumberFa(Math.min(currentPage * ITEMS_PER_PAGE, filteredOrders.length))}
+            </span>{' '}
+            از مجموع{' '}
+            <span className="font-bold text-slate-800 font-mono">
+              {formatNumberFa(filteredOrders.length)}
+            </span>{' '}
+            سفارش (صفحه{' '}
+            <span className="font-bold text-slate-800 font-mono">
+              {formatNumberFa(currentPage)}
+            </span>{' '}
+            از{' '}
+            <span className="font-bold text-slate-800 font-mono">
+              {formatNumberFa(totalPages)}
+            </span>)
+          </div>
+
+          <div className="flex items-center gap-1.5 select-none" dir="rtl">
+            {/* Previous Page Button (Right chevron in RTL) */}
+            <button
+              onClick={() => {
+                if (currentPage > 1) {
+                  setCurrentPage(prev => prev - 1);
+                  window.scrollTo({ top: 300, behavior: 'smooth' });
+                }
+              }}
+              disabled={currentPage === 1}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all ${
+                currentPage === 1
+                  ? 'text-slate-300 bg-slate-50 border border-slate-100 cursor-not-allowed'
+                  : 'text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 active:scale-95'
+              }`}
+            >
+              <ChevronRight className="w-4 h-4" />
+              <span>قبلی</span>
+            </button>
+
+            {/* Page Number Buttons */}
+            <div className="flex items-center gap-1">
+              {getPageNumbers(currentPage, totalPages).map((pageNum, idx) => {
+                if (pageNum === '...') {
+                  return (
+                    <span key={`ellipsis-${idx}`} className="px-2 text-slate-400 font-bold text-xs">
+                      ...
+                    </span>
+                  );
+                }
+                const num = pageNum as number;
+                const isActive = num === currentPage;
+                return (
+                  <button
+                    key={`page-${num}`}
+                    onClick={() => {
+                      setCurrentPage(num);
+                      window.scrollTo({ top: 300, behavior: 'smooth' });
+                    }}
+                    className={`w-8 h-8 rounded-xl text-xs font-mono font-bold flex items-center justify-center transition-all ${
+                      isActive
+                        ? 'bg-slate-900 text-white shadow-xs scale-105'
+                        : 'text-slate-600 bg-white border border-slate-200 hover:bg-slate-100 active:scale-95'
+                    }`}
+                  >
+                    {formatNumberFa(num)}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Next Page Button (Left chevron in RTL) */}
+            <button
+              onClick={() => {
+                if (currentPage < totalPages) {
+                  setCurrentPage(prev => prev + 1);
+                  window.scrollTo({ top: 300, behavior: 'smooth' });
+                }
+              }}
+              disabled={currentPage === totalPages}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition-all ${
+                currentPage === totalPages
+                  ? 'text-slate-300 bg-slate-50 border border-slate-100 cursor-not-allowed'
+                  : 'text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 hover:border-slate-300 active:scale-95'
+              }`}
+            >
+              <span>بعدی</span>
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       )}
 

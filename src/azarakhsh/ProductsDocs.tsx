@@ -114,6 +114,29 @@ export const ProductsDocs: React.FC = () => {
       ]
     },
     {
+      name: 'products_productkeyfeature',
+      verboseName: 'جدول نقاط قوت و ویژگی‌های کلیدی کالا (Key Features)',
+      description: 'ثبت نکات برجسته و نقاط قوت هر کالا برای نمایش سریع در کادر محصول و ریچ اسنیپت‌های سئو موتورهای جستجو',
+      fields: [
+        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
+        { name: 'product_id', type: 'ForeignKey', isFk: true, fkTarget: 'products_product', verbose: 'کالای مربوطه' },
+        { name: 'title', type: 'CharField(max_length=150)', verbose: 'عنوان نقطه قوت کالا *' },
+        { name: 'display_order', type: 'PositiveIntegerField(default=0)', verbose: 'ترتیب نمایش' },
+      ]
+    },
+    {
+      name: 'products_producttierdiscount',
+      verboseName: 'جدول تخفیف‌های پلکانی حجم عمده کالا (Tier Discounts)',
+      description: 'تخفیف‌های درصدی یا مبلغی به ازای خرید حداقل تعداد کارتن یا باکس',
+      fields: [
+        { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
+        { name: 'product_id', type: 'ForeignKey', isFk: true, fkTarget: 'products_product', verbose: 'کالای مربوطه' },
+        { name: 'min_quantity', type: 'PositiveIntegerField', verbose: 'حداقل تعداد خرید (کارتن/باکس)' },
+        { name: 'discount_percent', type: 'DecimalField(max_digits=5, decimal_places=2)', verbose: 'درصد تخفیف' },
+        { name: 'discount_price_per_unit', type: 'PositiveIntegerField(null=True)', verbose: 'قیمت تخفیف‌خورده واحد' },
+      ]
+    },
+    {
       name: 'products_productimage',
       verboseName: 'جدول تصاویر گالری کالا',
       description: 'گالری چندگانه تصاویر کالا با اولویت‌بندی ترتیب نمایش',

@@ -13,7 +13,9 @@ from .models import (
     ProductAttribute,
     ProductAttributeValue,
     Product,
-    ProductImage
+    ProductImage,
+    ProductKeyFeature,
+    ProductTierDiscount
 )
 
 class ProductBrandSerializer(serializers.ModelSerializer):
@@ -169,12 +171,32 @@ class ProductImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image', 'order']
 
 
+class ProductKeyFeatureSerializer(serializers.ModelSerializer):
+    """
+    سریالایزر نقاط قوت و ویژگی‌های کلیدی کالا (Key Features)
+    """
+    class Meta:
+        model = ProductKeyFeature
+        fields = ['id', 'title', 'display_order']
+
+
+class ProductTierDiscountSerializer(serializers.ModelSerializer):
+    """
+    سریالایزر تخفیفات پلکانی حجم عمده کالا
+    """
+    class Meta:
+        model = ProductTierDiscount
+        fields = ['id', 'min_quantity', 'discount_percent', 'discount_price_per_unit']
+
+
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_color = serializers.CharField(source='category.color', read_only=True)
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
     attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
+    key_features = ProductKeyFeatureSerializer(many=True, read_only=True)
+    tier_discounts = ProductTierDiscountSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
@@ -201,6 +223,8 @@ class ProductSerializer(serializers.ModelSerializer):
             'image',
             'gallery',
             'attributes_values',
+            'key_features',
+            'tier_discounts',
             'is_pos_only',
             'is_box_only',
             'has_carton',
@@ -218,6 +242,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
     attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
+    key_features = ProductKeyFeatureSerializer(many=True, read_only=True)
+    tier_discounts = ProductTierDiscountSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
@@ -243,6 +269,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'image',
             'gallery',
             'attributes_values',
+            'key_features',
+            'tier_discounts',
             'full_description',
             'excerpt',
             'is_pos_only',
@@ -263,6 +291,8 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         required=False,
         allow_null=True
     )
+    key_features = ProductKeyFeatureSerializer(many=True, required=False)
+    tier_discounts = ProductTierDiscountSerializer(many=True, required=False)
 
     class Meta:
         model = Product
@@ -285,6 +315,8 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'image',
             'full_description',
             'excerpt',
+            'key_features',
+            'tier_discounts',
             'is_pos_only',
             'is_box_only',
             'has_carton',
@@ -293,3 +325,36 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'is_active',
             'is_featured'
         ]
+
+    def create(self, validated_data):
+        key_features_data = validated_data.pop('key_features', [])
+        tier_discounts_data = validated_data.pop('tier_discounts', [])
+        product = Product.objects.create(**validated_data)
+        
+        for kf in key_features_data:
+            ProductKeyFeature.objects.create(product=product, **kf)
+            
+        for td in tier_discounts_data:
+            ProductTierDiscount.objects.create(product=product, **td)
+            
+        return product
+
+    def update(self, instance, validated_data):
+        key_features_data = validated_data.pop('key_features', None)
+        tier_discounts_data = validated_data.pop('tier_discounts', None)
+        
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        
+        if key_features_data is not None:
+            instance.key_features.all().delete()
+            for kf in key_features_data:
+                ProductKeyFeature.objects.create(product=instance, **kf)
+                
+        if tier_discounts_data is not None:
+            instance.tier_discounts.all().delete()
+            for td in tier_discounts_data:
+                ProductTierDiscount.objects.create(product=instance, **td)
+                
+        return instance

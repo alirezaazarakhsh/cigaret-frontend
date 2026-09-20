@@ -313,12 +313,14 @@ export interface CigaretteProduct {
   manufacturer?: string; // شرکت سازنده
   cartonPrice: number; // قیمت عمده هر کارتن (تومان)
   baseCartonPrice?: number; // قیمت پایه اولیه قبل از نوسان دلار
+  purchasePrice?: number; // قیمت خرید فاکتور ورودی (تومان)
   boxPrice: number; // قیمت هر باکس/بسته ۱۰تایی (تومان)
   packPrice?: number; // قیمت تک فروشی هر پاکت
   packsPerBox?: number; // معمولا ۱۰
   baseBoxPrice?: number;
   boxesPerCarton: number; // تعداد باکس در هر کارتن (معمولاً ۵۰ یا ۲۵)
   stockCartons: number; // موجودی انبار به کارتن
+  stockBoxes?: number; // موجودی فله انبار به باکس/بسته ۱۰ تایی
   moq: number; // حداقل سفارش به کارتن (می‌تواند ۰ باشد)
   moqBox?: number; // حداقل سفارش عمده به باکس (می‌تواند ۰ باشد)
   image: string;

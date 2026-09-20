@@ -1,7 +1,6 @@
 """
 products/models.py
-مدل یکپارچه کاتالوگ محصولات، دسته‌بندی‌های درختی، هولوگرام اصالت، ویژگی‌های داینامیک،
-همگام‌سازی دوطرفه سایت و صندوق حضوری (is_pos_only)، بارکد اسکنر و ادیتور TinyMCE
+مدلهای محصولات، دستهبندیها، برندها، هولوگرامها، تخفیفات پلکانی و ویژگیهای فنی
 """
 
 from django.db import models
@@ -9,7 +8,7 @@ from django.utils.translation import gettext_lazy as _
 from tinymce.models import HTMLField
 
 # ==========================================
-# گزینه‌های انتخابی ثابت (Choice Tuples)
+# گزینههای انتخابی ثابت (Choice Tuples)
 # ==========================================
 
 COLOR_CHOICES = (
@@ -17,10 +16,75 @@ COLOR_CHOICES = (
     ('#F59E0B', _('طلایی / نارنجی (#F59E0B)')),
     ('#8B5CF6', _('بنفش رویال (#8B5CF6)')),
     ('#3B82F6', _('آبی لاجوردی (#3B82F6)')),
-    ('#06B6D4', _('فیروزه‌ای (#06B6D4)')),
-    ('#1E40AF', _('سرمه‌ای دیپ (#1E40AF)')),
+    ('#06B6D4', _('فیروزهای (#06B6D4)')),
+    ('#1E40AF', _('سرمهای دیپ (#1E40AF)')),
 )
 
+# ==============================================================================
+# ۱. دستهبندیها (Categories)
+# ==============================================================================
+class Category(models.Model):
+    """
+    مدل دستهبندی کالاها (شامل ۵ فیلد اصلی فرم اندپوینت):
+    ۱. عنوان دستهبندی (فارسی)
+    ۲. نام لاتین (English)
+    ۳. شناسه سیستمی (Slug / ID)
+    ۴. رنگ شناسه (۶ رنگ پالت انتخابی)
+    ۵. توضیحات کوتاه دستهبندی
+    """
+    name = models.CharField(_("عنوان دستهبندی (فارسی)"), max_length=150)
+    name_en = models.CharField(_("نام لاتین (English)"), max_length=150, blank=True, null=True)
+    slug = models.SlugField(_("شناسه سیستمی (Slug / ID)"), max_length=160, unique=True, allow_unicode=True)
+    color = models.CharField(_("رنگ شناسه"), max_length=30, choices=COLOR_CHOICES, default="#3B82F6")
+    description = models.TextField(_("توضیحات کوتاه دستهبندی"), blank=True, null=True)
+    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ آخرین ویرایش"), auto_now=True)
+
+    class Meta:
+        verbose_name = _("دستهبندی")
+        verbose_name_plural = _("دستهبندیهای محصولات")
+        ordering = ['-id']
+
+    def __str__(self):
+        return f"{self.name} ({self.slug})"
+
+
+# ==============================================================================
+# ۲. برندهای کالا (Product Brands / Brand)
+# ==============================================================================
+class ProductBrand(models.Model):
+    name = models.CharField(_("نام برند (فارسی)"), max_length=120)
+    name_en = models.CharField(_("نام برند (انگلیسی)"), max_length=120, blank=True, null=True)
+    slug = models.SlugField(_("اسلاگ سئو"), max_length=130, unique=True, allow_unicode=True)
+    logo = models.ImageField(_("لوگو برند"), upload_to="brands/logos/", blank=True, null=True, help_text=_("آپلود فایل تصویر لوگوی برند"))
+    country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
+    description = models.TextField(_("توضیحات برند"), blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ آخرین بروزرسانی"), auto_now=True)
+
+    class Meta:
+        verbose_name = _("برند کالا")
+        verbose_name_plural = _("برندهای کالا")
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def logo_url(self):
+        """آدرس مستقیم تصویر لوگو جهت استفاده در فرانتاند و قالبها"""
+        if self.logo and hasattr(self.logo, 'url'):
+            return self.logo.url
+        return None
+
+
+# نام مستعار جهت سازگاری کامل با پروژههایی که از مدل Brand استفاده میکنند
+Brand = ProductBrand
+
+
+# ==============================================================================
+# ۳. هولوگرام و اصالت کالا (Product Hologram)
+# ==============================================================================
 SECURITY_LEVEL_CHOICES = (
     ('maximum', _('فوق امنیتی (Maximum)')),
     ('high', _('بالا (High)')),
@@ -28,93 +92,9 @@ SECURITY_LEVEL_CHOICES = (
     ('economic', _('پایه (Economic)')),
 )
 
-DATA_TYPE_CHOICES = (
-    ('text', _('متن کوتاه / رشته')),
-    ('number', _('عددی (صحیح یا اعشاری)')),
-    ('select', _('انتخابی / چندگزینه‌ای')),
-    ('boolean', _('بله / خیر (سوئیچ دو وضعیتی)')),
-    ('color', _('کد رنگ')),
-)
-
-
-# ==========================================
-# ۱. مدل دسته‌بندی محصولات (Category)
-# ==========================================
-
-class Category(models.Model):
-    """
-    مدل دسته‌بندی کالاها (شامل ۵ فیلد اصلی فرم اندپوینت):
-    ۱. عنوان دسته‌بندی (فارسی)
-    ۲. نام لاتین (English)
-    ۳. شناسه سیستمی (Slug / ID)
-    ۴. رنگ شناسه (۶ رنگ پالت انتخابی)
-    ۵. توضیحات کوتاه دسته‌بندی
-    """
-    name = models.CharField(_("عنوان دسته‌بندی (فارسی)"), max_length=150)
-    name_en = models.CharField(_("نام لاتین (English)"), max_length=150, blank=True, null=True)
-    slug = models.SlugField(_("شناسه سیستمی (Slug / ID)"), max_length=160, unique=True, allow_unicode=True)
-    color = models.CharField(_("رنگ شناسه"), max_length=30, choices=COLOR_CHOICES, default="#3B82F6")
-    description = models.TextField(_("توضیحات کوتاه دسته‌بندی"), blank=True, null=True)
-    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
-    updated_at = models.DateTimeField(_("تاریخ آخرین ویرایش"), auto_now=True)
-
-    class Meta:
-        verbose_name = _("دسته‌بندی")
-        verbose_name_plural = _("دسته‌بندی‌های محصولات")
-        ordering = ['-id']
-
-    def __str__(self):
-        return f"{self.name} ({self.slug})"
-
-
-# ==========================================
-# ۱.۵. مدل برندهای کالا (ProductBrand)
-# ==========================================
-
-class ProductBrand(models.Model):
-    """
-    مدل برندهای کالا (مطابق با فیلدهای فرم مدیریت برند):
-    ۱. نام برند (فارسی)
-    ۲. نام برند (انگلیسی)
-    ۳. اسلاگ سئو
-    ۴. لوگوی برند
-    ۵. لینک لوگو (اختیاری)
-    ۶. کشور سازنده اصلی
-    ۷. توضیحات برند
-    """
-    name = models.CharField(_("نام برند (فارسی)"), max_length=150)
-    name_en = models.CharField(_("نام برند (انگلیسی)"), max_length=150, blank=True, null=True)
-    slug = models.SlugField(_("اسلاگ سئو"), max_length=160, unique=True, allow_unicode=True)
-    logo = models.ImageField(_("لوگو برند"), upload_to='brands/', blank=True, null=True)
-    logo_url = models.URLField(_("لینک لوگو (اختیاری)"), blank=True, null=True, help_text=_("در صورت عدم آپلود فایل، لینک تصویر را وارد کنید"))
-    country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
-    description = models.TextField(_("توضیحات برند"), blank=True, null=True)
-    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
-    updated_at = models.DateTimeField(_("تاریخ آخرین ویرایش"), auto_now=True)
-
-    class Meta:
-        verbose_name = _("برند کالا")
-        verbose_name_plural = _("برندهای کالا")
-        ordering = ['-id']
-
-    def __str__(self):
-        return f"{self.name} ({self.name_en or self.slug})"
-
-    @property
-    def logo_path(self):
-        """بازگرداندن آدرس لوگو (ترجیح با فایل آپلود شده)"""
-        if self.logo and hasattr(self.logo, 'url'):
-            return self.logo.url
-        return self.logo_url
-
-
-# ==========================================
-# ۲. مدل هولوگرام و اصالت کالا (ProductHologram)
-# ==========================================
-
 class ProductHologram(models.Model):
     """
-    مدل تعریف برچسب‌های ضمانت اصالت کالا و هولوگرام (طابق دقیق ۵ فیلد اصلی اندپوینت و فرم مدیریت):
+    مدل تعریف برچسبهای ضمانت اصالت کالا و هولوگرام (طابق دقیق ۵ فیلد اصلی فرم اندپوینت):
     ۱. عنوان هولوگرام / برچسب اصالت * (title)
     ۲. مرجع صادرکننده یا سازمان ناظر (issuer_org)
     ۳. کشور / حوزه (country_origin)
@@ -132,152 +112,183 @@ class ProductHologram(models.Model):
 
     class Meta:
         verbose_name = _("هولوگرام و اصالت")
-        verbose_name_plural = _("هولوگرام‌های اصالت کالا")
+        verbose_name_plural = _("هولوگرامهای اصالت کالا")
         ordering = ['-created_at']
 
     def __str__(self):
         return f"{self.title} - {self.get_security_level_display()}"
 
 
-# ==========================================
-# ۳. مدل ویژگی‌های محصول (ProductAttribute)
-# ==========================================
+# ==============================================================================
+# ۴. مدل اصلی محصول (Product)
+# ==============================================================================
+class Product(models.Model):
+    BADGE_CHOICES = (
+        ('none', _('بدون نشان')),
+        ('bestseller', _('پرفروشترین')),
+        ('special', _('پیشنهاد ویژه')),
+        ('new', _('جدیدترین')),
+        ('discount', _('تخفیف ویژه')),
+        ('import', _('وارداتی اصل')),
+    )
+
+    SIZE_CHOICES = (
+        ('king_size', _('کینگ سایز (King Size)')),
+        ('slims', _('اسلیم / باریک (Slims)')),
+        ('super_slims', _('سوپر اسلیم (Super Slims)')),
+        ('nano', _('نانو (Nano)')),
+        ('compact', _('کامپکت (Compact)')),
+        ('queen_size', _('کویین سایز (Queen Size)')),
+    )
+
+    FILTER_CHOICES = (
+        ('white', _('فیلتر سفید استاندارد')),
+        ('yellow', _('فیلتر زرد سنتی')),
+        ('charcoal', _('فیلتر کربن / زغالی')),
+        ('recessed', _('فیلتر مجوف (Recessed)')),
+        ('capsule', _('فیلتر طعمدار / پاور (Capsule)')),
+    )
+
+    name = models.CharField(_("نام محصول (فارسی)"), max_length=200)
+    name_en = models.CharField(_("نام محصول (انگلیسی)"), max_length=200, blank=True, null=True)
+    slug = models.SlugField(_("اسلاگ سئو"), max_length=220, unique=True, allow_unicode=True)
+    barcode = models.CharField(_("بارکد اسکنر فروشگاهی"), max_length=60, unique=True, blank=True, null=True, db_index=True)
+
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products', verbose_name=_("دستهبندی"))
+    brand = models.ForeignKey(ProductBrand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("برند"))
+    hologram = models.ForeignKey(ProductHologram, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("هولوگرام اصالت"))
+
+    # ساختار بستهبندی و قیمتگذاری بنکداری
+    carton_price = models.PositiveIntegerField(_("قیمت هر کارتن (تومان)"), default=0)
+    box_price = models.PositiveIntegerField(_("قیمت هر باکس (تومان)"), default=0)
+    pack_price = models.PositiveIntegerField(_("قیمت هر پاکت (تومان)"), default=0)
+    purchase_price = models.PositiveIntegerField(_("قیمت تمامشده خرید"), default=0)
+
+    stock_cartons = models.PositiveIntegerField(_("موجودی کارتن"), default=0)
+    stock_boxes = models.PositiveIntegerField(_("موجودی باکس"), default=0)
+    boxes_per_carton = models.PositiveIntegerField(_("تعداد باکس در کارتن"), default=50)
+    packs_per_box = models.PositiveIntegerField(_("تعداد پاکت در باکس"), default=10)
+
+    min_order_carton = models.PositiveIntegerField(_("حداقل سفارش کارتن"), default=1)
+    min_order_box = models.PositiveIntegerField(_("حداقل سفارش باکس"), default=1)
+
+    has_carton = models.BooleanField(_("امکان فروش کارتنی"), default=True)
+    has_box = models.BooleanField(_("امکان فروش باکسی"), default=True)
+    has_pack = models.BooleanField(_("امکان فروش پاکتی"), default=False)
+    is_box_only = models.BooleanField(_("فقط فروش باکسی"), default=False)
+    is_pos_only = models.BooleanField(_("اختصاصی صندوق (POS)"), default=False)
+
+    # مشخصات فنی و تخصصی دخانیات
+    tar = models.CharField(_("میزان قطران (mg)"), max_length=20, blank=True, null=True)
+    nicotine = models.CharField(_("میزان نیکوتین (mg)"), max_length=20, blank=True, null=True)
+    carbon_monoxide = models.CharField(_("میزان کربن مونوکسید"), max_length=20, blank=True, null=True)
+    cigarette_size = models.CharField(_("سایز سیگار"), max_length=30, choices=SIZE_CHOICES, default='king_size')
+    filter_type = models.CharField(_("نوع فیلتر"), max_length=30, choices=FILTER_CHOICES, default='white')
+    country_origin = models.CharField(_("کشور تولیدکننده / مبدا"), max_length=100, blank=True, null=True)
+
+    # اطلاعات رسانهای و محتوا
+    badge = models.CharField(_("نشان ویژه محصول"), max_length=30, choices=BADGE_CHOICES, default='none')
+    main_image = models.ImageField(_("تصویر اصلی محصول"), upload_to="products/", blank=True, null=True)
+    image = models.CharField(_("آدرس / URL تصویر"), max_length=500, blank=True, null=True)
+    excerpt = models.TextField(_("چکیده و خلاصه کوتاه"), blank=True, null=True)
+    full_description = HTMLField(_("توضیحات جامع (TinyMCE)"), blank=True, null=True)
+
+    # سئو پیشرفته Yoast
+    focus_keyword = models.CharField(_("کلیدواژه اصلی سئو"), max_length=100, blank=True, null=True)
+    meta_title = models.CharField(_("عنوان سئو (Meta Title)"), max_length=150, blank=True, null=True)
+    meta_description = models.TextField(_("توضیحات سئو (Meta Description)"), blank=True, null=True)
+    canonical_url = models.URLField(_("لینک کانونیکال (Canonical)"), blank=True, null=True)
+
+    is_active = models.BooleanField(_("فعال"), default=True)
+    is_featured = models.BooleanField(_("پیشنهاد ویژه"), default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("محصول")
+        verbose_name_plural = _("محصولات")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.barcode or 'بدون بارکد'})"
+
+
+# ==============================================================================
+# ۵. جدول تخفیفهای پلکانی حجم عمده (Tier Discounts)
+# ==============================================================================
+class ProductTierDiscount(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='tier_discounts', verbose_name=_("محصول"))
+    min_quantity = models.PositiveIntegerField(_("حداقل تعداد (کارتن/باکس)"))
+    discount_percent = models.DecimalField(_("درصد تخفیف"), max_digits=5, decimal_places=2)
+    discount_price_per_unit = models.PositiveIntegerField(_("قیمت تخفیفخورده به ازای هر واحد"), blank=True, null=True)
+
+    class Meta:
+        verbose_name = _("تخفیف پلکانی عمده")
+        verbose_name_plural = _("تخفیفهای پلکانی عمده")
+        ordering = ['min_quantity']
+
+
+# ==============================================================================
+# ۶. مشخصات و ویژگیهای داینامیک کالا (Attributes & Values)
+# ==============================================================================
+DATA_TYPE_CHOICES = (
+    ('text', _('متن کوتاه / رشته')),
+    ('number', _('عددی (صحیح یا اعشاری)')),
+    ('select', _('انتخابی / چندگزینهای')),
+    ('boolean', _('بله / خیر (سوئیچ دو وضعیتی)')),
+    ('color', _('کد رنگ')),
+)
 
 class ProductAttribute(models.Model):
-    """
-    تعریف مشخصات و ویژگی‌های فنی کالا:
-    مانند میزان نیکوتین، قطران، نوع فیلتر، سال ساخت، کشور سازنده، جنس توتون و ...
-    """
     name = models.CharField(_("عنوان ویژگی به فارسی"), max_length=100)
     name_en = models.CharField(_("عنوان لاتین (English)"), max_length=100, blank=True, null=True)
     data_type = models.CharField(_("نوع داده"), max_length=20, choices=DATA_TYPE_CHOICES, default='text')
-    unit = models.CharField(_("واحد سنجش (اختیاری)"), max_length=30, blank=True, null=True, help_text=_("مثال: mg، میلی‌گرم، درصد، mm، سال"))
+    unit = models.CharField(_("واحد سنجش (اختیاری)"), max_length=30, blank=True, null=True)
     help_text = models.TextField(_("توضیح راهنما برای خریداران"), blank=True, null=True)
     created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
     updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True)
 
     class Meta:
-        verbose_name = _("ویژگی محصول")
-        verbose_name_plural = _("ویژگی‌ها و مشخصات فنی کالاها")
-        ordering = ['name']
+        verbose_name = _("تعریف ویژگی")
+        verbose_name_plural = _("تعاریف ویژگیها")
 
     def __str__(self):
-        unit_str = f" ({self.unit})" if self.unit else ""
-        return f"{self.name}{unit_str} [{self.get_data_type_display()}]"
+        return self.name
 
-
-# ==========================================
-# ۴. مدل کاتالوگ کالا و همگام‌سازی صندوق (Product)
-# ==========================================
-
-class Product(models.Model):
-    """
-    مدل جامع کاتالوگ محصولات با همگام‌سازی دوطرفه آنلاین و صندوق حضوری:
-    - فیلد is_pos_only: اگر True باشد کالا فقط در صندوق حضوری فروش می‌رود و در سایت آنلاین نمایش داده نمی‌شود.
-    - اگر False باشد، کالا هم در سایت و هم در صندوق به صورت همگام در دسترس است.
-    """
-    name = models.CharField(_("نام کالا (فارسی)"), max_length=200)
-    name_en = models.CharField(_("نام انگلیسی / لاتین"), max_length=200, blank=True, null=True)
-    slug = models.SlugField(_("اسلاگ سئو (URL)"), max_length=220, unique=True, allow_unicode=True)
-    brand = models.ForeignKey(ProductBrand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("برند"))
-    category = models.ForeignKey(
-        Category, 
-        on_delete=models.CASCADE, 
-        related_name='products',
-        verbose_name=_("دسته‌بندی")
-    )
-    barcode = models.CharField(_("بارکد اسکنر فروشگاهی (GTIN/EAN)"), max_length=60, blank=True, null=True, db_index=True)
-    hologram = models.ForeignKey(
-        ProductHologram,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='products',
-        verbose_name=_("هولوگرام و اصالت کالا")
-    )
-    
-    # ساختار قیمت‌گذاری چند سطحی
-    box_price = models.DecimalField(_("قیمت هر باکس (تومان)"), max_digits=12, decimal_places=0)
-    boxes_per_carton = models.PositiveIntegerField(_("تعداد باکس در هر کارتن"), default=50)
-    carton_price = models.DecimalField(_("قیمت هر کارتن (تومان)"), max_digits=14, decimal_places=0, blank=True, null=True)
-    pack_price = models.DecimalField(_("قیمت هر پاکت (تومان)"), max_digits=12, decimal_places=0, default=0)
-    packs_per_box = models.PositiveIntegerField(_("تعداد پاکت در هر باکس"), default=10)
-    purchase_price = models.DecimalField(_("قیمت تمام‌شده خرید انبار"), max_digits=14, decimal_places=0, default=0)
-    
-    # موجودی انبار
-    stock_cartons = models.PositiveIntegerField(_("موجودی انبار (کارتن)"), default=0)
-    stock_boxes = models.PositiveIntegerField(_("موجودی انبار (باکس خرد)"), default=0)
-    
-    # مدیا و محتوا با TinyMCE
-    image = models.ImageField(_("تصویر شاخص"), upload_to='products/', blank=True, null=True)
-    full_description = HTMLField(_("توضیحات غنی (TinyMCE)"), blank=True, null=True)
-    excerpt = models.TextField(_("خلاصه کوتاه کالا"), blank=True, null=True)
-    
-    # کنترل کانال فروش و همگام‌سازی آنلاین / صندوق (POS Sync)
-    is_pos_only = models.BooleanField(
-        _("اختصاصی صندوق فروشگاهی (عدم نمایش آنلاین)"), 
-        default=False, 
-        db_index=True,
-        help_text=_("اگر فعال باشد، محصول فقط در سیستم صندوق حضوری اضافه و فروخته می‌شود و در سایت آنلاین نمایش داده نمی‌شود.")
-    )
-    is_box_only = models.BooleanField(_("فروش منحصراً باکسی"), default=False)
-    has_carton = models.BooleanField(_("امکان فروش کارتنی"), default=True)
-    has_box = models.BooleanField(_("امکان فروش باکسی"), default=True)
-    has_pack = models.BooleanField(_("امکان فروش پاکتی"), default=False)
-    
-    is_active = models.BooleanField(_("فعال جهت سفارش"), default=True)
-    is_featured = models.BooleanField(_("پیشنهاد ویژه صفحه اصلی"), default=False)
-    created_at = models.DateTimeField(_("تاریخ ثبت"), auto_now_add=True)
-    updated_at = models.DateTimeField(_("تاریخ آخرین بروزرسانی"), auto_now=True)
-
-    class Meta:
-        verbose_name = _("محصول")
-        verbose_name_plural = _("مدیریت کاتالوگ کالاها و انبار")
-        ordering = ['-created_at']
-
-    def __str__(self):
-        pos_badge = " [صندوق حضوری]" if self.is_pos_only else " [آنلاین و صندوق]"
-        return f"{self.name} ({self.brand.name if self.brand else 'بدون برند'}){pos_badge}"
-
-    def save(self, *args, **kwargs):
-        if self.box_price and self.boxes_per_carton and not self.carton_price:
-            self.carton_price = self.box_price * self.boxes_per_carton
-        super().save(*args, **kwargs)
-
-
-# ==========================================
-# ۵. مدل مقادیر ویژگی‌های محصول (AttributeValue)
-# ==========================================
 
 class ProductAttributeValue(models.Model):
-    """
-    مقدار ویژگی برای یک محصول مشخص
-    """
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='attributes_values', verbose_name=_("محصول"))
-    attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, related_name='product_values', verbose_name=_("ویژگی"))
-    value = models.CharField(_("مقدار متنی ویژگی"), max_length=255, blank=True, null=True)
+    attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, verbose_name=_("ویژگی"))
+    value = models.CharField(_("مقدار متنی"), max_length=255, blank=True, null=True)
     value_number = models.DecimalField(_("مقدار عددی"), max_digits=10, decimal_places=2, blank=True, null=True)
-    value_boolean = models.BooleanField(_("مقدار بولی"), blank=True, null=True)
+    value_boolean = models.BooleanField(_("مقدار بله/خیر"), blank=True, null=True)
 
     class Meta:
-        verbose_name = _("مقدار ویژگی کالا")
-        verbose_name_plural = _("مقادیر ویژگی‌های کالاها")
+        verbose_name = _("مقدار ویژگی محصول")
+        verbose_name_plural = _("مقادیر ویژگیهای محصولات")
         unique_together = ('product', 'attribute')
 
-    def __str__(self):
-        return f"{self.product.name} -> {self.attribute.name}: {self.value or self.value_number or self.value_boolean}"
+
+# ==============================================================================
+# ۷. نقاط قوت / ویژگیهای کلیدی کالا (Key Features)
+# ==============================================================================
+class ProductKeyFeature(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='key_features', verbose_name=_("محصول"))
+    title = models.CharField(_("عنوان نقطه قوت"), max_length=150)
+    display_order = models.PositiveIntegerField(_("ترتیب"), default=0)
+
+    class Meta:
+        verbose_name = _("نقطه قوت کالا")
+        verbose_name_plural = _("نقاط قوت کالا")
+        ordering = ['display_order']
 
 
-# ==========================================
-# ۶. مدل تصاویر گالری کالا (ProductImage)
-# ==========================================
-
+# ==============================================================================
+# ۸. گالری تصاویر محصول (Product Gallery)
+# ==============================================================================
 class ProductImage(models.Model):
-    """
-    گالری چندگانه تصاویر کالا
-    """
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='gallery', verbose_name=_("محصول"))
-    image = models.ImageField(_("تصویر گالری"), upload_to='products/gallery/')
+    image = models.ImageField(_("تصویر گالری"), upload_to="products/gallery/")
     order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
 
     class Meta:
