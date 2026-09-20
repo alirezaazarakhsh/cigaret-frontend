@@ -97,6 +97,8 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       return {
         ...product,
         barcode: product.barcode || initialBarcode || '',
+        purchasePrice: product.purchasePrice !== undefined ? Number(product.purchasePrice) : 0,
+        stockBoxes: product.stockBoxes !== undefined ? Number(product.stockBoxes) : 0,
         moq: (product.moq !== undefined && product.moq !== null) ? Number(product.moq) : 0,
         moqBox: (product.moqBox !== undefined && product.moqBox !== null) ? Number(product.moqBox) : 0,
         tierDiscounts: product.tierDiscounts ? [...product.tierDiscounts] : [],
@@ -124,9 +126,11 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       cartonPrice: 0,
       boxPrice: 0,
       packPrice: 0,
+      purchasePrice: 0,
       boxesPerCarton: 50,
       packsPerBox: 10,
       stockCartons: 10,
+      stockBoxes: 0,
       moq: 0,
       moqBox: 0,
       image: '',
@@ -483,9 +487,11 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         cartonPrice: Number(formData.cartonPrice) || 0,
         boxPrice: Number(formData.boxPrice) || 0,
         packPrice: Number(formData.packPrice) || 0,
+        purchasePrice: Number(formData.purchasePrice) || 0,
         boxesPerCarton: Number(formData.boxesPerCarton) || 50,
         packsPerBox: Number(formData.packsPerBox) || 10,
         stockCartons: Number(formData.stockCartons) || 0,
+        stockBoxes: Number(formData.stockBoxes) || 0,
         moq: typeof formData.moq === 'number' ? formData.moq : (Number(formData.moq) || 0),
         moqBox: typeof formData.moqBox === 'number' ? formData.moqBox : (Number(formData.moqBox) || 0),
         image: formData.image || '',
@@ -812,6 +818,23 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 </p>
               </div>
 
+              {/* Purchase Price */}
+              <div>
+                <label className="block text-xs font-black text-amber-900 mb-1.5">
+                  قیمت خرید فاکتور / تمام‌شده (تومان):
+                </label>
+                <input
+                  type="number"
+                  value={formData.purchasePrice || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, purchasePrice: Number(e.target.value) }))}
+                  placeholder="14000000"
+                  className="w-full bg-amber-50/60 border border-amber-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-amber-500 focus:bg-white"
+                />
+                <p className="text-[10px] text-amber-700 font-bold mt-1">
+                  {formData.purchasePrice ? `${formatNumberFa(formData.purchasePrice)} تومان (سود حسابداری)` : '۰ تومان'}
+                </p>
+              </div>
+
               {/* Stock Cartons */}
               <div>
                 <label className="block text-xs font-black text-slate-800 mb-1.5 flex items-center gap-1">
@@ -824,6 +847,21 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                   onChange={(e) => setFormData(prev => ({ ...prev, stockCartons: Number(e.target.value) }))}
                   placeholder="10"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-blue-500 focus:bg-white"
+                />
+              </div>
+
+              {/* Stock Boxes */}
+              <div>
+                <label className="block text-xs font-black text-slate-800 mb-1.5 flex items-center gap-1">
+                  <Warehouse className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>موجودی فله انبار (باکس):</span>
+                </label>
+                <input
+                  type="number"
+                  value={formData.stockBoxes ?? ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, stockBoxes: Number(e.target.value) }))}
+                  placeholder="0"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white"
                 />
               </div>
 

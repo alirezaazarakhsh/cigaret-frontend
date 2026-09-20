@@ -27,6 +27,7 @@ export interface ProductFeatureItem {
   options?: string[];
   unit?: string;
   description?: string;
+  createdAt?: string;
 }
 
 export interface ProductBrandItem {
@@ -51,6 +52,12 @@ export const INITIAL_PRODUCT_CATEGORIES: ProductCategoryItem[] = [
 
 export const INITIAL_PRODUCT_HOLOGRAMS: ProductHologramItem[] = [];
 
-export const INITIAL_PRODUCT_FEATURES: ProductFeatureItem[] = [];
+export const INITIAL_PRODUCT_FEATURES: ProductFeatureItem[] = [
+  { id: '1', nameFa: 'قطر نخ', nameEn: 'thread_diameter', type: 'number', unit: 'میلی‌متر', description: 'قطر نخ و مقاومت فیلتر', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: '2', nameFa: 'وزن کالا', nameEn: 'weight', type: 'number', unit: 'گرم', description: 'وزن خالص هر پاکت یا بسته', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: '3', nameFa: 'رنگ بدنه', nameEn: 'color', type: 'text', unit: '', description: 'رنگ ظاهری پاکت و فیلتر', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: '4', nameFa: 'نوع بسته‌بندی', nameEn: 'packaging', type: 'select', unit: 'بسته', options: ['صلب', 'نرم'], description: 'بسته‌بندی صلب یا نرم', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: '5', nameFa: 'کشور تولیدکننده', nameEn: 'country_origin', type: 'text', unit: '', description: 'کشور سازنده و مونتاژکننده', createdAt: '۱۴۰۵/۰۱/۰۱' },
+];
 
 export const INITIAL_PRODUCT_BRANDS: ProductBrandItem[] = [];

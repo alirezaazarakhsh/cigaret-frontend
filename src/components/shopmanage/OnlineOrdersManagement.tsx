@@ -69,6 +69,8 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'approved' | 'shipped' | 'cancelled'>('all');
   const [paymentFilter, setPaymentFilter] = useState<'all' | 'bank_transfer' | 'wallet'>('all');
+  const [dateFilter, setDateFilter] = useState<'all' | 'today' | 'yesterday' | '7days' | '30days' | 'custom'>('all');
+  const [customDateInput, setCustomDateInput] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Pagination (10 items per page as requested)
@@ -178,6 +180,61 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
     }
   };
 
+  // Helper to normalize digits
+  const toEnDigits = (str: string) => (str || '').replace(/[۰-۹]/g, (w) => '0123456789'['۰۱۲۳۴۵۶۷۸۹'.indexOf(w)]);
+
+  const getJalaliDateStr = (date: Date) => {
+    try {
+      const formatter = new Intl.DateTimeFormat('fa-IR-u-nu-latn', { year: 'numeric', month: '2-digit', day: '2-digit' });
+      return formatter.format(date);
+    } catch {
+      return '';
+    }
+  };
+
+  const matchesDateFilter = (createdAt: string, filter: string, customDate: string): boolean => {
+    if (filter === 'all') return true;
+    if (!createdAt) return false;
+
+    const normCreated = toEnDigits(createdAt).trim();
+    const datePart = normCreated.split(' - ')[0].split(' ')[0].trim();
+
+    const now = new Date();
+    const todayJalali = getJalaliDateStr(now);
+
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayJalali = getJalaliDateStr(yesterday);
+
+    if (filter === 'today') {
+      return datePart.includes(todayJalali) || datePart === todayJalali || normCreated.includes(todayJalali);
+    }
+
+    if (filter === 'yesterday') {
+      return datePart.includes(yesterdayJalali) || datePart === yesterdayJalali || normCreated.includes(yesterdayJalali);
+    }
+
+    if (filter === 'custom' && customDate.trim()) {
+      const normCustom = toEnDigits(customDate).trim();
+      return datePart.includes(normCustom) || normCreated.includes(normCustom);
+    }
+
+    if (filter === '7days' || filter === '30days') {
+      const days = filter === '7days' ? 7 : 30;
+      for (let i = 0; i < days; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const jStr = getJalaliDateStr(d);
+        if (jStr && (datePart.includes(jStr) || normCreated.includes(jStr))) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    return true;
+  };
+
   // Helper to get normalized order status
   const getOrderStatusKey = (order: OrderInvoice): 'pending' | 'approved' | 'shipped' | 'cancelled' => {
     if (order.orderStatus === 'cancelled') return 'cancelled';
@@ -187,6 +244,11 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
     return 'pending';
   };
 
+  // Filtered orders by date
+  const dateFilteredOrders = useMemo(() => {
+    return orders.filter(o => matchesDateFilter(o.createdAt, dateFilter, customDateInput));
+  }, [orders, dateFilter, customDateInput]);
+
   // Counts for summary metrics
   const stats = useMemo(() => {
     let pendingCount = 0;
@@ -195,7 +257,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
     let cancelledCount = 0;
     let totalRevenue = 0;
 
-    orders.forEach(o => {
+    dateFilteredOrders.forEach(o => {
       const st = getOrderStatusKey(o);
       if (st === 'pending') pendingCount++;
       else if (st === 'approved') {
@@ -210,13 +272,13 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
     });
 
     // Orders waiting in queue (excluding approved and shipped which have their own tabs)
-    const activeInAllCount = orders.filter(o => {
+    const activeInAllCount = dateFilteredOrders.filter(o => {
       const st = getOrderStatusKey(o);
       return st !== 'approved' && st !== 'shipped';
     }).length;
 
     return {
-      total: orders.length,
+      total: dateFilteredOrders.length,
       activeInAll: activeInAllCount,
       pending: pendingCount,
       approved: approvedCount,
@@ -224,11 +286,11 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
       cancelled: cancelledCount,
       totalRevenue
     };
-  }, [orders]);
+  }, [dateFilteredOrders]);
 
   // Filtered orders list
   const filteredOrders = useMemo(() => {
-    return orders.filter(order => {
+    return dateFilteredOrders.filter(order => {
       const orderSt = getOrderStatusKey(order);
 
       // Status Filter:
@@ -1215,10 +1277,40 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
             )}
           </div>
 
+          {/* Date Filter Select */}
+          <select
+            value={dateFilter}
+            onChange={(e) => {
+              setDateFilter(e.target.value as any);
+              setCurrentPage(1);
+            }}
+            className="bg-blue-50/70 border border-blue-200 rounded-xl px-2.5 py-2 text-xs font-bold text-blue-800 focus:outline-none focus:border-blue-500 shrink-0"
+          >
+            <option value="all">📅 همه زمان‌ها (کل روزها)</option>
+            <option value="today">☀️ امروز</option>
+            <option value="yesterday">🌙 دیروز (روز قبل)</option>
+            <option value="7days">🗓️ ۷ روز گذشته</option>
+            <option value="30days">📆 ۳۰ روز گذشته</option>
+            <option value="custom">🔍 تاریخ خاص (شمسی)</option>
+          </select>
+
+          {dateFilter === 'custom' && (
+            <input
+              type="text"
+              value={customDateInput}
+              onChange={(e) => {
+                setCustomDateInput(e.target.value);
+                setCurrentPage(1);
+              }}
+              placeholder="مثال: ۱۴۰۵/۰۶/۲۸"
+              className="w-32 bg-white border border-blue-300 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 focus:outline-none focus:border-blue-600 shrink-0"
+            />
+          )}
+
           <select
             value={paymentFilter}
             onChange={(e) => setPaymentFilter(e.target.value as any)}
-            className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500"
+            className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-500 shrink-0"
           >
             <option value="all">همه پرداخت‌ها</option>
             <option value="bank_transfer">فقط فیش بانکی</option>

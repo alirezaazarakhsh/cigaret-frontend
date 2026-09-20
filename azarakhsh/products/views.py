@@ -566,6 +566,14 @@ class ProductUpdateAPIView(APIView):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    @swagger_auto_schema(
+        operation_summary="ویرایش جزئی اطلاعات محصول (مدیریت)",
+        request_body=ProductCreateUpdateSerializer,
+        responses={200: ProductSerializer}
+    )
+    def patch(self, request, pk):
+        return self.put(request, pk)
+
 
 class ProductSyncPosStockAPIView(APIView):
     """

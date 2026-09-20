@@ -805,36 +805,82 @@ export const productsApi = {
     const payload: Record<string, any> = {
       name: productData.nameFa,
       name_fa: productData.nameFa,
-      name_en: productData.nameEn,
+      name_en: productData.nameEn || '',
       brand: !isNaN(Number(productData.brand)) ? Number(productData.brand) : productData.brand,
       category: !isNaN(Number(productData.category)) ? Number(productData.category) : productData.category,
       hologram: !isNaN(Number(productData.hologram)) ? Number(productData.hologram) : productData.hologram,
-      carton_price: productData.cartonPrice,
-      box_price: productData.boxPrice,
-      pack_price: productData.packPrice,
-      purchase_price: productData.purchasePrice,
-      stock_cartons: productData.stockCartons,
-      stock_boxes: productData.stockBoxes,
-      is_active: productData.isAvailable,
-      barcode: productData.barcode,
-      slug: productData.slug,
-      image: productData.image,
-      full_description: productData.description,
-      excerpt: productData.excerpt,
+      carton_price: Number(productData.cartonPrice) || 0,
+      box_price: Number(productData.boxPrice) || 0,
+      pack_price: Number(productData.packPrice) || 0,
+      purchase_price: Number(productData.purchasePrice) || 0,
+      boxes_per_carton: Number(productData.boxesPerCarton) || 50,
+      packs_per_box: Number(productData.packsPerBox) || 10,
+      stock_cartons: Number(productData.stockCartons) || 0,
+      stock_boxes: Number(productData.stockBoxes) || 0,
+      min_order_carton: Number(productData.moq) || 1,
+      min_order_box: Number(productData.moqBox) || 1,
+      is_pos_only: Boolean(productData.isPosOnly),
+      is_box_only: Boolean(productData.isBoxOnly),
+      has_carton: productData.hasCarton !== false,
+      has_box: productData.hasBox !== false,
+      has_pack: Boolean(productData.hasPack),
+      is_active: productData.isAvailable !== false,
+      is_featured: Boolean(productData.badge && productData.badge !== 'none'),
+      barcode: productData.barcode || '',
+      slug: productData.slug || '',
+      image: productData.image || '',
+      full_description: productData.description || '',
+      excerpt: productData.excerpt || '',
       key_features: keyFeatures,
-      key_takeaways: productData.keyTakeaways,
+      key_takeaways: productData.keyTakeaways || [],
+      tier_discounts: productData.tierDiscounts || [],
     };
 
-    // Attempt remote PATCH
-    let response = await httpClient.patch(`/products/${id}/update/`, payload);
-    if (!response.success && response.status === 404) {
-      response = await httpClient.patch(`/products/items/${id}/update/`, payload);
+    // Attempt remote PUT / PATCH
+    let response = await httpClient.put(`/products/${id}/update/`, payload);
+    if (!response.success) {
+      response = await httpClient.patch(`/products/${id}/update/`, payload);
     }
     if (!response.success && response.status === 404) {
-      response = await httpClient.patch(`/products/${id}/`, payload);
+      response = await httpClient.put(`/products/items/${id}/update/`, payload);
     }
     if (!response.success && response.status === 404) {
-      response = await httpClient.patch(`/products/items/${id}/`, payload);
+      response = await httpClient.put(`/products/${id}/`, payload);
+    }
+
+    if (response.success && response.data) {
+      const respObj = response.data.data || response.data;
+      if (respObj && typeof respObj === 'object') {
+        const updatedFromBackend: CigaretteProduct = {
+          nameEn: productData.nameEn || '',
+          brand: productData.brand || '',
+          category: productData.category || 'cigarettes',
+          origin: productData.origin || '',
+          tar: productData.tar || '',
+          nicotine: productData.nicotine || '',
+          boxesPerCarton: productData.boxesPerCarton || 50,
+          moq: productData.moq || 0,
+          image: productData.image || '',
+          barcode: productData.barcode || '',
+          tierDiscounts: productData.tierDiscounts || [],
+          description: productData.description || '',
+          isAvailable: productData.isAvailable !== false,
+          lastPriceUpdate: productData.lastPriceUpdate || new Date().toLocaleDateString('fa-IR'),
+          ...productData,
+          id: String(respObj.id || id),
+          djangoId: respObj.id || id,
+          nameFa: respObj.name || respObj.name_fa || productData.nameFa,
+          purchasePrice: Number(respObj.purchase_price ?? productData.purchasePrice ?? 0),
+          stockBoxes: Number(respObj.stock_boxes ?? productData.stockBoxes ?? 0),
+          stockCartons: Number(respObj.stock_cartons ?? productData.stockCartons ?? 0),
+          cartonPrice: Number(respObj.carton_price ?? productData.cartonPrice ?? 0),
+          boxPrice: Number(respObj.box_price ?? productData.boxPrice ?? 0),
+        };
+        const currentProducts = getLocalProducts();
+        const updated = currentProducts.map(p => p.id === id ? updatedFromBackend : p);
+        saveLocalProducts(updated);
+        return updatedFromBackend;
+      }
     }
 
     // Update locally

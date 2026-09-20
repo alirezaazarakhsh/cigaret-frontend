@@ -107,8 +107,15 @@ export const CategoryList: React.FC<CategoryListProps> = ({
     setIsLoading(false);
   };
 
-  const getProductCountForCat = (catId: string) => {
-    return products.filter((p) => p.category === catId).length;
+  const getProductCountForCat = (cat: ProductCategoryItem) => {
+    return products.filter((p) => {
+      if (!p.category) return false;
+      const pCat = String(p.category).trim().toLowerCase();
+      const cId = String(cat.id).trim().toLowerCase();
+      const cSlug = String(cat.slug || '').trim().toLowerCase();
+      const cName = String(cat.name || '').trim().toLowerCase();
+      return pCat === cId || (cSlug && pCat === cSlug) || (cName && pCat === cName);
+    }).length;
   };
 
   return (
@@ -290,7 +297,7 @@ export const CategoryList: React.FC<CategoryListProps> = ({
                     </tr>
                   ) : (
                     categories.map((cat, index) => {
-                      const count = getProductCountForCat(cat.id);
+                      const count = getProductCountForCat(cat);
                       const isBeingEdited = editingCategory?.id === cat.id;
 
                       return (

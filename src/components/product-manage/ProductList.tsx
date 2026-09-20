@@ -406,7 +406,7 @@ export const ProductList: React.FC<ProductListProps> = ({
         </div>
 
         {/* Category Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-thin">
+        <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1.5 md:pb-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:h-1.5 [&::-webkit-scrollbar-track]:bg-slate-100 [&::-webkit-scrollbar-thumb]:bg-slate-300 [&::-webkit-scrollbar-thumb]:rounded-full hover:[&::-webkit-scrollbar-thumb]:bg-slate-400 transition-all">
           <span className="text-xs font-bold text-slate-500 whitespace-nowrap ml-1 shrink-0 flex items-center gap-1">
             <Filter className="w-3.5 h-3.5 text-slate-400" />
             <span>دسته‌بندی:</span>

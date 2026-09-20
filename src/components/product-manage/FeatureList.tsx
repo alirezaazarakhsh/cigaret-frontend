@@ -87,14 +87,16 @@ export const FeatureList: React.FC<FeatureListProps> = ({
       }
       handleCancelEdit();
     } else {
+      const nowFa = new Date().toLocaleDateString('fa-IR');
       const newFeat: ProductFeatureItem = {
-        id: `feat_${Date.now()}`,
+        id: String(features.length + 1),
         nameFa: nameFa.trim(),
         nameEn: nameEn.trim(),
         type,
         unit: unit.trim() || undefined,
         options,
         description: description.trim(),
+        createdAt: nowFa,
       };
 
       await onAddFeature(newFeat);
@@ -269,11 +271,14 @@ export const FeatureList: React.FC<FeatureListProps> = ({
               <table className="w-full text-right border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50/75 border-b border-slate-200 text-slate-700 font-black">
-                    <th className="p-4 w-12 text-center">#</th>
-                    <th className="p-4">نام ویژگی</th>
-                    <th className="p-4">نوع داده و واحد</th>
-                    <th className="p-4">توضیحات و مقادیر</th>
-                    <th className="p-4 text-center w-28">عملیات</th>
+                    <th className="p-3 w-12 text-center">ID</th>
+                    <th className="p-3">عنوان ویژگی به فارسی</th>
+                    <th className="p-3">عنوان لاتین / کلید</th>
+                    <th className="p-3">نوع داده</th>
+                    <th className="p-3">واحد سنجش</th>
+                    <th className="p-3">توضیح راهنما</th>
+                    <th className="p-3">تاریخ ثبت</th>
+                    <th className="p-3 text-center w-24">عملیات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -287,15 +292,12 @@ export const FeatureList: React.FC<FeatureListProps> = ({
                           isBeingEdited ? 'bg-amber-50/70' : 'hover:bg-slate-50/80'
                         }`}
                       >
-                        <td className="p-4 text-center font-bold text-slate-400">{formatNumberFa(index + 1)}</td>
-                        <td className="p-4">
-                          <div className="flex items-center justify-between gap-3">
-                            <span className="font-black text-slate-900 text-xs">{feat.nameFa}</span>
-                            {feat.nameEn && (
-                              <span className="text-xs text-indigo-600 bg-indigo-50/80 px-2.5 py-1 rounded-lg font-mono font-semibold dir-ltr border border-indigo-100/80 shadow-2xs">
-                                {feat.nameEn}
-                              </span>
-                            )}
+                        <td className="p-3 text-center font-bold text-slate-500 font-mono">
+                          {formatNumberFa(feat.id || index + 1)}
+                        </td>
+                        <td className="p-3">
+                          <div className="font-black text-slate-900 text-xs flex items-center gap-1.5">
+                            <span>{feat.nameFa}</span>
                             {isBeingEdited && (
                               <span className="px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold shrink-0">
                                 در حال ویرایش
@@ -303,36 +305,33 @@ export const FeatureList: React.FC<FeatureListProps> = ({
                             )}
                           </div>
                         </td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-1.5">
-                            <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold text-[11px] border border-indigo-200">
-                              {feat.type === 'text' && 'متنی'}
-                              {feat.type === 'number' && 'عددی'}
-                              {feat.type === 'select' && 'چندگزینه‌ای'}
-                              {feat.type === 'badge' && 'بج / نشان'}
+                        <td className="p-3">
+                          {feat.nameEn ? (
+                            <span className="text-xs text-indigo-700 bg-indigo-50/90 px-2 py-0.5 rounded font-mono font-bold dir-ltr border border-indigo-100">
+                              {feat.nameEn}
                             </span>
-                            {feat.unit && (
-                              <span className="text-slate-500 font-mono text-[10px]">({feat.unit})</span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-4 text-slate-600">
-                          {feat.options && feat.options.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {feat.options.slice(0, 3).map((opt, i) => (
-                                <span key={i} className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 text-[10px]">
-                                  {opt}
-                                </span>
-                              ))}
-                              {feat.options.length > 3 && (
-                                <span className="text-[10px] text-slate-400">+{feat.options.length - 3} مورد دیگر</span>
-                              )}
-                            </div>
                           ) : (
-                            <span className="text-slate-500 truncate block max-w-xs">{feat.description || '—'}</span>
+                            <span className="text-slate-400">—</span>
                           )}
                         </td>
-                        <td className="p-4 text-center">
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 font-bold text-[11px]">
+                            {feat.type === 'text' && 'متنی'}
+                            {feat.type === 'number' && 'عددی با واحد'}
+                            {feat.type === 'select' && 'انتخابی چندگزینه‌ای'}
+                            {feat.type === 'badge' && 'بج / نشان'}
+                          </span>
+                        </td>
+                        <td className="p-3 font-mono text-slate-700">
+                          {feat.unit || '—'}
+                        </td>
+                        <td className="p-3 text-slate-600 max-w-xs truncate">
+                          {feat.description || '—'}
+                        </td>
+                        <td className="p-3 text-slate-500 font-mono text-[11px]">
+                          {feat.createdAt || '۱۴۰۵/۰۱/۰۱'}
+                        </td>
+                        <td className="p-3 text-center">
                           <div className="flex items-center justify-center gap-1">
                             <button
                               type="button"

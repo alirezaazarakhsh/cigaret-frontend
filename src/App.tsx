@@ -831,7 +831,10 @@ export default function App() {
       if (stored) {
         const orders = JSON.parse(stored);
         const count = orders.filter((o: any) => {
-          return !o.orderStatus || o.orderStatus === 'pending_approval' || (o.paymentStatus && (o.paymentStatus.includes('در انتظار') || o.paymentStatus.includes('واریز شده')));
+          const st = o.orderStatus;
+          if (st === 'approved' || st === 'shipped' || st === 'delivered' || st === 'cancelled') return false;
+          if (st === 'pending_approval' || st === 'pending' || !st) return true;
+          return false;
         }).length;
         setPendingOrdersCount(count);
       } else {
