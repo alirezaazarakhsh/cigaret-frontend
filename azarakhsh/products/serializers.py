@@ -285,6 +285,37 @@ class ProductDetailSerializer(serializers.ModelSerializer):
         ]
 
 
+import base64
+import urllib.request
+import uuid
+from django.core.files.base import ContentFile
+
+def parse_image_data(image_data):
+    if not image_data:
+        return None
+    if isinstance(image_data, str):
+        if image_data.startswith('data:image'):
+            try:
+                format, imgstr = image_data.split(';base64,')
+                ext = format.split('/')[-1]
+                if ext == 'jpeg':
+                    ext = 'jpg'
+                return ContentFile(base64.b64decode(imgstr), name=f"gallery-{uuid.uuid4().hex[:6]}.{ext}")
+            except Exception:
+                pass
+        elif image_data.startswith('http'):
+            try:
+                req = urllib.request.Request(
+                    image_data, 
+                    headers={'User-Agent': 'Mozilla/5.0'}
+                )
+                with urllib.request.urlopen(req, timeout=5) as response:
+                    return ContentFile(response.read(), name=f"gallery-{uuid.uuid4().hex[:6]}.jpg")
+            except Exception:
+                pass
+    return None
+
+
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     brand = serializers.PrimaryKeyRelatedField(
         queryset=ProductBrand.objects.all(),
@@ -293,6 +324,11 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     )
     key_features = ProductKeyFeatureSerializer(many=True, required=False)
     tier_discounts = ProductTierDiscountSerializer(many=True, required=False)
+    images = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        write_only=True
+    )
 
     class Meta:
         model = Product
@@ -313,6 +349,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'stock_cartons',
             'stock_boxes',
             'image',
+            'images',
             'full_description',
             'excerpt',
             'key_features',
@@ -326,9 +363,96 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'is_featured'
         ]
 
+    def to_internal_value(self, data):
+        # Handle dict or QueryDict
+        if hasattr(data, 'dict'):
+            data = data.dict()
+        else:
+            data = dict(data)
+
+        # 1. Resolve category
+        category_val = data.get('category')
+        if category_val:
+            if isinstance(category_val, str) and not str(category_val).isdigit():
+                category_obj = Category.objects.filter(slug=category_val).first() or Category.objects.filter(name=category_val).first()
+                if category_obj:
+                    data['category'] = category_obj.id
+                else:
+                    slug_val = slugify(category_val, allow_unicode=True) or f"cat-{uuid.uuid4().hex[:8]}"
+                    category_obj = Category.objects.create(name=category_val, slug=slug_val)
+                    data['category'] = category_obj.id
+            else:
+                try:
+                    data['category'] = int(category_val)
+                except (ValueError, TypeError):
+                    pass
+
+        # 2. Resolve brand
+        brand_val = data.get('brand')
+        if brand_val:
+            if isinstance(brand_val, str) and not str(brand_val).isdigit():
+                brand_obj = ProductBrand.objects.filter(slug=brand_val).first() or ProductBrand.objects.filter(name=brand_val).first()
+                if brand_obj:
+                    data['brand'] = brand_obj.id
+                else:
+                    slug_val = slugify(brand_val, allow_unicode=True) or f"brand-{uuid.uuid4().hex[:8]}"
+                    brand_obj = ProductBrand.objects.create(name=brand_val, slug=slug_val)
+                    data['brand'] = brand_obj.id
+            else:
+                try:
+                    data['brand'] = int(brand_val)
+                except (ValueError, TypeError):
+                    pass
+
+        # 3. Resolve hologram
+        hologram_val = data.get('hologram')
+        if hologram_val:
+            if isinstance(hologram_val, str) and not str(hologram_val).isdigit():
+                hologram_obj = ProductHologram.objects.filter(title=hologram_val).first()
+                if hologram_obj:
+                    data['hologram'] = hologram_obj.id
+                else:
+                    hologram_obj = ProductHologram.objects.create(title=hologram_val)
+                    data['hologram'] = hologram_obj.id
+            else:
+                try:
+                    data['hologram'] = int(hologram_val)
+                except (ValueError, TypeError):
+                    pass
+
+        # 4. Handle list fields mapping
+        key_takeaways = data.get('key_takeaways', [])
+        key_features = data.get('key_features', [])
+        if not key_features and key_takeaways:
+            data['key_features'] = [{'title': t, 'display_order': i+1} for i, t in enumerate(key_takeaways)]
+
+        # Ensure tier_discounts array is present and is clean
+        tier_discounts = data.get('tier_discounts', [])
+        if isinstance(tier_discounts, list):
+            clean_discounts = []
+            for td in tier_discounts:
+                if isinstance(td, dict):
+                    clean_discounts.append({
+                        'min_quantity': int(td.get('min_quantity') or td.get('minQuantity') or 1),
+                        'discount_percent': float(td.get('discount_percent') or td.get('discountPercent') or 0.0),
+                        'discount_price_per_unit': td.get('discount_price_per_unit') or td.get('discountPricePerUnit') or None
+                    })
+            data['tier_discounts'] = clean_discounts
+
+        return super().to_internal_value(data)
+
     def create(self, validated_data):
         key_features_data = validated_data.pop('key_features', [])
         tier_discounts_data = validated_data.pop('tier_discounts', [])
+        images_data = validated_data.pop('images', [])
+        
+        # Parse main image url / base64 if provided
+        main_img_data = validated_data.get('image')
+        if main_img_data:
+            parsed_img = parse_image_data(main_img_data)
+            if parsed_img:
+                validated_data['main_image'] = parsed_img
+
         product = Product.objects.create(**validated_data)
         
         for kf in key_features_data:
@@ -336,12 +460,25 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             
         for td in tier_discounts_data:
             ProductTierDiscount.objects.create(product=product, **td)
+
+        for idx, img_str in enumerate(images_data):
+            parsed_gallery_img = parse_image_data(img_str)
+            if parsed_gallery_img:
+                ProductImage.objects.create(product=product, image=parsed_gallery_img, order=idx)
             
         return product
 
     def update(self, instance, validated_data):
         key_features_data = validated_data.pop('key_features', None)
         tier_discounts_data = validated_data.pop('tier_discounts', None)
+        images_data = validated_data.pop('images', None)
+        
+        # Parse main image url / base64 if provided
+        main_img_data = validated_data.get('image')
+        if main_img_data:
+            parsed_img = parse_image_data(main_img_data)
+            if parsed_img:
+                validated_data['main_image'] = parsed_img
         
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
@@ -356,5 +493,12 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             instance.tier_discounts.all().delete()
             for td in tier_discounts_data:
                 ProductTierDiscount.objects.create(product=instance, **td)
+
+        if images_data is not None:
+            instance.gallery.all().delete()
+            for idx, img_str in enumerate(images_data):
+                parsed_gallery_img = parse_image_data(img_str)
+                if parsed_gallery_img:
+                    ProductImage.objects.create(product=instance, image=parsed_gallery_img, order=idx)
                 
         return instance

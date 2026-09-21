@@ -33,7 +33,8 @@ import {
   PlusCircle,
   Link,
   ChevronRight,
-  ChevronLeft
+  ChevronLeft,
+  Upload
 } from 'lucide-react';
 import { CigaretteProduct, CigaretteCategory } from '../../types';
 import { formatToman } from '../../utils/formatters';
@@ -248,6 +249,33 @@ export const ProductManagerPanel: React.FC<ProductManagerPanelProps> = ({
 
   const handleRemoveGalleryImage = (index: number) => {
     setGalleryImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Upload/Read file locally as base64
+  const handleMainImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') {
+        setMainImage(reader.result);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleGalleryImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          setGalleryImages(prev => [...prev, reader.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
   };
 
   // Add Key Takeaway
@@ -1113,64 +1141,106 @@ export const ProductManagerPanel: React.FC<ProductManagerPanelProps> = ({
                 </div>
 
                 {/* Main Image */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-300 mb-1">
-                    آدرس تصویر اصلی کالا (Main Image URL)
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="https://images.unsplash.com/photo-..."
-                      value={mainImage}
-                      onChange={e => setMainImage(e.target.value)}
-                      className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-mono dir-ltr"
-                    />
+                <div className="bg-slate-900/40 p-4 rounded-xl border border-slate-700/80 space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                      آدرس تصویر اصلی کالا (Main Image URL)
+                    </label>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="https://images.unsplash.com/photo-..."
+                        value={mainImage}
+                        onChange={e => setMainImage(e.target.value)}
+                        className="w-full bg-slate-900/90 border border-slate-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-blue-500 font-mono dir-ltr"
+                      />
+                      <label className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer flex-shrink-0">
+                        <Upload className="w-4 h-4 text-blue-400" />
+                        آپلود فایل اصلی
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleMainImageUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   </div>
                   {mainImage && (
-                    <div className="mt-2 flex items-center gap-3 bg-slate-900/60 p-2 rounded-xl border border-slate-700 w-fit">
-                      <img src={mainImage} alt="Main preview" className="w-12 h-12 object-cover rounded-lg" />
-                      <span className="text-xs text-slate-400 font-mono">پیش‌نمایش تصویر اصلی</span>
+                    <div className="flex items-center gap-3 bg-slate-900/60 p-2.5 rounded-xl border border-slate-700 w-fit">
+                      <img src={mainImage} alt="Main preview" className="w-12 h-12 object-cover rounded-lg border border-slate-600" />
+                      <div className="flex flex-col">
+                        <span className="text-xs text-slate-300 font-bold">پیش‌نمایش تصویر اصلی شاخص</span>
+                        <span className="text-[10px] text-slate-500 font-mono max-w-[200px] truncate" dir="ltr">
+                          {mainImage.startsWith('data:') ? 'تصویر آپلود شده (Base64)' : mainImage}
+                        </span>
+                      </div>
                     </div>
                   )}
                 </div>
 
                 {/* Gallery Images Array Upload */}
-                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700">
-                  <label className="block text-xs font-semibold text-purple-300 mb-2">
-                    گالری تصاویر محصول (اختیاری)
+                <div className="bg-slate-900/50 p-4 rounded-xl border border-slate-700 space-y-3">
+                  <label className="block text-xs font-semibold text-purple-300 mb-1">
+                    گالری تصاویر محصول (علاوه بر تصویر شاخص بالا)
                   </label>
-                  <div className="flex gap-2 mb-3">
+                  <div className="flex flex-col sm:flex-row gap-2">
                     <input
                       type="text"
-                      placeholder="آدرس تصویر گالری..."
+                      placeholder="آدرس اینترنتی تصویر گالری..."
                       value={newGalleryInput}
                       onChange={e => setNewGalleryInput(e.target.value)}
                       className="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-sm text-white font-mono dir-ltr"
                     />
-                    <button
-                      type="button"
-                      onClick={handleAddGalleryImage}
-                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors flex-shrink-0"
-                    >
-                      <Plus className="w-4 h-4" />
-                      افزودن به گالری
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAddGalleryImage}
+                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold flex items-center gap-1 transition-colors flex-shrink-0"
+                      >
+                        <Plus className="w-4 h-4" />
+                        افزودن با لینک
+                      </button>
+                      <label className="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer flex-shrink-0">
+                        <Upload className="w-4 h-4 text-purple-400" />
+                        آپلود چند تصویر
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={handleGalleryImageUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                    {galleryImages.map((img, idx) => (
-                      <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-800">
-                        <img src={img} alt={`Gallery ${idx}`} className="w-full h-20 object-cover" />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveGalleryImage(idx)}
-                          className="absolute top-1 right-1 bg-rose-600 text-white p-1 rounded-full opacity-80 hover:opacity-100 transition-opacity"
-                        >
-                          <X className="w-3 h-3" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  {galleryImages.length > 0 ? (
+                    <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3 pt-2">
+                      {galleryImages.map((img, idx) => (
+                        <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-800 aspect-square">
+                          <img src={img} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveGalleryImage(idx)}
+                              className="bg-rose-600 text-white p-1.5 rounded-full hover:bg-rose-700 transition-colors shadow-md animate-scaleIn"
+                              title="حذف از گالری"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+                          <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[9px] px-1.5 py-0.5 rounded-md font-mono">
+                            {idx + 1}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-4 text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                      هیچ تصویر دیگری برای گالری این محصول اضافه نشده است.
+                    </div>
+                  )}
                 </div>
 
                 {/* Key Takeaways */}

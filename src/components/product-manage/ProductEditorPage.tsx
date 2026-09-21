@@ -110,6 +110,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         excerpt: product.excerpt || '',
         filterType: product.filterType || 'فیلتر کربن فعال (Active Charcoal)',
         appliedFeatures: initialApplied,
+        images: product.images ? [...product.images] : [],
       };
     }
     return {
@@ -163,6 +164,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         { id: 'feat-filter', featureId: 'feat-filter', nameFa: 'نوع فیلتر (Filter Technology)', value: 'فیلتر کربن فعال (Active Charcoal)' },
         { id: 'feat-origin', featureId: 'feat-origin', nameFa: 'کشور سازنده و مبدأ', value: 'سوئیس اصل (Duty Free)' },
       ],
+      images: [],
     };
   });
 
@@ -175,6 +177,42 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
   const [imageFileName, setImageFileName] = useState<string>('');
   const [imageFileSize, setImageFileSize] = useState<string>('');
   const [validationError, setValidationError] = useState<string | null>(null);
+  const [newGalleryInput, setNewGalleryInput] = useState<string>('');
+
+  const handleAddGalleryImage = () => {
+    if (newGalleryInput.trim()) {
+      setFormData(prev => ({
+        ...prev,
+        images: [...(prev.images || []), newGalleryInput.trim()]
+      }));
+      setNewGalleryInput('');
+    }
+  };
+
+  const handleRemoveGalleryImage = (index: number) => {
+    setFormData(prev => ({
+      ...prev,
+      images: (prev.images || []).filter((_, i) => i !== index)
+    }));
+  };
+
+  const handleGalleryImageFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        if (typeof reader.result === 'string') {
+          const b64 = reader.result;
+          setFormData(prev => ({
+            ...prev,
+            images: [...(prev.images || []), b64]
+          }));
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+  };
 
   // Custom Feature UI State
   const [customFeatName, setCustomFeatName] = useState<string>('');
@@ -1825,6 +1863,77 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-blue-500"
               />
             </div>
+          </div>
+
+          {/* CARD 1.5: PRODUCT GALLERY IMAGES */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-black text-slate-900">
+                گالری تصاویر محصول (علاوه بر تصویر شاخص بالا):
+              </label>
+              <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-bold font-mono">
+                {(formData.images || []).length} تصویر
+              </span>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <div className="flex gap-1.5">
+                <input
+                  type="url"
+                  placeholder="آدرس تصویر گالری..."
+                  value={newGalleryInput}
+                  onChange={(e) => setNewGalleryInput(e.target.value)}
+                  dir="ltr"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-mono focus:outline-none focus:border-blue-500"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddGalleryImage}
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center justify-center transition-colors cursor-pointer"
+                >
+                  افزودن
+                </button>
+              </div>
+
+              <label className="w-full py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer border border-dashed border-slate-300">
+                <UploadCloud className="w-4 h-4 text-slate-600" />
+                <span>آپلود فایل‌های گالری</span>
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleGalleryImageFileUpload}
+                  className="hidden"
+                />
+              </label>
+            </div>
+
+            {(formData.images || []).length > 0 ? (
+              <div className="grid grid-cols-3 gap-2.5 pt-1">
+                {(formData.images || []).map((img, idx) => (
+                  <div key={idx} className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50 aspect-square">
+                    <img src={img} alt={`Gallery ${idx}`} className="w-full h-full object-cover" />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveGalleryImage(idx)}
+                        className="bg-red-600 text-white p-1 rounded-lg hover:bg-red-700 transition-colors shadow-md cursor-pointer"
+                        title="حذف عکس"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <span className="absolute bottom-0.5 right-0.5 bg-black/70 text-white text-[8px] px-1 py-0.2 rounded-md font-mono">
+                      {idx + 1}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-5 text-[10px] text-slate-400 border border-dashed border-slate-200 rounded-xl">
+                هیچ تصویر دیگری برای گالری این محصول اضافه نشده است. شما می‌توانید فایل آپلود کرده یا آدرس عکس قرار دهید.
+              </div>
+            )}
           </div>
 
           {/* CARD 2: CATEGORY SELECTION */}

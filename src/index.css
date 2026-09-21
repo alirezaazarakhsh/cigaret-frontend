@@ -217,3 +217,17 @@
   }
 }
 
+/* Add dynamic micro-scale active interaction when tapped/clicked on mobile or desktop */
+.min-h-screen [id^="product-card-"]:active {
+  transform: scale(0.98) !important;
+  transition: transform 0.1s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
+}
+
+/* Enforce uniform card height across all viewports by setting a clean aspect-square ratio on the image container */
+.min-h-screen [id^="product-card-"] .relative.overflow-hidden.bg-slate-50 {
+  aspect-ratio: 1 / 1 !important;
+  height: auto !important;
+}
+
+
+
