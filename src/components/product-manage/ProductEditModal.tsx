@@ -151,41 +151,50 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
     reader.readAsDataURL(file);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.nameFa || !formData.cartonPrice) return;
 
-    const saved: CigaretteProduct = {
-      id: formData.id || (product ? product.id : `prod_${Date.now()}`),
-      djangoId: formData.djangoId || (product?.djangoId ? product.djangoId : Math.floor(Math.random() * 1000) + 100),
-      nameFa: formData.nameFa || '',
-      nameEn: formData.nameEn || '',
-      brand: formData.brand || 'دخانیات سرو',
-      category: (formData.category as CigaretteCategory) || 'cigarettes',
-      origin: formData.origin || 'وارداتی اصل',
-      tar: formData.tar || '6 mg',
-      nicotine: formData.nicotine || '0.5 mg',
-      cartonPrice: Number(formData.cartonPrice) || 0,
-      baseCartonPrice: Number(formData.cartonPrice) || 0,
-      boxPrice: Number(formData.boxPrice) || Math.round((Number(formData.cartonPrice) || 0) / (Number(formData.boxesPerCarton) || 50)),
-      baseBoxPrice: Number(formData.boxPrice) || 0,
-      packPrice: Number(formData.packPrice) || 0,
-      boxesPerCarton: Number(formData.boxesPerCarton) || 50,
-      stockCartons: Number(formData.stockCartons) || 0,
-      moq: typeof formData.moq === 'number' ? formData.moq : (Number(formData.moq) || 0),
-      moqBox: typeof formData.moqBox === 'number' ? formData.moqBox : (Number(formData.moqBox) || 0),
-      image: imagePreview || formData.image || 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80',
-      barcode: formData.barcode || String(Math.floor(1000000000000 + Math.random() * 9000000000000)),
-      badge: formData.badge,
-      priceTrend: formData.priceTrend || 'stable',
-      lastPriceUpdate: 'امروز ' + new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-      hologram: formData.hologram || 'اورجینال اروپایی',
-      isAvailable: formData.isAvailable ?? true,
-      tierDiscounts: formData.tierDiscounts || [],
-      description: formData.description || '',
-    };
+    setIsSaving(true);
+    try {
+      const saved: CigaretteProduct = {
+        id: formData.id || (product ? product.id : `prod_${Date.now()}`),
+        djangoId: formData.djangoId || (product?.djangoId ? product.djangoId : Math.floor(Math.random() * 1000) + 100),
+        nameFa: formData.nameFa || '',
+        nameEn: formData.nameEn || '',
+        brand: formData.brand || 'دخانیات سرو',
+        category: (formData.category as CigaretteCategory) || 'cigarettes',
+        origin: formData.origin || 'وارداتی اصل',
+        tar: formData.tar || '6 mg',
+        nicotine: formData.nicotine || '0.5 mg',
+        cartonPrice: Number(formData.cartonPrice) || 0,
+        baseCartonPrice: Number(formData.cartonPrice) || 0,
+        boxPrice: Number(formData.boxPrice) || Math.round((Number(formData.cartonPrice) || 0) / (Number(formData.boxesPerCarton) || 50)),
+        baseBoxPrice: Number(formData.boxPrice) || 0,
+        packPrice: Number(formData.packPrice) || 0,
+        boxesPerCarton: Number(formData.boxesPerCarton) || 50,
+        stockCartons: Number(formData.stockCartons) || 0,
+        moq: typeof formData.moq === 'number' ? formData.moq : (Number(formData.moq) || 0),
+        moqBox: typeof formData.moqBox === 'number' ? formData.moqBox : (Number(formData.moqBox) || 0),
+        image: imagePreview || formData.image || 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80',
+        barcode: formData.barcode || String(Math.floor(1000000000000 + Math.random() * 9000000000000)),
+        badge: formData.badge,
+        priceTrend: formData.priceTrend || 'stable',
+        lastPriceUpdate: 'امروز ' + new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+        hologram: formData.hologram || 'اورجینال اروپایی',
+        isAvailable: formData.isAvailable ?? true,
+        tierDiscounts: formData.tierDiscounts || [],
+        description: formData.description || '',
+      };
 
-    onSave(saved);
+      await onSave(saved);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -695,10 +704,15 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 hover:scale-[1.01]"
+              disabled={isSaving}
+              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-md shadow-blue-600/20 transition-all flex items-center gap-2 hover:scale-[1.01] disabled:opacity-60 cursor-pointer"
             >
-              <Check className="w-4 h-4" />
-              <span>{isEditing ? 'ذخیره تغییرات کالا' : 'ثبت قطعی کالا در دیتابیس'}</span>
+              {isSaving ? (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+              ) : (
+                <Check className="w-4 h-4 shrink-0" />
+              )}
+              <span>{isSaving ? 'در حال ذخیره‌سازی در دیتابیس...' : (isEditing ? 'ذخیره تغییرات کالا' : 'ثبت قطعی کالا در دیتابیس')}</span>
             </button>
           </div>
         </form>

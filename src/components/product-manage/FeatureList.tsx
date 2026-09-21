@@ -293,7 +293,7 @@ export const FeatureList: React.FC<FeatureListProps> = ({
                         }`}
                       >
                         <td className="p-3 text-center font-bold text-slate-500 font-mono">
-                          {formatNumberFa(feat.id || index + 1)}
+                          {formatNumberFa(typeof feat.id === 'number' ? feat.id : (Number(feat.id) || index + 1))}
                         </td>
                         <td className="p-3">
                           <div className="font-black text-slate-900 text-xs flex items-center gap-1.5">

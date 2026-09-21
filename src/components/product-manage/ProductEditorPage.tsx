@@ -451,7 +451,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
   };
 
   // Submit Handler
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setValidationError(null);
 
@@ -520,7 +520,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         appliedFeatures: formData.appliedFeatures || []
       };
 
-      onSave(completeProduct);
+      await onSave(completeProduct);
     } catch (err) {
       console.error(err);
       setValidationError('خطا در پردازش اطلاعات محصول.');

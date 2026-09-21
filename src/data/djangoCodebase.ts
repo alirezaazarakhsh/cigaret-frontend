@@ -804,60 +804,57 @@ urlpatterns = [
     description: 'مدیریت کاتالوگ کالاها، برندها (بدون is_active)، ویژگی‌های فنی (Attributes بدون is_required و display_order)، نرخ کارتن و باکس و تخفیف‌های تیراژ',
     models: `"""
 products/models.py
-مدل‌های مدیریت محصولات دخانیات، برندها، ویژگی‌های کالا (Attributes) و تخفیف‌های تیراژ
+مدلهای محصولات، دستهبندیها، برندها، هولوگرامها، تخفیفات پلکانی و ویژگیهای فنی
 """
+
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from tinymce.models import HTMLField
 
+COLOR_CHOICES = (
+    ('#EF4444', _('قرمز / سرخابی (#EF4444)')),
+    ('#F59E0B', _('طلایی / نارنجی (#F59E0B)')),
+    ('#8B5CF6', _('بنفش رویال (#8B5CF6)')),
+    ('#3B82F6', _('آبی لاجوردی (#3B82F6)')),
+    ('#06B6D4', _('فیروزهای (#06B6D4)')),
+    ('#1E40AF', _('سرمهای دیپ (#1E40AF)')),
+)
 
 class Category(models.Model):
-    COLOR_CHOICES = (
-        ('#3B82F6', _('آبی')),
-        ('#10B981', _('سبز')),
-        ('#F59E0B', _('نارنجی')),
-        ('#EF4444', _('قرمز')),
-        ('#8B5CF6', _('بنفش')),
-    )
-
-    name = models.CharField(_("عنوان دسته‌بندی (فارسی)"), max_length=150, db_index=True)
+    name = models.CharField(_("عنوان دستهبندی (فارسی)"), max_length=150)
     name_en = models.CharField(_("نام لاتین (English)"), max_length=150, blank=True, null=True)
-    slug = models.SlugField(_("شناسه سیستمی (Slug)"), max_length=160, unique=True, allow_unicode=True)
-    color = models.CharField(_("رنگ شناسه"), max_length=20, choices=COLOR_CHOICES, default='#3B82F6')
-    description = models.TextField(_("توضیحات کوتاه دسته‌بندی"), blank=True, null=True)
-    icon = models.CharField(_("نام آیکون نمایشی"), max_length=60, default='Layers')
-    image = models.ImageField(_("تصویر شاخص دسته‌بندی"), upload_to='categories/', blank=True, null=True)
-    parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children', verbose_name=_("دسته مادر (والد)"))
-    display_order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
-    is_active = models.BooleanField(_("وضعیت فعال"), default=True)
-
-    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True, null=True)
-    updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True, null=True)
+    slug = models.SlugField(_("شناسه سیستمی (Slug / ID)"), max_length=160, unique=True, allow_unicode=True)
+    color = models.CharField(_("رنگ شناسه"), max_length=30, choices=COLOR_CHOICES, default="#3B82F6")
+    description = models.TextField(_("توضیحات کوتاه دستهبندی"), blank=True, null=True)
+    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ آخرین ویرایش"), auto_now=True)
 
     class Meta:
-        verbose_name = _("دسته‌بندی کالا")
-        verbose_name_plural = _("دسته‌بندی‌های کالا")
-        ordering = ['display_order', 'name']
+        verbose_name = _("دستهبندی")
+        verbose_name_plural = _("دستهبندیهای محصولات")
+        ordering = ['-id']
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.slug})"
 
 
-class Brand(models.Model):
-    """
-    مدل برندها و تولیدکنندگان محصولات دخانیات
-    """
-    name = models.CharField(_("نام تجاری برند"), max_length=80, unique=True)
-    country_of_origin = models.CharField(_("کشور مبدأ / کارخانه"), max_length=80, default="سوئیس")
-    logo = models.ImageField(_("لوگو برند"), upload_to="brands/logos/", blank=True, null=True, help_text=_("آپلود تصویر لوگوی برند"))
+class ProductBrand(models.Model):
+    name = models.CharField(_("نام برند (فارسی)"), max_length=120)
+    name_en = models.CharField(_("نام برند (انگلیسی)"), max_length=120, blank=True, null=True)
+    slug = models.SlugField(_("اسلاگ سئو"), max_length=130, unique=True, allow_unicode=True)
+    logo = models.ImageField(_("لوگو برند"), upload_to="brands/logos/", blank=True, null=True, help_text=_("آپلود فایل تصویر لوگوی برند"))
+    country = models.CharField(_("کشور سازنده اصلی"), max_length=100, blank=True, null=True)
     description = models.TextField(_("توضیحات برند"), blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ آخرین بروزرسانی"), auto_now=True)
 
     class Meta:
-        verbose_name = _("برند دخانیات")
-        verbose_name_plural = _("برندهای تولیدکننده")
+        verbose_name = _("برند کالا")
+        verbose_name_plural = _("برندهای کالا")
         ordering = ['name']
 
     def __str__(self):
-        return f"{self.name} ({self.country_of_origin})"
+        return self.name
 
     @property
     def logo_url(self):
@@ -866,274 +863,510 @@ class Brand(models.Model):
         return None
 
 
-# نام مستعار جهت سازگاری با پروژه‌های مختلف
-ProductBrand = Brand
+Brand = ProductBrand
 
+
+SECURITY_LEVEL_CHOICES = (
+    ('maximum', _('فوق امنیتی (Maximum)')),
+    ('high', _('بالا (High)')),
+    ('standard', _('استاندارد (Standard)')),
+    ('economic', _('پایه (Economic)')),
+)
+
+class ProductHologram(models.Model):
+    title = models.CharField(_("عنوان هولوگرام / برچسب اصالت"), max_length=150)
+    issuer_org = models.CharField(_("مرجع صادرکننده یا سازمان ناظر"), max_length=150, blank=True, null=True)
+    country_origin = models.CharField(_("کشور / حوزه"), max_length=100, blank=True, null=True)
+    security_level = models.CharField(_("سطح اعتبار امنیتی"), max_length=30, choices=SECURITY_LEVEL_CHOICES, default='high')
+    security_specs = models.TextField(_("مشخصات فنی و امنیتی"), blank=True, null=True)
+    is_verified = models.BooleanField(_("دارای استعلام اصالت بارکد / QR"), default=True)
+    created_at = models.DateTimeField(_("تاریخ ثبت هولوگرام"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True)
+
+    class Meta:
+        verbose_name = _("هولوگرام و اصالت")
+        verbose_name_plural = _("هولوگرامهای اصالت کالا")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.title} - {self.get_security_level_display()}"
+
+
+class Product(models.Model):
+    BADGE_CHOICES = (
+        ('none', _('بدون نشان')),
+        ('bestseller', _('پرفروشترین')),
+        ('special', _('پیشنهاد ویژه')),
+        ('new', _('جدیدترین')),
+        ('discount', _('تخفیف ویژه')),
+        ('import', _('وارداتی اصل')),
+    )
+
+    SIZE_CHOICES = (
+        ('king_size', _('کینگ سایز (King Size)')),
+        ('slims', _('اسلیم / باریک (Slims)')),
+        ('super_slims', _('سوپر اسلیم (Super Slims)')),
+        ('nano', _('نانو (Nano)')),
+        ('compact', _('کامپکت (Compact)')),
+        ('queen_size', _('کویین سایز (Queen Size)')),
+    )
+
+    FILTER_CHOICES = (
+        ('white', _('فیلتر سفید استاندارد')),
+        ('yellow', _('فیلتر زرد سنتی')),
+        ('charcoal', _('فیلتر کربن / زغالی')),
+        ('recessed', _('فیلتر مجوف (Recessed)')),
+        ('capsule', _('فیلتر طعمدار / پاور (Capsule)')),
+    )
+
+    name = models.CharField(_("نام محصول (فارسی)"), max_length=200)
+    name_en = models.CharField(_("نام محصول (انگلیسی)"), max_length=200, blank=True, null=True)
+    slug = models.SlugField(_("اسلاگ سئو"), max_length=220, unique=True, allow_unicode=True)
+    barcode = models.CharField(_("بارکد اسکنر فروشگاهی"), max_length=60, unique=True, blank=True, null=True, db_index=True)
+
+    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products', verbose_name=_("دستهبندی"))
+    brand = models.ForeignKey(ProductBrand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("برند"))
+    hologram = models.ForeignKey(ProductHologram, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("هولوگرام اصالت"))
+
+    carton_price = models.PositiveIntegerField(_("قیمت هر کارتن (تومان)"), default=0)
+    box_price = models.PositiveIntegerField(_("قیمت هر باکس (تومان)"), default=0)
+    pack_price = models.PositiveIntegerField(_("قیمت هر پاکت (تومان)"), default=0)
+    purchase_price = models.PositiveIntegerField(_("قیمت تمامشده خرید"), default=0)
+
+    stock_cartons = models.PositiveIntegerField(_("موجودی کارتن"), default=0)
+    stock_boxes = models.PositiveIntegerField(_("موجودی باکس"), default=0)
+    boxes_per_carton = models.PositiveIntegerField(_("تعداد باکس در کارتن"), default=50)
+    packs_per_box = models.PositiveIntegerField(_("تعداد پاکت در باکس"), default=10)
+
+    min_order_carton = models.PositiveIntegerField(_("حداقل سفارش کارتن"), default=1)
+    min_order_box = models.PositiveIntegerField(_("حداقل سفارش باکس"), default=1)
+
+    has_carton = models.BooleanField(_("امکان فروش کارتنی"), default=True)
+    has_box = models.BooleanField(_("امکان فروش باکسی"), default=True)
+    has_pack = models.BooleanField(_("امکان فروش پاکتی"), default=False)
+    is_box_only = models.BooleanField(_("فقط فروش باکسی"), default=False)
+    is_pos_only = models.BooleanField(_("اختصاصی صندوق (POS)"), default=False)
+
+    tar = models.CharField(_("میزان قطران (mg)"), max_length=20, blank=True, null=True)
+    nicotine = models.CharField(_("میزان نیکوتین (mg)"), max_length=20, blank=True, null=True)
+    carbon_monoxide = models.CharField(_("میزان کربن مونوکسید"), max_length=20, blank=True, null=True)
+    cigarette_size = models.CharField(_("سایز سیگار"), max_length=30, choices=SIZE_CHOICES, default='king_size')
+    filter_type = models.CharField(_("نوع فیلتر"), max_length=30, choices=FILTER_CHOICES, default='white')
+    country_origin = models.CharField(_("کشور تولیدکننده / مبدا"), max_length=100, blank=True, null=True)
+
+    badge = models.CharField(_("نشان ویژه محصول"), max_length=30, choices=BADGE_CHOICES, default='none')
+    main_image = models.ImageField(_("تصویر اصلی محصول"), upload_to="products/", blank=True, null=True)
+    image = models.CharField(_("آدرس / URL تصویر"), max_length=500, blank=True, null=True)
+    excerpt = models.TextField(_("چکیده و خلاصه کوتاه"), blank=True, null=True)
+    full_description = HTMLField(_("توضیحات جامع (TinyMCE)"), blank=True, null=True)
+
+    focus_keyword = models.CharField(_("کلیدواژه اصلی سئو"), max_length=100, blank=True, null=True)
+    meta_title = models.CharField(_("عنوان سئو (Meta Title)"), max_length=150, blank=True, null=True)
+    meta_description = models.TextField(_("توضیحات سئو (Meta Description)"), blank=True, null=True)
+    canonical_url = models.URLField(_("لینک کانونیکال (Canonical)"), blank=True, null=True)
+
+    is_active = models.BooleanField(_("فعال"), default=True)
+    is_featured = models.BooleanField(_("پیشنهاد ویژه"), default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _("محصول")
+        verbose_name_plural = _("محصولات")
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.barcode or 'بدون بارکد'})"
+
+
+class ProductTierDiscount(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='tier_discounts', verbose_name=_("محصول"))
+    min_quantity = models.PositiveIntegerField(_("حداقل تعداد (کارتن/باکس)"))
+    discount_percent = models.DecimalField(_("درصد تخفیف"), max_digits=5, decimal_places=2)
+    discount_price_per_unit = models.PositiveIntegerField(_("قیمت تخفیفخورده به ازای هر واحد"), blank=True, null=True)
+
+    class Meta:
+        verbose_name = _("تخفیف پلکانی عمده")
+        verbose_name_plural = _("تخفیفهای پلکانی عمده")
+        ordering = ['min_quantity']
+
+
+DATA_TYPE_CHOICES = (
+    ('text', _('متن کوتاه / رشته')),
+    ('number', _('عددی (صحیح یا اعشاری)')),
+    ('select', _('انتخابی / چندگزینهای')),
+    ('boolean', _('بله / خیر (سوئیچ دو وضعیتی)')),
+    ('color', _('کد رنگ')),
+)
 
 class ProductAttribute(models.Model):
-    """
-    ویژگی‌های متغیر کالا (مانند قطران، نیکوتین، طعم، طعم‌دهی، نوع فیلتر و ...)
-    توجه: فیلدهای is_required و display_order حذف گردیده‌اند.
-    """
-    name_fa = models.CharField(_("نام ویژگی (فارسی)"), max_length=100)
-    name_en = models.CharField(_("نام ویژگی (انگلیسی)"), max_length=100)
+    name = models.CharField(_("عنوان ویژگی به فارسی"), max_length=100)
+    name_en = models.CharField(_("عنوان لاتین (English)"), max_length=100, blank=True, null=True)
+    data_type = models.CharField(_("نوع داده"), max_length=20, choices=DATA_TYPE_CHOICES, default='text')
+    unit = models.CharField(_("واحد سنجش (اختیاری)"), max_length=30, blank=True, null=True)
+    help_text = models.TextField(_("توضیح راهنما برای خریداران"), blank=True, null=True)
+    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
+    updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True)
 
     class Meta:
-        verbose_name = _("ویژگی محصول")
-        verbose_name_plural = _("ویژگی‌های فنی محصولات")
-        ordering = ['id']
+        verbose_name = _("تعریف ویژگی")
+        verbose_name_plural = _("تعاریف ویژگیها")
 
     def __str__(self):
-        return f"{self.name_fa} | {self.name_en}"
-
-
-class CigaretteProduct(models.Model):
-    CATEGORY_CHOICES = (
-        ('cigarettes', _('سیگارهای اورجینال و شرکتی')),
-        ('iqos_devices', _('دستگاه‌های ایکاس (IQOS)')),
-        ('iqos_heets', _('استیک‌های تیریا و هیتس (TEREA)')),
-        ('pods_vapes', _('پاد سیستم و سالت نیکوتین')),
-        ('tobacco', _('توتون پیپ و سیگارپیچ')),
-        ('accessories', _('ملزومات و اکسسوری عمده')),
-    )
-
-    TREND_CHOICES = (
-        ('up', _('رو به افزایش (افزایشی)')),
-        ('down', _('کاهشی (ویژه)')),
-        ('stable', _('باثبات (نرخ رسمی انبار)')),
-    )
-
-    name_fa = models.CharField(_("نام کالا (فارسی)"), max_length=200, db_index=True)
-    name_en = models.CharField(_("نام کالا (انگلیسی)"), max_length=200)
-    barcode = models.CharField(_("بارکد بین‌المللی کالا"), max_length=30, unique=True, db_index=True)
-    category = models.CharField(_("گروه کالا"), max_length=40, choices=CATEGORY_CHOICES, default='cigarettes')
-    brand = models.ForeignKey(Brand, on_delete=models.SET_NULL, null=True, related_name="products", verbose_name=_("برند"))
-    origin = models.CharField(_("مبدأ ساخت و بارگیری"), max_length=100, default="سوئیس اصل")
-    
-    # قیمت‌ها به تومان
-    carton_price = models.BigIntegerField(_("قیمت کارتن (تومان)"), help_text=_("هر کارتن شامل ۵۰ باکس پلمپ"))
-    box_price = models.BigIntegerField(_("قیمت تک باکس (تومان)"), help_text=_("هر باکس شامل ۱۰ پاکت"))
-    boxes_per_carton = models.PositiveIntegerField(_("تعداد باکس در هر کارتن"), default=50)
-    moq = models.PositiveIntegerField(_("حداقل سفارش کارتن (MOQ)"), default=1)
-    
-    # مشخصات فنی و دخانی
-    tar = models.CharField(_("قطران (Tar)"), max_length=20, default="6 mg")
-    nicotine = models.CharField(_("نیکوتین (Nicotine)"), max_length=20, default="0.5 mg")
-    hologram = models.CharField(_("نوع هولوگرام و اصالت"), max_length=100, default="اورجینال سوئیس با بارکد اصالت")
-    badge = models.CharField(_("برچسب ویژه"), max_length=50, blank=True, null=True, help_text=_("مثال: بار تازه / پرفروش"))
-    
-    # وضعیت انبار جنت‌آباد
-    is_available = models.BooleanField(_("موجود در انبار جنت‌آباد"), default=True)
-    stock_cartons = models.PositiveIntegerField(_("موجودی کارتن پلمپ"), default=100)
-    stock_boxes = models.PositiveIntegerField(_("موجودی باکس آزاد"), default=200)
-    
-    # روند قیمت و تصاویر
-    price_trend = models.CharField(_("روند قیمت روز"), max_length=20, choices=TREND_CHOICES, default='stable')
-    image_url = models.URLField(_("لینک تصویر باکیفیت"), max_length=500)
-    description = models.TextField(_("توضیحات تکمیلی و طعم‌بندی"), blank=True)
-    
-    created_at = models.DateTimeField(_("تاریخ درج در سامانه"), auto_now_add=True)
-    updated_at = models.DateTimeField(_("آخرین بروزرسانی نرخ"), auto_now=True)
-
-    class Meta:
-        verbose_name = _("کالای عمده دخانیات")
-        verbose_name_plural = _("کاتالوگ کالاهای دخانیات")
-        ordering = ['-updated_at']
-
-    def __str__(self):
-        return f"{self.name_fa} - کارتن: {self.carton_price:,} تومان"
+        return self.name
 
 
 class ProductAttributeValue(models.Model):
-    """
-    مقدار ویژگی برای محصول خاص
-    """
-    product = models.ForeignKey(CigaretteProduct, on_delete=models.CASCADE, related_name='attribute_values', verbose_name=_("محصول"))
-    attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, related_name='values', verbose_name=_("ویژگی"))
-    value = models.CharField(_("مقدار ویژگی"), max_length=200)
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='attributes_values', verbose_name=_("محصول"))
+    attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, verbose_name=_("ویژگی"))
+    value = models.CharField(_("مقدار متنی"), max_length=255, blank=True, null=True)
+    value_number = models.DecimalField(_("مقدار عددی"), max_digits=10, decimal_places=2, blank=True, null=True)
+    value_boolean = models.BooleanField(_("مقدار بله/خیر"), blank=True, null=True)
 
     class Meta:
         verbose_name = _("مقدار ویژگی محصول")
-        verbose_name_plural = _("مقادیر ویژگی‌های محصولات")
-        unique_together = ['product', 'attribute']
-
-    def __str__(self):
-        return f"{self.product.name_fa} -> {self.attribute.name_fa}: {self.value}"
+        verbose_name_plural = _("مقادیر ویژگیهای محصولات")
+        unique_together = ('product', 'attribute')
 
 
-class PriceTier(models.Model):
-    product = models.ForeignKey(CigaretteProduct, on_delete=models.CASCADE, related_name="tier_discounts", verbose_name=_("کالا"))
-    min_quantity = models.PositiveIntegerField(_("حداقل تعداد کارتن"), default=3)
-    discount_percent = models.DecimalField(_("درصد تخفیف تیراژ"), max_digits=5, decimal_places=2, default=2.5)
+class ProductKeyFeature(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='key_features', verbose_name=_("محصول"))
+    title = models.CharField(_("عنوان نقطه قوت"), max_length=150)
+    display_order = models.PositiveIntegerField(_("ترتیب"), default=0)
 
     class Meta:
-        verbose_name = _("پله تخفیف تیراژ کارتن")
-        verbose_name_plural = _("پله‌های تخفیف تیراژ")
-        ordering = ['min_quantity']
+        verbose_name = _("نقطه قوت کالا")
+        verbose_name_plural = _("نقاط قوت کالا")
+        ordering = ['display_order']
 
-    def __str__(self):
-        return f"{self.product.name_fa} -> از {self.min_quantity} کارتن: {self.discount_percent}٪"
+
+class ProductImage(models.Model):
+    product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='gallery', verbose_name=_("محصول"))
+    image = models.ImageField(_("تصویر گالری"), upload_to="products/gallery/")
+    order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
+
+    class Meta:
+        verbose_name = _("تصویر گالری")
+        verbose_name_plural = _("گالری تصاویر کالا")
+        ordering = ['order']
 `,
-    admin: `"""
-products/admin.py
-پنل مدیریت کالاهای دخانیات، برندها (بدون is_active)، ویژگی‌های محصول (بدون is_required و display_order) و تخفیف‌های پلکانی
-"""
-from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
+    admin: `from django.contrib import admin
 from django.utils.html import format_html
-from .models import Category, Brand, ProductAttribute, ProductAttributeValue, CigaretteProduct, PriceTier
+from django.utils.translation import gettext_lazy as _
+from .models import (
+    Category,
+    ProductBrand,
+    ProductHologram,
+    Product,
+    ProductTierDiscount,
+    ProductAttribute,
+    ProductAttributeValue,
+    ProductKeyFeature,
+    ProductImage,
+)
 
-
-class ProductAttributeValueInline(admin.TabularInline):
-    model = ProductAttributeValue
-    extra = 1
-    verbose_name = _("مقدار ویژگی")
-    verbose_name_plural = _("مقادیر ویژگی‌های این محصول")
-
-
-class PriceTierInline(admin.TabularInline):
-    model = PriceTier
-    extra = 1
-    verbose_name = _("پله تخفیف تیراژ")
-    verbose_name_plural = _("جدول تخفیف‌های پلکانی کارتن")
-
-
-@admin.register(Brand)
-class BrandAdmin(admin.ModelAdmin):
-    """
-    مدیریت برندها همراه با پیش‌نمایش تصویر لوگو در دیتابیس
-    """
-    list_display = ('id', 'logo_preview', 'name', 'country_of_origin')
-    readonly_fields = ('logo_preview',)
-    search_fields = ('name', 'country_of_origin')
-
-    @admin.display(description=_("پیش‌نمایش لوگو"))
-    def logo_preview(self, obj):
-        if obj.logo:
-            url = obj.logo.url if hasattr(obj.logo, 'url') else str(obj.logo)
-            return format_html('<img src="{}" style="max-width: 80px; max-height: 48px; border-radius: 6px; object-fit: contain; border: 1px solid #e2e8f0; padding: 2px; background: #fff;" />', url)
-        return format_html('<span style="color: #9ca3af; font-size: 12px;">بدون لوگو</span>')
-
-
-@admin.register(ProductAttribute)
-class ProductAttributeAdmin(admin.ModelAdmin):
-    """
-    مدیریت ویژگی‌های محصولات (فیلدهای is_required و display_order حذف شده‌اند)
-    """
-    list_display = ('id', 'name_fa', 'name_en')
-    search_fields = ('name_fa', 'name_en')
-
-
-@admin.register(CigaretteProduct)
-class CigaretteProductAdmin(admin.ModelAdmin):
-    list_display = (
-        'product_thumb',
-        'name_fa',
-        'brand',
-        'carton_price_display',
-        'box_price_display',
-        'stock_status',
-        'origin',
-        'is_available',
-        'updated_at'
-    )
-    list_filter = ('category', 'brand', 'is_available', 'price_trend', 'origin')
-    search_fields = ('name_fa', 'name_en', 'barcode', 'origin')
-    autocomplete_fields = ['brand']
-    list_editable = ('is_available',)
-    inlines = [ProductAttributeValueInline, PriceTierInline]
-    readonly_fields = ('created_at', 'updated_at')
-
-    fieldsets = (
-        (_('اطلاعات اصلی و عنوان کالا'), {
-            'fields': ('name_fa', 'name_en', 'barcode', 'category', 'brand', 'origin', 'badge', 'image_url')
-        }),
-        (_('قیمت‌گذاری عمده (انبار جنت‌آباد)'), {
-            'fields': ('carton_price', 'box_price', 'boxes_per_carton', 'moq', 'price_trend')
-        }),
-        (_('موجودی انبار و هولوگرام اصالت'), {
-            'fields': ('is_available', 'stock_cartons', 'stock_boxes', 'hologram')
-        }),
-        (_('مشخصات دخانی و قطران'), {
-            'fields': ('tar', 'nicotine', 'description')
-        }),
-        (_('تاریخچه‌ها'), {
-            'fields': ('created_at', 'updated_at')
-        }),
-    )
-
-    actions = ['mark_as_available', 'mark_as_unavailable']
-
-    @admin.display(description=_("تصویر کالا"))
-    def product_thumb(self, obj):
-        if obj.image_url:
-            return format_html('<img src="{}" style="width: 42px; height: 42px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd;" />', obj.image_url)
+def to_jalali_str(dt):
+    if not dt:
         return "-"
+    try:
+        from jalali_date import datetime2jalali
+        jalali_dt = datetime2jalali(dt)
+        return jalali_dt.strftime('%Y/%m/%d - %H:%M')
+    except Exception:
+        pass
 
-    @admin.display(description=_("نرخ کارتن (تومان)"))
-    def carton_price_display(self, obj):
-        return f"{obj.carton_price:,} ت"
+    try:
+        import jdatetime
+        j_dt = jdatetime.datetime.fromtimestamp(dt.timestamp())
+        return j_dt.strftime('%Y/%m/%d - %H:%M')
+    except Exception:
+        pass
 
-    @admin.display(description=_("نرخ باکس (تومان)"))
-    def box_price_display(self, obj):
-        return f"{obj.box_price:,} ت"
+    g_y, g_m, g_d = dt.year, dt.month, dt.day
+    g_days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    if (g_y % 4 == 0 and g_y % 100 != 0) or (g_y % 400 == 0):
+        g_days_in_month[2] = 29
+    
+    gy = g_y - 1600
+    gm = g_m - 1
+    gd = g_d - 1
 
-    @admin.display(description=_("موجودی کارتن"))
-    def stock_status(self, obj):
-        if obj.stock_cartons > 20:
-            return format_html('<span style="color: #10b981; font-weight: bold;">{} کارتن</span>', obj.stock_cartons)
-        elif obj.stock_cartons > 0:
-            return format_html('<span style="color: #f59e0b; font-weight: bold;">محدود ({} کارتن)</span>', obj.stock_cartons)
-        return format_html('<span style="color: #ef4444; font-weight: bold;">اتمام موجودی</span>')
+    g_day_no = 365 * gy + gy // 4 - gy // 100 + gy // 400
+    for i in range(gm):
+        g_day_no += g_days_in_month[i + 1]
+    g_day_no += gd
 
-    @admin.action(description=_("✔ فعال‌سازی موجودی در انبار جنت‌آباد"))
-    def mark_as_available(self, request, queryset):
-        queryset.update(is_available=True)
+    j_day_no = g_day_no - 79
+    j_np = j_day_no // 12053
+    j_day_no %= 12053
 
-    @admin.action(description=_("❌ اتمام موجودی کالاهای انتخاب شده"))
-    def mark_as_unavailable(self, request, queryset):
-        queryset.update(is_available=False)
+    jy = 979 + 33 * j_np + 4 * (j_day_no // 1461)
+    j_day_no %= 1461
+
+    if j_day_no >= 366:
+        jy += (j_day_no - 1) // 365
+        j_day_no = (j_day_no - 1) % 365
+
+    j_months = [0, 31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 29]
+    jm = 0
+    for i in range(1, 13):
+        if j_day_no < j_months[i]:
+            jm = i
+            break
+        j_day_no -= j_months[i]
+    jd = j_day_no + 1
+
+    time_str = dt.strftime('%H:%M')
+    return f"{jy:04d}/{jm:02d}/{jd:02d} - {time_str}"
 
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'name_en', 'slug', 'color_badge', 'parent', 'display_order', 'is_active')
-    list_filter = ('is_active', 'color')
-    search_fields = ('name', 'name_en', 'slug', 'description')
+    list_display = ['name', 'name_en', 'slug', 'color_badge', 'created_at_jalali']
+    search_fields = ['name', 'name_en', 'slug', 'description']
     prepopulated_fields = {'slug': ('name',)}
+    ordering = ['-id']
 
-    @admin.display(description=_("رنگ شناسه"))
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
+
+    @admin.display(description=_('رنگ شناسه'))
     def color_badge(self, obj):
+        color = obj.color or '#3B82F6'
         return format_html(
             '<span style="background-color: {}; color: #fff; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 11px;">{}</span>',
-            obj.color or '#3B82F6',
-            obj.color or '#3B82F6'
+            color,
+            color
         )
+
+
+@admin.register(ProductBrand)
+class ProductBrandAdmin(admin.ModelAdmin):
+    list_display = ['id', 'logo_preview', 'name', 'name_en', 'country', 'created_at_jalali']
+    readonly_fields = ['logo_preview']
+    fields = ['name', 'name_en', 'slug', 'logo', 'logo_preview', 'country', 'description']
+    list_filter = ['country']
+    search_fields = ['name', 'name_en', 'slug']
+    prepopulated_fields = {'slug': ('name',)}
+
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
+
+    @admin.display(description=_("پیش‌نمایش تصویر لوگو"))
+    def logo_preview(self, obj):
+        if obj.logo:
+            url = obj.logo.url if hasattr(obj.logo, 'url') else str(obj.logo)
+            return format_html('<img src="{}" style="max-width: 100px; max-height: 60px; border-radius: 8px; object-fit: contain; border: 1px solid #cbd5e1; padding: 3px; background: #ffffff;" />', url)
+        return format_html('<span style="color: #94a3b8; font-size: 12px; font-weight: 500;">بدون تصویر لوگو</span>')
+
+
+BrandAdmin = ProductBrandAdmin
+
+
+@admin.register(ProductHologram)
+class ProductHologramAdmin(admin.ModelAdmin):
+    list_display = ['title', 'issuer_org', 'country_origin', 'security_level', 'is_verified', 'updated_at_jalali']
+    list_filter = ['is_verified', 'security_level']
+    search_fields = ['title', 'issuer_org', 'country_origin', 'security_specs']
+
+    @admin.display(description=_('تاریخ بروزرسانی (شمسی)'), ordering='updated_at')
+    def updated_at_jalali(self, obj):
+        return to_jalali_str(obj.updated_at)
+
+
+class ProductTierDiscountInline(admin.TabularInline):
+    model = ProductTierDiscount
+    extra = 1
+
+class ProductAttributeValueInline(admin.TabularInline):
+    model = ProductAttributeValue
+    extra = 1
+
+class ProductKeyFeatureInline(admin.TabularInline):
+    model = ProductKeyFeature
+    extra = 1
+
+class ProductImageInline(admin.TabularInline):
+    model = ProductImage
+    extra = 1
+
+
+@admin.register(Product)
+class ProductAdmin(admin.ModelAdmin):
+    list_display = [
+        'name',
+        'barcode',
+        'category',
+        'brand',
+        'carton_price_toman',
+        'stock_cartons',
+        'badge_display',
+        'is_active',
+        'created_at_jalali',
+    ]
+    list_filter = [
+        'is_active',
+        'badge',
+        'category',
+        'brand',
+        'has_carton',
+        'has_box',
+        'is_pos_only',
+    ]
+    search_fields = ['name', 'name_en', 'barcode', 'slug', 'focus_keyword']
+    prepopulated_fields = {'slug': ('name',)}
+    autocomplete_fields = ['category', 'brand', 'hologram']
+
+    inlines = [
+        ProductTierDiscountInline,
+        ProductAttributeValueInline,
+        ProductKeyFeatureInline,
+        ProductImageInline,
+    ]
+
+    fieldsets = (
+        (_('شناسنامه و اطلاعات پایه کالا'), {
+            'fields': (
+                'name',
+                'name_en',
+                'slug',
+                'barcode',
+                'category',
+                'brand',
+                'hologram',
+                'country_origin',
+                'badge',
+            )
+        }),
+        (_('قیمت‌گذاری و انبارداری بنکداری (جنت‌آباد)'), {
+            'fields': (
+                ('carton_price', 'box_price', 'pack_price'),
+                ('stock_cartons', 'boxes_per_carton', 'packs_per_box'),
+                ('min_order_carton', 'min_order_box'),
+                ('has_carton', 'has_box', 'is_pos_only'),
+            )
+        }),
+        (_('مشخصات فنی و دخانیات (قطران و نیکوتین)'), {
+            'fields': (
+                ('tar', 'nicotine', 'carbon_monoxide'),
+                ('cigarette_size', 'filter_type'),
+            ),
+            'classes': ('collapse',),
+        }),
+        (_('توضیحات و رسانه'), {
+            'fields': ('excerpt', 'full_description', 'main_image'),
+        }),
+        (_('تنظیمات سئو پیشرفته (Yoast SEO)'), {
+            'fields': ('focus_keyword', 'meta_title', 'meta_description', 'canonical_url'),
+            'classes': ('collapse',),
+        }),
+        (_('وضعیت فعالیت'), {
+            'fields': ('is_active',),
+        }),
+    )
+
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
+
+    def carton_price_toman(self, obj):
+        return f"{obj.carton_price:,} تومان"
+    carton_price_toman.short_description = _('قیمت کارتن')
+
+    def badge_display(self, obj):
+        colors = {
+            'none': '#64748b',
+            'bestseller': '#ef4444',
+            'special': '#f59e0b',
+            'new': '#10b981',
+            'discount': '#8b5cf6',
+            'import': '#06b6d4',
+        }
+        return format_html(
+            '<span style="background-color: {}; color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 11px;">{}</span>',
+            colors.get(obj.badge, '#64748b'),
+            obj.get_badge_display()
+        )
+    badge_display.short_description = _('نشان محصول')
+
+
+@admin.register(ProductAttribute)
+class ProductAttributeAdmin(admin.ModelAdmin):
+    list_display = ['id', 'name', 'name_en', 'data_type', 'unit', 'help_text_short', 'created_at_jalali']
+    list_filter = ['data_type']
+    search_fields = ['name', 'name_en', 'help_text']
+    ordering = ['-id']
+
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
+
+    @admin.display(description=_('توضیح راهنما'))
+    def help_text_short(self, obj):
+        if not obj.help_text:
+            return '-'
+        return obj.help_text[:50] + ('...' if len(obj.help_text) > 50 else '')
+
+
+@admin.register(ProductAttributeValue)
+class ProductAttributeValueAdmin(admin.ModelAdmin):
+    list_display = ['id', 'product', 'attribute', 'display_val']
+    list_filter = ['attribute__data_type', 'attribute']
+    search_fields = ['product__name', 'product__name_en', 'attribute__name', 'value']
+    autocomplete_fields = ['product', 'attribute']
+
+    @admin.display(description=_('مقدار ویژگی'))
+    def display_val(self, obj):
+        if obj.value:
+            return obj.value
+        if obj.value_number is not None:
+            return f"{obj.value_number} {obj.attribute.unit or ''}".strip()
+        if obj.value_boolean is not None:
+            return _("بله") if obj.value_boolean else _("خیر")
+        return "-"
 `,
     serializers: `"""
 products/serializers.py
-سریالایزرهای کاتالوگ محصولات، برندها، ویژگی‌های فنی و تخفیف‌های تیراژ
+سریالایزرهای DRF برای دسته‌بندی‌های درختی، هولوگرام، ویژگی‌های فنی و کاتالوگ محصولات (همگام با صندوق و آنلاین)
 """
+
 from rest_framework import serializers
-from .models import Category, Brand, ProductAttribute, ProductAttributeValue, CigaretteProduct, PriceTier
+from django.utils.text import slugify
+import uuid
+from .models import (
+    Category,
+    ProductBrand,
+    ProductHologram,
+    ProductAttribute,
+    Product,
+    ProductAttributeValue,
+    ProductImage
+)
 
 
-class PriceTierSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PriceTier
-        fields = ['id', 'min_quantity', 'discount_percent']
-
-
-class BrandSerializer(serializers.ModelSerializer):
-    """
-    سریالایزر برندها با پشتیبانی از آپلود لوگو و تولید آدرس کامل پیش‌نمایش (logo_preview)
-    """
+class ProductBrandSerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(required=False, allow_blank=True)
     logo_preview = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
-        model = Brand
-        fields = ['id', 'name', 'country_of_origin', 'logo', 'logo_preview', 'description']
+        model = ProductBrand
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'slug',
+            'logo',
+            'logo_preview',
+            'country',
+            'description',
+            'created_at'
+        ]
         extra_kwargs = {
+            'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'country': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
             'logo': {'required': False, 'allow_null': True},
         }
 
@@ -1148,61 +1381,331 @@ class BrandSerializer(serializers.ModelSerializer):
             return url
         return str(obj.logo)
 
+    def validate(self, attrs):
+        if not attrs.get('slug'):
+            base_name = attrs.get('name_en') or attrs.get('name') or ''
+            generated_slug = slugify(base_name, allow_unicode=True)
+            if not generated_slug:
+                generated_slug = f"brand-{uuid.uuid4().hex[:8]}"
+            attrs['slug'] = generated_slug
+        return attrs
+
+
+BrandSerializer = ProductBrandSerializer
+
+
+class CategorySerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(required=False, allow_blank=True)
+    color_display = serializers.CharField(source='get_color_display', read_only=True)
+    products_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Category
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'slug',
+            'color',
+            'color_display',
+            'description',
+            'products_count',
+            'created_at',
+            'updated_at'
+        ]
+        extra_kwargs = {
+            'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'color': {'required': False},
+        }
+
+    def validate(self, attrs):
+        if not attrs.get('slug'):
+            base_name = attrs.get('name_en') or attrs.get('name') or ''
+            generated_slug = slugify(base_name, allow_unicode=True)
+            if not generated_slug:
+                generated_slug = f"cat-{uuid.uuid4().hex[:8]}"
+            attrs['slug'] = generated_slug
+        return attrs
+
+    def get_products_count(self, obj):
+        return obj.products.count()
+
+
+class ProductHologramSerializer(serializers.ModelSerializer):
+    security_level_display = serializers.CharField(source='get_security_level_display', read_only=True)
+
+    class Meta:
+        model = ProductHologram
+        fields = [
+            'id',
+            'title',
+            'issuer_org',
+            'country_origin',
+            'security_level',
+            'security_level_display',
+            'security_specs',
+            'is_verified',
+            'created_at',
+            'updated_at',
+        ]
+        extra_kwargs = {
+            'issuer_org': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'country_origin': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'security_specs': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
+
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
-    """
-    سریالایزر ویژگی‌های محصول (بدون is_required و display_order)
-    """
+    data_type_display = serializers.CharField(source='get_data_type_display', read_only=True)
+
     class Meta:
         model = ProductAttribute
-        fields = ['id', 'name_fa', 'name_en']
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'data_type',
+            'data_type_display',
+            'unit',
+            'help_text',
+        ]
 
 
 class ProductAttributeValueSerializer(serializers.ModelSerializer):
-    attribute_name_fa = serializers.CharField(source='attribute.name_fa', read_only=True)
-    attribute_name_en = serializers.CharField(source='attribute.name_en', read_only=True)
+    attribute_name = serializers.CharField(source='attribute.name', read_only=True)
+    attribute_unit = serializers.CharField(source='attribute.unit', read_only=True)
 
     class Meta:
         model = ProductAttributeValue
-        fields = ['id', 'attribute', 'attribute_name_fa', 'attribute_name_en', 'value']
-
-
-class CigaretteProductSerializer(serializers.ModelSerializer):
-    brand_name = serializers.CharField(source='brand.name', read_only=True)
-    tier_discounts = PriceTierSerializer(many=True, read_only=True)
-    attribute_values = ProductAttributeValueSerializer(many=True, read_only=True)
-    category_display = serializers.CharField(source='get_category_display', read_only=True)
-
-    class Meta:
-        model = CigaretteProduct
         fields = [
             'id',
-            'name_fa',
+            'attribute',
+            'attribute_name',
+            'attribute_unit',
+            'value',
+            'value_number',
+            'value_boolean',
+        ]
+
+
+class ProductImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductImage
+        fields = ['id', 'image', 'order']
+
+
+class ProductSerializer(serializers.ModelSerializer):
+    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_color = serializers.CharField(source='category.color', read_only=True)
+    brand_detail = ProductBrandSerializer(source='brand', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True, default='')
+    brand_logo = serializers.SerializerMethodField(read_only=True)
+    hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
+    gallery = ProductImageSerializer(many=True, read_only=True)
+    attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            'id',
+            'name',
             'name_en',
+            'slug',
+            'brand',
+            'brand_detail',
+            'brand_name',
+            'brand_logo',
             'barcode',
             'category',
-            'category_display',
-            'brand',
-            'brand_name',
-            'origin',
-            'carton_price',
+            'category_name',
+            'category_color',
+            'hologram',
+            'hologram_detail',
             'box_price',
             'boxes_per_carton',
-            'moq',
-            'tar',
-            'nicotine',
-            'hologram',
-            'badge',
-            'is_available',
+            'carton_price',
+            'pack_price',
+            'packs_per_box',
+            'purchase_price',
             'stock_cartons',
             'stock_boxes',
-            'price_trend',
-            'image_url',
-            'description',
-            'tier_discounts',
-            'attribute_values',
-            'updated_at',
+            'image',
+            'gallery',
+            'attributes_values',
+            'is_pos_only',
+            'is_box_only',
+            'has_carton',
+            'has_box',
+            'has_pack',
+            'is_active',
+            'is_featured',
+            'created_at',
+            'updated_at'
         ]
+
+    def get_brand_logo(self, obj):
+        if obj.brand and obj.brand.logo:
+            request = self.context.get('request')
+            if hasattr(obj.brand.logo, 'url'):
+                url = obj.brand.logo.url
+                if request is not None:
+                    return request.build_absolute_uri(url)
+                return url
+            return str(obj.brand.logo)
+        return None
+
+
+class ProductDetailSerializer(serializers.ModelSerializer):
+    category_detail = CategorySerializer(source='category', read_only=True)
+    brand_detail = ProductBrandSerializer(source='brand', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True, default='')
+    brand_logo = serializers.SerializerMethodField(read_only=True)
+    hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
+    gallery = ProductImageSerializer(many=True, read_only=True)
+    attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            'id',
+            'name',
+            'name_en',
+            'slug',
+            'brand',
+            'brand_detail',
+            'brand_name',
+            'brand_logo',
+            'barcode',
+            'category',
+            'category_detail',
+            'hologram',
+            'hologram_detail',
+            'box_price',
+            'boxes_per_carton',
+            'carton_price',
+            'pack_price',
+            'packs_per_box',
+            'purchase_price',
+            'stock_cartons',
+            'stock_boxes',
+            'image',
+            'gallery',
+            'attributes_values',
+            'full_description',
+            'excerpt',
+            'is_pos_only',
+            'is_box_only',
+            'has_carton',
+            'has_box',
+            'has_pack',
+            'is_active',
+            'is_featured',
+            'created_at',
+            'updated_at'
+        ]
+
+    def get_brand_logo(self, obj):
+        if obj.brand and obj.brand.logo:
+            request = self.context.get('request')
+            if hasattr(obj.brand.logo, 'url'):
+                url = obj.brand.logo.url
+                if request is not None:
+                    return request.build_absolute_uri(url)
+                return url
+            return str(obj.brand.logo)
+        return None
+
+
+class ProductCreateUpdateSerializer(serializers.ModelSerializer):
+    """
+    سریالایزر هوشمند و جامع ثبت و بروزرسانی کالا در دیتابیس دجانگو
+    پشتیبانی کامل از ورودی‌های رشته‌ای یا عددی برند، دسته‌بندی و هولوگرام و ایجاد خودکار موارد جدید
+    """
+    name_fa = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    brand = serializers.PrimaryKeyRelatedField(queryset=ProductBrand.objects.all(), required=False, allow_null=True)
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=False, allow_null=True)
+    hologram = serializers.PrimaryKeyRelatedField(queryset=ProductHologram.objects.all(), required=False, allow_null=True)
+
+    class Meta:
+        model = Product
+        fields = [
+            'id',
+            'name',
+            'name_fa',
+            'name_en',
+            'slug',
+            'brand',
+            'barcode',
+            'category',
+            'hologram',
+            'box_price',
+            'boxes_per_carton',
+            'carton_price',
+            'pack_price',
+            'packs_per_box',
+            'purchase_price',
+            'stock_cartons',
+            'stock_boxes',
+            'min_order_carton',
+            'min_order_box',
+            'image',
+            'full_description',
+            'excerpt',
+            'is_pos_only',
+            'is_box_only',
+            'has_carton',
+            'has_box',
+            'has_pack',
+            'is_active',
+            'is_featured'
+        ]
+
+    def to_internal_value(self, data):
+        data_dict = data.copy() if hasattr(data, 'copy') else dict(data)
+
+        if 'name_fa' in data_dict and data_dict['name_fa'] and not data_dict.get('name'):
+            data_dict['name'] = data_dict['name_fa']
+
+        if 'brand' in data_dict and data_dict['brand'] is not None and data_dict['brand'] != '':
+            b_val = data_dict['brand']
+            if isinstance(b_val, str) and not b_val.isdigit():
+                brand_obj, _ = ProductBrand.objects.get_or_create(
+                    name=b_val,
+                    defaults={'slug': slugify(b_val, allow_unicode=True) or f"brand-{uuid.uuid4().hex[:6]}"}
+                )
+                data_dict['brand'] = brand_obj.id
+            elif isinstance(b_val, (int, str)) and str(b_val).isdigit():
+                data_dict['brand'] = int(b_val)
+
+        if 'category' in data_dict and data_dict['category'] is not None and data_dict['category'] != '':
+            c_val = data_dict['category']
+            if isinstance(c_val, str) and not c_val.isdigit():
+                cat_obj = Category.objects.filter(Q(slug=c_val) | Q(name=c_val) | Q(name_en=c_val)).first()
+                if not cat_obj:
+                    cat_obj = Category.objects.create(
+                        name=c_val,
+                        slug=slugify(c_val, allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
+                    )
+                data_dict['category'] = cat_obj.id
+            elif isinstance(c_val, (int, str)) and str(c_val).isdigit():
+                data_dict['category'] = int(c_val)
+
+        if 'hologram' in data_dict and data_dict['hologram'] is not None and data_dict['hologram'] != '':
+            h_val = data_dict['hologram']
+            if isinstance(h_val, str) and not h_val.isdigit():
+                holo_obj = ProductHologram.objects.filter(title=h_val).first()
+                if not holo_obj:
+                    holo_obj = ProductHologram.objects.create(title=h_val)
+                data_dict['hologram'] = holo_obj.id
+            elif isinstance(h_val, (int, str)) and str(h_val).isdigit():
+                data_dict['hologram'] = int(h_val)
+
+        if not data_dict.get('slug') and data_dict.get('name'):
+            gen_slug = slugify(data_dict.get('name_en') or data_dict.get('name'), allow_unicode=True)
+            data_dict['slug'] = gen_slug or f"prod-{uuid.uuid4().hex[:8]}"
+
+        return super().to_internal_value(data_dict)
 `,
     views: `"""
 products/views.py
@@ -1822,27 +2325,67 @@ class ProductDeleteAPIView(APIView):
 `,
     urls: `"""
 products/urls.py
-مسیرهای URL محصولات، برندها، ویژگی‌های فنی و مقادیر ویژگی‌ها
+مسیرهای جامع REST API برای دسته‌بندی‌ها، برندها، هولوگرام، ویژگی‌ها، کاتالوگ محصولات و صندوق (POS Sync)
 """
+
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    CigaretteProductViewSet, 
-    BrandViewSet, 
-    ProductAttributeViewSet, 
-    ProductAttributeValueViewSet
+    BrandViewSet,
+    ProductBrandListCreateAPIView,
+    ProductBrandDetailUpdateDeleteAPIView,
+    CategoryListCreateAPIView,
+    CategoryDetailUpdateDeleteAPIView,
+    HologramListCreateAPIView,
+    HologramDetailUpdateDeleteAPIView,
+    ProductAttributeListCreateAPIView,
+    ProductAttributeDetailUpdateDeleteAPIView,
+    ProductAttributeValuesSetAPIView,
+    ProductListAPIView,
+    PosCatalogAPIView,
+    ProductFeaturedAPIView,
+    ProductCreateAPIView,
+    ProductDetailAPIView,
+    ProductUpdateAPIView,
+    ProductSyncPosStockAPIView,
+    ProductDeleteAPIView,
 )
 
 app_name = 'products'
 
 router = DefaultRouter()
-router.register(r'brands', BrandViewSet, basename='brand')
-router.register(r'attributes', ProductAttributeViewSet, basename='attribute')
-router.register(r'attribute-values', ProductAttributeValueViewSet, basename='attribute-value')
-router.register(r'products', CigaretteProductViewSet, basename='product')
+router.register(r'brands-router', BrandViewSet, basename='brand-viewset')
 
 urlpatterns = [
+    # روتر اختیاری
     path('', include(router.urls)),
+
+    # کاتالوگ و مدیریت محصولات (ورژن مستقیم کوتاه و استاندارد)
+    path('items/', ProductListAPIView.as_view(), name='product-list'),
+    path('items/create/', ProductCreateAPIView.as_view(), name='product-create'),
+    path('items/featured/', ProductFeaturedAPIView.as_view(), name='product-featured'),
+    path('items/pos-catalog/', PosCatalogAPIView.as_view(), name='product-pos-catalog'),
+    path('items/<int:pk>/', ProductDetailAPIView.as_view(), name='product-detail'),
+    path('items/<int:pk>/update/', ProductUpdateAPIView.as_view(), name='product-update'),
+    path('items/<int:pk>/delete/', ProductDeleteAPIView.as_view(), name='product-delete'),
+    path('items/<int:pk>/pos-sync-stock/', ProductSyncPosStockAPIView.as_view(), name='product-pos-sync-stock'),
+
+    # مسیرهای میان‌بر جهت سازگاری کامل فرانت‌اند
+    path('create/', ProductCreateAPIView.as_view(), name='product-create-short'),
+    path('<int:pk>/', ProductDetailAPIView.as_view(), name='product-detail-short'),
+    path('<int:pk>/update/', ProductUpdateAPIView.as_view(), name='product-update-short'),
+    path('<int:pk>/delete/', ProductDeleteAPIView.as_view(), name='product-delete-short'),
+
+    # برندها، دسته‌بندی‌ها، هولوگرام و ویژگی‌ها
+    path('brands/', ProductBrandListCreateAPIView.as_view(), name='product-brand-list-create'),
+    path('brands/<int:pk>/', ProductBrandDetailUpdateDeleteAPIView.as_view(), name='product-brand-detail'),
+    path('categories/', CategoryListCreateAPIView.as_view(), name='category-list-create'),
+    path('categories/<int:pk>/', CategoryDetailUpdateDeleteAPIView.as_view(), name='category-detail'),
+    path('holograms/', HologramListCreateAPIView.as_view(), name='hologram-list-create'),
+    path('holograms/<int:pk>/', HologramDetailUpdateDeleteAPIView.as_view(), name='hologram-detail'),
+    path('attributes/', ProductAttributeListCreateAPIView.as_view(), name='attribute-list-create'),
+    path('attributes/<int:pk>/', ProductAttributeDetailUpdateDeleteAPIView.as_view(), name='attribute-detail'),
+    path('items/<int:pk>/attributes/', ProductAttributeValuesSetAPIView.as_view(), name='product-attribute-values-set'),
 ]
 `,
   },
