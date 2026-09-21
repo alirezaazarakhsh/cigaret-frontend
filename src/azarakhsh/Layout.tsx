@@ -28,7 +28,13 @@ import {
   Terminal,
   FileCode,
   Check,
-  BadgeDollarSign
+  BadgeDollarSign,
+  Coins,
+  Archive,
+  BarChart3,
+  Bell,
+  Image,
+  MonitorSmartphone
 } from 'lucide-react';
 import { AzarakhshSectionId, DocSectionMeta, DocGroup } from './types';
 
@@ -41,6 +47,7 @@ interface AzarakhshLayoutProps {
 }
 
 export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
+  // Group 1: Setup & Infrastructure (1 to 4)
   {
     id: 'zero-to-hero',
     title: '۱. آموزش گام‌به‌گام از صفر',
@@ -72,8 +79,21 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'استقرار و زیرساخت'
   },
   {
+    id: 'kavenegar_sms',
+    title: '۴. سرویس پیامک کاوه‌نگار',
+    titleEn: 'kavenegar_sms / Kavenegar OTP & Pattern Gateway App',
+    description: 'تنظیمات دینامیک وب‌سرویس پیامکی کاوه‌نگار به همراه پترن‌های اعتبارسنجی (Lookup) برای ارسال سریع کدهای OTP، خوش‌آمدگویی و خروج کاربران.',
+    badge: 'SMS API',
+    iconName: 'MessageSquare',
+    appFolder: 'kavenegar_sms',
+    group: 'setup',
+    groupTitle: 'استقرار و زیرساخت'
+  },
+
+  // Group 2: Configuration & Branding (5 to 7)
+  {
     id: 'site-settings',
-    title: '۴. تنظیمات سایت، لوگو و تماس',
+    title: '۵. تنظیمات سایت، لوگو و تماس',
     titleEn: 'site_settings App',
     description: 'لوگو لایت/دارک، متون هدر، فرم تماس، متون فوتر و راهنمای باربری و بیمه',
     badge: 'تنظیمات',
@@ -84,7 +104,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'slider',
-    title: 'اپلیکیشن هیروبنر و اسلایدر',
+    title: '۶. اپلیکیشن هیروبنر و اسلایدر',
     titleEn: 'slider / Hero Banner App',
     description: 'مدیریت اسلایدهای هیروبنر، تصاویر باکیفیت، دکمه‌های اکشن و آمار',
     badge: 'اسلایدر',
@@ -94,8 +114,21 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'تنظیمات و برندینگ'
   },
   {
+    id: 'footer-settings',
+    title: '۷. تنظیمات فوتر وب‌سایت',
+    titleEn: 'footer_settings / Website Footer App',
+    description: 'مدیریت متون فوتر، لینک‌های سریع، اطلاعات تماس انبار مرکزی و کپی‌رایت',
+    badge: 'فوتر',
+    iconName: 'Sliders',
+    appFolder: 'footer_settings',
+    group: 'config',
+    groupTitle: 'تنظیمات و برندینگ'
+  },
+
+  // Group 3: Auth & Permissions (8 to 10)
+  {
     id: 'auth-users',
-    title: '۵. اپلیکیشن کاربران و JWT',
+    title: '۸. اپلیکیشن کاربران و JWT',
     titleEn: 'accounts / Custom User App',
     description: 'مدل Custom User بر پایه موبایل، لاگین با رمز و OTP، خروج با Blacklist',
     badge: 'auth',
@@ -106,7 +139,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'posuser',
-    title: 'اپلیکیشن مدیریت صندوق‌داران',
+    title: '۹. اپلیکیشن مدیریت صندوق‌داران',
     titleEn: 'posuser / POS Staff App',
     description: 'ثبت و مدیریت مدیران انبار و پرسنل صندوق با پروفایل‌های اختصاصی',
     badge: 'صندوق‌دار',
@@ -116,19 +149,34 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'احراز هویت و دسترسی'
   },
   {
+    id: 'regular-customers',
+    title: '۱۰. مشتریان معمولی و عمده',
+    titleEn: 'regular_customers / Regular & Wholesale Customers',
+    description: 'مدیریت پروفایل مشتریان، کدهای اقتصادی، تایید هویت واحدهای صنفی و اعتبار خرید',
+    badge: 'مشتریان',
+    iconName: 'Users',
+    appFolder: 'regular_customers',
+    group: 'auth',
+    groupTitle: 'احراز هویت و دسترسی'
+  },
+
+  // Group 4: Catalog & Stock (11)
+  {
     id: 'products',
-    title: '۶. اپلیکیشن جامع محصولات، دسته‌بندی، هولوگرام و ویژگی‌ها',
+    title: '۱۱. اپلیکیشن جامع محصولات، دسته‌بندی، هولوگرام و ویژگی‌ها',
     titleEn: 'products / Catalog, Categories, Holograms, Attributes & POS Sync',
     description: 'دسته‌بندی‌ها با پالت رنگی (Choice)، هولوگرام و سطوح امنیتی، مشخصات و ویژگی‌های فنی، محاسبه قیمت کارتن/باکس/پاکت، TinyMCE و همگام‌سازی صندوق (is_pos_only)',
-    badge: 'جامع • کاتالوگ و صندوق',
+    badge: 'جامع • کاتالوگ و انبار',
     iconName: 'Package',
     appFolder: 'products',
     group: 'catalog',
     groupTitle: 'کاتالوگ و انبار'
   },
+
+  // Group 5: Sales, Accounting & Logistics (12 to 21)
   {
     id: 'orders',
-    title: '۷. اپلیکیشن سفارشات و پیش‌فاکتور',
+    title: '۱۲. اپلیکیشن سفارشات و پیش‌فاکتور',
     titleEn: 'orders / Proforma Invoice App',
     description: 'صدور پیش‌فاکتور رسمی، اسنپ‌شات اقلام، ثبت فیش واریز و اتصال به ترابری',
     badge: 'پیش‌فاکتور',
@@ -139,9 +187,10 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'shipping',
-    title: '۹. اپلیکیشن باربری و پایانه‌ها',
+    title: '۱۳. اپلیکیشن باربری و پایانه‌ها',
     titleEn: 'shipping / Freight Logistics App',
     description: 'تعرفه‌های استانی کارتن، پایانه شوش، بیمه ۱۰۰٪ و بسته‌بندی ۵ لایه',
+    badge: 'باربری',
     iconName: 'Truck',
     appFolder: 'shipping',
     group: 'commerce',
@@ -149,9 +198,10 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'visitors',
-    title: '۱۰. اپلیکیشن ویزیتوران و بازاریابی',
+    title: '۱۴. اپلیکیشن ویزیتوران و بازاریابی',
     titleEn: 'visitors / Retail Club App',
     description: 'کدهای ویزیتوری، باشگاه مشتریان مغازه‌داران و کمیسیون ۲.۵٪ سود',
+    badge: 'بازاریابی',
     iconName: 'Users',
     appFolder: 'visitors',
     group: 'commerce',
@@ -159,7 +209,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'pos',
-    title: 'اپلیکیشن حسابداری و صندوق فروشگاهی',
+    title: '۱۵. اپلیکیشن حسابداری و صندوق فروشگاهی',
     titleEn: 'pos / Point of Sale App',
     description: 'مدیریت صندوق، چاپ فاکتور حرارتی، ثبت فروش حضوری و تنظیمات صندوق',
     badge: 'POS & Accounting',
@@ -170,7 +220,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'cash-register',
-    title: 'گزارش و تسویه صندوق روزانه',
+    title: '۱۶. گزارش و تسویه صندوق روزانه',
     titleEn: 'cash_register / Daily Cash Close',
     description: 'مدیریت شیفت صندوق، محاسبه مغایرت نقد و پوز، ذخیره در دیتابیس و گزارش بستن صندوق',
     badge: 'تسویه صندوق',
@@ -181,7 +231,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'currency-rates',
-    title: 'تنظیمات نرخ ارز و قیمت‌گذاری دلار/تومان',
+    title: '۱۷. تنظیمات نرخ ارز و قیمت‌گذاری دلار/تومان',
     titleEn: 'currency_rates / Exchange Rates & Multi-Currency',
     description: 'مدیریت نرخ ارز (دلار، درهم، یورو)، بروزرسانی هوشمند قیمت محصولات بر اساس نرخ روز و محاسبه قیمت فروش',
     badge: 'نرخ ارز',
@@ -192,10 +242,10 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'pos-products',
-    title: 'محصولات فروشگاه حضوری',
+    title: '۱۸. محصولات فروشگاه حضوری',
     titleEn: 'pos_products / POS Products',
     description: 'مدیریت کالاهای صندوق، دسته‌بندی نوشیدنی و قهوه',
-    badge: 'POS',
+    badge: 'کالای حضوری',
     iconName: 'Package',
     appFolder: 'pos_products',
     group: 'commerce',
@@ -203,10 +253,10 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'warehouse-stock',
-    title: 'موجودی انبار و کاردکس',
+    title: '۱۹. موجودی انبار و کاردکس',
     titleEn: 'warehouse_stock / Stock & Kardex',
     description: 'مدیریت موجودی کالا و تاریخچه ورود و خروج',
-    badge: 'انبار',
+    badge: 'انبار کالا',
     iconName: 'Archive',
     appFolder: 'warehouse',
     group: 'commerce',
@@ -214,10 +264,10 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'ledger',
-    title: 'حساب‌های دفتری (نسیه)',
+    title: '۲۰. حساب‌های دفتری (نسیه)',
     titleEn: 'ledger / Credit Ledger',
     description: 'مدیریت حساب مشتریان اعتباری و تسویه‌ها',
-    badge: 'مالی',
+    badge: 'حساب دفتری',
     iconName: 'BookOpen',
     appFolder: 'ledger',
     group: 'commerce',
@@ -225,29 +275,20 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'reports',
-    title: 'گزارشات فروش و کالا',
+    title: '۲۱. گزارشات فروش و کالا',
     titleEn: 'reports / Analytics',
     description: 'آمار فروش روزانه و تحلیل تک محصول',
-    badge: 'گزارش',
+    badge: 'گزارش تحلیلی',
     iconName: 'BarChart3',
     appFolder: 'reports',
     group: 'commerce',
     groupTitle: 'فروش، مالی و لجستیک'
   },
-  {
-    id: 'kavenegar_sms',
-    title: 'سرویس پیامک کاوه‌نگار',
-    titleEn: 'kavenegar_sms / Kavenegar',
-    description: 'سرویس احراز هویت پیامکی و اطلاع‌رسانی',
-    badge: 'API',
-    iconName: 'MessageSquare',
-    appFolder: 'kavenegar_sms',
-    group: 'setup',
-    groupTitle: 'راه‌اندازی و زیرساخت'
-  },
+
+  // Group 6: Support & Content (22 to 25)
   {
     id: 'blog-tinymce',
-    title: '۱۱. اپلیکیشن وبلاگ و TinyMCE',
+    title: '۲۲. اپلیکیشن وبلاگ و TinyMCE',
     titleEn: 'blog / SEO Article App',
     description: 'مقالات با HTMLField ادیتور TinyMCE، شمارش بازدید و تصاویر',
     badge: 'TinyMCE',
@@ -258,43 +299,21 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'warehouse-contact',
-    title: 'فرم تماس با انبار و استعلام عمده',
+    title: '۲۳. فرم تماس با انبار و استعلام عمده',
     titleEn: 'warehouse_contact / Warehouse Contact App',
     description: 'مدیریت پیام‌های فرم تماس، استعلام نرخ عمده کارتن و پاسخگویی مدیریت انبار جنت‌آباد',
-    badge: 'تماس',
+    badge: 'تماس با انبار',
     iconName: 'MessageSquare',
     appFolder: 'warehouse_contact',
     group: 'support',
     groupTitle: 'محتوا و پشتیبانی'
   },
   {
-    id: 'regular-customers',
-    title: 'مشتریان معمولی و عمده',
-    titleEn: 'regular_customers / Regular & Wholesale Customers',
-    description: 'مدیریت پروفایل مشتریان، کدهای اقتصادی، تایید هویت واحدهای صنفی و اعتبار خرید',
-    badge: 'مشتریان',
-    iconName: 'Users',
-    appFolder: 'regular_customers',
-    group: 'auth',
-    groupTitle: 'احراز هویت و دسترسی'
-  },
-  {
-    id: 'footer-settings',
-    title: 'تنظیمات فوتر وب‌سایت',
-    titleEn: 'footer_settings / Website Footer App',
-    description: 'مدیریت متون فوتر، لینک‌های سریع، اطلاعات تماس انبار مرکزی و کپی‌رایت',
-    badge: 'فوتر',
-    iconName: 'Sliders',
-    appFolder: 'footer_settings',
-    group: 'config',
-    groupTitle: 'تنظیمات و برندینگ'
-  },
-  {
     id: 'notifications',
-    title: 'سیستم نوتیفیکیشن و اطلاعیه‌ها',
+    title: '۲۴. سیستم نوتیفیکیشن و اطلاعیه‌ها',
     titleEn: 'notifications / User Notifications App',
     description: 'ارسال هشدارهای تغییرات نرخ کارتن، وضعیت سفارشات و اخبار انبار به کاربران',
-    badge: 'نوتیف',
+    badge: 'نوتیفیکیشن',
     iconName: 'Bell',
     appFolder: 'notifications',
     group: 'support',
@@ -302,7 +321,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'tickets-support',
-    title: '۱۱. سامانه جامع تیکتینگ و پشتیبانی (مشتریان و ویزیتورها)',
+    title: '۲۵. سامانه جامع تیکتینگ و پشتیبانی (مشتریان و ویزیتورها)',
     titleEn: 'tickets / Integrated Support & Ticket System',
     description: 'مدیریت متمرکز تیکت‌های پشتیبانی، تسویه پورسانت ویزیتور و تایید فیش واریزی مشتریان',
     badge: 'تیکت هوشمند',
@@ -328,8 +347,32 @@ const renderIcon = (iconName: string) => {
     case 'MessageSquare': return <MessageSquare className="w-4 h-4" />;
     case 'Users': return <Users className="w-4 h-4" />;
     case 'BadgeDollarSign': return <BadgeDollarSign className="w-4 h-4" />;
+    case 'Coins': return <Coins className="w-4 h-4" />;
+    case 'Archive': return <Archive className="w-4 h-4" />;
+    case 'BarChart3': return <BarChart3 className="w-4 h-4" />;
+    case 'Bell': return <Bell className="w-4 h-4" />;
+    case 'Image': return <Image className="w-4 h-4" />;
+    case 'MonitorSmartphone': return <MonitorSmartphone className="w-4 h-4" />;
     default: return <Package className="w-4 h-4" />;
   }
+};
+
+const normalizeFarsi = (str: string) => {
+  if (!str) return '';
+  return str
+    .toLowerCase()
+    .replace(/ی/g, 'ی')
+    .replace(/ي/g, 'ی')
+    .replace(/ک/g, 'ک')
+    .replace(/ك/g, 'ک')
+    .replace(/‌/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const toPersianNumber = (n: number) => {
+  const farsiDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+  return n.toString().replace(/\d/g, x => farsiDigits[parseInt(x)]);
 };
 
 export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
@@ -342,12 +385,16 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const filteredSections = AZARAKHSH_SECTIONS.filter(s => 
-    s.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.titleEn.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    s.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    (s.appFolder && s.appFolder.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredSections = AZARAKHSH_SECTIONS.filter(s => {
+    const normQuery = normalizeFarsi(searchQuery);
+    if (!normQuery) return true;
+    return (
+      normalizeFarsi(s.title).includes(normQuery) ||
+      normalizeFarsi(s.titleEn).includes(normQuery) ||
+      normalizeFarsi(s.description).includes(normQuery) ||
+      (s.appFolder && normalizeFarsi(s.appFolder).includes(normQuery))
+    );
+  });
 
   const currentIndex = AZARAKHSH_SECTIONS.findIndex(s => s.id === activeSection);
   const currentMeta = AZARAKHSH_SECTIONS[currentIndex] || AZARAKHSH_SECTIONS[0];
@@ -369,57 +416,62 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
     <div className={`min-h-screen flex flex-col antialiased selection:bg-blue-600 selection:text-white bg-slate-50 text-slate-800`} dir="rtl">
       
       {/* Top Navbar */}
-      <header className="sticky top-0 z-30 bg-white/95 [#0f1422]/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-colors">
-        <div className="max-w-[1600px] mx-auto px-4 sm:px-8 py-3.5 flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-xs transition-colors">
+        <div className="max-w-[1600px] mx-auto px-3 sm:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-2.5">
           
-          <div className="flex items-center gap-3.5">
+          <div className="flex items-center gap-2 sm:gap-3">
+            {/* Mobile/Tablet Menu Trigger */}
             <button 
               onClick={() => setMobileMenuOpen(true)}
-              className="md:hidden p-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
+              className="lg:hidden p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition cursor-pointer"
               aria-label="منوی مستندات"
             >
-              <Menu className="w-5 h-5" />
+              <Menu className="w-4.5 h-4.5 sm:w-5 sm:h-5" />
             </button>
 
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center font-black shadow-md shadow-blue-600/25">
-                <Sparkles className="w-5 h-5" />
+            <div className="flex items-center gap-2 sm:gap-3">
+              {/* Sparkles Icon (hidden on mobile to maximize space) */}
+              <div className="hidden sm:flex w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white items-center justify-center font-black shadow-sm shadow-blue-600/25 shrink-0">
+                <Sparkles className="w-4.5 h-4.5" />
               </div>
-              <div>
+              <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-black text-slate-900 text-sm sm:text-base tracking-tight">
-                    مستندات اختصاصی جنگو (آذرخش)
+                  {/* Responsive title: compact on mobile, full on tablet+ */}
+                  <span className="font-black text-slate-900 text-xs sm:text-base tracking-tight whitespace-nowrap">
+                    <span className="sm:hidden">مستندات آذرخش</span>
+                    <span className="hidden sm:inline">مستندات اختصاصی جنگو (آذرخش)</span>
                   </span>
-                  <span className="text-[10px] font-black bg-blue-50 text-blue-700 px-2.5 py-0.5 rounded-lg border border-blue-200/60 font-mono">
+                  {/* Hide technical badge on mobile/tablet to avoid vertical header wrapping */}
+                  <span className="hidden md:inline-block text-[10px] font-black bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg border border-blue-200/60 font-mono shrink-0">
                     Django 5.1 LTS • DRF • PostgreSQL
                   </span>
                 </div>
-                <div className="text-xs text-slate-500 hidden sm:block font-medium">
-                  معماری جامع ۱۲ اپلیکیشن، مدل‌ها، پنل ادمین، سریالایزرها، ویوها و مسیرهای REST API
+                {/* Description - hidden on mobile to avoid clutter */}
+                <div className="text-[10px] sm:text-xs text-slate-500 hidden sm:block font-medium truncate max-w-[200px] md:max-w-md lg:max-w-lg mt-0.5">
+                  معماری جامع {toPersianNumber(AZARAKHSH_SECTIONS.length)} بخش، مدل‌ها، پنل ادمین، سریالایزرها و ویوها
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-2.5">
-            
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
             {/* Return to Main Store Button */}
             <button
               onClick={onReturnToApp}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-all cursor-pointer border border-slate-200/70 shadow-xs"
+              className="flex items-center gap-1 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] sm:text-xs font-bold transition-all cursor-pointer border border-slate-200/70 shadow-xs"
               title="بازگشت به سامانه اصلی فروش عمده"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span className="hidden sm:inline">بازگشت به سایت</span>
             </button>
 
             {/* Logout button */}
             <button
               onClick={onLogout}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold border border-rose-200 transition-all cursor-pointer shadow-xs"
+              className="flex items-center gap-1 px-2.5 py-1.5 sm:px-3.5 sm:py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 text-[11px] sm:text-xs font-bold border border-rose-200 transition-all cursor-pointer shadow-xs"
               title="خروج و قفل مستندات"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               <span>خروج</span>
             </button>
           </div>
@@ -428,10 +480,10 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
       </header>
 
       {/* Main Grid: Sidebar + Content */}
-      <div className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-8 py-6 flex flex-col md:flex-row gap-7">
+      <div className="flex-1 max-w-[1600px] w-full mx-auto px-4 sm:px-8 py-6 flex flex-col lg:flex-row gap-7">
         
         {/* Desktop Sidebar (Wide & Structured) */}
-        <aside className="hidden md:flex flex-col w-84 lg:w-96 shrink-0 space-y-4">
+        <aside className="hidden lg:flex flex-col w-84 lg:w-96 shrink-0 space-y-4">
           
           {/* Search Box */}
           <div className="relative">
@@ -440,7 +492,7 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="جستجو در ۱۲ اپلیکیشن، مدل‌ها و سرفصل‌ها..."
+              placeholder={`جستجو در ${toPersianNumber(AZARAKHSH_SECTIONS.length)} بخش، مدل‌ها و سرفصل‌ها...`}
               className="w-full bg-white border border-slate-200/90 rounded-2xl pr-10 pl-9 py-3 text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all shadow-xs font-medium"
             />
             {searchQuery && (
@@ -517,48 +569,91 @@ export const AzarakhshLayout: React.FC<AzarakhshLayoutProps> = ({
 
         {/* Mobile Drawer */}
         {mobileMenuOpen && (
-          <div className="fixed inset-0 z-50 md:hidden bg-slate-900/60 backdrop-blur-xs flex animate-in fade-in duration-200">
-            <div className="bg-white w-5/6 max-w-sm h-full p-5 flex flex-col space-y-4 shadow-2xl animate-in slide-in-from-right duration-200 overflow-y-auto">
+          <div className="fixed inset-0 z-50 lg:hidden bg-slate-900/60 backdrop-blur-xs flex animate-in fade-in duration-200">
+            <div className="bg-white w-5/6 max-w-sm h-full p-5 flex flex-col space-y-4 shadow-2xl animate-in slide-in-from-right duration-200 overflow-hidden">
               
               <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                 <div className="font-black text-slate-900 text-sm">فهرست اپلیکیشن‌های جنگو</div>
                 <button 
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  className="p-1.5 rounded-xl bg-slate-100 text-slate-600 hover:bg-slate-200 cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="space-y-4">
+              {/* Real-time search inside Mobile/Tablet Drawer */}
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="جستجو در سرفصل‌ها و پوشه‌ها..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pr-10 pl-9 py-2.5 text-xs text-slate-800 placeholder-slate-400 focus:outline-hidden focus:border-blue-500 focus:ring-2 focus:ring-blue-100 transition-all font-medium"
+                />
+                {searchQuery && (
+                  <button 
+                    onClick={() => setSearchQuery('')}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs font-bold p-1 rounded-full hover:bg-slate-200 cursor-pointer"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+ 
+              <div className="flex-1 overflow-y-auto space-y-5 pr-0.5 select-none">
                 {groups.map((group) => (
-                  <div key={group.key} className="space-y-1">
-                    <div className="px-2 text-[11px] font-black text-slate-400">
+                  <div key={group.key} className="space-y-1.5">
+                    <div className="px-2 text-[10px] font-black text-slate-400 uppercase tracking-wider">
                       {group.title}
                     </div>
                     <div className="space-y-1">
-                      {group.items.map((sec) => (
-                        <button
-                          key={sec.id}
-                          onClick={() => {
-                            onSelectSection(sec.id);
-                            setMobileMenuOpen(false);
-                          }}
-                          className={`w-full text-right p-3 rounded-2xl flex items-center justify-between text-xs font-bold ${
-                            activeSection === sec.id ? 'bg-blue-600 text-white' : 'hover:bg-slate-50 text-slate-800 '
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            {renderIcon(sec.iconName)}
-                            <span>{sec.title}</span>
-                          </div>
-                        </button>
-                      ))}
+                      {group.items.map((sec) => {
+                        const isActive = activeSection === sec.id;
+                        return (
+                          <button
+                            key={sec.id}
+                            onClick={() => {
+                              onSelectSection(sec.id);
+                              setMobileMenuOpen(false);
+                            }}
+                            className={`w-full text-right p-2.5 rounded-2xl transition-all flex items-center justify-between gap-2.5 text-xs font-bold cursor-pointer ${
+                              isActive
+                                ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 font-black'
+                                : 'text-slate-700 hover:bg-slate-50'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                                isActive ? 'bg-white/20 text-white' : 'bg-slate-100 text-slate-600'
+                              }`}>
+                                {renderIcon(sec.iconName)}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-bold text-xs leading-snug truncate">{sec.title}</div>
+                                <div className={`text-[10px] font-mono leading-tight mt-0.5 truncate ${
+                                  isActive ? 'text-blue-100' : 'text-slate-400'
+                                }`}>
+                                  {sec.appFolder || sec.titleEn}
+                                </div>
+                              </div>
+                            </div>
+
+                            {sec.badge && (
+                              <span className={`text-[9px] px-1.5 py-0.5 rounded-lg font-black shrink-0 ${
+                                isActive ? 'bg-white/20 text-white' : 'bg-blue-50 text-blue-700 border border-blue-200/60'
+                              }`}>
+                                {sec.badge}
+                              </span>
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}
               </div>
-
             </div>
             <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />
           </div>

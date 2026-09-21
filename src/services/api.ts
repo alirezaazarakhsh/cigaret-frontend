@@ -669,12 +669,20 @@ export const productsApi = {
         };
       });
 
+      const isProd = typeof window !== 'undefined' && 
+                     process.env.NODE_ENV === 'production' && 
+                     !window.location.hostname.includes('dev') && 
+                     !window.location.hostname.includes('europe-west2');
+
       // Cache real products in localStorage
       try {
         localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(mappedProducts));
       } catch {}
 
-      return mappedProducts;
+      if (!isProd && mappedProducts.length === 0) {
+        return CIGARETTE_PRODUCTS;
+      }
+      return isProd ? mappedProducts.filter(p => !isMockProduct(p)) : mappedProducts;
     }
 
     // Fallback: local storage (only real products, never fake ones)
@@ -1959,6 +1967,11 @@ export function isMockProduct(p: any): boolean {
 }
 
 export function getLocalProducts(): CigaretteProduct[] {
+  const isProd = typeof window !== 'undefined' && 
+                 process.env.NODE_ENV === 'production' && 
+                 !window.location.hostname.includes('dev') && 
+                 !window.location.hostname.includes('europe-west2');
+
   try {
     const keysToCheck = [STORAGE_KEYS.PRODUCTS, 'wholesale_products', 'sevin_local_products'];
     for (const key of keysToCheck) {
@@ -1968,12 +1981,16 @@ export function getLocalProducts(): CigaretteProduct[] {
         if (Array.isArray(parsed) && parsed.length > 0) {
           const realProducts = parsed.filter(p => !isMockProduct(p));
           if (realProducts.length > 0) {
-            return realProducts;
+            return isProd ? realProducts : parsed;
           }
         }
       }
     }
   } catch {}
+
+  if (!isProd) {
+    return CIGARETTE_PRODUCTS; // Show mock products in preview/dev mode
+  }
   return [];
 }
 

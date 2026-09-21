@@ -585,7 +585,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
             )}
             <span>
               {isSaving
-                ? 'در حال ذخیره‌سازی...'
+                ? 'در حال ثبت نهایی در انبار...'
                 : (isEditing ? 'ذخیره تغییرات محصول' : 'ثبت نهایی در انبار')}
             </span>
           </button>
@@ -1924,6 +1924,44 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
 
         </div>
 
+      </div>
+
+      {/* BOTTOM FLOATING / STICKY ACTION BAR */}
+      <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-slate-200 shadow-xl flex items-center justify-between sticky bottom-4 z-30">
+        <div className="flex items-center gap-2">
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs font-bold text-slate-700">
+            {isEditing ? 'در حال ویرایش کالا' : 'در حال تعریف کالای جدید'}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isSaving}
+            className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-slate-100 transition-colors disabled:opacity-50 cursor-pointer"
+          >
+            انصراف
+          </button>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black shadow-lg shadow-blue-600/30 transition-all flex items-center gap-2.5 active:scale-98 disabled:opacity-70 cursor-pointer"
+          >
+            {isSaving ? (
+              <>
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+                <span>در حال ثبت نهایی و ذخیره‌سازی در انبار...</span>
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4 shrink-0" />
+                <span>{isEditing ? 'ذخیره تغییرات محصول' : 'ثبت نهایی در انبار'}</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
     </form>

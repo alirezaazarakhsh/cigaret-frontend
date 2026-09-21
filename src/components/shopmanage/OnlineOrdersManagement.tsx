@@ -1198,7 +1198,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
       {/* Filter and Search Bar */}
       <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
         {/* Status Filter Tabs */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
+        <div className="flex items-center gap-1 overflow-x-auto pb-1 md:pb-0 no-scrollbar">
           <button
             onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}
             className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
@@ -1453,7 +1453,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
                   </div>
 
                   {/* Payment and Receipt Preview Box (col 5) */}
-                  <div className="md:col-span-5 bg-slate-50/80 p-3 rounded-xl border border-slate-200 flex items-center justify-between gap-3">
+                  <div className="md:col-span-5 bg-slate-50/80 p-3 rounded-xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                     <div className="space-y-1 min-w-0">
                       <div className="text-[11px] text-slate-500 font-bold">روش تسویه:</div>
                       <div className="text-xs font-black text-slate-800 truncate flex items-center gap-1">
@@ -1511,7 +1511,7 @@ export const OnlineOrdersManagement: React.FC<OnlineOrdersManagementProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
                   
                   {/* Financial Totals */}
-                  <div className="flex items-center gap-4 text-xs font-medium text-slate-600">
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs font-medium text-slate-600">
                     <div>
                       <span>مبلغ فاکتور: </span>
                       <span className="font-black text-sm sm:text-base text-blue-600 font-mono">

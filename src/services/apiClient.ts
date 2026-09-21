@@ -115,8 +115,45 @@ async function request<T = any>(
         status: response.status,
       };
     } else {
-      // If token expired or invalid, purge bad token from storage and retry once without token
+      // If token expired or invalid, try to refresh it silently using the refresh token first!
       if (response.status === 401 && responseData?.code === 'token_not_valid' && !options._isRetry) {
+        const storedRefreshToken = typeof localStorage !== 'undefined' ? localStorage.getItem('sevin_refresh_token') : null;
+        if (storedRefreshToken) {
+          try {
+            const baseUrl = getApiBaseUrl();
+            const refreshUrl = `${baseUrl}/api/v1/accounts/token/refresh/`;
+            const refreshRes = await fetch(refreshUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refresh: storedRefreshToken }),
+            });
+            if (refreshRes.ok) {
+              const refreshData = await refreshRes.json();
+              const newAccessToken = refreshData?.access;
+              if (newAccessToken) {
+                // Save new access token
+                setApiToken(newAccessToken);
+                if (typeof localStorage !== 'undefined') {
+                  localStorage.setItem('sevin_api_token', newAccessToken);
+                  // Also extend the session security expires_at time in localStorage
+                  localStorage.setItem('sovin_pos_session_expires_at', String(Date.now() + 30 * 60 * 1000));
+                }
+                // Retry the original request with the new token
+                const retryHeaders = { ...headers, 'Authorization': `Bearer ${newAccessToken}` };
+                const retryInit: RequestInit = {
+                  ...reqInit,
+                  headers: retryHeaders,
+                };
+                options._isRetry = true;
+                const retryRes = await fetchWithTimeout(fullUrl, retryInit, options.timeoutMs || 60000);
+                return await parseResponse(retryRes);
+              }
+            }
+          } catch (err) {
+            console.error('Silent token refresh failed:', err);
+          }
+        }
+
         try {
           invalidatePosTokenAndSession('token_invalid_or_expired');
         } catch {}

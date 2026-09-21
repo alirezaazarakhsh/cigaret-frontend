@@ -25,7 +25,9 @@ import {
   Server,
   WifiOff,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 const renderFeatureIcon = (iconName: string) => {
@@ -50,6 +52,7 @@ import { INITIAL_RETAIL_SHOPS } from './data/retailShops';
 import { Header } from './components/Header';
 import { Footer } from './components/Footer';
 import { ProductCard } from './components/ProductCard';
+import { SkeletonProductCard } from './components/SkeletonProductCard';
 import { PriceRangeSlider } from './components/PriceRangeSlider';
 import { ProductComparisonModal } from './components/ProductComparisonModal';
 import { ProductModal } from './components/ProductModal';
@@ -66,6 +69,7 @@ import { NotificationModal } from './components/NotificationModal';
 import { PwaInstallGuide } from './components/PwaInstallGuide';
 import { AppUpdateNotifier } from './components/AppUpdateNotifier';
 import { AccountingPosPanel } from './components/shopmanage/AccountingPosPanel';
+import { ProductManagerPanel } from './components/shopmanage/ProductManagerPanel';
 import { CustomerOrdersPage } from './components/CustomerOrdersPage';
 import { AzarakhshApiDocs } from './azarakhsh/AzarakhshApiDocs';
 import { HeroBannerSlider } from './components/HeroBannerSlider';
@@ -255,7 +259,6 @@ export default function App() {
       setActiveTabState('catalog');
     }
     if (pushHistory && typeof window !== 'undefined') {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
       const targetUrl = catId === 'all' ? '/' : `/product/category/${catId}`;
       if (window.location.pathname !== targetUrl) {
         window.history.pushState({ category: catId, tab: 'catalog' }, '', targetUrl);
@@ -468,6 +471,8 @@ export default function App() {
     return getLocalProducts();
   });
 
+  const [isProductsLoading, setIsProductsLoading] = useState<boolean>(true);
+
   // Django CRM Configuration
   const [djangoConfig, setDjangoConfig] = useState<DjangoCrmConfig>(() => {
     const defaultContract = `بسمه تعالی - قرارداد همکاری ویزیتوری سامانه دخانیات سرو
@@ -577,8 +582,19 @@ export default function App() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 200000000]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'stock'>('featured');
+  const [currentPage, setCurrentPage] = useState<number>(1);
+
+  // Reset page to 1 when any filter changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, selectedBrand, priceRange, searchQuery, sortBy]);
   
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    const isProd = typeof window !== 'undefined' && 
+                   process.env.NODE_ENV === 'production' && 
+                   !window.location.hostname.includes('dev') && 
+                   !window.location.hostname.includes('europe-west2');
+    if (isProd) return [];
     return [
       { product: CIGARETTE_PRODUCTS[0], unit: 'carton', quantity: 3 },
       { product: CIGARETTE_PRODUCTS[2], unit: 'carton', quantity: 5 },
@@ -666,11 +682,17 @@ export default function App() {
         }
       }).catch(() => {});
       // 1. Fetch Products with zero cache
+      setIsProductsLoading(true);
       api.products.getAll().then((loadedProducts) => {
         if (isMounted && Array.isArray(loadedProducts)) {
           setProducts(loadedProducts);
         }
-      }).catch(() => {});
+      }).catch(() => {})
+        .finally(() => {
+          if (isMounted) {
+            setIsProductsLoading(false);
+          }
+        });
 
       // 2. Fetch Footer & Site Settings
       api.footer.getSettings().then((loadedFooter) => {
@@ -1005,9 +1027,20 @@ export default function App() {
       if (sortBy === 'price-asc') return a.cartonPrice - b.cartonPrice;
       if (sortBy === 'price-desc') return b.cartonPrice - a.cartonPrice;
       if (sortBy === 'stock') return b.stockCartons - a.stockCartons;
-      return 0;
+      // Default / Featured: Sort by most up-to-date first (highest djangoId/numeric id first)
+      const idA = a.djangoId ? Number(a.djangoId) : (parseInt(String(a.id).replace(/\D/g, ''), 10) || 0);
+      const idB = b.djangoId ? Number(b.djangoId) : (parseInt(String(b.id).replace(/\D/g, ''), 10) || 0);
+      if (idB !== idA) return idB - idA;
+      return String(b.id).localeCompare(String(a.id));
     });
   }, [products, selectedCategory, dynamicCategories, selectedBrand, priceRange, searchQuery, sortBy]);
+
+  const ITEMS_PER_PAGE = 10;
+  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const paginatedProducts = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredProducts.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredProducts, currentPage]);
 
   // Cart operations
   const handleAddToCart = (product: CigaretteProduct, unit: 'carton' | 'box', quantity: number) => {
@@ -1107,6 +1140,31 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col selection:bg-blue-600 selection:text-white transition-colors duration-200">
+      
+      {/* CSS Media Query for Tablet Landscape Mode Optimization */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media (min-width: 768px) and (max-width: 1180px) and (orientation: landscape) {
+          .min-h-screen {
+            display: flex !important;
+            flex-direction: column !important;
+            overflow-x: hidden !important;
+            max-width: 100vw !important;
+          }
+          
+          /* Prevent horizontal overflow on the main container & content */
+          .min-h-screen main {
+            max-width: 100% !important;
+            padding-left: 1.25rem !important;
+            padding-right: 1.25rem !important;
+            overflow-x: hidden !important;
+          }
+
+          /* Force any grid containers that might overflow to adapt to standard responsive column layouts */
+          .min-h-screen .grid {
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) !important;
+          }
+        }
+      `}} />
       
       {/* Toast Notification */}
       {toastMessage && (
@@ -1331,14 +1389,26 @@ export default function App() {
             <div>
               <div className="flex items-center justify-between mb-3 text-xs text-slate-500 ">
                 <span>
-                  نمایش <strong className="text-slate-900 ">{formatNumberFa(filteredProducts.length)}</strong> ردیف کالای عمده در انبار جنت‌آباد
+                  {isProductsLoading ? (
+                    <span>در حال دریافت لیست محصولات از سرور مرکزی...</span>
+                  ) : (
+                    <span>
+                      نمایش <strong className="text-slate-900 ">{formatNumberFa(filteredProducts.length)}</strong> ردیف کالای عمده در انبار جنت‌آباد
+                    </span>
+                  )}
                 </span>
                 <span className="text-blue-700 font-black">
                   فروش مستقیم کارتن و باکس پلمپ
                 </span>
               </div>
 
-              {filteredProducts.length === 0 ? (
+              {isProductsLoading ? (
+                <div className="main-product-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 items-stretch">
+                  {[...Array(8)].map((_, idx) => (
+                    <SkeletonProductCard key={`skeleton-${idx}`} />
+                  ))}
+                </div>
+              ) : filteredProducts.length === 0 ? (
                 <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center space-y-3 shadow-xs">
                   <Package className="w-10 h-10 text-slate-400 mx-auto" />
                   <div className="text-sm font-bold text-slate-700 ">
@@ -1359,17 +1429,64 @@ export default function App() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 items-stretch">
-                  {filteredProducts.map(product => (
-                    <ProductCard
-                      key={product.id}
-                      product={product}
-                      onAddToCart={handleAddToCart}
-                      onOpenDetails={(p) => setActiveProductModal(p)}
-                      isSelected={comparedProductIds.includes(product.id)}
-                      onToggleSelect={handleToggleCompareProduct}
-                    />
-                  ))}
+                <div className="space-y-6">
+                  <div className="main-product-grid grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4 sm:gap-5 lg:gap-6 items-stretch">
+                    {paginatedProducts.map(product => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        onAddToCart={handleAddToCart}
+                        onOpenDetails={(p) => setActiveProductModal(p)}
+                        isSelected={comparedProductIds.includes(product.id)}
+                        onToggleSelect={handleToggleCompareProduct}
+                      />
+                    ))}
+                  </div>
+
+                  {/* Elegant Pagination Controls */}
+                  {totalPages > 1 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-slate-200/80" dir="rtl">
+                      <div className="text-[11px] sm:text-xs text-slate-500 font-bold">
+                        نمایش {formatNumberFa((currentPage - 1) * ITEMS_PER_PAGE + 1)} تا {formatNumberFa(Math.min(currentPage * ITEMS_PER_PAGE, filteredProducts.length))} از {formatNumberFa(filteredProducts.length)} محصول
+                      </div>
+                      
+                      <div className="flex items-center gap-1.5" dir="ltr">
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                          disabled={currentPage === totalPages}
+                          className="px-3.5 py-2 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 disabled:opacity-40 disabled:hover:bg-white text-xs font-black transition-colors flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          <ChevronLeft className="w-4 h-4" />
+                          <span>بعدی</span>
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                            <button
+                              key={page}
+                              onClick={() => setCurrentPage(page)}
+                              className={`w-9 h-9 rounded-2xl text-xs font-black transition-all cursor-pointer ${
+                                currentPage === page
+                                  ? 'bg-blue-600 text-white shadow-xs scale-105'
+                                  : 'bg-white border border-slate-200 text-slate-700 hover:bg-slate-50'
+                              }`}
+                            >
+                              {formatNumberFa(page)}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                          disabled={currentPage === 1}
+                          className="px-3.5 py-2 rounded-2xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 disabled:opacity-40 disabled:hover:bg-white text-xs font-black transition-colors flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed"
+                        >
+                          <span>قبلی</span>
+                          <ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -1523,6 +1640,16 @@ export default function App() {
           <CustomerOrdersPage
             onNavigate={(tab) => setActiveTab(tab as any)}
             currentUser={currentUser}
+          />
+        )}
+
+        {/* TAB: Product Management Panel */}
+        {activeTab === 'product-manage' && (
+          <ProductManagerPanel
+            onClose={() => setActiveTab('catalog')}
+            onProductSaved={() => {
+              setProducts(djangoDatabaseStore.getProducts());
+            }}
           />
         )}
 

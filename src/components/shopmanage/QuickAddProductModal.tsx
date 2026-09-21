@@ -178,6 +178,8 @@ export const QuickAddProductModal: React.FC<QuickAddProductModalProps> = ({
     }
   };
 
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!nameFa.trim()) {
@@ -185,55 +187,62 @@ export const QuickAddProductModal: React.FC<QuickAddProductModalProps> = ({
       return;
     }
 
-    const finalBarcode = barcode.trim() || '626' + Date.now().toString().slice(-9);
+    setIsSubmitting(true);
+    try {
+      const finalBarcode = barcode.trim() || '626' + Date.now().toString().slice(-9);
 
-    const finalCartonPrice = enableCarton ? Number(cartonPrice) || 0 : 0;
-    const finalBoxPrice = enableBox ? Number(boxPrice) || 0 : 0;
-    const finalPackPrice = enablePack ? Number(packPrice) || 0 : 0;
+      const finalCartonPrice = enableCarton ? Number(cartonPrice) || 0 : 0;
+      const finalBoxPrice = enableBox ? Number(boxPrice) || 0 : 0;
+      const finalPackPrice = enablePack ? Number(packPrice) || 0 : 0;
 
-    const newProduct: CigaretteProduct = {
-      id: `prod_${Date.now()}`,
-      nameFa: nameFa.trim(),
-      nameEn: nameEn.trim() || nameFa.trim(),
-      brand: brand.trim() || 'دخانیات سرو',
-      category,
-      origin: origin || 'اصلی',
-      tar: '0',
-      nicotine: '0',
-      cartonPrice: finalCartonPrice,
-      baseCartonPrice: finalCartonPrice,
-      boxPrice: finalBoxPrice,
-      packPrice: finalPackPrice,
-      boxesPerCarton: enableCarton ? (Number(boxesPerCarton) || 50) : 1,
-      packsPerBox: enableBox ? (Number(packsPerBox) || 10) : 1,
-      stockCartons: Number(initialCartons) || 0,
-      hasCarton: enableCarton,
-      hasBox: enableBox,
-      hasPack: enablePack,
-      unitName,
-      pricePerUnit: finalPackPrice,
-      moq: 1,
-      image: category === 'drinks_coffee' 
-        ? 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80' 
-        : category === 'charcoal'
-          ? 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80'
-          : category === 'iqos_devices' || category === 'iqos_heets'
-            ? 'https://images.unsplash.com/photo-1527016021513-b09758b777bd?auto=format&fit=crop&w=600&q=80'
-            : 'https://images.unsplash.com/photo-1541689592655-f5f52825a3b8?auto=format&fit=crop&w=600&q=80',
-      barcode: finalBarcode,
-      lastPriceUpdate: new Date().toLocaleDateString('fa-IR'),
-      hologram: hologram === 'بدون هولوگرام' ? '' : hologram,
-      tierDiscounts: [],
-      description: `ثبت اختصاصی دیتابیس صندوق بنکداری دخانیات سرو در تاریخ ${new Date().toLocaleDateString('fa-IR')}`,
-      isAvailable: true,
-      isPosOnly,
-    };
+      const newProduct: CigaretteProduct = {
+        id: `prod_${Date.now()}`,
+        nameFa: nameFa.trim(),
+        nameEn: nameEn.trim() || nameFa.trim(),
+        brand: brand.trim() || 'دخانیات سرو',
+        category,
+        origin: origin || 'اصلی',
+        tar: '0',
+        nicotine: '0',
+        cartonPrice: finalCartonPrice,
+        baseCartonPrice: finalCartonPrice,
+        boxPrice: finalBoxPrice,
+        packPrice: finalPackPrice,
+        boxesPerCarton: enableCarton ? (Number(boxesPerCarton) || 50) : 1,
+        packsPerBox: enableBox ? (Number(packsPerBox) || 10) : 1,
+        stockCartons: Number(initialCartons) || 0,
+        hasCarton: enableCarton,
+        hasBox: enableBox,
+        hasPack: enablePack,
+        unitName,
+        pricePerUnit: finalPackPrice,
+        moq: 1,
+        image: category === 'drinks_coffee' 
+          ? 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=600&q=80' 
+          : category === 'charcoal'
+            ? 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=600&q=80'
+            : category === 'iqos_devices' || category === 'iqos_heets'
+              ? 'https://images.unsplash.com/photo-1527016021513-b09758b777bd?auto=format&fit=crop&w=600&q=80'
+              : 'https://images.unsplash.com/photo-1541689592655-f5f52825a3b8?auto=format&fit=crop&w=600&q=80',
+        barcode: finalBarcode,
+        lastPriceUpdate: new Date().toLocaleDateString('fa-IR'),
+        hologram: hologram === 'بدون هولوگرام' ? '' : hologram,
+        tierDiscounts: [],
+        description: `ثبت اختصاصی دیتابیس صندوق بنکداری دخانیات سرو در تاریخ ${new Date().toLocaleDateString('fa-IR')}`,
+        isAvailable: true,
+        isPosOnly,
+      };
 
-    // Save directly to Django Database API
-    await saveProductToDjango(newProduct);
+      // Save directly to Django Database API
+      await saveProductToDjango(newProduct);
 
-    onAddProduct(newProduct, addToCartAfterSave);
-    onClose();
+      onAddProduct(newProduct, addToCartAfterSave);
+      onClose();
+    } catch (err) {
+      console.error('Error saving product:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -606,10 +615,15 @@ export const QuickAddProductModal: React.FC<QuickAddProductModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all active:scale-98"
+              disabled={isSubmitting}
+              className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black shadow-lg shadow-indigo-600/30 flex items-center gap-2 transition-all active:scale-98 disabled:opacity-60 cursor-pointer"
             >
-              <Check className="w-4 h-4" />
-              <span>ثبت و ذخیره کالا در انبار و صندوق</span>
+              {isSubmitting ? (
+                <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin shrink-0" />
+              ) : (
+                <Check className="w-4 h-4 shrink-0" />
+              )}
+              <span>{isSubmitting ? 'در حال ثبت نهایی در انبار...' : 'ثبت و ذخیره کالا در انبار و صندوق'}</span>
             </button>
           </div>
         </form>

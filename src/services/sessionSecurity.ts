@@ -221,12 +221,22 @@ export function extendPosSession(minutes: number = 30): number {
  */
 export function invalidatePosTokenAndSession(reason: string = 'token_expired'): void {
   try {
+    // مانع لوپ بی‌نهایت انتشار رویداد و هنگ کردن سیستم شوید
+    if (typeof localStorage !== 'undefined') {
+      const hasAuth = localStorage.getItem(POS_SESSION_STORAGE_KEYS.AUTH_FLAG) === 'true';
+      const hasToken = !!localStorage.getItem(POS_SESSION_STORAGE_KEYS.TOKEN);
+      if (!hasAuth && !hasToken && reason !== 'manual_logout') {
+        return; // اگر قبلاً کلاینت پاکسازی شده، مجدداً اجرا نکن
+      }
+    }
+
     setApiToken('');
 
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(POS_SESSION_STORAGE_KEYS.TOKEN);
       localStorage.removeItem('token');
       localStorage.removeItem('sevin_auth_token');
+      localStorage.removeItem('sevin_refresh_token');
       localStorage.removeItem(POS_SESSION_STORAGE_KEYS.AUTH_FLAG);
       localStorage.removeItem(POS_SESSION_STORAGE_KEYS.CURRENT_STAFF);
       localStorage.removeItem(POS_SESSION_STORAGE_KEYS.SESSION_EXPIRES_AT);

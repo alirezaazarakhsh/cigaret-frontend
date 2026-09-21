@@ -15,31 +15,31 @@ import {
 } from 'lucide-react';
 import { AzarakhshSectionId } from './types';
 import { AzarakhshLayout } from './Layout';
-import { ZeroToHeroDocs } from './ZeroToHeroDocs';
-import { DjangoConfigDocs } from './DjangoConfigDocs';
-import { SiteSettingsDocs } from './SiteSettingsDocs';
-import { SliderDocs } from './SliderDocs';
-import { KavenegarSmsDocs } from './KavenegarSmsDocs';
-import { SwaggerRedocDocs } from './SwaggerRedocDocs';
-import { AuthUsersDocs } from './AuthUsersDocs';
-import { ProductsDocs } from './ProductsDocs';
-import { OrdersDocs } from './OrdersDocs';
-import { ShippingDocs } from './ShippingDocs';
-import { BlogTinyMceDocs } from './BlogTinyMceDocs';
-import { TicketsSupportDocs } from './TicketsSupportDocs';
-import { VisitorsDocs } from './VisitorsDocs';
-import { WarehouseContactDocs } from './WarehouseContactDocs';
-import { RegularCustomersDocs } from './RegularCustomersDocs';
-import { FooterDocs } from './FooterDocs';
-import { NotificationsDocs } from './NotificationsDocs';
-import { PosDocs } from './PosDocs';
-import { PosUserDocs } from './PosUserDocs';
-import { CashRegisterDocs } from './CashRegisterDocs';
-import { CurrencyDocs } from './CurrencyDocs';
-import { PosProductsDocs } from './PosProductsDocs';
-import { WarehouseStockDocs } from './WarehouseStockDocs';
-import { LedgerDocs } from './LedgerDocs';
-import { ReportsDocs } from './ReportsDocs';
+import { ZeroToHeroDocs } from './apps/zero-to-hero/ZeroToHeroDocs';
+import { DjangoConfigDocs } from './apps/django-config/DjangoConfigDocs';
+import { SiteSettingsDocs } from './apps/site-settings/SiteSettingsDocs';
+import { SliderDocs } from './apps/slider/SliderDocs';
+import { KavenegarSmsDocs } from './apps/kavenegar_sms/KavenegarSmsDocs';
+import { SwaggerRedocDocs } from './apps/swagger-redoc/SwaggerRedocDocs';
+import { AuthUsersDocs } from './apps/auth-users/AuthUsersDocs';
+import { ProductsDocs } from './apps/products/ProductsDocs';
+import { OrdersDocs } from './apps/orders/OrdersDocs';
+import { ShippingDocs } from './apps/shipping/ShippingDocs';
+import { BlogTinyMceDocs } from './apps/blog-tinymce/BlogTinyMceDocs';
+import { TicketsSupportDocs } from './apps/tickets-support/TicketsSupportDocs';
+import { VisitorsDocs } from './apps/visitors/VisitorsDocs';
+import { WarehouseContactDocs } from './apps/warehouse-contact/WarehouseContactDocs';
+import { RegularCustomersDocs } from './apps/regular-customers/RegularCustomersDocs';
+import { FooterDocs } from './apps/footer-settings/FooterDocs';
+import { NotificationsDocs } from './apps/notifications/NotificationsDocs';
+import { PosDocs } from './apps/pos/PosDocs';
+import { PosUserDocs } from './apps/posuser/PosUserDocs';
+import { CashRegisterDocs } from './apps/cash-register/CashRegisterDocs';
+import { CurrencyDocs } from './apps/currency-rates/CurrencyDocs';
+import { PosProductsDocs } from './apps/pos-products/PosProductsDocs';
+import { WarehouseStockDocs } from './apps/warehouse-stock/WarehouseStockDocs';
+import { LedgerDocs } from './apps/ledger/LedgerDocs';
+import { ReportsDocs } from './apps/reports/ReportsDocs';
 
 interface AzarakhshApiDocsProps {
   onReturnToApp?: () => void;
@@ -62,7 +62,32 @@ const AzarakhshRouterContent: React.FC<{
 
   const handleSelectSection = (id: AzarakhshSectionId) => {
     navigate(`/${id}`);
+    if (typeof window !== 'undefined') {
+      window.history.pushState({ tab: 'django-docs', section: id }, '', `/azarakhsh/apps/${id}/`);
+    }
   };
+
+  // Sync with browser back/forward buttons
+  React.useEffect(() => {
+    const syncWithBrowserUrl = () => {
+      if (typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        const parts = path.split('/').filter(Boolean);
+        const idx = parts.indexOf('azarakhsh');
+        if (idx !== -1 && parts.length > idx + 1) {
+          let candidate = parts[idx + 1];
+          if (candidate === 'apps' && parts.length > idx + 2) {
+            candidate = parts[idx + 2];
+          }
+          if (candidate && candidate !== activeSection) {
+            navigate(`/${candidate}`);
+          }
+        }
+      }
+    };
+    window.addEventListener('popstate', syncWithBrowserUrl);
+    return () => window.removeEventListener('popstate', syncWithBrowserUrl);
+  }, [activeSection, navigate]);
 
   return (
     <AzarakhshLayout
@@ -217,8 +242,27 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
     );
   }
 
+  // Extract initial section from browser URL
+  const getInitialSection = (): string => {
+    if (typeof window !== 'undefined') {
+      const path = window.location.pathname;
+      const parts = path.split('/').filter(Boolean);
+      const idx = parts.indexOf('azarakhsh');
+      if (idx !== -1 && parts.length > idx + 1) {
+        let candidate = parts[idx + 1];
+        if (candidate === 'apps' && parts.length > idx + 2) {
+          candidate = parts[idx + 2];
+        }
+        return candidate || 'zero-to-hero';
+      }
+    }
+    return 'zero-to-hero';
+  };
+
+  const initialSection = getInitialSection();
+
   return (
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[`/${initialSection}`]}>
       <AzarakhshRouterContent 
         onLogout={handleLogout} 
         onReturnToApp={handleReturn} 

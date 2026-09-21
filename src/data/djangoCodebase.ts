@@ -1227,43 +1227,55 @@ class ProductAdmin(admin.ModelAdmin):
     ]
 
     fieldsets = (
-        (_('شناسنامه و اطلاعات پایه کالا'), {
+        (_('اطلاعات اصلی و شناسه تجاری کالا'), {
             'fields': (
                 'name',
                 'name_en',
                 'slug',
-                'barcode',
-                'category',
                 'brand',
-                'hologram',
                 'country_origin',
+                'barcode',
+                'excerpt',
+            )
+        }),
+        (_('دسته‌بندی، هولوگرام و برچسب تجاری'), {
+            'fields': (
+                'category',
+                'hologram',
                 'badge',
             )
         }),
-        (_('قیمت‌گذاری و انبارداری بنکداری (جنت‌آباد)'), {
+        (_('قیمت‌گذاری عمده، سطوح فروش و موجودی انبار'), {
             'fields': (
-                ('carton_price', 'box_price', 'pack_price'),
-                ('stock_cartons', 'boxes_per_carton', 'packs_per_box'),
+                ('carton_price', 'box_price', 'pack_price', 'purchase_price'),
+                ('stock_cartons', 'stock_boxes'),
+                ('boxes_per_carton', 'packs_per_box'),
                 ('min_order_carton', 'min_order_box'),
                 ('has_carton', 'has_box', 'is_pos_only'),
             )
         }),
-        (_('مشخصات فنی و دخانیات (قطران و نیکوتین)'), {
+        (_('مشخصات فنی و شناسنامه استاندارد دود'), {
             'fields': (
                 ('tar', 'nicotine', 'carbon_monoxide'),
                 ('cigarette_size', 'filter_type'),
             ),
-            'classes': ('collapse',),
         }),
-        (_('توضیحات و رسانه'), {
-            'fields': ('excerpt', 'full_description', 'main_image'),
+        (_('نقد و بررسی و توضیحات جامع محصول (TinyMCE)'), {
+            'fields': ('full_description',),
         }),
-        (_('تنظیمات سئو پیشرفته (Yoast SEO)'), {
-            'fields': ('focus_keyword', 'meta_title', 'meta_description', 'canonical_url'),
-            'classes': ('collapse',),
+        (_('تصویر شاخص محصول'), {
+            'fields': ('main_image', 'image'),
         }),
-        (_('وضعیت فعالیت'), {
-            'fields': ('is_active',),
+        (_('تنظیمات سئو و کلمه کلیدی کانونی (Yoast SEO)'), {
+            'fields': (
+                'focus_keyword',
+                'meta_title',
+                'meta_description',
+                'canonical_url',
+            ),
+        }),
+        (_('وضعیت فعالیت و نمایش در سامانه'), {
+            'fields': (('is_active', 'is_featured'),),
         }),
     )
 
@@ -1333,6 +1345,7 @@ products/serializers.py
 """
 
 from rest_framework import serializers
+from django.db.models import Q
 from django.utils.text import slugify
 import uuid
 from .models import (
@@ -1621,11 +1634,26 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     """
     سریالایزر هوشمند و جامع ثبت و بروزرسانی کالا در دیتابیس دجانگو
     پشتیبانی کامل از تمامی فیلدهای دیتابیس و ورودی‌های رشته‌ای، عددی یا دیکشنری برند، دسته‌بندی و هولوگرام
+    پشتیبانی از گالری تصاویر آپشنال، نکات کلیدی و تخفیف‌های تیراژ
     """
     name_fa = serializers.CharField(write_only=True, required=False, allow_blank=True)
     brand = serializers.PrimaryKeyRelatedField(queryset=ProductBrand.objects.all(), required=False, allow_null=True)
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=False, allow_null=True)
     hologram = serializers.PrimaryKeyRelatedField(queryset=ProductHologram.objects.all(), required=False, allow_null=True)
+    gallery_images = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+        help_text="لیست آدرس‌ها یا تصویرهای گالری محصول (اختیاری)"
+    )
+    key_takeaways = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+        help_text="لیست نکات کلیدی محصول جهت نمایش در سئو و چکیده"
+    )
 
     class Meta:
         model = Product
@@ -1658,6 +1686,8 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'badge',
             'main_image',
             'image',
+            'gallery_images',
+            'key_takeaways',
             'full_description',
             'excerpt',
             'focus_keyword',
@@ -1673,8 +1703,50 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'is_featured'
         ]
 
+        extra_kwargs = {
+            'name': {'required': True},
+            'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'slug': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'barcode': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'box_price': {'required': False, 'allow_null': True},
+            'boxes_per_carton': {'required': False, 'allow_null': True},
+            'carton_price': {'required': False, 'allow_null': True},
+            'pack_price': {'required': False, 'allow_null': True},
+            'packs_per_box': {'required': False, 'allow_null': True},
+            'purchase_price': {'required': False, 'allow_null': True},
+            'stock_cartons': {'required': False, 'allow_null': True},
+            'stock_boxes': {'required': False, 'allow_null': True},
+            'min_order_carton': {'required': False, 'allow_null': True},
+            'min_order_box': {'required': False, 'allow_null': True},
+            'tar': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'nicotine': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'carbon_monoxide': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'cigarette_size': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'filter_type': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'country_origin': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'badge': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'main_image': {'required': False, 'allow_null': True},
+            'image': {'required': False, 'allow_null': True},
+            'full_description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'excerpt': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'focus_keyword': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'meta_title': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'meta_description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'canonical_url': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
+
     def to_internal_value(self, data):
         data_dict = data.copy() if hasattr(data, 'copy') else dict(data)
+
+        # پاکسازی اعداد و قیمت‌ها در صورت ارسال رشته خالی یا تهی
+        for num_field in ['box_price', 'boxes_per_carton', 'carton_price', 'pack_price', 'packs_per_box', 'purchase_price', 'stock_cartons', 'stock_boxes', 'min_order_carton', 'min_order_box']:
+            if num_field in data_dict:
+                val = data_dict[num_field]
+                if val == '' or val is None:
+                    data_dict[num_field] = 0
+                elif isinstance(val, str):
+                    clean_val = val.replace(',', '').strip()
+                    data_dict[num_field] = int(clean_val) if clean_val.isdigit() else 0
 
         # نگاشت name_fa به name
         if 'name_fa' in data_dict and data_dict['name_fa'] and not data_dict.get('name'):
@@ -1759,6 +1831,42 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             data_dict['slug'] = gen_slug or f"prod-{uuid.uuid4().hex[:8]}"
 
         return super().to_internal_value(data_dict)
+
+    def create(self, validated_data):
+        gallery_images = validated_data.pop('gallery_images', [])
+        key_takeaways = validated_data.pop('key_takeaways', [])
+        product = super().create(validated_data)
+
+        # ثبت گالری تصاویر آپشنال در صورت ارسال در اندپوینت
+        for idx, img_src in enumerate(gallery_images):
+            if img_src:
+                ProductImage.objects.create(product=product, image=img_src, order=idx)
+
+        # ثبت نکات کلیدی
+        for idx, feature_text in enumerate(key_takeaways):
+            if feature_text:
+                ProductKeyFeature.objects.create(product=product, title=feature_text, order=idx)
+
+        return product
+
+    def update(self, instance, validated_data):
+        gallery_images = validated_data.pop('gallery_images', None)
+        key_takeaways = validated_data.pop('key_takeaways', None)
+        product = super().update(instance, validated_data)
+
+        if gallery_images is not None:
+            instance.gallery.all().delete()
+            for idx, img_src in enumerate(gallery_images):
+                if img_src:
+                    ProductImage.objects.create(product=product, image=img_src, order=idx)
+
+        if key_takeaways is not None:
+            instance.key_features.all().delete()
+            for idx, feature_text in enumerate(key_takeaways):
+                if feature_text:
+                    ProductKeyFeature.objects.create(product=product, title=feature_text, order=idx)
+
+        return product
 `,
     views: `"""
 products/views.py

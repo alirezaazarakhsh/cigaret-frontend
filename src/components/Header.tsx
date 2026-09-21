@@ -87,11 +87,54 @@ export const Header: React.FC<HeaderProps> = ({
         window.matchMedia('(display-mode: standalone)').matches || 
         (window.navigator as any).standalone === true ||
         localStorage.getItem('pwa_installed') === 'true';
+      
+      if (isStandaloneMode && localStorage.getItem('pwa_installed') !== 'true') {
+        localStorage.setItem('pwa_installed', 'true');
+      }
       setIsStandalone(isStandaloneMode);
     };
+
     checkStandalone();
+
+    const handleAppInstalled = () => {
+      localStorage.setItem('pwa_installed', 'true');
+      checkStandalone();
+      // Dispatch event to update other components immediately if any
+      window.dispatchEvent(new Event('pwa-installed-change'));
+    };
+
+    window.addEventListener('appinstalled', handleAppInstalled);
     window.addEventListener('pwa-installed-change', checkStandalone);
-    return () => window.removeEventListener('pwa-installed-change', checkStandalone);
+
+    return () => {
+      window.removeEventListener('appinstalled', handleAppInstalled);
+      window.removeEventListener('pwa-installed-change', checkStandalone);
+    };
+  }, []);
+
+  // Dynamically measure Header height and set CSS custom property
+  useEffect(() => {
+    if (!headerRef.current) return;
+    const updateHeaderHeight = () => {
+      if (headerRef.current) {
+        const height = headerRef.current.getBoundingClientRect().height;
+        document.documentElement.style.setProperty('--header-height', `${height}px`);
+      }
+    };
+    
+    updateHeaderHeight();
+    
+    const observer = new ResizeObserver(() => {
+      updateHeaderHeight();
+    });
+    observer.observe(headerRef.current);
+    
+    window.addEventListener('resize', updateHeaderHeight);
+    
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeaderHeight);
+    };
   }, []);
 
   // Close dropdowns on click outside
@@ -136,8 +179,8 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-1.5 sm:gap-2.5 min-w-0">
             <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 animate-ping"></span>
             <span className="text-blue-400 font-bold text-[10px] sm:text-xs truncate">
-              {companyTitle ? `سامانه پخش عمده ${companyTitle}` : 'سامانه پخش عمده دخانیات'}
-              {warehouseAddress ? ` | ${warehouseAddress}` : ''}
+              {companyTitle ? `پخش عمده ${companyTitle}` : 'پخش عمده دخانیات'}
+              {warehouseAddress && <span className="hidden sm:inline"> | {warehouseAddress}</span>}
             </span>
           </div>
 
@@ -363,13 +406,13 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
 
               {/* Action Buttons Group (Flexbox) */}
-              <div className="flex items-center gap-1.5 shrink-0">
+              <div className="flex items-center gap-1 shrink-0">
                 
                 {/* User Profile / Login */}
                 {currentUser ? (
                   <button
                     onClick={() => handleSelectTab('user-panel')}
-                    className="w-8.5 h-8.5 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs active:scale-95"
+                    className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-xs shrink-0 shadow-xs active:scale-95"
                     title={currentUser.fullName}
                   >
                     {currentUser.fullName.slice(0, 1)}
@@ -388,7 +431,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {currentUser && onOpenNotifications && (
                   <button
                     onClick={onOpenNotifications}
-                    className="relative w-8.5 h-8.5 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 border border-slate-200 flex items-center justify-center shrink-0 active:scale-95"
+                    className="relative w-8 h-8 rounded-xl bg-slate-100 hover:bg-blue-50 text-slate-700 border border-slate-200 flex items-center justify-center shrink-0 active:scale-95"
                     title="اعلانات"
                   >
                     <Bell className="w-4 h-4 text-blue-600" />
@@ -419,7 +462,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {/* Mobile Menu Toggle Button */}
                 <button
                   onClick={() => setMobileMenuOpen(prev => !prev)}
-                  className="w-8.5 h-8.5 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0 active:scale-95"
+                  className="w-8 h-8 rounded-xl bg-slate-100 border border-slate-200 text-slate-700 flex items-center justify-center shrink-0 active:scale-95"
                   aria-label="منوی موبایل"
                 >
                   {mobileMenuOpen ? <X className="w-4.5 h-4.5" /> : <Menu className="w-4.5 h-4.5" />}

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { UserManagementPanel } from './UserManagementPanel';
 import { CurrencyRateSettings } from './CurrencyRateSettings';
 import { SiteSettingsManagementPanel } from './SiteSettingsManagementPanel';
+import { PwaInstallGuide } from '../PwaInstallGuide';
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Barcode, 
@@ -362,6 +363,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     return '';
   });
 
+  const [showPwaInstallGuideModal, setShowPwaInstallGuideModal] = useState<boolean>(false);
+
   const [showSessionSecurityModal, setShowSessionSecurityModal] = useState<boolean>(false);
   const [showExtendNotice, setShowExtendNotice] = useState<boolean>(false);
 
@@ -455,6 +458,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     return () => window.removeEventListener('popstate', handleSubPopState);
   }, []);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [showMobileMoreMenu, setShowMobileMoreMenu] = useState(false);
   const [showToolsDropdown, setShowToolsDropdown] = useState(false);
   const [showBlogManagementModal, setShowBlogManagementModal] = useState(false);
   const toolsRef = useRef<HTMLDivElement>(null);
@@ -1099,6 +1103,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   // تابع خروج خودکار امنیتی کاربر از صندوق به محض پایان زمان توکن
   const handleAutoLogoutDueToExpiration = (reason: string = 'token_expired') => {
+    if (!isAuthenticated) return; // مانع لوپ بی‌نهایت و هنگ کردن صفحه شوید
+
     // ۱. ابطال کامل توکن در حافظه، هدرها و LocalStorage
     invalidatePosTokenAndSession(reason);
 
@@ -1178,12 +1184,16 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
         // مقداردهی اولیه زمان اعتبار توکن و آغاز تایمر پایش نشست
         const token = res.data?.tokens?.access;
+        const refreshToken = res.data?.tokens?.refresh;
         initPosSessionExpiry(token);
         setSessionRemainingSeconds(getRemainingSessionSeconds());
 
         try {
           localStorage.setItem('sovin_pos_auth', 'true');
           localStorage.setItem('sovin_pos_current_staff', JSON.stringify(res.data.user));
+          if (refreshToken) {
+            localStorage.setItem('sevin_refresh_token', refreshToken);
+          }
           
           // Also insert this new logged in staff to staffList if not already present
           if (!staffList.some(s => s.phone === res.data.user.phone)) {
@@ -2330,7 +2340,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   // Authenticated Main POS View
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-600 selection:text-white print:hidden" dir="rtl">
+    <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-600 selection:text-white print:hidden pb-16 md:pb-0" dir="rtl">
       {isLoggingOut && (
         <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[9999] flex flex-col items-center justify-center text-white animate-in fade-in duration-300">
           <div className="p-8 rounded-3xl bg-slate-800 border border-slate-700 shadow-2xl flex flex-col items-center gap-4 max-w-xs text-center">
@@ -2380,10 +2390,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       <div className="sticky top-0 z-[100] w-full bg-white shadow-sm border-b border-slate-200 print:hidden">
         {/* Main Header Section */}
         <div className="bg-white/95 backdrop-blur-xl px-3 py-1.5 w-full transition-all duration-300 isolate">
-        <div className="max-w-[1750px] mx-auto flex flex-col md:flex-row items-center justify-between gap-2">
+        <div className="max-w-[1750px] mx-auto flex flex-col xl:flex-row items-center justify-between gap-2">
           
           {/* Quick Tools & Actions (Moved to Visual Left Side) */}
-          <div className="flex items-center justify-start gap-2 relative shrink-0 order-last md:order-last w-full md:w-auto">
+          <div className="flex items-center justify-start gap-2 relative shrink-0 order-last xl:order-last w-full xl:w-auto overflow-x-auto no-scrollbar py-1">
             
             {/* Message Icon - Restored per user request */}
             {hasStaffPerm('manage_warehouse_messages') && (
@@ -2572,6 +2582,16 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               {soundEnabled ? <Volume2 className="w-4 h-4 text-emerald-600" /> : <VolumeX className="w-4 h-4 text-slate-500" />}
             </button>
 
+            {/* PWA Install Button */}
+            <button
+              onClick={() => setShowPwaInstallGuideModal(true)}
+              title="نصب صندوق به صورت اپلیکیشن (PWA)"
+              className="xl:hidden flex items-center gap-1.5 px-3 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 hover:text-indigo-800 text-xs font-bold rounded-xl border border-indigo-200 transition-colors whitespace-nowrap active:scale-95 shadow-2xs animate-pulse"
+            >
+              <Download className="w-4 h-4 text-indigo-600" />
+              <span>نصب اپلیکیشن</span>
+            </button>
+
             {/* Catalog Button */}
             <button
               onClick={onReturnToStore}
@@ -2594,15 +2614,15 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           </div>
           
           {/* Logo & Staff Info */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between w-full md:w-auto shrink-0 gap-1.5 md:gap-4 order-first md:order-first">
+          <div className="flex flex-col xl:flex-row xl:items-center justify-between w-full xl:w-auto shrink-0 gap-1.5 xl:gap-4 order-first xl:order-first">
             
             {/* Logo/Name/MobileMenu */}
-            <div className="flex items-center justify-between w-full md:w-auto gap-2.5 sm:gap-3">
+            <div className="flex items-center justify-between w-full xl:w-auto gap-2.5 sm:gap-3">
               <div className="flex items-center gap-2 sm:gap-2.5">
-                {/* Mobile Menu Toggle Button (Positioned at RTL Start - Right Side) */}
+                {/* Mobile Menu Toggle Button (Hidden because of Bottom Navigation bar) */}
                 <button 
                   onClick={() => setIsMenuOpen(!isMenuOpen)}
-                  className="md:hidden p-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-white shadow-md shadow-indigo-600/20 active:scale-95 transition-all flex items-center gap-1.5 shrink-0"
+                  className="hidden p-2 bg-indigo-600 hover:bg-indigo-700 rounded-xl text-white shadow-md shadow-indigo-600/20 active:scale-95 transition-all items-center gap-1.5 shrink-0"
                   title="باز و بستن منوی اصلی"
                 >
                   {isMenuOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
@@ -2615,7 +2635,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 <div>
                   <div className="flex items-center gap-1.5 sm:gap-2">
                     <h1 className="text-xs sm:text-base font-black text-slate-900 tracking-tight whitespace-nowrap">
-                      سامانه هوشمند دخانیات سرو (POS)
+                      <span className="sm:hidden">سامانه هوشمند سرو</span>
+                      <span className="hidden sm:inline">سامانه هوشمند دخانیات سرو (POS)</span>
                     </h1>
                     <span className="bg-emerald-500/10 text-emerald-600 border border-emerald-500/30 text-[8px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full shrink-0">
                       آنلاین
@@ -2637,7 +2658,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </div>
 
             {/* Staff Info & Online Cashiers Badge */}
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <div className="flex flex-wrap items-center justify-between w-full xl:w-auto gap-x-3 gap-y-1 bg-slate-50 xl:bg-transparent p-2 xl:p-0 rounded-xl border border-slate-100 xl:border-0 mt-1 xl:mt-0">
               <p className="text-[10px] sm:text-[11px] text-slate-600 font-medium whitespace-nowrap">
                 کاربر: <strong className="text-indigo-600 font-bold">{currentStaff.fullName}</strong> <span className="text-slate-400">({currentStaff.roleTitleFa})</span>
               </p>
@@ -2662,8 +2683,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       </div>
 
       {/* Navigation Tabs Bar */}
-      <div className={`${isMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-stretch md:items-center md:justify-start gap-1.5 bg-slate-50 md:bg-white p-2 md:p-2 border-t border-slate-200 w-full overflow-x-auto min-w-0`}>
-        <div className="max-w-[1750px] mx-auto flex flex-col md:flex-row items-stretch md:items-center gap-1.5 w-full">
+      <div className={`${isMenuOpen ? 'flex' : 'hidden'} lg:flex flex-col lg:flex-row items-stretch lg:items-center lg:justify-start gap-1.5 bg-slate-50 lg:bg-white p-2 lg:p-2 border-t border-slate-200 w-full overflow-x-auto min-w-0 no-scrollbar`}>
+        <div className="max-w-[1750px] mx-auto flex flex-col lg:flex-row items-stretch lg:items-center gap-1.5 w-full lg:w-max lg:min-w-max">
             {hasStaffPerm('manage_pos') && (
               <button
                 onClick={() => { setActiveSubTab('pos'); setIsMenuOpen(false); }}
@@ -6862,6 +6883,175 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           handleAutoLogoutDueToExpiration('manual_force_test');
         }}
       />
+
+      {/* Mobile App Bottom Navigation Bar */}
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-[190] bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-around py-1.5 px-2 pb-safe">
+        <button
+          onClick={() => { setActiveSubTab('pos'); setShowMobileMoreMenu(false); }}
+          className={`flex flex-col items-center gap-1 py-1 px-3.5 rounded-xl transition-all ${
+            activeSubTab === 'pos' && !showMobileMoreMenu ? 'text-indigo-600 font-black' : 'text-slate-500'
+          }`}
+        >
+          <ShoppingCart className="w-5 h-5" />
+          <span className="text-[10px]">صندوق</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveSubTab('online_orders'); setShowMobileMoreMenu(false); }}
+          className={`flex flex-col items-center gap-1 py-1 px-3.5 rounded-xl transition-all relative ${
+            activeSubTab === 'online_orders' && !showMobileMoreMenu ? 'text-blue-600 font-black' : 'text-slate-500'
+          }`}
+        >
+          <ClipboardList className="w-5 h-5" />
+          <span className="text-[10px]">سفارشات</span>
+          {pendingOnlineOrdersCount > 0 && (
+            <span className="absolute top-0 right-3.5 w-4 h-4 bg-amber-500 text-slate-950 text-[8px] rounded-full flex items-center justify-center font-bold">
+              {pendingOnlineOrdersCount}
+            </span>
+          )}
+        </button>
+
+        <button
+          onClick={() => { setActiveSubTab('product-manage'); setShowMobileMoreMenu(false); }}
+          className={`flex flex-col items-center gap-1 py-1 px-3.5 rounded-xl transition-all ${
+            activeSubTab === 'product-manage' && !showMobileMoreMenu ? 'text-indigo-600 font-black' : 'text-slate-500'
+          }`}
+        >
+          <Package className="w-5 h-5" />
+          <span className="text-[10px]">محصولات</span>
+        </button>
+
+        <button
+          onClick={() => { setActiveSubTab('reports'); setShowMobileMoreMenu(false); }}
+          className={`flex flex-col items-center gap-1 py-1 px-3.5 rounded-xl transition-all ${
+            activeSubTab === 'reports' && !showMobileMoreMenu ? 'text-indigo-600 font-black' : 'text-slate-500'
+          }`}
+        >
+          <PieChart className="w-5 h-5" />
+          <span className="text-[10px]">گزارشات</span>
+        </button>
+
+        <button
+          onClick={() => setShowMobileMoreMenu(true)}
+          className={`flex flex-col items-center gap-1 py-1 px-3.5 rounded-xl transition-all ${
+            showMobileMoreMenu ? 'text-indigo-600 font-black' : 'text-slate-500'
+          }`}
+        >
+          <Layers className="w-5 h-5" />
+          <span className="text-[10px]">بخش‌ها</span>
+        </button>
+      </div>
+
+      {/* Mobile More Menu Bottom Sheet */}
+      <AnimatePresence>
+        {showMobileMoreMenu && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowMobileMoreMenu(false)}
+              className="fixed inset-0 z-[200] bg-slate-950/60 backdrop-blur-xs lg:hidden"
+            />
+
+            {/* Bottom Sheet Modal */}
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 220 }}
+              className="fixed bottom-0 left-0 right-0 z-[210] bg-white rounded-t-[32px] border-t border-slate-200 shadow-2xl p-5 max-h-[85vh] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-10 lg:hidden"
+              dir="rtl"
+            >
+              {/* Grabber indicator */}
+              <div className="w-12 h-1 bg-slate-200 rounded-full mx-auto mb-4" />
+
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center text-indigo-600">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-black text-slate-900 text-sm">منوی مدیریت و عملیات</h3>
+                    <p className="text-[10px] text-slate-500">تمامی امکانات سامانه سرو در یک نگاه</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowMobileMoreMenu(false)}
+                  className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-slate-500"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Grid of administrative tabs */}
+              <div className="grid grid-cols-2 gap-3">
+                {[
+                  { id: 'inventory', label: 'موجودی انبار و کاردکس', icon: Package, perm: 'manage_inventory' },
+                  { id: 'customers', label: 'حساب‌های دفتری (نسیه)', icon: Users, perm: 'manage_ledger' },
+                  { id: 'ledger', label: 'دفتر فاکتورهای فروش', icon: Receipt, perm: 'manage_ledger' },
+                  { id: 'warehouse_messages', label: 'پیام‌های تماس سایت', icon: MessageSquare, perm: 'manage_warehouse_messages' },
+                  { id: 'user_management', label: 'مدیریت کاربران سایت', icon: UserCheck, perm: 'manage_ledger' },
+                  { id: 'sms_management', label: 'سامانه پیامک هوشمند', icon: Smartphone, perm: 'send_sms' },
+                  { id: 'notifications', label: 'نوتیفیکیشن و اعلانات', icon: Bell, perm: 'manage_notifications' },
+                  { id: 'staff_management', label: 'مدیریت پرسنل و دسترسی', icon: Sliders, perm: 'manage_staff' },
+                  { id: 'tickets', label: 'تیکت‌های پشتیبانی', icon: Headphones, perm: 'manage_tickets' },
+                  { id: 'blog', label: 'وبلاگ و مقالات سایت', icon: FileText, perm: 'manage_site_settings' },
+                  { id: 'site_settings', label: 'تنظیمات اسلایدر و فوتر', icon: Settings, perm: 'manage_site_settings' },
+                ]
+                  .filter(item => !item.perm || hasStaffPerm(item.perm as StaffPermission))
+                  .map(item => {
+                    const Icon = item.icon;
+                    const isActive = activeSubTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActiveSubTab(item.id as PosSubTab);
+                          setShowMobileMoreMenu(false);
+                        }}
+                        className={`flex flex-col items-center justify-center p-3.5 rounded-2xl border text-center transition-all ${
+                          isActive
+                            ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-600/25'
+                            : 'bg-slate-50 border-slate-100 text-slate-700 hover:bg-slate-100'
+                        }`}
+                      >
+                        <div className={`p-2 rounded-xl mb-2 ${isActive ? 'bg-white/20 text-white' : 'bg-white text-slate-600 shadow-2xs border border-slate-100'}`}>
+                          <Icon className="w-5 h-5" />
+                        </div>
+                        <span className="text-[10px] font-bold leading-tight line-clamp-2">{item.label}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+
+              {/* System Footer Info inside Bottom Sheet */}
+              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-400">
+                <span>کاربر: {currentStaff.fullName}</span>
+                <button
+                  onClick={() => {
+                    setShowMobileMoreMenu(false);
+                    handleLogout();
+                  }}
+                  className="text-rose-600 font-bold flex items-center gap-1"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>خروج از پنل</span>
+                </button>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* PWA Guided Installation Modal */}
+      {showPwaInstallGuideModal && (
+        <PwaInstallGuide
+          isOpenOnly={true}
+          onCloseModal={() => setShowPwaInstallGuideModal(false)}
+        />
+      )}
 
     </div>
   );

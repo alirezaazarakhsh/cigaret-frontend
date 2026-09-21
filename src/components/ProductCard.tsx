@@ -326,28 +326,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <>
             {/* Carton Row */}
             {(product.hasCarton !== false && !product.isBoxOnly && (product.cartonPrice || 0) > 0) && (
-              <div className="flex items-center justify-between gap-1.5 bg-blue-50/50 border border-blue-100 rounded-2xl p-1.5">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-[11px] font-black text-blue-950 whitespace-nowrap shrink-0">کارتن:</span>
+              <div className="flex items-center justify-between gap-1 bg-blue-50/50 border border-blue-100 rounded-2xl p-1 sm:p-1.5">
+                <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                  <span className="text-[10px] sm:text-[11px] font-black text-blue-950 whitespace-nowrap shrink-0">کارتن:</span>
                   <div className="flex items-center bg-white border border-blue-200 rounded-xl p-0.5 shrink-0 shadow-2xs">
                     <button
                       type="button"
                       onClick={() => setCartonQty(q => q + 1)}
-                      className="w-6 h-6 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-900 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
+                      className="w-5.5 sm:w-6 h-5.5 sm:h-6 rounded-lg bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-900 flex items-center justify-center font-bold text-[10px] sm:text-xs transition-colors shrink-0 cursor-pointer"
                       title="افزایش کارتن"
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     </button>
-                    <span className="w-6 sm:w-7 text-center font-bold text-xs text-slate-900 font-mono shrink-0">
+                    <span className="w-5 sm:w-7 text-center font-bold text-[10px] sm:text-xs text-slate-900 font-mono shrink-0">
                       {formatNumberFa(cartonQty)}
                     </span>
                     <button
                       type="button"
                       onClick={() => setCartonQty(q => Math.max(0, q - 1))}
-                      className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
+                      className="w-5.5 sm:w-6 h-5.5 sm:h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-[10px] sm:text-xs transition-colors shrink-0 cursor-pointer"
                       title="کاهش کارتن"
                     >
-                      <Minus className="w-3 h-3" />
+                      <Minus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     </button>
                   </div>
                 </div>
@@ -355,7 +355,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <button
                   type="button"
                   onClick={handleAddCarton}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-[11px] flex items-center justify-center gap-1 transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-xs ${
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl font-black text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-xs ${
                     cartonJustAdded
                       ? 'bg-emerald-600 text-white'
                       : 'bg-blue-600 hover:bg-blue-700 text-white'
@@ -378,28 +378,28 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
             {/* Box Row */}
             {(product.hasBox !== false && (product.boxPrice || 0) > 0) && (
-              <div className="flex items-center justify-between gap-1.5 bg-slate-50 border border-slate-200 rounded-2xl p-1.5">
-                <div className="flex items-center gap-1.5 min-w-0">
-                  <span className="text-[11px] font-black text-slate-800 whitespace-nowrap shrink-0">باکس:</span>
+              <div className="flex items-center justify-between gap-1 bg-slate-50 border border-slate-200 rounded-2xl p-1 sm:p-1.5">
+                <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                  <span className="text-[10px] sm:text-[11px] font-black text-slate-800 whitespace-nowrap shrink-0">باکس:</span>
                   <div className="flex items-center bg-white border border-slate-200 rounded-xl p-0.5 shrink-0 shadow-2xs">
                     <button
                       type="button"
                       onClick={() => setBoxQty(q => q + 1)}
-                      className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-900 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
+                      className="w-5.5 sm:w-6 h-5.5 sm:h-6 rounded-lg bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-900 flex items-center justify-center font-bold text-[10px] sm:text-xs transition-colors shrink-0 cursor-pointer"
                       title="افزایش باکس"
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     </button>
-                    <span className="w-6 sm:w-7 text-center font-bold text-xs text-slate-900 font-mono shrink-0">
+                    <span className="w-5 sm:w-7 text-center font-bold text-[10px] sm:text-xs text-slate-900 font-mono shrink-0">
                       {formatNumberFa(boxQty)}
                     </span>
                     <button
                       type="button"
                       onClick={() => setBoxQty(q => Math.max(0, q - 1))}
-                      className="w-6 h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-xs transition-colors shrink-0 cursor-pointer"
+                      className="w-5.5 sm:w-6 h-5.5 sm:h-6 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-[10px] sm:text-xs transition-colors shrink-0 cursor-pointer"
                       title="کاهش باکس"
                     >
-                      <Minus className="w-3 h-3" />
+                      <Minus className="w-2.5 h-2.5 sm:w-3 sm:h-3" />
                     </button>
                   </div>
                 </div>
@@ -407,7 +407,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <button
                   type="button"
                   onClick={handleAddBox}
-                  className={`px-2.5 sm:px-3 py-1.5 rounded-xl font-black text-[11px] flex items-center justify-center gap-1 transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-xs ${
+                  className={`px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl font-black text-[10px] sm:text-[11px] flex items-center justify-center gap-1 transition-all whitespace-nowrap shrink-0 cursor-pointer shadow-xs ${
                     boxJustAdded
                       ? 'bg-emerald-600 text-white'
                       : 'bg-slate-800 hover:bg-slate-900 text-white'

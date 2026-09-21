@@ -15,6 +15,8 @@
     scroll-behavior: smooth;
     font-family: 'Samim', sans-serif !important;
     font-size: 14px; /* Slightly smaller base font size */
+    max-width: 100vw;
+    overflow-x: hidden !important;
   }
 
   body {
@@ -26,6 +28,8 @@
     color: #0f172a;
     transition: background-color 0.2s ease, color 0.2s ease;
     font-size: 0.925rem; /* Reduced base size */
+    max-width: 100vw;
+    overflow-x: hidden !important;
   }
 
   input, button, select, textarea, table, th, td, h1, h2, h3, h4, h5, h6, span, p, a, div, strong, b, label, input::placeholder {
@@ -137,3 +141,79 @@
     font-style: italic;
   }
 }
+
+/* Tablet Media Query (768px - 1180px) for product cards grid and main container overrides */
+@media (min-width: 768px) and (max-width: 1180px) {
+  html,
+  body,
+  #root,
+  .min-h-screen,
+  main {
+    overflow-x: hidden !important;
+    max-width: 100vw !important;
+  }
+
+  /* Target ONLY the main product catalog grid inside .min-h-screen to align perfectly in 2 columns with dynamic scaling */
+  .min-h-screen .main-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: calc(1vw + 0.5rem) !important;
+    padding: 0 calc(1vw + 0.5rem) !important;
+    margin: calc(1vw + 0.5rem) auto !important;
+  }
+
+  /* Subtle scale and hover lift animation for all product cards in tablet views */
+  .min-h-screen [id^="product-card-"] {
+    transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s, border-width 0.3s, box-shadow 0.3s !important;
+    border-width: 2px !important;
+    touch-action: manipulation !important;
+  }
+
+  .min-h-screen [id^="product-card-"]:hover {
+    transform: scale(1.02) translateY(-3px) !important;
+    border-color: #3b82f6 !important;
+    border-width: 2px !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+    z-index: 10 !important;
+    position: relative !important;
+  }
+}
+
+/* Media query for landscape tablets adjusting .min-h-screen's margin-top to account for the header height */
+@media (min-width: 768px) and (max-width: 1180px) and (orientation: landscape) {
+  .min-h-screen {
+    margin-top: calc(var(--header-height, 5rem)) !important;
+    transition: margin-top 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+  .min-h-screen .main-product-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    padding: 0 calc(1vw + 0.5rem) !important;
+    margin: calc(1vw + 0.5rem) auto !important;
+    gap: calc(1vw + 0.5rem) !important;
+  }
+}
+
+/* Global / Default responsive overrides for main product grid on all platforms */
+.main-product-grid {
+  gap: calc(1vw + 0.5rem) !important;
+  padding: 0 calc(1vw + 0.5rem) !important;
+  margin: calc(1vw + 0.5rem) auto !important;
+}
+
+/* Hover scale effect for all product card wrappers inside .min-h-screen specifically for non-tablet devices (mobile & desktop) */
+@media (max-width: 767px), (min-width: 1181px) {
+  .min-h-screen [id^="product-card-"] {
+    transition: transform 0.3s ease, border-color 0.3s, border-width 0.3s, box-shadow 0.3s !important;
+    border-width: 2px !important;
+    touch-action: manipulation !important;
+  }
+
+  .min-h-screen [id^="product-card-"]:hover {
+    transform: scale(1.02) !important;
+    border-color: #3b82f6 !important;
+    border-width: 2px !important;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
+    z-index: 10 !important;
+    position: relative !important;
+  }
+}
+
