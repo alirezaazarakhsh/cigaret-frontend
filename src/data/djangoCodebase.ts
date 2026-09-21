@@ -1620,7 +1620,7 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     """
     سریالایزر هوشمند و جامع ثبت و بروزرسانی کالا در دیتابیس دجانگو
-    پشتیبانی کامل از ورودی‌های رشته‌ای یا عددی برند، دسته‌بندی و هولوگرام و ایجاد خودکار موارد جدید
+    پشتیبانی کامل از تمامی فیلدهای دیتابیس و ورودی‌های رشته‌ای، عددی یا دیکشنری برند، دسته‌بندی و هولوگرام
     """
     name_fa = serializers.CharField(write_only=True, required=False, allow_blank=True)
     brand = serializers.PrimaryKeyRelatedField(queryset=ProductBrand.objects.all(), required=False, allow_null=True)
@@ -1649,9 +1649,21 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'stock_boxes',
             'min_order_carton',
             'min_order_box',
+            'tar',
+            'nicotine',
+            'carbon_monoxide',
+            'cigarette_size',
+            'filter_type',
+            'country_origin',
+            'badge',
+            'main_image',
             'image',
             'full_description',
             'excerpt',
+            'focus_keyword',
+            'meta_title',
+            'meta_description',
+            'canonical_url',
             'is_pos_only',
             'is_box_only',
             'has_carton',
@@ -1664,43 +1676,84 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     def to_internal_value(self, data):
         data_dict = data.copy() if hasattr(data, 'copy') else dict(data)
 
+        # نگاشت name_fa به name
         if 'name_fa' in data_dict and data_dict['name_fa'] and not data_dict.get('name'):
             data_dict['name'] = data_dict['name_fa']
 
-        if 'brand' in data_dict and data_dict['brand'] is not None and data_dict['brand'] != '':
-            b_val = data_dict['brand']
-            if isinstance(b_val, str) and not b_val.isdigit():
-                brand_obj, _ = ProductBrand.objects.get_or_create(
-                    name=b_val,
-                    defaults={'slug': slugify(b_val, allow_unicode=True) or f"brand-{uuid.uuid4().hex[:6]}"}
-                )
-                data_dict['brand'] = brand_obj.id
-            elif isinstance(b_val, (int, str)) and str(b_val).isdigit():
-                data_dict['brand'] = int(b_val)
-
-        if 'category' in data_dict and data_dict['category'] is not None and data_dict['category'] != '':
-            c_val = data_dict['category']
-            if isinstance(c_val, str) and not c_val.isdigit():
-                cat_obj = Category.objects.filter(Q(slug=c_val) | Q(name=c_val) | Q(name_en=c_val)).first()
-                if not cat_obj:
-                    cat_obj = Category.objects.create(
-                        name=c_val,
-                        slug=slugify(c_val, allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
+        # پردازش هوشمند برند
+        b_val = data_dict.get('brand') or data_dict.get('brand_id') or data_dict.get('brand_name')
+        if b_val is not None and b_val != '':
+            if isinstance(b_val, dict):
+                b_id = b_val.get('id')
+                b_name = b_val.get('name') or b_val.get('title')
+                if b_id and str(b_id).isdigit() and ProductBrand.objects.filter(id=int(b_id)).exists():
+                    data_dict['brand'] = int(b_id)
+                elif b_name:
+                    brand_obj, _ = ProductBrand.objects.get_or_create(
+                        name=str(b_name),
+                        defaults={'slug': slugify(str(b_name), allow_unicode=True) or f"brand-{uuid.uuid4().hex[:6]}"}
                     )
-                data_dict['category'] = cat_obj.id
-            elif isinstance(c_val, (int, str)) and str(c_val).isdigit():
-                data_dict['category'] = int(c_val)
+                    data_dict['brand'] = brand_obj.id
+            elif isinstance(b_val, (int, str)):
+                s_val = str(b_val).strip()
+                if s_val.isdigit() and ProductBrand.objects.filter(id=int(s_val)).exists():
+                    data_dict['brand'] = int(s_val)
+                elif s_val:
+                    brand_obj, _ = ProductBrand.objects.get_or_create(
+                        name=s_val,
+                        defaults={'slug': slugify(s_val, allow_unicode=True) or f"brand-{uuid.uuid4().hex[:6]}"}
+                    )
+                    data_dict['brand'] = brand_obj.id
 
-        if 'hologram' in data_dict and data_dict['hologram'] is not None and data_dict['hologram'] != '':
-            h_val = data_dict['hologram']
-            if isinstance(h_val, str) and not h_val.isdigit():
-                holo_obj = ProductHologram.objects.filter(title=h_val).first()
-                if not holo_obj:
-                    holo_obj = ProductHologram.objects.create(title=h_val)
-                data_dict['hologram'] = holo_obj.id
-            elif isinstance(h_val, (int, str)) and str(h_val).isdigit():
-                data_dict['hologram'] = int(h_val)
+        # پردازش هوشمند دسته‌بندی
+        c_val = data_dict.get('category') or data_dict.get('category_id') or data_dict.get('category_name')
+        if c_val is not None and c_val != '':
+            if isinstance(c_val, dict):
+                c_id = c_val.get('id')
+                c_name = c_val.get('name') or c_val.get('title') or c_val.get('slug')
+                if c_id and str(c_id).isdigit() and Category.objects.filter(id=int(c_id)).exists():
+                    data_dict['category'] = int(c_id)
+                elif c_name:
+                    cat_obj = Category.objects.filter(Q(slug=c_name) | Q(name=c_name) | Q(name_en=c_name)).first()
+                    if not cat_obj:
+                        cat_obj = Category.objects.create(
+                            name=str(c_name),
+                            slug=slugify(str(c_name), allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
+                        )
+                    data_dict['category'] = cat_obj.id
+            elif isinstance(c_val, (int, str)):
+                s_val = str(c_val).strip()
+                if s_val.isdigit() and Category.objects.filter(id=int(s_val)).exists():
+                    data_dict['category'] = int(s_val)
+                elif s_val:
+                    cat_obj = Category.objects.filter(Q(slug=s_val) | Q(name=s_val) | Q(name_en=s_val)).first()
+                    if not cat_obj:
+                        cat_obj = Category.objects.create(
+                            name=s_val,
+                            slug=slugify(s_val, allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
+                        )
+                    data_dict['category'] = cat_obj.id
 
+        # پردازش هوشمند و قطعی هولوگرام
+        h_val = data_dict.get('hologram') or data_dict.get('hologram_id') or data_dict.get('hologram_title')
+        if h_val is not None and h_val != '':
+            if isinstance(h_val, dict):
+                h_id = h_val.get('id')
+                h_title = h_val.get('title') or h_val.get('name')
+                if h_id and str(h_id).isdigit() and ProductHologram.objects.filter(id=int(h_id)).exists():
+                    data_dict['hologram'] = int(h_id)
+                elif h_title:
+                    holo_obj, _ = ProductHologram.objects.get_or_create(title=str(h_title))
+                    data_dict['hologram'] = holo_obj.id
+            elif isinstance(h_val, (int, str)):
+                s_val = str(h_val).strip()
+                if s_val.isdigit() and ProductHologram.objects.filter(id=int(s_val)).exists():
+                    data_dict['hologram'] = int(s_val)
+                elif s_val:
+                    holo_obj, _ = ProductHologram.objects.get_or_create(title=s_val)
+                    data_dict['hologram'] = holo_obj.id
+
+        # تولید خودکار اسلاگ
         if not data_dict.get('slug') and data_dict.get('name'):
             gen_slug = slugify(data_dict.get('name_en') or data_dict.get('name'), allow_unicode=True)
             data_dict['slug'] = gen_slug or f"prod-{uuid.uuid4().hex[:8]}"
