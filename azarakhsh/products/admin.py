@@ -14,7 +14,7 @@ from .models import (
 )
 
 def to_jalali_str(dt):
-    """تبدیل تاریخ و زمان به تاریخ شمسی با پشتیبانی از jalali_date، jdatetime و محاسبات داخلی"""
+    """تبدیل تاریخ میلادی به تاریخ شمسی با پشتیبانی از jalali_date، jdatetime و الگوریتم داخلی"""
     if not dt:
         return "-"
     try:
@@ -31,7 +31,7 @@ def to_jalali_str(dt):
     except Exception:
         pass
 
-    # الگوریتم تبدیل میلادی به شمسی بدون وابستگی
+    # الگوریتم تبدیل میلادی به شمسی بدون نیاز به پکیج خارجی
     g_y, g_m, g_d = dt.year, dt.month, dt.day
     g_days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     if (g_y % 4 == 0 and g_y % 100 != 0) or (g_y % 400 == 0):
@@ -76,11 +76,11 @@ def to_jalali_str(dt):
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ['name', 'name_en', 'slug', 'color_badge', 'created_at_jalali']
-    search_fields = ['name', 'name_en', 'slug', 'description']  # 👈 ضروری برای autocomplete_fields
+    search_fields = ['name', 'name_en', 'slug', 'description']
     prepopulated_fields = {'slug': ('name',)}
     ordering = ['-id']
 
-    @admin.display(description=_('تاریخ ایجاد'), ordering='created_at')
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
     def created_at_jalali(self, obj):
         return to_jalali_str(obj.created_at)
 
@@ -99,10 +99,27 @@ class CategoryAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(ProductBrand)
 class ProductBrandAdmin(admin.ModelAdmin):
-    list_display = ['name', 'name_en', 'country', 'created_at']
+    list_display = ['id', 'logo_preview', 'name', 'name_en', 'country', 'created_at_jalali']
+    readonly_fields = ['logo_preview']
+    fields = ['name', 'name_en', 'slug', 'logo', 'logo_preview', 'country', 'description']
     list_filter = ['country']
-    search_fields = ['name', 'name_en', 'slug']  # 👈 ضروری برای autocomplete_fields
+    search_fields = ['name', 'name_en', 'slug']
     prepopulated_fields = {'slug': ('name',)}
+
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
+
+    @admin.display(description=_("پیش‌نمایش تصویر لوگو"))
+    def logo_preview(self, obj):
+        if obj.logo:
+            url = obj.logo.url if hasattr(obj.logo, 'url') else str(obj.logo)
+            return format_html('<img src="{}" style="max-width: 100px; max-height: 60px; border-radius: 8px; object-fit: contain; border: 1px solid #cbd5e1; padding: 3px; background: #ffffff;" />', url)
+        return format_html('<span style="color: #94a3b8; font-size: 12px; font-weight: 500;">بدون تصویر لوگو</span>')
+
+
+# نام مستعار جهت پشتیبانی از پروژه‌هایی که از BrandAdmin استفاده می‌کنند
+BrandAdmin = ProductBrandAdmin
 
 
 # ==============================================================================
@@ -153,6 +170,7 @@ class ProductAdmin(admin.ModelAdmin):
         'stock_cartons',
         'badge_display',
         'is_active',
+        'created_at_jalali',
     ]
     list_filter = [
         'is_active',
@@ -165,8 +183,6 @@ class ProductAdmin(admin.ModelAdmin):
     ]
     search_fields = ['name', 'name_en', 'barcode', 'slug', 'focus_keyword']
     prepopulated_fields = {'slug': ('name',)}
-    
-    # ⭐️ رفع خطای InvalidCursorName و افزایش فوق‌العاده سرعت پنل ادمین
     autocomplete_fields = ['category', 'brand', 'hologram']
 
     inlines = [
@@ -177,45 +193,61 @@ class ProductAdmin(admin.ModelAdmin):
     ]
 
     fieldsets = (
-        (_('شناسنامه و اطلاعات پایه کالا'), {
+        (_('اطلاعات اصلی و شناسه تجاری کالا'), {
             'fields': (
                 'name',
                 'name_en',
                 'slug',
-                'barcode',
-                'category',
                 'brand',
-                'hologram',
                 'country_origin',
+                'barcode',
+                'excerpt',
+            )
+        }),
+        (_('دسته‌بندی، هولوگرام و برچسب تجاری'), {
+            'fields': (
+                'category',
+                'hologram',
                 'badge',
             )
         }),
-        (_('قیمت‌گذاری و انبارداری بنکداری (جنت‌آباد)'), {
+        (_('قیمت‌گذاری عمده، سطوح فروش و موجودی انبار'), {
             'fields': (
-                ('carton_price', 'box_price', 'pack_price'),
-                ('stock_cartons', 'boxes_per_carton', 'packs_per_box'),
+                ('carton_price', 'box_price', 'pack_price', 'purchase_price'),
+                ('stock_cartons', 'stock_boxes'),
+                ('boxes_per_carton', 'packs_per_box'),
                 ('min_order_carton', 'min_order_box'),
                 ('has_carton', 'has_box', 'is_pos_only'),
             )
         }),
-        (_('مشخصات فنی و دخانیات (قطران و نیکوتین)'), {
+        (_('مشخصات فنی و شناسنامه استاندارد دود'), {
             'fields': (
                 ('tar', 'nicotine', 'carbon_monoxide'),
                 ('cigarette_size', 'filter_type'),
             ),
-            'classes': ('collapse',),
         }),
-        (_('توضیحات و رسانه'), {
-            'fields': ('excerpt', 'full_description', 'main_image'),
+        (_('نقد و بررسی و توضیحات جامع محصول (TinyMCE)'), {
+            'fields': ('full_description',),
         }),
-        (_('تنظیمات سئو پیشرفته (Yoast SEO)'), {
-            'fields': ('focus_keyword', 'meta_title', 'meta_description', 'canonical_url'),
-            'classes': ('collapse',),
+        (_('تصویر شاخص محصول'), {
+            'fields': ('main_image', 'image'),
         }),
-        (_('وضعیت فعالیت'), {
-            'fields': ('is_active',),
+        (_('تنظیمات سئو و کلمه کلیدی کانونی (Yoast SEO)'), {
+            'fields': (
+                'focus_keyword',
+                'meta_title',
+                'meta_description',
+                'canonical_url',
+            ),
+        }),
+        (_('وضعیت فعالیت و نمایش در سامانه'), {
+            'fields': (('is_active', 'is_featured'),),
         }),
     )
+
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
 
     def carton_price_toman(self, obj):
         return f"{obj.carton_price:,} تومان"
@@ -243,5 +275,38 @@ class ProductAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(ProductAttribute)
 class ProductAttributeAdmin(admin.ModelAdmin):
-    list_display = ['name']
-    search_fields = ['name']
+    list_display = ['id', 'name', 'name_en', 'data_type', 'unit', 'help_text_short', 'created_at_jalali']
+    list_filter = ['data_type']
+    search_fields = ['name', 'name_en', 'help_text']
+    ordering = ['-id']
+
+    @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
+    def created_at_jalali(self, obj):
+        return to_jalali_str(obj.created_at)
+
+    @admin.display(description=_('توضیح راهنما'))
+    def help_text_short(self, obj):
+        if not obj.help_text:
+            return '-'
+        return obj.help_text[:50] + ('...' if len(obj.help_text) > 50 else '')
+
+
+# ==============================================================================
+# ۷. مقادیر ویژگی‌های کالاها (Product Attribute Value Admin)
+# ==============================================================================
+@admin.register(ProductAttributeValue)
+class ProductAttributeValueAdmin(admin.ModelAdmin):
+    list_display = ['id', 'product', 'attribute', 'display_val']
+    list_filter = ['attribute__data_type', 'attribute']
+    search_fields = ['product__name', 'product__name_en', 'attribute__name', 'value']
+    autocomplete_fields = ['product', 'attribute']
+
+    @admin.display(description=_('مقدار ویژگی'))
+    def display_val(self, obj):
+        if obj.value:
+            return obj.value
+        if obj.value_number is not None:
+            return f"{obj.value_number} {obj.attribute.unit or ''}".strip()
+        if obj.value_boolean is not None:
+            return _("بله") if obj.value_boolean else _("خیر")
+        return "-"

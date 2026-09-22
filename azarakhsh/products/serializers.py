@@ -4,6 +4,7 @@ products/serializers.py
 """
 
 from rest_framework import serializers
+from django.db.models import Q
 from django.utils.text import slugify
 import uuid
 from .models import (
@@ -11,21 +12,19 @@ from .models import (
     ProductBrand,
     ProductHologram,
     ProductAttribute,
-    ProductAttributeValue,
     Product,
+    ProductAttributeValue,
     ProductImage,
-    ProductKeyFeature,
-    ProductTierDiscount
+    ProductKeyFeature
 )
+
 
 class ProductBrandSerializer(serializers.ModelSerializer):
     """
-    سریالایزر برندهای کالا با پشتیبانی کامل از آپلود فایل و ذخیره توضیحات
+    سریالایزر برندها با امکان آپلود فایل تصویر لوگو (logo) و تولید خودکار آدرس پیش‌نمایش لوگو (logo_preview)
     """
     slug = serializers.SlugField(required=False, allow_blank=True)
-    products_count = serializers.SerializerMethodField()
-    # تعریف صریح برای اطمینان از قابلیت نوشتن (writable)
-    description = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    logo_preview = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ProductBrand
@@ -35,17 +34,28 @@ class ProductBrandSerializer(serializers.ModelSerializer):
             'name_en',
             'slug',
             'logo',
+            'logo_preview',
             'country',
             'description',
-            'products_count',
-            'created_at',
-            'updated_at'
+            'created_at'
         ]
         extra_kwargs = {
             'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
             'country': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'description': {'required': False, 'allow_blank': True, 'allow_null': True},
             'logo': {'required': False, 'allow_null': True},
         }
+
+    def get_logo_preview(self, obj):
+        if not obj.logo:
+            return None
+        request = self.context.get('request')
+        if hasattr(obj.logo, 'url'):
+            url = obj.logo.url
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+        return str(obj.logo)
 
     def validate(self, attrs):
         if not attrs.get('slug'):
@@ -56,15 +66,19 @@ class ProductBrandSerializer(serializers.ModelSerializer):
             attrs['slug'] = generated_slug
         return attrs
 
-    def get_products_count(self, obj):
-        # شمارش محصولات مرتبط با این برند
-        return Product.objects.filter(brand=obj).count()
+
+# نام مستعار جهت پشتیبانی از پروژه‌هایی که از BrandSerializer استفاده می‌کنند
+BrandSerializer = ProductBrandSerializer
 
 
 class CategorySerializer(serializers.ModelSerializer):
     """
-    سریالایزر جامع دسته‌بندی با ۵ فیلد اصلی فرم (عنوان، نام لاتین، اسلاگ، رنگ شناسه، توضیحات)
-    پشتیبانی از ایجاد خودکار اسلاگ و محاسبه تعداد محصولات
+    سریالایزر جامع دسته‌بندی با ۵ فیلد اصلی فرم ورودی:
+    ۱. عنوان دسته‌بندی (فارسی) - name *
+    ۲. نام لاتین - name_en
+    ۳. شناسه سیستمی - slug (در صورت عدم ارسال، خودکار تولید می‌شود)
+    ۴. رنگ شناسه - color (۶ پالت رنگی)
+    ۵. توضیحات کوتاه - description
     """
     slug = serializers.SlugField(required=False, allow_blank=True)
     color_display = serializers.CharField(source='get_color_display', read_only=True)
@@ -118,7 +132,7 @@ class ProductHologramSerializer(serializers.ModelSerializer):
             'security_specs',
             'is_verified',
             'created_at',
-            'updated_at'
+            'updated_at',
         ]
         extra_kwargs = {
             'issuer_org': {'required': False, 'allow_blank': True, 'allow_null': True},
@@ -140,15 +154,12 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
             'data_type_display',
             'unit',
             'help_text',
-            'created_at'
         ]
 
 
 class ProductAttributeValueSerializer(serializers.ModelSerializer):
     attribute_name = serializers.CharField(source='attribute.name', read_only=True)
-    attribute_name_en = serializers.CharField(source='attribute.name_en', read_only=True)
-    unit = serializers.CharField(source='attribute.unit', read_only=True)
-    data_type = serializers.CharField(source='attribute.data_type', read_only=True)
+    attribute_unit = serializers.CharField(source='attribute.unit', read_only=True)
 
     class Meta:
         model = ProductAttributeValue
@@ -156,12 +167,10 @@ class ProductAttributeValueSerializer(serializers.ModelSerializer):
             'id',
             'attribute',
             'attribute_name',
-            'attribute_name_en',
-            'unit',
-            'data_type',
+            'attribute_unit',
             'value',
             'value_number',
-            'value_boolean'
+            'value_boolean',
         ]
 
 
@@ -171,32 +180,15 @@ class ProductImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image', 'order']
 
 
-class ProductKeyFeatureSerializer(serializers.ModelSerializer):
-    """
-    سریالایزر نقاط قوت و ویژگی‌های کلیدی کالا (Key Features)
-    """
-    class Meta:
-        model = ProductKeyFeature
-        fields = ['id', 'title', 'display_order']
-
-
-class ProductTierDiscountSerializer(serializers.ModelSerializer):
-    """
-    سریالایزر تخفیفات پلکانی حجم عمده کالا
-    """
-    class Meta:
-        model = ProductTierDiscount
-        fields = ['id', 'min_quantity', 'discount_percent', 'discount_price_per_unit']
-
-
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_color = serializers.CharField(source='category.color', read_only=True)
+    brand_detail = ProductBrandSerializer(source='brand', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True, default='')
+    brand_logo = serializers.SerializerMethodField(read_only=True)
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
     attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
-    key_features = ProductKeyFeatureSerializer(many=True, read_only=True)
-    tier_discounts = ProductTierDiscountSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
@@ -206,6 +198,9 @@ class ProductSerializer(serializers.ModelSerializer):
             'name_en',
             'slug',
             'brand',
+            'brand_detail',
+            'brand_name',
+            'brand_logo',
             'barcode',
             'category',
             'category_name',
@@ -223,8 +218,6 @@ class ProductSerializer(serializers.ModelSerializer):
             'image',
             'gallery',
             'attributes_values',
-            'key_features',
-            'tier_discounts',
             'is_pos_only',
             'is_box_only',
             'has_carton',
@@ -236,14 +229,26 @@ class ProductSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
+    def get_brand_logo(self, obj):
+        if obj.brand and obj.brand.logo:
+            request = self.context.get('request')
+            if hasattr(obj.brand.logo, 'url'):
+                url = obj.brand.logo.url
+                if request is not None:
+                    return request.build_absolute_uri(url)
+                return url
+            return str(obj.brand.logo)
+        return None
+
 
 class ProductDetailSerializer(serializers.ModelSerializer):
     category_detail = CategorySerializer(source='category', read_only=True)
+    brand_detail = ProductBrandSerializer(source='brand', read_only=True)
+    brand_name = serializers.CharField(source='brand.name', read_only=True, default='')
+    brand_logo = serializers.SerializerMethodField(read_only=True)
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
     attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
-    key_features = ProductKeyFeatureSerializer(many=True, read_only=True)
-    tier_discounts = ProductTierDiscountSerializer(many=True, read_only=True)
 
     class Meta:
         model = Product
@@ -253,6 +258,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'name_en',
             'slug',
             'brand',
+            'brand_detail',
+            'brand_name',
+            'brand_logo',
             'barcode',
             'category',
             'category_detail',
@@ -269,8 +277,6 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'image',
             'gallery',
             'attributes_values',
-            'key_features',
-            'tier_discounts',
             'full_description',
             'excerpt',
             'is_pos_only',
@@ -284,56 +290,49 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
-
-import base64
-import urllib.request
-import uuid
-from django.core.files.base import ContentFile
-
-def parse_image_data(image_data):
-    if not image_data:
+    def get_brand_logo(self, obj):
+        if obj.brand and obj.brand.logo:
+            request = self.context.get('request')
+            if hasattr(obj.brand.logo, 'url'):
+                url = obj.brand.logo.url
+                if request is not None:
+                    return request.build_absolute_uri(url)
+                return url
+            return str(obj.brand.logo)
         return None
-    if isinstance(image_data, str):
-        if image_data.startswith('data:image'):
-            try:
-                format, imgstr = image_data.split(';base64,')
-                ext = format.split('/')[-1]
-                if ext == 'jpeg':
-                    ext = 'jpg'
-                return ContentFile(base64.b64decode(imgstr), name=f"gallery-{uuid.uuid4().hex[:6]}.{ext}")
-            except Exception:
-                pass
-        elif image_data.startswith('http'):
-            try:
-                req = urllib.request.Request(
-                    image_data, 
-                    headers={'User-Agent': 'Mozilla/5.0'}
-                )
-                with urllib.request.urlopen(req, timeout=5) as response:
-                    return ContentFile(response.read(), name=f"gallery-{uuid.uuid4().hex[:6]}.jpg")
-            except Exception:
-                pass
-    return None
 
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
-    brand = serializers.PrimaryKeyRelatedField(
-        queryset=ProductBrand.objects.all(),
-        required=False,
-        allow_null=True
-    )
-    key_features = ProductKeyFeatureSerializer(many=True, required=False)
-    tier_discounts = ProductTierDiscountSerializer(many=True, required=False)
-    images = serializers.ListField(
+    """
+    سریالایزر هوشمند و جامع ثبت و بروزرسانی کالا در دیتابیس دجانگو
+    پشتیبانی کامل از تمامی فیلدهای دیتابیس و ورودی‌های رشته‌ای، عددی یا دیکشنری برند، دسته‌بندی و هولوگرام
+    پشتیبانی از گالری تصاویر آپشنال، نکات کلیدی و تخفیف‌های تیراژ
+    """
+    name_fa = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    brand = serializers.PrimaryKeyRelatedField(queryset=ProductBrand.objects.all(), required=False, allow_null=True)
+    category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=False, allow_null=True)
+    hologram = serializers.PrimaryKeyRelatedField(queryset=ProductHologram.objects.all(), required=False, allow_null=True)
+    gallery_images = serializers.ListField(
         child=serializers.CharField(),
         required=False,
-        write_only=True
+        allow_empty=True,
+        write_only=True,
+        help_text="لیست آدرس‌ها یا تصویرهای گالری محصول (اختیاری)"
+    )
+    key_takeaways = serializers.ListField(
+        child=serializers.CharField(),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+        help_text="لیست نکات کلیدی محصول جهت نمایش در سئو و چکیده"
     )
 
     class Meta:
         model = Product
         fields = [
+            'id',
             'name',
+            'name_fa',
             'name_en',
             'slug',
             'brand',
@@ -348,12 +347,25 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'purchase_price',
             'stock_cartons',
             'stock_boxes',
+            'min_order_carton',
+            'min_order_box',
+            'tar',
+            'nicotine',
+            'carbon_monoxide',
+            'cigarette_size',
+            'filter_type',
+            'country_origin',
+            'badge',
+            'main_image',
             'image',
-            'images',
+            'gallery_images',
+            'key_takeaways',
             'full_description',
             'excerpt',
-            'key_features',
-            'tier_discounts',
+            'focus_keyword',
+            'meta_title',
+            'meta_description',
+            'canonical_url',
             'is_pos_only',
             'is_box_only',
             'has_carton',
@@ -363,142 +375,167 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'is_featured'
         ]
 
+        extra_kwargs = {
+            'name': {'required': True},
+            'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'slug': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'barcode': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'box_price': {'required': False, 'allow_null': True},
+            'boxes_per_carton': {'required': False, 'allow_null': True},
+            'carton_price': {'required': False, 'allow_null': True},
+            'pack_price': {'required': False, 'allow_null': True},
+            'packs_per_box': {'required': False, 'allow_null': True},
+            'purchase_price': {'required': False, 'allow_null': True},
+            'stock_cartons': {'required': False, 'allow_null': True},
+            'stock_boxes': {'required': False, 'allow_null': True},
+            'min_order_carton': {'required': False, 'allow_null': True},
+            'min_order_box': {'required': False, 'allow_null': True},
+            'tar': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'nicotine': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'carbon_monoxide': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'cigarette_size': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'filter_type': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'country_origin': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'badge': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'main_image': {'required': False, 'allow_null': True},
+            'image': {'required': False, 'allow_null': True},
+            'full_description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'excerpt': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'focus_keyword': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'meta_title': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'meta_description': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'canonical_url': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
+
     def to_internal_value(self, data):
-        # Handle dict or QueryDict
-        if hasattr(data, 'dict'):
-            data = data.dict()
-        else:
-            data = dict(data)
+        data_dict = data.copy() if hasattr(data, 'copy') else dict(data)
 
-        # 1. Resolve category
-        category_val = data.get('category')
-        if category_val:
-            if isinstance(category_val, str) and not str(category_val).isdigit():
-                category_obj = Category.objects.filter(slug=category_val).first() or Category.objects.filter(name=category_val).first()
-                if category_obj:
-                    data['category'] = category_obj.id
-                else:
-                    slug_val = slugify(category_val, allow_unicode=True) or f"cat-{uuid.uuid4().hex[:8]}"
-                    category_obj = Category.objects.create(name=category_val, slug=slug_val)
-                    data['category'] = category_obj.id
-            else:
-                try:
-                    data['category'] = int(category_val)
-                except (ValueError, TypeError):
-                    pass
+        # پاکسازی اعداد و قیمت‌ها در صورت ارسال رشته خالی یا تهی
+        for num_field in ['box_price', 'boxes_per_carton', 'carton_price', 'pack_price', 'packs_per_box', 'purchase_price', 'stock_cartons', 'stock_boxes', 'min_order_carton', 'min_order_box']:
+            if num_field in data_dict:
+                val = data_dict[num_field]
+                if val == '' or val is None:
+                    data_dict[num_field] = 0
+                elif isinstance(val, str):
+                    clean_val = val.replace(',', '').strip()
+                    data_dict[num_field] = int(clean_val) if clean_val.isdigit() else 0
 
-        # 2. Resolve brand
-        brand_val = data.get('brand')
-        if brand_val:
-            if isinstance(brand_val, str) and not str(brand_val).isdigit():
-                brand_obj = ProductBrand.objects.filter(slug=brand_val).first() or ProductBrand.objects.filter(name=brand_val).first()
-                if brand_obj:
-                    data['brand'] = brand_obj.id
-                else:
-                    slug_val = slugify(brand_val, allow_unicode=True) or f"brand-{uuid.uuid4().hex[:8]}"
-                    brand_obj = ProductBrand.objects.create(name=brand_val, slug=slug_val)
-                    data['brand'] = brand_obj.id
-            else:
-                try:
-                    data['brand'] = int(brand_val)
-                except (ValueError, TypeError):
-                    pass
+        # نگاشت name_fa به name
+        if 'name_fa' in data_dict and data_dict['name_fa'] and not data_dict.get('name'):
+            data_dict['name'] = data_dict['name_fa']
 
-        # 3. Resolve hologram
-        hologram_val = data.get('hologram')
-        if hologram_val:
-            if isinstance(hologram_val, str) and not str(hologram_val).isdigit():
-                hologram_obj = ProductHologram.objects.filter(title=hologram_val).first()
-                if hologram_obj:
-                    data['hologram'] = hologram_obj.id
-                else:
-                    hologram_obj = ProductHologram.objects.create(title=hologram_val)
-                    data['hologram'] = hologram_obj.id
-            else:
-                try:
-                    data['hologram'] = int(hologram_val)
-                except (ValueError, TypeError):
-                    pass
+        # پردازش هوشمند برند
+        b_val = data_dict.get('brand') or data_dict.get('brand_id') or data_dict.get('brand_name')
+        if b_val is not None and b_val != '':
+            if isinstance(b_val, dict):
+                b_id = b_val.get('id')
+                b_name = b_val.get('name') or b_val.get('title')
+                if b_id and str(b_id).isdigit() and ProductBrand.objects.filter(id=int(b_id)).exists():
+                    data_dict['brand'] = int(b_id)
+                elif b_name:
+                    brand_obj, _ = ProductBrand.objects.get_or_create(
+                        name=str(b_name),
+                        defaults={'slug': slugify(str(b_name), allow_unicode=True) or f"brand-{uuid.uuid4().hex[:6]}"}
+                    )
+                    data_dict['brand'] = brand_obj.id
+            elif isinstance(b_val, (int, str)):
+                s_val = str(b_val).strip()
+                if s_val.isdigit() and ProductBrand.objects.filter(id=int(s_val)).exists():
+                    data_dict['brand'] = int(s_val)
+                elif s_val:
+                    brand_obj, _ = ProductBrand.objects.get_or_create(
+                        name=s_val,
+                        defaults={'slug': slugify(s_val, allow_unicode=True) or f"brand-{uuid.uuid4().hex[:6]}"}
+                    )
+                    data_dict['brand'] = brand_obj.id
 
-        # 4. Handle list fields mapping
-        key_takeaways = data.get('key_takeaways', [])
-        key_features = data.get('key_features', [])
-        if not key_features and key_takeaways:
-            data['key_features'] = [{'title': t, 'display_order': i+1} for i, t in enumerate(key_takeaways)]
+        # پردازش هوشمند دسته‌بندی
+        c_val = data_dict.get('category') or data_dict.get('category_id') or data_dict.get('category_name')
+        if c_val is not None and c_val != '':
+            if isinstance(c_val, dict):
+                c_id = c_val.get('id')
+                c_name = c_val.get('name') or c_val.get('title') or c_val.get('slug')
+                if c_id and str(c_id).isdigit() and Category.objects.filter(id=int(c_id)).exists():
+                    data_dict['category'] = int(c_id)
+                elif c_name:
+                    cat_obj = Category.objects.filter(Q(slug=c_name) | Q(name=c_name) | Q(name_en=c_name)).first()
+                    if not cat_obj:
+                        cat_obj = Category.objects.create(
+                            name=str(c_name),
+                            slug=slugify(str(c_name), allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
+                        )
+                    data_dict['category'] = cat_obj.id
+            elif isinstance(c_val, (int, str)):
+                s_val = str(c_val).strip()
+                if s_val.isdigit() and Category.objects.filter(id=int(s_val)).exists():
+                    data_dict['category'] = int(s_val)
+                elif s_val:
+                    cat_obj = Category.objects.filter(Q(slug=s_val) | Q(name=s_val) | Q(name_en=s_val)).first()
+                    if not cat_obj:
+                        cat_obj = Category.objects.create(
+                            name=s_val,
+                            slug=slugify(s_val, allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
+                        )
+                    data_dict['category'] = cat_obj.id
 
-        # Ensure tier_discounts array is present and is clean
-        tier_discounts = data.get('tier_discounts', [])
-        if isinstance(tier_discounts, list):
-            clean_discounts = []
-            for td in tier_discounts:
-                if isinstance(td, dict):
-                    clean_discounts.append({
-                        'min_quantity': int(td.get('min_quantity') or td.get('minQuantity') or 1),
-                        'discount_percent': float(td.get('discount_percent') or td.get('discountPercent') or 0.0),
-                        'discount_price_per_unit': td.get('discount_price_per_unit') or td.get('discountPricePerUnit') or None
-                    })
-            data['tier_discounts'] = clean_discounts
+        # پردازش هوشمند و قطعی هولوگرام
+        h_val = data_dict.get('hologram') or data_dict.get('hologram_id') or data_dict.get('hologram_title')
+        if h_val is not None and h_val != '':
+            if isinstance(h_val, dict):
+                h_id = h_val.get('id')
+                h_title = h_val.get('title') or h_val.get('name')
+                if h_id and str(h_id).isdigit() and ProductHologram.objects.filter(id=int(h_id)).exists():
+                    data_dict['hologram'] = int(h_id)
+                elif h_title:
+                    holo_obj, _ = ProductHologram.objects.get_or_create(title=str(h_title))
+                    data_dict['hologram'] = holo_obj.id
+            elif isinstance(h_val, (int, str)):
+                s_val = str(h_val).strip()
+                if s_val.isdigit() and ProductHologram.objects.filter(id=int(s_val)).exists():
+                    data_dict['hologram'] = int(s_val)
+                elif s_val:
+                    holo_obj, _ = ProductHologram.objects.get_or_create(title=s_val)
+                    data_dict['hologram'] = holo_obj.id
 
-        return super().to_internal_value(data)
+        # تولید خودکار اسلاگ
+        if not data_dict.get('slug') and data_dict.get('name'):
+            gen_slug = slugify(data_dict.get('name_en') or data_dict.get('name'), allow_unicode=True)
+            data_dict['slug'] = gen_slug or f"prod-{uuid.uuid4().hex[:8]}"
+
+        return super().to_internal_value(data_dict)
 
     def create(self, validated_data):
-        key_features_data = validated_data.pop('key_features', [])
-        tier_discounts_data = validated_data.pop('tier_discounts', [])
-        images_data = validated_data.pop('images', [])
-        
-        # Parse main image url / base64 if provided
-        main_img_data = validated_data.get('image')
-        if main_img_data:
-            parsed_img = parse_image_data(main_img_data)
-            if parsed_img:
-                validated_data['main_image'] = parsed_img
+        gallery_images = validated_data.pop('gallery_images', [])
+        key_takeaways = validated_data.pop('key_takeaways', [])
+        product = super().create(validated_data)
 
-        product = Product.objects.create(**validated_data)
-        
-        for kf in key_features_data:
-            ProductKeyFeature.objects.create(product=product, **kf)
-            
-        for td in tier_discounts_data:
-            ProductTierDiscount.objects.create(product=product, **td)
+        # ثبت گالری تصاویر آپشنال در صورت ارسال در اندپوینت
+        for idx, img_src in enumerate(gallery_images):
+            if img_src:
+                ProductImage.objects.create(product=product, image=img_src, order=idx)
 
-        for idx, img_str in enumerate(images_data):
-            parsed_gallery_img = parse_image_data(img_str)
-            if parsed_gallery_img:
-                ProductImage.objects.create(product=product, image=parsed_gallery_img, order=idx)
-            
+        # ثبت نکات کلیدی
+        for idx, feature_text in enumerate(key_takeaways):
+            if feature_text:
+                ProductKeyFeature.objects.create(product=product, title=feature_text, order=idx)
+
         return product
 
     def update(self, instance, validated_data):
-        key_features_data = validated_data.pop('key_features', None)
-        tier_discounts_data = validated_data.pop('tier_discounts', None)
-        images_data = validated_data.pop('images', None)
-        
-        # Parse main image url / base64 if provided
-        main_img_data = validated_data.get('image')
-        if main_img_data:
-            parsed_img = parse_image_data(main_img_data)
-            if parsed_img:
-                validated_data['main_image'] = parsed_img
-        
-        for attr, value in validated_data.items():
-            setattr(instance, attr, value)
-        instance.save()
-        
-        if key_features_data is not None:
-            instance.key_features.all().delete()
-            for kf in key_features_data:
-                ProductKeyFeature.objects.create(product=instance, **kf)
-                
-        if tier_discounts_data is not None:
-            instance.tier_discounts.all().delete()
-            for td in tier_discounts_data:
-                ProductTierDiscount.objects.create(product=instance, **td)
+        gallery_images = validated_data.pop('gallery_images', None)
+        key_takeaways = validated_data.pop('key_takeaways', None)
+        product = super().update(instance, validated_data)
 
-        if images_data is not None:
+        if gallery_images is not None:
             instance.gallery.all().delete()
-            for idx, img_str in enumerate(images_data):
-                parsed_gallery_img = parse_image_data(img_str)
-                if parsed_gallery_img:
-                    ProductImage.objects.create(product=instance, image=parsed_gallery_img, order=idx)
-                
-        return instance
+            for idx, img_src in enumerate(gallery_images):
+                if img_src:
+                    ProductImage.objects.create(product=product, image=img_src, order=idx)
+
+        if key_takeaways is not None:
+            instance.key_features.all().delete()
+            for idx, feature_text in enumerate(key_takeaways):
+                if feature_text:
+                    ProductKeyFeature.objects.create(product=product, title=feature_text, order=idx)
+
+        return product

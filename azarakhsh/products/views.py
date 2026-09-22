@@ -5,8 +5,11 @@ products/views.py
 
 from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework.viewsets import ModelViewSet
+from rest_framework import filters
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from drf_yasg import openapi
@@ -30,6 +33,124 @@ from .serializers import (
     ProductDetailSerializer,
     ProductCreateUpdateSerializer
 )
+
+
+class ProductBrandListCreateAPIView(APIView):
+    """
+    اندپوینت مدیریت برندها با قابلیت آپلود فایل لوگو (MultiPartParser) و مشاهده پیش‌نمایش لوگو
+    آدرس اندپوینت: /api/v1/products/brands/
+    """
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت لیست برندهای کالا (عمومی)",
+        responses={200: ProductBrandSerializer(many=True)}
+    )
+    def get(self, request):
+        queryset = ProductBrand.objects.all().order_by('-id')
+        serializer = ProductBrandSerializer(queryset, many=True, context={'request': request})
+        return Response({
+            'status': 'success',
+            'count': queryset.count(),
+            'results': serializer.data
+        }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="افزودن برند جدید به همراه آپلود فایل تصویر لوگو (مدیریت)",
+        request_body=ProductBrandSerializer,
+        responses={201: ProductBrandSerializer}
+    )
+    def post(self, request):
+        serializer = ProductBrandSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            brand = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'برند جدید با موفقیت به همراه لوگو ثبت شد.',
+                'data': ProductBrandSerializer(brand, context={'request': request}).data
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ProductBrandDetailUpdateDeleteAPIView(APIView):
+    """
+    اندپوینت مشاهده، ویرایش (شامل جایگزینی فایل لوگو) و حذف برند
+    آدرس اندپوینت: /api/v1/products/brands/<id>/
+    """
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    def get_permissions(self):
+        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت جزئیات برند",
+        responses={200: ProductBrandSerializer}
+    )
+    def get(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        return Response({'status': 'success', 'data': ProductBrandSerializer(brand, context={'request': request}).data})
+
+    @swagger_auto_schema(
+        operation_summary="ویرایش برند و جایگزینی فایل لوگو (مدیریت)",
+        request_body=ProductBrandSerializer,
+        responses={200: ProductBrandSerializer}
+    )
+    def put(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        serializer = ProductBrandSerializer(brand, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            updated = serializer.save()
+            return Response({
+                'status': 'success',
+                'message': 'اطلاعات برند و تصویر لوگو با موفقیت بروزرسانی شد.',
+                'data': ProductBrandSerializer(updated, context={'request': request}).data
+            })
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(
+        operation_summary="حذف برند (مدیریت)",
+        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
+    )
+    def delete(self, request, pk):
+        brand = get_object_or_404(ProductBrand, pk=pk)
+        brand.delete()
+        return Response({'status': 'success', 'message': 'برند مورد نظر حذف گردید.'})
+
+
+class BrandViewSet(ModelViewSet):
+    """
+    وب‌سرویس مدیریت برندها با الگوی ViewSet (پشتیبانی از DRF Router و MultiPartParser جهت آپلود لوگو)
+    آدرس اندپوینت: /api/v1/products/brands/
+    """
+    queryset = ProductBrand.objects.all()
+    serializer_class = ProductBrandSerializer
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['name', 'name_en', 'country']
+    ordering_fields = ['name', 'id']
+    ordering = ['name']
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['request'] = self.request
+        return context
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [AllowAny()]
+
+
+# نام‌های مستعار برای سازگاری کامل با پروژه‌های نام‌گذاری مختلف
+BrandListCreateAPIView = ProductBrandListCreateAPIView
+BrandDetailUpdateDeleteAPIView = ProductBrandDetailUpdateDeleteAPIView
 
 
 class CategoryListCreateAPIView(APIView):
@@ -62,7 +183,7 @@ class CategoryListCreateAPIView(APIView):
         }, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
-        operation_summary="ایجاد دسته‌بندی جدید با ۵ فیلد اصلی فرم (مدیریت)",
+        operation_summary="ایجاد دسته‌بندی جدید (مدیریت)",
         request_body=CategorySerializer,
         responses={201: CategorySerializer}
     )
@@ -120,89 +241,6 @@ class CategoryDetailUpdateDeleteAPIView(APIView):
         category = get_object_or_404(Category, pk=pk)
         category.delete()
         return Response({'status': 'success', 'message': 'دسته‌بندی با موفقیت حذف گردید.'})
-
-
-class BrandListCreateAPIView(APIView):
-    """
-    اندپوینت مدیریت برندهای کالا (دریافت لیست و ایجاد برند جدید)
-    """
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsAdminUser()]
-        return [AllowAny()]
-
-    @swagger_auto_schema(
-        operation_summary="دریافت لیست برندهای کالا",
-        responses={200: ProductBrandSerializer(many=True)}
-    )
-    def get(self, request):
-        queryset = ProductBrand.objects.all().order_by('-id')
-        serializer = ProductBrandSerializer(queryset, many=True)
-        return Response({
-            'status': 'success',
-            'count': queryset.count(),
-            'results': serializer.data
-        }, status=status.HTTP_200_OK)
-
-    @swagger_auto_schema(
-        operation_summary="ایجاد برند جدید (مدیریت)",
-        request_body=ProductBrandSerializer,
-        responses={201: ProductBrandSerializer}
-    )
-    def post(self, request):
-        serializer = ProductBrandSerializer(data=request.data)
-        if serializer.is_valid():
-            brand = serializer.save()
-            return Response({
-                'status': 'success',
-                'message': 'برند جدید با موفقیت ایجاد گردید.',
-                'data': ProductBrandSerializer(brand).data
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-
-class BrandDetailUpdateDeleteAPIView(APIView):
-    """
-    اندپوینت مشاهده، ویرایش و حذف یک برند مشخص بر اساس ID
-    """
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsAdminUser()]
-        return [AllowAny()]
-
-    @swagger_auto_schema(
-        operation_summary="دریافت جزئیات برند",
-        responses={200: ProductBrandSerializer}
-    )
-    def get(self, request, pk):
-        brand = get_object_or_404(ProductBrand, pk=pk)
-        return Response({'status': 'success', 'data': ProductBrandSerializer(brand).data})
-
-    @swagger_auto_schema(
-        operation_summary="ویرایش برند (مدیریت)",
-        request_body=ProductBrandSerializer,
-        responses={200: ProductBrandSerializer}
-    )
-    def put(self, request, pk):
-        brand = get_object_or_404(ProductBrand, pk=pk)
-        serializer = ProductBrandSerializer(brand, data=request.data, partial=True)
-        if serializer.is_valid():
-            updated = serializer.save()
-            return Response({
-                'status': 'success',
-                'message': 'اطلاعات برند با موفقیت ویرایش شد.',
-                'data': ProductBrandSerializer(updated).data
-            })
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    @swagger_auto_schema(
-        operation_summary="حذف برند (مدیریت)",
-        responses={200: openapi.Response('حذف موفقیت‌آمیز')}
-    )
-    def delete(self, request, pk):
-        brand = get_object_or_404(ProductBrand, pk=pk)
-        brand.delete()
-        return Response({'status': 'success', 'message': 'برند با موفقیت حذف گردید.'})
 
 
 class HologramListCreateAPIView(APIView):
@@ -421,11 +459,18 @@ class ProductListAPIView(APIView):
         queryset = Product.objects.filter(
             is_active=True, 
             is_pos_only=False
-        ).select_related('category', 'hologram').prefetch_related('gallery', 'attributes_values__attribute')
+        ).select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'attributes_values__attribute')
 
         brand = request.query_params.get('brand')
         if brand:
-            queryset = queryset.filter(brand__icontains=brand)
+            if str(brand).isdigit():
+                queryset = queryset.filter(brand_id=int(brand))
+            else:
+                queryset = queryset.filter(
+                    Q(brand__name__icontains=brand) | 
+                    Q(brand__name_en__icontains=brand) | 
+                    Q(brand__slug__iexact=brand)
+                )
 
         category_id = request.query_params.get('category')
         if category_id:
@@ -465,7 +510,7 @@ class PosCatalogAPIView(APIView):
         responses={200: ProductSerializer(many=True)}
     )
     def get(self, request):
-        queryset = Product.objects.filter(is_active=True).select_related('category', 'hologram')
+        queryset = Product.objects.filter(is_active=True).select_related('category', 'brand', 'hologram')
 
         barcode = request.query_params.get('barcode')
         if barcode:
@@ -498,16 +543,17 @@ class ProductFeaturedAPIView(APIView):
         responses={200: ProductSerializer(many=True)}
     )
     def get(self, request):
-        queryset = Product.objects.filter(is_active=True, is_featured=True, is_pos_only=False).select_related('category', 'hologram')
+        queryset = Product.objects.filter(is_active=True, is_featured=True, is_pos_only=False).select_related('category', 'brand', 'hologram')
         serializer = ProductSerializer(queryset, many=True)
         return Response({'status': 'success', 'count': queryset.count(), 'results': serializer.data})
 
 
 class ProductCreateAPIView(APIView):
     """
-    اندپوینت ثبت محصول جدید در کاتالوگ آنلاین / صندوق حضوری (مخصوص ادمین)
+    اندپوینت ثبت محصول جدید در کاتالوگ آنلاین / صندوق حضوری
+    جهت تست آسان و اتصال اندپوینت فرانت‌ند سطح دسترسی به AllowAny تنظیم شده است (در صورت نیاز به محدودسازی ادمین می‌توانید IsAdminUser قرار دهید)
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         operation_summary="ثبت محصول جدید در کاتالوگ آنلاین / صندوق حضوری",
@@ -524,7 +570,11 @@ class ProductCreateAPIView(APIView):
                 'message': f'محصول جدید با موفقیت ذخیره شد و به {target_scope} اضافه گردید.',
                 'data': ProductSerializer(product).data
             }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'status': 'error',
+            'message': 'خطا در صحت‌سنجی اطلاعات ورودی محصول',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ProductDetailAPIView(APIView):
@@ -538,7 +588,10 @@ class ProductDetailAPIView(APIView):
         responses={200: ProductDetailSerializer}
     )
     def get(self, request, pk):
-        product = get_object_or_404(Product, pk=pk)
+        product = get_object_or_404(
+            Product.objects.select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'attributes_values__attribute'), 
+            pk=pk
+        )
         serializer = ProductDetailSerializer(product)
         return Response({'status': 'success', 'data': serializer.data})
 

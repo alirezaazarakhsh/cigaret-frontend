@@ -1,14 +1,16 @@
 """
 products/urls.py
-مسیرهای صریح صادرشده برای APIView (بدون استفاده از Router یا ViewSet) جهت کاتالوگ، دسته‌بندی‌ها، هولوگرام‌ها و ویژگی‌های کالا
+مسیرهای جامع REST API برای دسته‌بندی‌ها، برندها، هولوگرام، ویژگی‌ها، کاتالوگ محصولات و صندوق (POS Sync)
 """
 
-from django.urls import path
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
+    BrandViewSet,
+    ProductBrandListCreateAPIView,
+    ProductBrandDetailUpdateDeleteAPIView,
     CategoryListCreateAPIView,
     CategoryDetailUpdateDeleteAPIView,
-    BrandListCreateAPIView,
-    BrandDetailUpdateDeleteAPIView,
     HologramListCreateAPIView,
     HologramDetailUpdateDeleteAPIView,
     ProductAttributeListCreateAPIView,
@@ -24,33 +26,43 @@ from .views import (
     ProductDeleteAPIView,
 )
 
-app_name = 'products'
+router = DefaultRouter()
+router.register(r'brands-router', BrandViewSet, basename='brand-viewset')
 
 urlpatterns = [
-    # ۱. دسته‌بندی‌ها
+    # روتر اختیاری ویوست برند
+    path('', include(router.urls)),
+
+    # برندها (APIView)
+    path('brands/', ProductBrandListCreateAPIView.as_view(), name='product-brand-list-create'),
+    path('brands/<int:pk>/', ProductBrandDetailUpdateDeleteAPIView.as_view(), name='product-brand-detail'),
+
+    # دسته‌بندی‌ها (APIView)
     path('categories/', CategoryListCreateAPIView.as_view(), name='category-list-create'),
-    path('categories/<int:pk>/', CategoryDetailUpdateDeleteAPIView.as_view(), name='category-detail-update-delete'),
+    path('categories/<int:pk>/', CategoryDetailUpdateDeleteAPIView.as_view(), name='category-detail'),
 
-    # ۱.۵. برندهای کالا
-    path('brands/', BrandListCreateAPIView.as_view(), name='brand-list-create'),
-    path('brands/<int:pk>/', BrandDetailUpdateDeleteAPIView.as_view(), name='brand-detail-update-delete'),
-
-    # ۲. هولوگرام و اصالت کالا
+    # هولوگرام‌ها (APIView)
     path('holograms/', HologramListCreateAPIView.as_view(), name='hologram-list-create'),
-    path('holograms/<int:pk>/', HologramDetailUpdateDeleteAPIView.as_view(), name='hologram-detail-update-delete'),
+    path('holograms/<int:pk>/', HologramDetailUpdateDeleteAPIView.as_view(), name='hologram-detail'),
 
-    # ۳. ویژگی‌ها و مشخصات فنی کالا
+    # ویژگی‌های فنی (APIView)
     path('attributes/', ProductAttributeListCreateAPIView.as_view(), name='attribute-list-create'),
-    path('attributes/<int:pk>/', ProductAttributeDetailUpdateDeleteAPIView.as_view(), name='attribute-detail-update-delete'),
-    path('<int:pk>/attributes/set/', ProductAttributeValuesSetAPIView.as_view(), name='product-attribute-values-set'),
+    path('attributes/<int:pk>/', ProductAttributeDetailUpdateDeleteAPIView.as_view(), name='attribute-detail'),
+    path('items/<int:pk>/attributes/', ProductAttributeValuesSetAPIView.as_view(), name='product-attribute-values-set'),
 
-    # ۴. کاتالوگ محصولات و همگام‌سازی صندوق (POS Sync)
-    path('', ProductListAPIView.as_view(), name='product-list'),
-    path('pos-catalog/', PosCatalogAPIView.as_view(), name='pos-catalog'),
-    path('featured/', ProductFeaturedAPIView.as_view(), name='product-featured'),
-    path('create/', ProductCreateAPIView.as_view(), name='product-create'),
-    path('<int:pk>/', ProductDetailAPIView.as_view(), name='product-detail'),
-    path('<int:pk>/update/', ProductUpdateAPIView.as_view(), name='product-update'),
-    path('<int:pk>/sync-pos-stock/', ProductSyncPosStockAPIView.as_view(), name='product-sync-pos-stock'),
-    path('<int:pk>/delete/', ProductDeleteAPIView.as_view(), name='product-delete'),
+    # کاتالوگ محصولات، پیشنهاد ویژه و صندوق (APIView)
+    path('items/', ProductListAPIView.as_view(), name='product-list'),
+    path('items/create/', ProductCreateAPIView.as_view(), name='product-create'),
+    path('items/featured/', ProductFeaturedAPIView.as_view(), name='product-featured'),
+    path('items/pos-catalog/', PosCatalogAPIView.as_view(), name='product-pos-catalog'),
+    path('items/<int:pk>/', ProductDetailAPIView.as_view(), name='product-detail'),
+    path('items/<int:pk>/update/', ProductUpdateAPIView.as_view(), name='product-update'),
+    path('items/<int:pk>/delete/', ProductDeleteAPIView.as_view(), name='product-delete'),
+    path('items/<int:pk>/pos-sync-stock/', ProductSyncPosStockAPIView.as_view(), name='product-pos-sync-stock'),
+
+    # مسیرهای میان‌بر جهت سازگاری کامل با درخواست‌های مستقیم فرانت‌اند
+    path('create/', ProductCreateAPIView.as_view(), name='product-create-short'),
+    path('<int:pk>/', ProductDetailAPIView.as_view(), name='product-detail-short'),
+    path('<int:pk>/update/', ProductUpdateAPIView.as_view(), name='product-update-short'),
+    path('<int:pk>/delete/', ProductDeleteAPIView.as_view(), name='product-delete-short'),
 ]
