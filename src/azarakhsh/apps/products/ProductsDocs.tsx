@@ -1174,7 +1174,7 @@ class ProductBrandSerializer(serializers.ModelSerializer):
     \"\"\"
     سریالایزر برندها با امکان آپلود فایل تصویر لوگو (logo) و تولید خودکار آدرس پیش‌نمایش لوگو (logo_preview)
     \"\"\"
-    slug = serializers.SlugField(required=False, allow_blank=True)
+    slug = serializers.SlugField(allow_unicode=True, required=False, allow_blank=True)
     logo_preview = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
@@ -1231,7 +1231,7 @@ class CategorySerializer(serializers.ModelSerializer):
     ۴. رنگ شناسه - color (۶ پالت رنگی)
     ۵. توضیحات کوتاه - description
     \"\"\"
-    slug = serializers.SlugField(required=False, allow_blank=True)
+    slug = serializers.SlugField(allow_unicode=True, required=False, allow_blank=True)
     color_display = serializers.CharField(source='get_color_display', read_only=True)
     products_count = serializers.SerializerMethodField()
 
@@ -1519,6 +1519,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     پشتیبانی کامل از ذخیره‌سازی ویژگی‌های فنی (EAV) در جدول ProductAttribute و ProductAttributeValue
     پشتیبانی از گالری تصاویر آپشنال، نکات کلیدی و تخفیف‌های تیراژ
     """
+    slug = serializers.SlugField(allow_unicode=True, required=False, allow_blank=True)
     name_fa = serializers.CharField(write_only=True, required=False, allow_blank=True)
     brand = serializers.PrimaryKeyRelatedField(queryset=ProductBrand.objects.all(), required=False, allow_null=True)
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=False, allow_null=True)
@@ -1721,10 +1722,14 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                     holo_obj, _ = ProductHologram.objects.get_or_create(title=s_val)
                     data_dict['hologram'] = holo_obj.id
 
-        # تولید خودکار اسلاگ
-        if not data_dict.get('slug') and data_dict.get('name'):
-            gen_slug = slugify(data_dict.get('name_en') or data_dict.get('name'), allow_unicode=True)
-            data_dict['slug'] = gen_slug or f"prod-{uuid.uuid4().hex[:8]}"
+        # تولید خودکار یا پالایش اسلاگ سئو
+        slug_raw = data_dict.get('slug')
+        if not slug_raw:
+            base_for_slug = data_dict.get('name_en') or data_dict.get('name') or f"prod-{uuid.uuid4().hex[:6]}"
+            slug_raw = slugify(str(base_for_slug), allow_unicode=True) or f"prod-{uuid.uuid4().hex[:8]}"
+        else:
+            slug_raw = slugify(str(slug_raw).strip(), allow_unicode=True) or f"prod-{uuid.uuid4().hex[:8]}"
+        data_dict['slug'] = slug_raw
 
         ret = super().to_internal_value(data_dict)
         if attributes_raw is not None and isinstance(attributes_raw, list):
@@ -1799,6 +1804,17 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         attributes_data = validated_data.pop('attributes', [])
         gallery_images = validated_data.pop('gallery_images', [])
         key_takeaways = validated_data.pop('key_takeaways', [])
+
+        # جلوگیری از تکراری شدن اسلاگ در صورت وجود کالای همنام
+        slug = validated_data.get('slug')
+        if slug:
+            orig_slug = slug
+            counter = 1
+            while Product.objects.filter(slug=slug).exists():
+                slug = f"{orig_slug}-{counter}"
+                counter += 1
+            validated_data['slug'] = slug
+
         product = super().create(validated_data)
 
         # ذخیره‌سازی پایگاه‌داده‌ای ویژگی‌های فنی کالا
