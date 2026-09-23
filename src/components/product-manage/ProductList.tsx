@@ -15,7 +15,9 @@ import {
   TrendingUp,
   AlertCircle,
   Filter,
-  Check
+  Check,
+  Building2,
+  Globe
 } from 'lucide-react';
 import { CigaretteProduct } from '../../types';
 import { ProductCategoryItem, ProductHologramItem } from './types';
@@ -553,6 +555,17 @@ export const ProductList: React.FC<ProductListProps> = ({
                                 {product.badge && product.badge !== 'پیشنهاد ویژه' && (
                                   <span className="px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
                                     {product.badge}
+                                  </span>
+                                )}
+                                {product.isPosOnly ? (
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-rose-50 text-rose-700 text-[10px] font-black border border-rose-200">
+                                    <Building2 className="w-2.5 h-2.5 text-rose-600" />
+                                    <span>فقط صندوق (مخفی در سایت)</span>
+                                  </span>
+                                ) : (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-blue-50 text-blue-700 text-[10px] font-medium border border-blue-200">
+                                    <Globe className="w-2.5 h-2.5 text-blue-500" />
+                                    <span>نمایش در سایت</span>
                                   </span>
                                 )}
                               </div>

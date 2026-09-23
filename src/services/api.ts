@@ -720,15 +720,97 @@ export const productsApi = {
     // Avoid charfield length overflows for base64 data strings sent to CharField
     const safeImage = (product.image && product.image.startsWith('data:')) ? '' : (product.image || '');
 
+    // Smart PK Resolution for Category
+    let resolvedCategoryPk: number | null = null;
+    if (product.category !== undefined && product.category !== null && !isNaN(Number(product.category))) {
+      resolvedCategoryPk = Number(product.category);
+    } else if (product.category && typeof product.category === 'string') {
+      try {
+        const cats = await categoriesApi.getAll();
+        const catTarget = product.category.trim().toLowerCase();
+        const matched = cats.find(c => 
+          String(c.id) === catTarget || 
+          (c.slug && c.slug.toLowerCase() === catTarget) || 
+          (c.name && c.name.trim().toLowerCase() === catTarget) ||
+          (c.nameEn && c.nameEn.trim().toLowerCase() === catTarget)
+        );
+        if (matched && !isNaN(Number(matched.id))) {
+          resolvedCategoryPk = Number(matched.id);
+        } else if (cats.length > 0 && !isNaN(Number(cats[0].id))) {
+          // If category not found, create or pick first valid category
+          try {
+            const createdCat = await categoriesApi.create({ name: product.category, slug: `cat-${Date.now()}` });
+            if (createdCat && !isNaN(Number(createdCat.id))) {
+              resolvedCategoryPk = Number(createdCat.id);
+            }
+          } catch {
+            resolvedCategoryPk = Number(cats[0].id);
+          }
+        }
+      } catch {}
+    }
+
+    // Smart PK Resolution for Brand
+    let resolvedBrandPk: number | null = null;
+    if (product.brand !== undefined && product.brand !== null && !isNaN(Number(product.brand))) {
+      resolvedBrandPk = Number(product.brand);
+    } else if (product.brand && typeof product.brand === 'string' && product.brand.trim()) {
+      try {
+        const brands = await brandsApi.getAll();
+        const brandTarget = product.brand.trim().toLowerCase();
+        const matched = brands.find(b => 
+          String(b.id) === brandTarget || 
+          (b.slug && b.slug.toLowerCase() === brandTarget) || 
+          (b.name && b.name.trim().toLowerCase() === brandTarget) ||
+          (b.nameEn && b.nameEn.trim().toLowerCase() === brandTarget)
+        );
+        if (matched && !isNaN(Number(matched.id))) {
+          resolvedBrandPk = Number(matched.id);
+        } else {
+          try {
+            const createdBrand = await brandsApi.create({ name: product.brand });
+            if (createdBrand && !isNaN(Number(createdBrand.id))) {
+              resolvedBrandPk = Number(createdBrand.id);
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
+    // Smart PK Resolution for Hologram
+    let resolvedHologramPk: number | null = null;
+    if (product.hologram !== undefined && product.hologram !== null && !isNaN(Number(product.hologram))) {
+      resolvedHologramPk = Number(product.hologram);
+    } else if (product.hologram && typeof product.hologram === 'string' && product.hologram.trim()) {
+      try {
+        const holos = await hologramsApi.getAll();
+        const holoTarget = product.hologram.trim().toLowerCase();
+        const matched = holos.find(h => 
+          String(h.id) === holoTarget || 
+          (h.title && h.title.trim().toLowerCase() === holoTarget)
+        );
+        if (matched && !isNaN(Number(matched.id))) {
+          resolvedHologramPk = Number(matched.id);
+        } else {
+          try {
+            const createdHolo = await hologramsApi.create({ title: product.hologram });
+            if (createdHolo && !isNaN(Number(createdHolo.id))) {
+              resolvedHologramPk = Number(createdHolo.id);
+            }
+          } catch {}
+        }
+      } catch {}
+    }
+
     const payload = {
-      name: product.nameFa,
-      name_fa: product.nameFa,
+      name: product.nameFa || 'کالای جدید',
+      name_fa: product.nameFa || 'کالای جدید',
       name_en: product.nameEn || '',
       slug: product.slug || `prod-${Date.now()}`,
       barcode: product.barcode || '',
-      category: !isNaN(Number(product.category)) ? Number(product.category) : product.category,
-      brand: !isNaN(Number(product.brand)) ? Number(product.brand) : (product.brand || null),
-      hologram: !isNaN(Number(product.hologram)) ? Number(product.hologram) : (product.hologram || null),
+      category: resolvedCategoryPk !== null ? resolvedCategoryPk : (product.category || null),
+      brand: resolvedBrandPk !== null ? resolvedBrandPk : (product.brand || null),
+      hologram: resolvedHologramPk !== null ? resolvedHologramPk : (product.hologram || null),
       carton_price: Number(product.cartonPrice) || 0,
       box_price: Number(product.boxPrice) || 0,
       pack_price: Number(product.packPrice) || 0,
@@ -813,13 +895,39 @@ export const productsApi = {
       keyTakeaways: product.keyTakeaways || [],
     };
 
-    // Fast remote POST to DRF endpoint with 8s timeout to avoid VPN lag
-    let response = await httpClient.post('/products/product/add/', payload, { timeoutMs: 8000 });
-    if (!response.success && (response.status === 404 || response.status === 405)) {
-      response = await httpClient.post('/products/create/', payload, { timeoutMs: 8000 });
-    }
-    if (!response.success && (response.status === 404 || response.status === 405)) {
-      response = await httpClient.post('/products/', payload, { timeoutMs: 8000 });
+    // Primary DRF endpoints in order
+    const candidateEndpoints = [
+      '/products/items/create/',
+      '/products/create/',
+      '/products/',
+      '/products/items/',
+      '/api/v1/products/items/create/',
+      '/api/v1/products/create/',
+      '/api/v1/products/'
+    ];
+
+    let response: any = { success: false, status: 404 };
+    for (const ep of candidateEndpoints) {
+      response = await httpClient.post(ep, payload, { timeoutMs: 8000 });
+      if (response.success) break;
+      // If server returned 400 with string/fk error, retry with sanitized integer keys or null
+      if (response.status === 400 && (payload.brand || payload.hologram || typeof payload.category === 'string')) {
+        const sanitizedPayload = {
+          ...payload,
+          brand: typeof payload.brand === 'number' ? payload.brand : null,
+          hologram: typeof payload.hologram === 'number' ? payload.hologram : null,
+          category: typeof payload.category === 'number' ? payload.category : null,
+        };
+        const retryRes = await httpClient.post(ep, sanitizedPayload, { timeoutMs: 8000 });
+        if (retryRes.success) {
+          response = retryRes;
+          break;
+        }
+      }
+      if (response.status !== 404 && response.status !== 405 && response.status !== 0) {
+        // If server actively answered with another status (e.g. 500 or 401), continue trying other endpoints
+        continue;
+      }
     }
 
     if (response.success && response.data) {

@@ -762,10 +762,30 @@ export default function App() {
       }
     };
 
+    const handleProductsUpdated = (e?: Event) => {
+      const customEvent = e as CustomEvent;
+      if (customEvent?.detail?.products && Array.isArray(customEvent.detail.products)) {
+        setProducts(customEvent.detail.products);
+      } else {
+        const fresh = getLocalProducts();
+        if (fresh && fresh.length > 0) {
+          setProducts(fresh);
+        }
+      }
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'wholesale_products' || e.key === 'sovin_django_products') {
+        handleProductsUpdated();
+      }
+    };
+
     window.addEventListener('sevin-cache-cleared', handleCacheCleared);
     window.addEventListener('sevin-api-url-changed', handleCacheCleared);
     window.addEventListener('sevin-footer-updated', handleFooterUpdated);
     window.addEventListener('sevin-categories-updated', handleCacheCleared);
+    window.addEventListener('sevin-products-changed', handleProductsUpdated);
+    window.addEventListener('storage', handleStorageChange);
 
     return () => {
       isMounted = false;
@@ -773,6 +793,8 @@ export default function App() {
       window.removeEventListener('sevin-api-url-changed', handleCacheCleared);
       window.removeEventListener('sevin-footer-updated', handleFooterUpdated);
       window.removeEventListener('sevin-categories-updated', handleCacheCleared);
+      window.removeEventListener('sevin-products-changed', handleProductsUpdated);
+      window.removeEventListener('storage', handleStorageChange);
     };
   }, []);
 
@@ -1643,12 +1665,29 @@ export default function App() {
           />
         )}
 
+        {/* TAB: Accounting & POS Terminal Management */}
+        {activeTab === 'accounting-pos' && (
+          <AccountingPosPanel
+            products={products}
+            onUpdateProductsStock={(updatedProds) => {
+              setProducts(updatedProds);
+              try {
+                localStorage.setItem('wholesale_products', JSON.stringify(updatedProds));
+                localStorage.setItem('sovin_django_products', JSON.stringify(updatedProds));
+              } catch {}
+            }}
+            onReturnToStore={() => setActiveTab('catalog')}
+            showToast={showToast}
+          />
+        )}
+
         {/* TAB: Product Management Panel */}
         {activeTab === 'product-manage' && (
           <ProductManagerPanel
             onClose={() => setActiveTab('catalog')}
             onProductSaved={() => {
-              setProducts(djangoDatabaseStore.getProducts());
+              const currentProds = djangoDatabaseStore.getProducts();
+              setProducts(currentProds);
             }}
           />
         )}

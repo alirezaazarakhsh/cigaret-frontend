@@ -102,31 +102,38 @@ export const ProductsMegaMenu: React.FC<ProductsMegaMenuProps> = ({
   const [searchTerm, setSearchTerm] = useState('');
   const [activeCategoryTab, setActiveCategoryTab] = useState<string>('all');
 
-  // Brands extracted from product list
+  // Brands extracted from product list (online catalog only)
   const brandsList = useMemo(() => {
     const brandMap: { [brand: string]: number } = {};
-    products.forEach(p => {
-      if (p.brand) {
-        brandMap[p.brand] = (brandMap[p.brand] || 0) + 1;
-      }
-    });
+    products
+      .filter(p => !p.isPosOnly && p.category !== 'drinks_coffee')
+      .forEach(p => {
+        if (p.brand) {
+          brandMap[p.brand] = (brandMap[p.brand] || 0) + 1;
+        }
+      });
     return Object.entries(brandMap).sort((a, b) => b[1] - a[1]);
   }, [products]);
 
-  // Filtered products for quick preview inside menu
+  // Filtered products for quick preview inside menu (online catalog only)
   const searchResults = useMemo(() => {
     if (!searchTerm.trim()) return [];
-    return products.filter(p => 
-      p.nameFa.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.nameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (p.origin && p.origin.toLowerCase().includes(searchTerm.toLowerCase()))
-    ).slice(0, 8);
+    return products
+      .filter(p => !p.isPosOnly && p.category !== 'drinks_coffee')
+      .filter(p => 
+        p.nameFa.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.nameEn.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        p.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (p.origin && p.origin.toLowerCase().includes(searchTerm.toLowerCase()))
+      ).slice(0, 8);
   }, [products, searchTerm]);
 
-  // Featured fast-selling products
+  // Featured fast-selling products (online catalog only)
   const topSellers = useMemo(() => {
-    return products.filter(p => p.badge === 'پرفروش' || p.stockCartons > 10).slice(0, 4);
+    return products
+      .filter(p => !p.isPosOnly && p.category !== 'drinks_coffee')
+      .filter(p => p.badge === 'پرفروش' || p.stockCartons > 10)
+      .slice(0, 4);
   }, [products]);
 
   if (!isOpen) return null;

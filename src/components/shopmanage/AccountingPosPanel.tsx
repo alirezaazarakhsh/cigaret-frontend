@@ -951,15 +951,24 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       const updated = [created, ...productsList];
       setProductsList(updated);
       
+      try {
+        localStorage.setItem('wholesale_products', JSON.stringify(updated));
+        localStorage.setItem('sovin_django_products', JSON.stringify(updated));
+      } catch {}
+
       if (onUpdateProductsStock) {
         onUpdateProductsStock(updated);
+      }
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updated, product: created } }));
       }
       
       if (addToCartDirectly) {
         handleAddProductToPos(created, created.isBoxOnly ? 'box' : 'box');
       }
       
-      setSuccessBanner(`کالای «${created.nameFa}» با موفقیت در دیتابیس ثبت و به انبار اضافه شد.`);
+      setSuccessBanner(`کالای «${created.nameFa}» با موفقیت در دیتابیس ثبت و به انبار و ویترین سایت اضافه شد.`);
       setTimeout(() => setSuccessBanner(null), 3000);
     } catch (err: any) {
       if (showToast) showToast(err?.message || 'خطا در ثبت سریع محصول در دیتابیس');
@@ -968,7 +977,14 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       // Fallback to local only if API fails
       const updated = [newProduct, ...productsList];
       setProductsList(updated);
+      try {
+        localStorage.setItem('wholesale_products', JSON.stringify(updated));
+        localStorage.setItem('sovin_django_products', JSON.stringify(updated));
+      } catch {}
       if (onUpdateProductsStock) onUpdateProductsStock(updated);
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updated, product: newProduct } }));
+      }
     }
   };
 
@@ -4630,7 +4646,16 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             >
               <ProductManagementPanel
                 products={productsList}
-                onUpdateProducts={setProductsList}
+                onUpdateProducts={(updated) => {
+                  setProductsList(updated);
+                  if (onUpdateProductsStock) {
+                    onUpdateProductsStock(updated);
+                  }
+                  try {
+                    localStorage.setItem('wholesale_products', JSON.stringify(updated));
+                    localStorage.setItem('sovin_django_products', JSON.stringify(updated));
+                  } catch {}
+                }}
                 onReturnToDashboard={() => setActiveSubTab('pos')}
                 onNavigateToPublicStore={onReturnToStore}
                 initialTab={productManagementInitialTab}

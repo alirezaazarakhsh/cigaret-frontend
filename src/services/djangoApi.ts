@@ -1544,15 +1544,31 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
 
     const safeImage = (product.image && product.image.startsWith('data:')) ? '' : (product.image || '');
 
+    // Smart PK Resolution for Category / Brand / Hologram
+    let categoryPk: number | null = null;
+    if (product.category !== undefined && product.category !== null && !isNaN(Number(product.category))) {
+      categoryPk = Number(product.category);
+    }
+
+    let brandPk: number | null = null;
+    if (product.brand !== undefined && product.brand !== null && !isNaN(Number(product.brand))) {
+      brandPk = Number(product.brand);
+    }
+
+    let hologramPk: number | null = null;
+    if (product.hologram !== undefined && product.hologram !== null && !isNaN(Number(product.hologram))) {
+      hologramPk = Number(product.hologram);
+    }
+
     const payload = {
       name: product.nameFa,
       name_fa: product.nameFa,
       name_en: product.nameEn || '',
       slug: product.slug || `prod-${Date.now()}`,
       barcode: product.barcode || '',
-      brand: !isNaN(Number(product.brand)) ? Number(product.brand) : (product.brand || null),
-      category: !isNaN(Number(product.category)) ? Number(product.category) : product.category,
-      hologram: !isNaN(Number(product.hologram)) ? Number(product.hologram) : (product.hologram || null),
+      brand: brandPk,
+      category: categoryPk,
+      hologram: hologramPk,
       country_origin: product.origin || '',
       carton_price: Number(product.cartonPrice) || 0,
       box_price: Number(product.boxPrice) || 0,
@@ -1619,40 +1635,27 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
     }
 
     // Create new product on Django backend
-    let postRes = await fetch(`${baseUrl}/products/product/add/`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(payload)
-    }).catch(() => null);
+    const candidateEndpoints = [
+      `${baseUrl}/products/items/create/`,
+      `${baseUrl}/products/create/`,
+      `${baseUrl}/products/`,
+      `${baseUrl}/products/items/`,
+      `${baseUrl}/products/product/add/`
+    ];
 
-    if (!postRes || !postRes.ok) {
-      postRes = await fetch(`${baseUrl}/products/create/`, {
+    for (const ep of candidateEndpoints) {
+      const postRes = await fetch(ep, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
       }).catch(() => null);
-    }
 
-    if (!postRes || !postRes.ok) {
-      postRes = await fetch(`${baseUrl}/products/items/create/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      }).catch(() => null);
-    }
-
-    if (!postRes || !postRes.ok) {
-      postRes = await fetch(`${baseUrl}/products/add/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      }).catch(() => null);
-    }
-
-    if (postRes && postRes.ok) {
-      const postData = await postRes.json().catch(() => null);
-      if (postData?.data?.id) {
-        added.djangoId = postData.data.id;
+      if (postRes && postRes.ok) {
+        const postData = await postRes.json().catch(() => null);
+        if (postData?.data?.id) {
+          added.djangoId = postData.data.id;
+        }
+        break;
       }
     }
   } catch (e) {
@@ -1911,6 +1914,11 @@ function mapDjangoItemToProduct(item: DjangoProductItem, index: number): Cigaret
     description: item.description || defaultBase.description,
     isAvailable: item.is_active !== undefined ? Boolean(item.is_active) : (item.is_available ?? true),
     isFeatured: item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean((item as any).isFeatured || item.badge === 'پیشنهاد ویژه' || item.badge === 'special'),
+    isPosOnly: item.is_pos_only !== undefined ? Boolean(item.is_pos_only) : Boolean((item as any).isPosOnly || (item as any).is_pos_exclusive),
+    isBoxOnly: item.is_box_only !== undefined ? Boolean(item.is_box_only) : Boolean((item as any).isBoxOnly),
+    hasCarton: item.has_carton !== undefined ? Boolean(item.has_carton) : (item as any).hasCarton !== false,
+    hasBox: item.has_box !== undefined ? Boolean(item.has_box) : (item as any).hasBox !== false,
+    hasPack: item.has_pack !== undefined ? Boolean(item.has_pack) : Boolean((item as any).hasPack),
     cigaretteSize: item.cigarette_size || (item as any).cigaretteSize || defaultBase.packSize || 'king_size',
     packSize: item.cigarette_size || (item as any).cigaretteSize || defaultBase.packSize || 'king_size',
     filterType: item.filter_type || (item as any).filterType || 'white',

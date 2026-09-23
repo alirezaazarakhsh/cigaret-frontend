@@ -243,12 +243,20 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
       : [savedProd, ...products];
     
     onUpdateProducts(optimisticList);
+    try {
+      localStorage.setItem('wholesale_products', JSON.stringify(optimisticList));
+      localStorage.setItem('sovin_django_products', JSON.stringify(optimisticList));
+    } catch {}
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: optimisticList, product: savedProd } }));
+    }
+
     setActiveTab('list');
     setSelectedProduct(null);
     showToast(
       exists 
-        ? `محصول «${savedProd.nameFa}» با موفقیت ویرایش و ثبت شد.` 
-        : `کالای جدید «${savedProd.nameFa}» به سرعت به کاتالوگ اضافه شد.`
+        ? `محصول «${savedProd.nameFa}» با موفقیت ویرایش و در سراسر سایت ثبت شد.` 
+        : `کالای جدید «${savedProd.nameFa}» با موفقیت به ویترین فروشگاه و کاتالوگ سایت اضافه شد.`
     );
 
     // 2. Fast background persistence
@@ -256,12 +264,28 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
       if (exists) {
         const finalProd = await productsApi.update(savedProd.id, savedProd);
         if (finalProd) {
-          onUpdateProducts(optimisticList.map(p => p.id === savedProd.id ? { ...savedProd, ...finalProd } : p));
+          const mergedList = optimisticList.map(p => p.id === savedProd.id ? { ...savedProd, ...finalProd } : p);
+          onUpdateProducts(mergedList);
+          try {
+            localStorage.setItem('wholesale_products', JSON.stringify(mergedList));
+            localStorage.setItem('sovin_django_products', JSON.stringify(mergedList));
+          } catch {}
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: mergedList, product: finalProd } }));
+          }
         }
       } else {
         const finalProd = await productsApi.create(savedProd);
         if (finalProd && finalProd.id && finalProd.id !== savedProd.id) {
-          onUpdateProducts(optimisticList.map(p => p.id === savedProd.id ? { ...savedProd, ...finalProd } : p));
+          const mergedList = optimisticList.map(p => p.id === savedProd.id ? { ...savedProd, ...finalProd } : p);
+          onUpdateProducts(mergedList);
+          try {
+            localStorage.setItem('wholesale_products', JSON.stringify(mergedList));
+            localStorage.setItem('sovin_django_products', JSON.stringify(mergedList));
+          } catch {}
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: mergedList, product: finalProd } }));
+          }
         }
       }
     } catch (err: any) {
@@ -276,7 +300,14 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
       await productsApi.delete(prod.id);
       const updated = products.filter((p) => p.id !== prod.id);
       onUpdateProducts(updated);
-      showToast(`محصول «${prod.nameFa}» با موفقیت از دیتابیس حذف شد.`);
+      try {
+        localStorage.setItem('wholesale_products', JSON.stringify(updated));
+        localStorage.setItem('sovin_django_products', JSON.stringify(updated));
+      } catch {}
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updated } }));
+      }
+      showToast(`محصول «${prod.nameFa}» با موفقیت از دیتابیس و سایت حذف شد.`);
     } catch (err: any) {
       showToast(err?.message || 'خطا در حذف محصول از دیتابیس', 'error');
     }
