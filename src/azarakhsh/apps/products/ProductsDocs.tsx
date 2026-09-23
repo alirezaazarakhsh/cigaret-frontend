@@ -1768,6 +1768,13 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                     holo_obj, _ = ProductHologram.objects.get_or_create(title=s_val)
                     data_dict['hologram'] = holo_obj.id
 
+        # ضمانت وجود دسته‌بندی پیش‌فرض در صورت عدم ارسال دسته‌بندی توسط فرانت‌اند
+        if not data_dict.get('category'):
+            default_cat = Category.objects.first()
+            if not default_cat:
+                default_cat = Category.objects.create(name='عمومی', slug='general', description='دسته‌بندی عمومی پیش‌فرض')
+            data_dict['category'] = default_cat.id
+
         # تولید خودکار اسلاگ
         if not data_dict.get('slug') and data_dict.get('name'):
             gen_slug = slugify(data_dict.get('name_en') or data_dict.get('name'), allow_unicode=True)
@@ -2427,6 +2434,7 @@ class ProductAttributeValuesSetAPIView(APIView):
 class ProductListAPIView(APIView):
     """
     اندپوینت کاتالوگ محصولات آنلاین سایت با فیلتر خودکار کالاهای فعال و غیرحضوری (is_pos_only=False)
+    پشتیبانی از متد GET (لیست کاتالوگ) و POST (ثبت محصول جدید)
     """
     permission_classes = [AllowAny]
 
@@ -2476,6 +2484,27 @@ class ProductListAPIView(APIView):
             'count': queryset.count(),
             'results': serializer.data
         }, status=status.HTTP_200_OK)
+
+    @swagger_auto_schema(
+        operation_summary="ثبت محصول جدید در کاتالوگ (سازگاری با POST مستقیم)",
+        request_body=ProductCreateUpdateSerializer,
+        responses={201: ProductSerializer}
+    )
+    def post(self, request):
+        serializer = ProductCreateUpdateSerializer(data=request.data)
+        if serializer.is_valid():
+            product = serializer.save()
+            target_scope = "صندوق حضوری" if product.is_pos_only else "سایت آنلاین و صندوق فروشگاهی"
+            return Response({
+                'status': 'success',
+                'message': f'محصول جدید با موفقیت ذخیره شد و به {target_scope} اضافه گردید.',
+                'data': ProductSerializer(product).data
+            }, status=status.HTTP_201_CREATED)
+        return Response({
+            'status': 'error',
+            'message': 'خطا در صحت‌سنجی اطلاعات ورودی محصول',
+            'errors': serializer.errors
+        }, status=status.HTTP_400_BAD_REQUEST)
 
 
 class PosCatalogAPIView(APIView):
@@ -2706,6 +2735,8 @@ urlpatterns = [
     path('items/<int:pk>/attributes/', ProductAttributeValuesSetAPIView.as_view(), name='product-attribute-values-set'),
 
     # کاتالوگ محصولات، پیشنهاد ویژه و صندوق (APIView)
+    path('', ProductListAPIView.as_view(), name='product-root'),
+    path('products/', ProductListAPIView.as_view(), name='product-list-alt'),
     path('items/', ProductListAPIView.as_view(), name='product-list'),
     path('items/create/', ProductCreateAPIView.as_view(), name='product-create'),
     path('items/featured/', ProductFeaturedAPIView.as_view(), name='product-featured'),
