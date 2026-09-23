@@ -50,6 +50,13 @@ urlpatterns = [
     path('attributes/<int:pk>/', ProductAttributeDetailUpdateDeleteAPIView.as_view(), name='attribute-detail'),
     path('items/<int:pk>/attributes/', ProductAttributeValuesSetAPIView.as_view(), name='product-attribute-values-set'),
 
+    # مسیرهای ثبت و افزودن محصول جدید (همگام با products/product/add/ و shopmanage/products)
+    path('product/add/', ProductCreateAPIView.as_view(), name='product-add'),
+    path('products/product/add/', ProductCreateAPIView.as_view(), name='product-product-add'),
+    path('products/add/', ProductCreateAPIView.as_view(), name='products-add'),
+    path('add/', ProductCreateAPIView.as_view(), name='product-add-direct'),
+    path('create/', ProductCreateAPIView.as_view(), name='product-create-short'),
+
     # کاتالوگ محصولات، پیشنهاد ویژه و صندوق (APIView)
     path('items/', ProductListAPIView.as_view(), name='product-list'),
     path('items/create/', ProductCreateAPIView.as_view(), name='product-create'),
@@ -61,8 +68,9 @@ urlpatterns = [
     path('items/<int:pk>/pos-sync-stock/', ProductSyncPosStockAPIView.as_view(), name='product-pos-sync-stock'),
 
     # مسیرهای میان‌بر جهت سازگاری کامل با درخواست‌های مستقیم فرانت‌اند
-    path('create/', ProductCreateAPIView.as_view(), name='product-create-short'),
+    path('products/', ProductListAPIView.as_view(), name='products-direct-list'),
     path('<int:pk>/', ProductDetailAPIView.as_view(), name='product-detail-short'),
     path('<int:pk>/update/', ProductUpdateAPIView.as_view(), name='product-update-short'),
     path('<int:pk>/delete/', ProductDeleteAPIView.as_view(), name='product-delete-short'),
+    path('', ProductListAPIView.as_view(), name='product-list-root'),
 ]

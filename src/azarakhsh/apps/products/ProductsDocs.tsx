@@ -59,16 +59,19 @@ export const ProductsDocs: React.FC = () => {
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
         { name: 'name', type: 'CharField(max_length=100)', verbose: 'عنوان ویژگی به فارسی *' },
         { name: 'name_en', type: 'CharField(max_length=100, blank=True)', verbose: 'عنوان لاتین (English)' },
-        { name: 'data_type', type: 'CharField(max_length=20, choices=DATA_TYPES)', verbose: 'نوع داده (متن، عدد، انتخابی، بولی)' },
+        { name: 'data_type', type: 'CharField(max_length=20, choices=DATA_TYPES)', verbose: 'نوع داده (متن، عدد، انتخابی، بولی، نشان)' },
         { name: 'unit', type: 'CharField(max_length=30, blank=True)', verbose: 'واحد سنجش (اختیاری مثل mg, mm)' },
+        { name: 'options', type: 'TextField(blank=True)', verbose: 'گزینه‌های انتخابی برای فیلدهای Select (جداشده با کاما)' },
         { name: 'help_text', type: 'TextField(blank=True)', verbose: 'توضیح راهنما برای خریداران' },
+        { name: 'is_required', type: 'BooleanField(default=False)', verbose: 'ویژگی اجباری در ثبت محصول' },
+        { name: 'is_filterable', type: 'BooleanField(default=True)', verbose: 'قابلیت فیلتر در جستجو' },
         { name: 'created_at', type: 'DateTimeField', verbose: 'تاریخ ایجاد' },
       ]
     },
     {
       name: 'products_productattributevalue',
       verboseName: 'جدول مقادیر ویژگی‌های هر محصول (Attribute Values)',
-      description: 'انتساب مقادیر ویژگی‌های تعریف‌شده به هر محصول مجزا',
+      description: 'انتساب مقادیر ویژگی‌های تعریف‌شده به هر محصول مجزا در پایگاه‌داده (EAV Storage)',
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه' },
         { name: 'product_id', type: 'ForeignKey', isFk: true, fkTarget: 'products_product', verbose: 'کالای مربوطه' },
@@ -81,7 +84,7 @@ export const ProductsDocs: React.FC = () => {
     {
       name: 'products_product',
       verboseName: 'جدول کاتالوگ جامع محصولات و همگام‌سازی صندوق (POS)',
-      description: 'کاتالوگ کالاها شامل قیمت کارتن، باکس، پاکت، بارکدخوان، دسته‌بندی، برند، هولوگرام، همگام‌سازی دوطرفه آنلاین/صندوق و ادیتور TinyMCE',
+      description: 'کاتالوگ کالاها شامل قیمت کارتن، باکس، پاکت، مشخصات فنی و دخانیات، بارکدخوان، دسته‌بندی، برند، هولوگرام، همگام‌سازی دوطرفه آنلاین/صندوق و ادیتور TinyMCE',
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
         { name: 'name', type: 'CharField(max_length=200)', verbose: 'نام کامل کالا (فارسی) *' },
@@ -99,6 +102,12 @@ export const ProductsDocs: React.FC = () => {
         { name: 'purchase_price', type: 'DecimalField(max_digits=14, default=0)', verbose: 'قیمت تمام شده خرید انبار' },
         { name: 'stock_cartons', type: 'PositiveIntegerField(default=0)', verbose: 'موجودی انبار کارتن' },
         { name: 'stock_boxes', type: 'PositiveIntegerField(default=0)', verbose: 'موجودی انبار باکس خرد' },
+        { name: 'tar', type: 'CharField(max_length=20, blank=True)', verbose: 'میزان قطران (mg)' },
+        { name: 'nicotine', type: 'CharField(max_length=20, blank=True)', verbose: 'میزان نیکوتین (mg)' },
+        { name: 'carbon_monoxide', type: 'CharField(max_length=20, blank=True)', verbose: 'میزان کربن مونوکسید' },
+        { name: 'cigarette_size', type: 'CharField(max_length=30, choices=SIZE_CHOICES)', verbose: 'سایز سیگار (کینگ سایز، اسلیم، نانو و...)' },
+        { name: 'filter_type', type: 'CharField(max_length=30, choices=FILTER_CHOICES)', verbose: 'نوع فیلتر (سفید، زرد، زغالی، مجوف، کپسول)' },
+        { name: 'country_origin', type: 'CharField(max_length=100, blank=True)', verbose: 'کشور سازنده' },
         { name: 'image', type: 'ImageField', verbose: 'تصویر شاخص کالا' },
         { name: 'full_description', type: 'HTMLField(TinyMCE)', verbose: 'توضیحات غنی با ادیتور TinyMCE' },
         { name: 'excerpt', type: 'TextField(blank=True)', verbose: 'خلاصه کوتاه کالا' },
@@ -368,7 +377,7 @@ export const ProductsDocs: React.FC = () => {
       method: 'POST',
       path: '/api/v1/products/attributes/',
       auth: 'IsAdminUser',
-      description: 'تعریف ویژگی جدید برای کالاها با تعیین نوع داده (Choice)، واحد سنجش و متن راهنما',
+      description: 'تعریف ویژگی جدید برای کالاها با تعیین نوع داده (text, number, select, boolean, badge)، واحد سنجش، گزینه‌های انتخابی (کاماسپریت) و متن راهنما',
       curlExample: `curl -X POST "http://localhost:8000/api/v1/products/attributes/" \\
   -H "Authorization: Bearer <JWT_TOKEN>" \\
   -H "Content-Type: application/json" \\
@@ -377,7 +386,10 @@ export const ProductsDocs: React.FC = () => {
     "name_en": "Tar",
     "data_type": "number",
     "unit": "mg",
-    "help_text": "میزان قطران بر اساس استاندارد ISO"
+    "options": "",
+    "help_text": "میزان قطران بر اساس استاندارد آزمایشگاهی ISO",
+    "is_required": false,
+    "is_filterable": true
   }'`
     },
     {
@@ -402,14 +414,15 @@ export const ProductsDocs: React.FC = () => {
       method: 'POST',
       path: '/api/v1/products/<id>/attributes/',
       auth: 'IsAdminUser',
-      description: 'ثبت و تنظیم مقادیر ویژگی‌های یک کالا',
+      description: 'ثبت و تنظیم مقادیر ویژگی‌های یک کالا در دیتابیس (پشتیبانی از شناسه attribute_id یا ایجاد خودکار ویژگی بر اساس نام فارسی/انگلیسی)',
       curlExample: `curl -X POST "http://localhost:8000/api/v1/products/12/attributes/" \\
   -H "Authorization: Bearer <JWT_TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{
     "attributes": [
-      { "attribute_id": 1, "value": "0.5", "value_number": 0.5 },
-      { "attribute_id": 2, "value": "فیلتر زغالی کربن اکتیو" }
+      { "attribute_id": 1, "value": "6 mg", "value_number": 6 },
+      { "name": "نوع فیلتر", "value": "فیلتر زغالی کربن اکتیو", "data_type": "select" },
+      { "name": "کپسول طعم‌دار", "value": "دارد", "value_boolean": true, "data_type": "boolean" }
     ]
   }'`
     },
@@ -440,13 +453,13 @@ export const ProductsDocs: React.FC = () => {
       method: 'POST',
       path: '/api/v1/products/create/',
       auth: 'IsAdminUser',
-      description: 'افزودن محصول جدید به سیستم به همراه دسته‌بندی، هولوگرام، ویژگی‌ها، متن TinyMCE و تعیین وضعیت انتشار آنلاین یا فقط صندوق (is_pos_only)',
+      description: 'افزودن محصول جدید به سیستم به همراه مشخصات فنی دخانیات، سطوح و واحدهای فروش (کارتن/باکس/پاکت)، هولوگرام، ویژگی‌های داینامیک EAV، متن TinyMCE و وضعیت انتشار (is_pos_only)',
       curlExample: `curl -X POST "http://localhost:8000/api/v1/products/create/" \\
   -H "Authorization: Bearer <JWT_TOKEN>" \\
   -H "Content-Type: application/json" \\
   -d '{
-    "name": "وینستون لایت نقره‌ای",
-    "name_en": "Winston Light Silver",
+    "name": "وینستون لایت نقره‌ای کینگ سایز",
+    "name_en": "Winston Light Silver King Size",
     "slug": "winston-light-silver",
     "brand": "وینستون",
     "category": 1,
@@ -456,9 +469,29 @@ export const ProductsDocs: React.FC = () => {
     "boxes_per_carton": 50,
     "carton_price": 34000000,
     "pack_price": 68000,
+    "packs_per_box": 10,
     "stock_cartons": 150,
+    "stock_boxes": 35,
+    "min_order_carton": 1,
+    "min_order_box": 1,
+    "has_carton": true,
+    "has_box": true,
+    "has_pack": true,
+    "is_box_only": false,
+    "is_pos_only": false,
+    "tar": "6 mg",
+    "nicotine": "0.5 mg",
+    "carbon_monoxide": "7 mg",
+    "cigarette_size": "king_size",
+    "filter_type": "charcoal",
+    "country_origin": "سوئیس / امارات",
+    "badge": "bestseller",
     "full_description": "<p>سیگار وینستون لایت نقره‌ای با هولوگرام اصالت اروپایی...</p>",
-    "is_pos_only": false
+    "attributes": [
+      { "name": "میزان قطران", "value": "6 mg", "unit": "mg", "data_type": "number" },
+      { "name": "میزان نیکوتین", "value": "0.5 mg", "unit": "mg", "data_type": "number" },
+      { "name": "نوع توتون", "value": "ویرجینیا ترکیب مرغوب", "data_type": "text" }
+    ]
   }'`
     },
     {
@@ -642,7 +675,7 @@ class Product(models.Model):
     name = models.CharField(_("نام محصول (فارسی)"), max_length=200)
     name_en = models.CharField(_("نام محصول (انگلیسی)"), max_length=200, blank=True, null=True)
     slug = models.SlugField(_("اسلاگ سئو"), max_length=220, unique=True, allow_unicode=True)
-    barcode = models.CharField(_("بارکد اسکنر فروشگاهی"), max_length=60, unique=True, blank=True, null=True, db_index=True)
+    barcode = models.CharField(_("بارکد اسکنر فروشگاهی"), max_length=60, blank=True, null=True, db_index=True)
 
     category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products', verbose_name=_("دستهبندی"))
     brand = models.ForeignKey(ProductBrand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("برند"))
@@ -719,13 +752,14 @@ class ProductTierDiscount(models.Model):
 
 
 # ==============================================================================
-# ۶. مشخصات و ویژگیهای داینامیک کالا (Attributes & Values)
+# ۶. مشخصات و ویژگیهای داینامیک کالا (Attributes & Values - EAV Pattern)
 # ==============================================================================
 DATA_TYPE_CHOICES = (
     ('text', _('متن کوتاه / رشته')),
     ('number', _('عددی (صحیح یا اعشاری)')),
-    ('select', _('انتخابی / چندگزینهای')),
+    ('select', _('انتخابی / چندگزینه‌ای (Select)')),
     ('boolean', _('بله / خیر (سوئیچ دو وضعیتی)')),
+    ('badge', _('نشان / وضعیت (Badge)')),
     ('color', _('کد رنگ')),
 )
 
@@ -733,30 +767,49 @@ class ProductAttribute(models.Model):
     name = models.CharField(_("عنوان ویژگی به فارسی"), max_length=100)
     name_en = models.CharField(_("عنوان لاتین (English)"), max_length=100, blank=True, null=True)
     data_type = models.CharField(_("نوع داده"), max_length=20, choices=DATA_TYPE_CHOICES, default='text')
-    unit = models.CharField(_("واحد سنجش (اختیاری)"), max_length=30, blank=True, null=True)
+    unit = models.CharField(_("واحد سنجش (اختیاری)"), max_length=30, blank=True, null=True, help_text=_("مثال: mg, mm, گرم"))
+    options = models.TextField(_("گزینه‌های انتخابی (با کاما جدا شوند)"), blank=True, null=True, help_text=_("برای نوع داده انتخابی / چندگزینه‌ای (Select)"))
     help_text = models.TextField(_("توضیح راهنما برای خریداران"), blank=True, null=True)
+    is_required = models.BooleanField(_("ویژگی اجباری"), default=False)
+    is_filterable = models.BooleanField(_("قابل فیلتر در جستجوی پیشرفته"), default=True)
     created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
     updated_at = models.DateTimeField(_("تاریخ بروزرسانی"), auto_now=True)
 
     class Meta:
         verbose_name = _("تعریف ویژگی")
         verbose_name_plural = _("تعاریف ویژگیها")
+        ordering = ['name']
 
     def __str__(self):
-        return self.name
+        return f"{self.name} ({self.get_data_type_display()})"
 
 
 class ProductAttributeValue(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='attributes_values', verbose_name=_("محصول"))
-    attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, verbose_name=_("ویژگی"))
-    value = models.CharField(_("مقدار متنی"), max_length=255, blank=True, null=True)
+    attribute = models.ForeignKey(ProductAttribute, on_delete=models.CASCADE, related_name='values', verbose_name=_("ویژگی"))
+    value = models.CharField(_("مقدار متنی / انتخابی"), max_length=255, blank=True, null=True)
     value_number = models.DecimalField(_("مقدار عددی"), max_digits=10, decimal_places=2, blank=True, null=True)
     value_boolean = models.BooleanField(_("مقدار بله/خیر"), blank=True, null=True)
+    created_at = models.DateTimeField(_("تاریخ ثبت"), auto_now_add=True, null=True)
 
     class Meta:
         verbose_name = _("مقدار ویژگی محصول")
         verbose_name_plural = _("مقادیر ویژگیهای محصولات")
         unique_together = ('product', 'attribute')
+
+    def __str__(self):
+        return f"{self.product.name} - {self.attribute.name}: {self.get_display_value()}"
+
+    def get_display_value(self):
+        if self.value:
+            unit_str = f" {self.attribute.unit}" if self.attribute.unit and not str(self.value).endswith(self.attribute.unit) else ""
+            return f"{self.value}{unit_str}".strip()
+        if self.value_number is not None:
+            unit_str = f" {self.attribute.unit}" if self.attribute.unit else ""
+            return f"{self.value_number}{unit_str}".strip()
+        if self.value_boolean is not None:
+            return "دارد" if self.value_boolean else "ندارد"
+        return "-"
 
 
 # ==============================================================================
@@ -989,7 +1042,6 @@ class ProductAdmin(admin.ModelAdmin):
                 'name_en',
                 'slug',
                 'brand',
-                'country_origin',
                 'barcode',
                 'excerpt',
             )
@@ -1007,13 +1059,14 @@ class ProductAdmin(admin.ModelAdmin):
                 ('stock_cartons', 'stock_boxes'),
                 ('boxes_per_carton', 'packs_per_box'),
                 ('min_order_carton', 'min_order_box'),
-                ('has_carton', 'has_box', 'is_pos_only'),
+                ('has_carton', 'has_box', 'has_pack', 'is_box_only', 'is_pos_only'),
             )
         }),
         (_('مشخصات فنی و شناسنامه استاندارد دود'), {
             'fields': (
                 ('tar', 'nicotine', 'carbon_monoxide'),
                 ('cigarette_size', 'filter_type'),
+                'country_origin',
             ),
         }),
         (_('نقد و بررسی و توضیحات جامع محصول (TinyMCE)'), {
@@ -1065,20 +1118,15 @@ class ProductAdmin(admin.ModelAdmin):
 # ==============================================================================
 @admin.register(ProductAttribute)
 class ProductAttributeAdmin(admin.ModelAdmin):
-    list_display = ['id', 'name', 'name_en', 'data_type', 'unit', 'help_text_short', 'created_at_jalali']
-    list_filter = ['data_type']
-    search_fields = ['name', 'name_en', 'help_text']
+    list_display = ['id', 'name', 'name_en', 'data_type', 'unit', 'options', 'is_required', 'is_filterable', 'created_at_jalali']
+    list_filter = ['data_type', 'is_required', 'is_filterable']
+    search_fields = ['name', 'name_en', 'options', 'help_text']
     ordering = ['-id']
+    fields = ['name', 'name_en', 'data_type', 'unit', 'options', 'help_text', 'is_required', 'is_filterable']
 
     @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
     def created_at_jalali(self, obj):
         return to_jalali_str(obj.created_at)
-
-    @admin.display(description=_('توضیح راهنما'))
-    def help_text_short(self, obj):
-        if not obj.help_text:
-            return '-'
-        return obj.help_text[:50] + ('...' if len(obj.help_text) > 50 else '')
 
 
 # ==============================================================================
@@ -1246,6 +1294,7 @@ class ProductHologramSerializer(serializers.ModelSerializer):
 
 class ProductAttributeSerializer(serializers.ModelSerializer):
     data_type_display = serializers.CharField(source='get_data_type_display', read_only=True)
+    options_list = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ProductAttribute
@@ -1256,25 +1305,53 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
             'data_type',
             'data_type_display',
             'unit',
+            'options',
+            'options_list',
             'help_text',
+            'is_required',
+            'is_filterable',
+            'created_at',
+            'updated_at',
         ]
+        extra_kwargs = {
+            'name_en': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'unit': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'options': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'help_text': {'required': False, 'allow_blank': True, 'allow_null': True},
+        }
+
+    def get_options_list(self, obj):
+        if obj.options:
+            return [opt.strip() for opt in obj.options.split(',') if opt.strip()]
+        return []
 
 
 class ProductAttributeValueSerializer(serializers.ModelSerializer):
+    attribute_id = serializers.IntegerField(source='attribute.id', read_only=True)
     attribute_name = serializers.CharField(source='attribute.name', read_only=True)
+    attribute_name_en = serializers.CharField(source='attribute.name_en', read_only=True)
+    attribute_data_type = serializers.CharField(source='attribute.data_type', read_only=True)
     attribute_unit = serializers.CharField(source='attribute.unit', read_only=True)
+    display_value = serializers.SerializerMethodField(read_only=True)
 
     class Meta:
         model = ProductAttributeValue
         fields = [
             'id',
             'attribute',
+            'attribute_id',
             'attribute_name',
+            'attribute_name_en',
+            'attribute_data_type',
             'attribute_unit',
             'value',
             'value_number',
             'value_boolean',
+            'display_value',
         ]
+
+    def get_display_value(self, obj):
+        return obj.get_display_value()
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -1292,6 +1369,9 @@ class ProductSerializer(serializers.ModelSerializer):
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
     attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
+    cigarette_size_display = serializers.CharField(source='get_cigarette_size_display', read_only=True)
+    filter_type_display = serializers.CharField(source='get_filter_type_display', read_only=True)
+    badge_display = serializers.CharField(source='get_badge_display', read_only=True)
 
     class Meta:
         model = Product
@@ -1318,6 +1398,18 @@ class ProductSerializer(serializers.ModelSerializer):
             'purchase_price',
             'stock_cartons',
             'stock_boxes',
+            'min_order_carton',
+            'min_order_box',
+            'tar',
+            'nicotine',
+            'carbon_monoxide',
+            'cigarette_size',
+            'cigarette_size_display',
+            'filter_type',
+            'filter_type_display',
+            'country_origin',
+            'badge',
+            'badge_display',
             'image',
             'gallery',
             'attributes_values',
@@ -1352,6 +1444,9 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
     attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
+    cigarette_size_display = serializers.CharField(source='get_cigarette_size_display', read_only=True)
+    filter_type_display = serializers.CharField(source='get_filter_type_display', read_only=True)
+    badge_display = serializers.CharField(source='get_badge_display', read_only=True)
 
     class Meta:
         model = Product
@@ -1377,6 +1472,18 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'purchase_price',
             'stock_cartons',
             'stock_boxes',
+            'min_order_carton',
+            'min_order_box',
+            'tar',
+            'nicotine',
+            'carbon_monoxide',
+            'cigarette_size',
+            'cigarette_size_display',
+            'filter_type',
+            'filter_type_display',
+            'country_origin',
+            'badge',
+            'badge_display',
             'image',
             'gallery',
             'attributes_values',
@@ -1409,6 +1516,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     """
     سریالایزر هوشمند و جامع ثبت و بروزرسانی کالا در دیتابیس دجانگو
     پشتیبانی کامل از تمامی فیلدهای دیتابیس و ورودی‌های رشته‌ای، عددی یا دیکشنری برند، دسته‌بندی و هولوگرام
+    پشتیبانی کامل از ذخیره‌سازی ویژگی‌های فنی (EAV) در جدول ProductAttribute و ProductAttributeValue
     پشتیبانی از گالری تصاویر آپشنال، نکات کلیدی و تخفیف‌های تیراژ
     """
     name_fa = serializers.CharField(write_only=True, required=False, allow_blank=True)
@@ -1428,6 +1536,13 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         allow_empty=True,
         write_only=True,
         help_text="لیست نکات کلیدی محصول جهت نمایش در سئو و چکیده"
+    )
+    attributes = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+        help_text="لیست ویژگی‌های فنی (EAV) کالا جهت ذخیره دائمی در دیتابیس"
     )
 
     class Meta:
@@ -1463,6 +1578,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'image',
             'gallery_images',
             'key_takeaways',
+            'attributes',
             'full_description',
             'excerpt',
             'focus_keyword',
@@ -1512,6 +1628,11 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         data_dict = data.copy() if hasattr(data, 'copy') else dict(data)
+
+        # نگهداری لیست ویژگی‌های فنی قبل از اعتبارسنجی
+        attributes_raw = data_dict.pop('attributes', None)
+        if attributes_raw is None:
+            attributes_raw = data_dict.pop('custom_features', None)
 
         # پاکسازی اعداد و قیمت‌ها در صورت ارسال رشته خالی یا تهی
         for num_field in ['box_price', 'boxes_per_carton', 'carton_price', 'pack_price', 'packs_per_box', 'purchase_price', 'stock_cartons', 'stock_boxes', 'min_order_carton', 'min_order_box']:
@@ -1605,12 +1726,83 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             gen_slug = slugify(data_dict.get('name_en') or data_dict.get('name'), allow_unicode=True)
             data_dict['slug'] = gen_slug or f"prod-{uuid.uuid4().hex[:8]}"
 
-        return super().to_internal_value(data_dict)
+        ret = super().to_internal_value(data_dict)
+        if attributes_raw is not None and isinstance(attributes_raw, list):
+            ret['attributes'] = attributes_raw
+        return ret
+
+    def _save_attributes(self, product, attributes_data):
+        """
+        متد اختصاصی ذخیره‌سازی ویژگی‌های فنی در پایگاه‌داده
+        اگر ویژگی وجود نداشته باشد، با کلیه فیلدها در جدول ProductAttribute ایجاد می‌شود
+        سپس مقدار آن در جدول ProductAttributeValue ذخیره یا بروزرسانی می‌گردد.
+        """
+        if not attributes_data or not isinstance(attributes_data, list):
+            return
+
+        for item in attributes_data:
+            if not isinstance(item, dict):
+                continue
+
+            attr_id = item.get('attribute_id') or item.get('id')
+            attr_name = item.get('name') or item.get('title')
+            val = item.get('value')
+            val_num = item.get('value_number')
+            val_bool = item.get('value_boolean')
+
+            attr_obj = None
+            if attr_id and str(attr_id).isdigit():
+                attr_obj = ProductAttribute.objects.filter(id=int(attr_id)).first()
+
+            if not attr_obj and attr_name:
+                name_clean = str(attr_name).strip()
+                attr_obj = ProductAttribute.objects.filter(Q(name__iexact=name_clean) | Q(name_en__iexact=name_clean)).first()
+                if not attr_obj:
+                    # تعریف خودکار ویژگی جدید در دیتابیس
+                    attr_obj = ProductAttribute.objects.create(
+                        name=name_clean,
+                        name_en=item.get('name_en') or slugify(name_clean, allow_unicode=True),
+                        data_type=item.get('data_type') or 'text',
+                        unit=item.get('unit') or '',
+                        options=item.get('options') or '',
+                        help_text=item.get('help_text') or '',
+                        is_required=item.get('is_required', False),
+                        is_filterable=item.get('is_filterable', True),
+                    )
+
+            if not attr_obj:
+                continue
+
+            # تحلیل عددی در صورت لزوم
+            if val_num is None and val is not None and attr_obj.data_type == 'number':
+                try:
+                    cleaned_num = str(val).replace(attr_obj.unit or '', '').strip()
+                    val_num = float(cleaned_num)
+                except (ValueError, TypeError):
+                    val_num = None
+
+            # تحلیل بولی در صورت لزوم
+            if val_bool is None and val is not None and attr_obj.data_type == 'boolean':
+                val_bool = str(val).lower() in ['true', '1', 'yes', 'بله', 'دارد']
+
+            ProductAttributeValue.objects.update_or_create(
+                product=product,
+                attribute=attr_obj,
+                defaults={
+                    'value': str(val) if val is not None else '',
+                    'value_number': val_num,
+                    'value_boolean': val_bool,
+                }
+            )
 
     def create(self, validated_data):
+        attributes_data = validated_data.pop('attributes', [])
         gallery_images = validated_data.pop('gallery_images', [])
         key_takeaways = validated_data.pop('key_takeaways', [])
         product = super().create(validated_data)
+
+        # ذخیره‌سازی پایگاه‌داده‌ای ویژگی‌های فنی کالا
+        self._save_attributes(product, attributes_data)
 
         # ثبت گالری تصاویر آپشنال در صورت ارسال در اندپوینت
         for idx, img_src in enumerate(gallery_images):
@@ -1620,14 +1812,19 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         # ثبت نکات کلیدی
         for idx, feature_text in enumerate(key_takeaways):
             if feature_text:
-                ProductKeyFeature.objects.create(product=product, title=feature_text, order=idx)
+                ProductKeyFeature.objects.create(product=product, title=feature_text, display_order=idx)
 
         return product
 
     def update(self, instance, validated_data):
+        attributes_data = validated_data.pop('attributes', None)
         gallery_images = validated_data.pop('gallery_images', None)
         key_takeaways = validated_data.pop('key_takeaways', None)
         product = super().update(instance, validated_data)
+
+        # بروزرسانی مقادیر ویژگی‌های فنی در پایگاه‌داده
+        if attributes_data is not None:
+            self._save_attributes(product, attributes_data)
 
         if gallery_images is not None:
             instance.gallery.all().delete()
@@ -1639,7 +1836,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             instance.key_features.all().delete()
             for idx, feature_text in enumerate(key_takeaways):
                 if feature_text:
-                    ProductKeyFeature.objects.create(product=product, title=feature_text, order=idx)
+                    ProductKeyFeature.objects.create(product=product, title=feature_text, display_order=idx)
 
         return product
 `;
@@ -2059,6 +2256,7 @@ class ProductAttributeDetailUpdateDeleteAPIView(APIView):
 class ProductAttributeValuesSetAPIView(APIView):
     """
     اندپوینت ثبت و ویرایش دسته‌جمعی مقادیر ویژگی‌های فنی برای یک کالای مشخص
+    پشتیبانی از شناسه‌های ویژگی‌های موجود و ایجاد خودکار ویژگی‌های جدید با کلیه مشخصات در دیتابیس
     """
     permission_classes = [IsAdminUser]
 
@@ -2071,17 +2269,58 @@ class ProductAttributeValuesSetAPIView(APIView):
         attributes_data = request.data.get('attributes', [])
 
         for item in attributes_data:
-            attr_id = item.get('attribute_id')
-            if not attr_id:
+            if not isinstance(item, dict):
                 continue
-            attribute = get_object_or_404(ProductAttribute, pk=attr_id)
+
+            attr_id = item.get('attribute_id') or item.get('id')
+            attr_name = item.get('name') or item.get('title')
+            val = item.get('value')
+            val_num = item.get('value_number')
+            val_bool = item.get('value_boolean')
+
+            attribute = None
+            if attr_id and str(attr_id).isdigit():
+                attribute = ProductAttribute.objects.filter(id=int(attr_id)).first()
+
+            if not attribute and attr_name:
+                name_clean = str(attr_name).strip()
+                attribute = ProductAttribute.objects.filter(
+                    Q(name__iexact=name_clean) | Q(name_en__iexact=name_clean)
+                ).first()
+                if not attribute:
+                    attribute = ProductAttribute.objects.create(
+                        name=name_clean,
+                        name_en=item.get('name_en') or slugify(name_clean, allow_unicode=True),
+                        data_type=item.get('data_type') or 'text',
+                        unit=item.get('unit') or '',
+                        options=item.get('options') or '',
+                        help_text=item.get('help_text') or '',
+                        is_required=item.get('is_required', False),
+                        is_filterable=item.get('is_filterable', True),
+                    )
+
+            if not attribute:
+                continue
+
+            # تحلیل عددی در صورت نیاز
+            if val_num is None and val is not None and attribute.data_type == 'number':
+                try:
+                    cleaned_num = str(val).replace(attribute.unit or '', '').strip()
+                    val_num = float(cleaned_num)
+                except (ValueError, TypeError):
+                    val_num = None
+
+            # تحلیل بولی در صورت نیاز
+            if val_bool is None and val is not None and attribute.data_type == 'boolean':
+                val_bool = str(val).lower() in ['true', '1', 'yes', 'بله', 'دارد']
+
             ProductAttributeValue.objects.update_or_create(
                 product=product,
                 attribute=attribute,
                 defaults={
-                    'value': item.get('value'),
-                    'value_number': item.get('value_number'),
-                    'value_boolean': item.get('value_boolean')
+                    'value': str(val) if val is not None else '',
+                    'value_number': val_num,
+                    'value_boolean': val_bool
                 }
             )
 

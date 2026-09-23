@@ -208,16 +208,31 @@ class DjangoDatabaseStore {
   }
 
   getProducts(): CigaretteProduct[] {
+    try {
+      const saved = localStorage.getItem('wholesale_products') || localStorage.getItem('sovin_django_products');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
+      }
+    } catch {}
     return [...this.products];
   }
 
   addProduct(product: CigaretteProduct): CigaretteProduct {
-    const existingIndex = this.products.findIndex(p => p.id === product.id || (product.barcode && p.barcode === product.barcode));
+    const current = this.getProducts();
+    const existingIndex = current.findIndex(p => p.id === product.id || (product.barcode && p.barcode === product.barcode));
     if (existingIndex >= 0) {
-      this.products[existingIndex] = product;
+      current[existingIndex] = { ...current[existingIndex], ...product };
     } else {
-      this.products.unshift(product);
+      current.unshift(product);
     }
+    try {
+      localStorage.setItem('wholesale_products', JSON.stringify(current));
+      localStorage.setItem('sovin_django_products', JSON.stringify(current));
+    } catch {}
+    this.products = current;
     return product;
   }
 
@@ -1500,33 +1515,141 @@ export async function saveHologramToDjango(title: string, config?: DjangoCrmConf
 export async function saveProductToDjango(product: CigaretteProduct, config?: DjangoCrmConfig): Promise<CigaretteProduct> {
   const added = djangoDatabaseStore.addProduct(product);
 
-  if (config?.apiUrl && (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://'))) {
-    try {
-      const baseUrl = config.apiUrl.replace(/\/api\/.*$/, '');
-      await fetch(`${baseUrl}/api/v1/products/create/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(config.apiToken ? { 'Authorization': `Token ${config.apiToken}` } : {})
-        },
-        body: JSON.stringify({
-          name_fa: product.nameFa,
-          name_en: product.nameEn,
-          brand: product.brand,
-          category: product.category,
-          origin: product.origin,
-          carton_price: product.cartonPrice,
-          box_price: product.boxPrice,
-          boxes_per_carton: product.boxesPerCarton,
-          stock_cartons: product.stockCartons,
-          barcode: product.barcode,
-          hologram: product.hologram,
-          is_available: product.isAvailable,
-        })
-      });
-    } catch (e) {
-      console.warn('Django Product creation API call error:', e);
+  // Sync to wholesale_products storage for complete client catalog cohesion
+  try {
+    const raw = localStorage.getItem('wholesale_products');
+    const list: CigaretteProduct[] = raw ? JSON.parse(raw) : [];
+    const idx = list.findIndex(p => p.id === product.id || (product.barcode && p.barcode === product.barcode));
+    if (idx >= 0) {
+      list[idx] = { ...list[idx], ...product };
+    } else {
+      list.unshift(product);
     }
+    localStorage.setItem('wholesale_products', JSON.stringify(list));
+  } catch {}
+
+  // Broadcast event across UI (POS, catalog, modals)
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { product: added } }));
+  }
+
+  // Attempt real remote sync with Django REST Framework backend
+  try {
+    const baseUrl = getBlogApiBaseUrl(config);
+    const adminToken = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+
+    const payload = {
+      name: product.nameFa,
+      name_fa: product.nameFa,
+      name_en: product.nameEn || '',
+      slug: product.slug || `prod-${Date.now()}`,
+      barcode: product.barcode || '',
+      brand: !isNaN(Number(product.brand)) ? Number(product.brand) : (product.brand || null),
+      category: !isNaN(Number(product.category)) ? Number(product.category) : product.category,
+      hologram: !isNaN(Number(product.hologram)) ? Number(product.hologram) : (product.hologram || null),
+      country_origin: product.origin || '',
+      carton_price: Number(product.cartonPrice) || 0,
+      box_price: Number(product.boxPrice) || 0,
+      pack_price: Number(product.packPrice) || 0,
+      purchase_price: Number(product.purchasePrice) || 0,
+      boxes_per_carton: Number(product.boxesPerCarton) || 50,
+      packs_per_box: Number(product.packsPerBox) || 10,
+      stock_cartons: Number(product.stockCartons) || 0,
+      stock_boxes: Number(product.stockBoxes) || 0,
+      min_order_carton: Number(product.moq) || 1,
+      min_order_box: Number(product.moqBox) || 1,
+      tar: product.tar || '',
+      nicotine: product.nicotine || '',
+      cigarette_size: product.packSize || '',
+      badge: product.badge || '',
+      image: product.image || '',
+      images: product.images || [],
+      full_description: product.description || '',
+      excerpt: product.excerpt || '',
+      is_pos_only: Boolean(product.isPosOnly),
+      is_box_only: Boolean(product.isBoxOnly),
+      has_carton: product.hasCarton !== false,
+      has_box: product.hasBox !== false,
+      has_pack: Boolean(product.hasPack),
+      is_active: product.isAvailable !== false,
+      is_featured: Boolean(product.badge && product.badge !== 'none'),
+      key_takeaways: product.keyTakeaways || [],
+      tier_discounts: product.tierDiscounts || []
+    };
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+      ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
+    };
+
+    const isNumericId = !isNaN(Number(product.id)) && Number(product.id) < 1000000000;
+    const remoteId = product.djangoId || (isNumericId ? product.id : null);
+
+    if (remoteId) {
+      // Try updating existing remote item
+      let patchRes = await fetch(`${baseUrl}/products/items/${remoteId}/update/`, {
+        method: 'PATCH',
+        headers,
+        body: JSON.stringify(payload)
+      }).catch(() => null);
+
+      if (!patchRes || !patchRes.ok) {
+        patchRes = await fetch(`${baseUrl}/products/${remoteId}/update/`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(payload)
+        }).catch(() => null);
+      }
+
+      if (patchRes && patchRes.ok) {
+        const patchData = await patchRes.json().catch(() => null);
+        if (patchData?.data?.id) {
+          added.djangoId = patchData.data.id;
+        }
+        return added;
+      }
+    }
+
+    // Create new product on Django backend
+    let postRes = await fetch(`${baseUrl}/products/product/add/`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    }).catch(() => null);
+
+    if (!postRes || !postRes.ok) {
+      postRes = await fetch(`${baseUrl}/products/create/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      }).catch(() => null);
+    }
+
+    if (!postRes || !postRes.ok) {
+      postRes = await fetch(`${baseUrl}/products/items/create/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      }).catch(() => null);
+    }
+
+    if (!postRes || !postRes.ok) {
+      postRes = await fetch(`${baseUrl}/products/add/`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      }).catch(() => null);
+    }
+
+    if (postRes && postRes.ok) {
+      const postData = await postRes.json().catch(() => null);
+      if (postData?.data?.id) {
+        added.djangoId = postData.data.id;
+      }
+    }
+  } catch (e) {
+    console.warn('Django Product creation/update API call error:', e);
   }
 
   return added;

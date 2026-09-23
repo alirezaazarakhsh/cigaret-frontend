@@ -629,6 +629,15 @@ export const productsApi = {
           keyTakeawaysList = item.keyTakeaways;
         }
 
+        const rawAttrs = item.attributes_values || item.attributes || [];
+        const appliedFeatures = Array.isArray(rawAttrs) ? rawAttrs.map((a: any) => ({
+          id: String(a.id || Math.random()),
+          featureId: a.attribute ? String(a.attribute) : undefined,
+          nameFa: a.attribute_name || a.nameFa || a.name || '',
+          value: a.value || (a.value_number !== null && a.value_number !== undefined ? String(a.value_number) : (a.value_boolean !== null && a.value_boolean !== undefined ? (a.value_boolean ? 'بله' : 'خیر') : '')),
+          unit: a.attribute_unit || a.unit || '',
+        })).filter((f: any) => f.nameFa) : (item.appliedFeatures || []);
+
         return {
           id: String(item.id || `p-${idx + 1}`),
           nameFa: item.name || item.name_fa || item.nameFa || item.title || 'کالای بدون نام',
@@ -667,6 +676,7 @@ export const productsApi = {
           isPosOnly: Boolean(item.is_pos_only),
           badge: item.badge || (item.is_featured ? 'پیشنهاد ویژه' : undefined),
           keyTakeaways: keyTakeawaysList,
+          appliedFeatures,
         };
       });
 
@@ -726,15 +736,23 @@ export const productsApi = {
       tar: product.tar || '',
       nicotine: product.nicotine || '',
       is_pos_only: Boolean(product.isPosOnly),
+      isPosOnly: Boolean(product.isPosOnly),
       is_box_only: Boolean(product.isBoxOnly),
+      isBoxOnly: Boolean(product.isBoxOnly),
       has_carton: product.hasCarton !== false,
+      hasCarton: product.hasCarton !== false,
       has_box: product.hasBox !== false,
+      hasBox: product.hasBox !== false,
       has_pack: Boolean(product.hasPack),
+      hasPack: Boolean(product.hasPack),
       is_active: product.isAvailable !== false,
+      isAvailable: product.isAvailable !== false,
       is_featured: Boolean(product.badge && product.badge !== 'none'),
       key_features: keyFeatures,
       key_takeaways: product.keyTakeaways || [],
       tier_discounts: product.tierDiscounts || [],
+      applied_features: product.appliedFeatures || [],
+      appliedFeatures: product.appliedFeatures || [],
     };
 
     const newProdId = product.id || `prod_${Date.now()}`;
@@ -772,14 +790,21 @@ export const productsApi = {
       hasPack: Boolean(product.hasPack),
       isBoxOnly: Boolean(product.isBoxOnly),
       isPosOnly: Boolean(product.isPosOnly),
+      appliedFeatures: product.appliedFeatures || [],
       badge: product.badge,
       keyTakeaways: product.keyTakeaways || [],
     };
 
     // Attempt remote POST to DRF endpoint
-    let response = await httpClient.post('/products/create/', payload);
+    let response = await httpClient.post('/products/product/add/', payload);
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post('/products/create/', payload);
+    }
     if (!response.success && response.status === 404) {
       response = await httpClient.post('/products/items/create/', payload);
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.post('/products/add/', payload);
     }
     if (!response.success && response.status === 404) {
       response = await httpClient.post('/products/items/', payload);
@@ -845,6 +870,8 @@ export const productsApi = {
       key_features: keyFeatures,
       key_takeaways: productData.keyTakeaways || [],
       tier_discounts: productData.tierDiscounts || [],
+      applied_features: productData.appliedFeatures || [],
+      appliedFeatures: productData.appliedFeatures || [],
     };
 
     // Attempt remote PUT / PATCH

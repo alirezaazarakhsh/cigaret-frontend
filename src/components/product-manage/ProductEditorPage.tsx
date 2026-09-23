@@ -24,7 +24,10 @@ import {
   TrendingUp,
   TrendingDown,
   Percent,
-  FileText
+  FileText,
+  Loader2,
+  Database,
+  CheckCircle2
 } from 'lucide-react';
 import { CigaretteProduct, CigaretteCategory, ProductAppliedFeature, WholesaleTierDiscount } from '../../types';
 import { ProductCategoryItem, ProductHologramItem, ProductFeatureItem, INITIAL_PRODUCT_FEATURES } from './types';
@@ -32,6 +35,7 @@ import { TinyMceEditor } from '../common/TinyMceEditor';
 import { calculateProductYoastSeo, ProductYoastSeoReport } from './seoUtils';
 import { formatNumberFa } from '../../utils/formatters';
 import { getFrontendDomain } from '../../services/apiConfig';
+import { attributesApi } from '../../services/api';
 
 interface ProductEditorPageProps {
   product: CigaretteProduct | null;
@@ -39,8 +43,9 @@ interface ProductEditorPageProps {
   categories: ProductCategoryItem[];
   holograms: ProductHologramItem[];
   features?: ProductFeatureItem[];
-  onSave: (savedProduct: CigaretteProduct) => void;
+  onSave: (savedProduct: CigaretteProduct) => Promise<void> | void;
   onCancel: () => void;
+  onAddFeature?: (feature: ProductFeatureItem) => Promise<void> | void;
 }
 
 const COMMON_BRANDS = [
@@ -77,6 +82,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
   features,
   onSave,
   onCancel,
+  onAddFeature,
 }) => {
   const isEditing = Boolean(product && product.id);
 
@@ -214,10 +220,20 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
     });
   };
 
-  // Custom Feature UI State
+  // Dynamic features created in this session
+  const [dynamicFeatures, setDynamicFeatures] = useState<ProductFeatureItem[]>([]);
+
+  // Custom Feature UI State with Full EAV Attributes
   const [customFeatName, setCustomFeatName] = useState<string>('');
-  const [customFeatValue, setCustomFeatValue] = useState<string>('');
+  const [customFeatNameEn, setCustomFeatNameEn] = useState<string>('');
+  const [customFeatType, setCustomFeatType] = useState<'text' | 'number' | 'select' | 'badge'>('text');
   const [customFeatUnit, setCustomFeatUnit] = useState<string>('');
+  const [customFeatValue, setCustomFeatValue] = useState<string>('');
+  const [customFeatOptions, setCustomFeatOptions] = useState<string>('');
+  const [customFeatHelpText, setCustomFeatHelpText] = useState<string>('');
+  const [customFeatSaveToDb, setCustomFeatSaveToDb] = useState<boolean>(true);
+  const [isAddingCustomFeat, setIsAddingCustomFeat] = useState<boolean>(false);
+  const [customFeatError, setCustomFeatError] = useState<string | null>(null);
   const [showCustomFeatForm, setShowCustomFeatForm] = useState<boolean>(false);
 
   // Sync initial barcode if provided dynamically
@@ -294,9 +310,15 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
 
   // Catalog Features Available
   const availableFeaturesList: ProductFeatureItem[] = useMemo(() => {
-    if (features && features.length > 0) return features;
-    return INITIAL_PRODUCT_FEATURES;
-  }, [features]);
+    const base = features && features.length > 0 ? features : INITIAL_PRODUCT_FEATURES;
+    const combined = [...base];
+    for (const df of dynamicFeatures) {
+      if (!combined.some(f => f.id === df.id || f.nameFa === df.nameFa)) {
+        combined.push(df);
+      }
+    }
+    return combined;
+  }, [features, dynamicFeatures]);
 
   // Add Catalog Feature to Product
   const handleAddCatalogFeature = (feat: ProductFeatureItem) => {
@@ -386,23 +408,113 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
     });
   };
 
-  // Add Custom Feature
-  const handleAddCustomFeature = () => {
-    if (!customFeatName.trim() || !customFeatValue.trim()) return;
-    const newCustom: ProductAppliedFeature = {
-      id: `custom-${Date.now()}`,
-      nameFa: customFeatName.trim(),
-      value: customFeatValue.trim(),
-      unit: customFeatUnit.trim() || undefined,
-    };
-    setFormData(prev => ({
-      ...prev,
-      appliedFeatures: [...(prev.appliedFeatures || []), newCustom]
-    }));
-    setCustomFeatName('');
-    setCustomFeatValue('');
-    setCustomFeatUnit('');
-    setShowCustomFeatForm(false);
+  // Add Custom Feature with Full Fields & DB Persistence
+  const handleAddCustomFeature = async () => {
+    if (!customFeatName.trim()) {
+      setCustomFeatError('لطفاً نام مشخصه فنی را به فارسی وارد کنید.');
+      return;
+    }
+    setCustomFeatError(null);
+    setIsAddingCustomFeat(true);
+
+    try {
+      const generatedEn = customFeatNameEn.trim() || 
+        customFeatName.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/(^_|_$)/g, '') ||
+        `feat_${Date.now()}`;
+
+      const parsedOptions = customFeatOptions
+        ? customFeatOptions.split(/[,،\n]/).map(s => s.trim()).filter(Boolean)
+        : undefined;
+
+      const newFeatItem: ProductFeatureItem = {
+        id: `feat-${Date.now()}`,
+        nameFa: customFeatName.trim(),
+        nameEn: generatedEn,
+        type: customFeatType,
+        unit: customFeatUnit.trim() || undefined,
+        options: parsedOptions,
+        description: customFeatHelpText.trim() || undefined,
+        createdAt: new Date().toLocaleDateString('fa-IR'),
+      };
+
+      // 1. Save to Database if checkbox is checked
+      if (customFeatSaveToDb) {
+        try {
+          if (onAddFeature) {
+            await onAddFeature(newFeatItem);
+          } else {
+            const savedFromDb = await attributesApi.create({
+              nameFa: newFeatItem.nameFa,
+              nameEn: newFeatItem.nameEn,
+              type: newFeatItem.type,
+              unit: newFeatItem.unit,
+              description: newFeatItem.description,
+            });
+            if (savedFromDb?.id) {
+              newFeatItem.id = String(savedFromDb.id);
+            }
+          }
+        } catch (apiErr) {
+          console.warn('Direct API attribute save fallback:', apiErr);
+        }
+      }
+
+      // 2. Add to dynamic features so it appears in the system selector
+      setDynamicFeatures(prev => [...prev, newFeatItem]);
+
+      // 3. Apply to current product
+      const appliedValue = customFeatValue.trim() || (parsedOptions && parsedOptions[0]) || 'ندارد';
+      const appliedItem: ProductAppliedFeature = {
+        id: newFeatItem.id,
+        featureId: newFeatItem.id,
+        nameFa: newFeatItem.nameFa,
+        nameEn: newFeatItem.nameEn,
+        value: appliedValue,
+        unit: newFeatItem.unit,
+      };
+
+      setFormData(prev => {
+        const nextList = [...(prev.appliedFeatures || []).filter(af => af.nameFa !== appliedItem.nameFa), appliedItem];
+        const next = { ...prev, appliedFeatures: nextList };
+
+        // Synchronize core fields if matches
+        if (newFeatItem.nameFa.includes('قطران') || newFeatItem.nameEn === 'tar') {
+          next.tar = `${appliedValue} ${newFeatItem.unit || 'mg'}`.trim();
+        }
+        if (newFeatItem.nameFa.includes('نیکوتین') || newFeatItem.nameEn === 'nicotine') {
+          next.nicotine = `${appliedValue} ${newFeatItem.unit || 'mg'}`.trim();
+        }
+        if (newFeatItem.nameFa.includes('سایز') || newFeatItem.nameEn.includes('size')) {
+          next.packSize = appliedValue;
+        }
+        if (newFeatItem.nameFa.includes('طعم') || newFeatItem.nameEn.includes('flavor')) {
+          next.flavor = appliedValue;
+        }
+        if (newFeatItem.nameFa.includes('فیلتر') || newFeatItem.nameEn.includes('filter')) {
+          next.filterType = appliedValue;
+        }
+        if (newFeatItem.nameFa.includes('کشور') || newFeatItem.nameEn.includes('origin')) {
+          next.origin = appliedValue;
+        }
+
+        return next;
+      });
+
+      // Reset form
+      setCustomFeatName('');
+      setCustomFeatNameEn('');
+      setCustomFeatType('text');
+      setCustomFeatUnit('');
+      setCustomFeatValue('');
+      setCustomFeatOptions('');
+      setCustomFeatHelpText('');
+      setCustomFeatError(null);
+      setShowCustomFeatForm(false);
+    } catch (err: any) {
+      setCustomFeatError(err?.message || 'خطا در ثبت مشخصه فنی در دیتابیس.');
+    } finally {
+      setIsAddingCustomFeat(false);
+    }
   };
 
   // Real-time Yoast SEO Calculation
@@ -558,17 +670,27 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         appliedFeatures: formData.appliedFeatures || []
       };
 
-      await onSave(completeProduct);
-    } catch (err) {
+      const savePromise = Promise.resolve(onSave(completeProduct));
+      const minDelay = new Promise(resolve => setTimeout(resolve, 500));
+      await Promise.all([savePromise, minDelay]);
+    } catch (err: any) {
       console.error(err);
-      setValidationError('خطا در پردازش اطلاعات محصول.');
+      setValidationError(err?.message || 'خطا در ثبت نهایی و پردازش اطلاعات محصول در دیتابیس.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setIsSaving(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6" dir="rtl">
+    <form onSubmit={handleSubmit} className="space-y-6 relative" dir="rtl">
+      {/* Top Floating Saving Indicator */}
+      {isSaving && (
+        <div className="fixed inset-x-0 top-0 z-50 bg-blue-600 text-white py-2.5 px-4 shadow-xl flex items-center justify-center gap-3 text-xs font-black animate-pulse">
+          <Loader2 className="w-4 h-4 animate-spin shrink-0" />
+          <span>در حال ثبت نهایی محصول و ارسال اطلاعات به پایگاه‌داده انبار و صندوق... لطفاً صبر کنید.</span>
+        </div>
+      )}
       
       {/* TOP ACTION BAR - Matching BlogManagementPanel */}
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-xs sticky top-28 z-20">
@@ -1090,37 +1212,111 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
               )}
             </div>
 
-            {/* Sales Channel Flags */}
-            <div className="pt-3 border-t border-slate-100 flex items-center gap-4 flex-wrap text-xs">
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={formData.hasCarton !== false}
-                  onChange={(e) => setFormData(prev => ({ ...prev, hasCarton: e.target.checked }))}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-                />
-                <span className="font-bold text-slate-800">فروش کارتنی فعال باشد</span>
-              </label>
+            {/* Sales Channel Flags (has_carton, has_box, has_pack, is_box_only, is_pos_only) */}
+            <div className="pt-4 border-t border-slate-100">
+              <div className="text-xs font-bold text-slate-500 mb-2.5">
+                کانال‌ها و سطوح فروش مجاز در سامانه (هماهنگ با صندوق POS و وب‌سایت):
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                {/* 1. has_carton */}
+                <label className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                  formData.hasCarton !== false && !formData.isBoxOnly
+                    ? 'bg-blue-50/70 border-blue-200 text-blue-900 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={formData.hasCarton !== false && !formData.isBoxOnly}
+                    disabled={Boolean(formData.isBoxOnly)}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      hasCarton: e.target.checked,
+                      isBoxOnly: e.target.checked ? false : prev.isBoxOnly
+                    }))}
+                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold block">فروش کارتنی فعال باشد</span>
+                    <span className="text-[11px] opacity-75 block">امکان سفارش بر مبنای کارتن مادر ۵۰ باکسی</span>
+                  </div>
+                </label>
 
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={formData.hasBox !== false}
-                  onChange={(e) => setFormData(prev => ({ ...prev, hasBox: e.target.checked }))}
-                  className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
-                />
-                <span className="font-bold text-slate-800">فروش باکسی (جین ۱۰تایی) فعال باشد</span>
-              </label>
+                {/* 2. has_box */}
+                <label className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                  formData.hasBox !== false
+                    ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={formData.hasBox !== false}
+                    onChange={(e) => setFormData(prev => ({ ...prev, hasBox: e.target.checked }))}
+                    className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 w-4 h-4 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold block">فروش باکسی (جین ۱۰تایی) فعال باشد</span>
+                    <span className="text-[11px] opacity-75 block">امکان سفارش عمده بر مبنای باکس و جین</span>
+                  </div>
+                </label>
 
-              <label className="flex items-center gap-2 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={Boolean(formData.isPosOnly)}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isPosOnly: e.target.checked }))}
-                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-4 h-4"
-                />
-                <span className="font-bold text-slate-800">مختص فروش حضوری صندوق (POS Only)</span>
-              </label>
+                {/* 3. has_pack */}
+                <label className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                  Boolean(formData.hasPack)
+                    ? 'bg-indigo-50/70 border-indigo-200 text-indigo-900 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(formData.hasPack)}
+                    onChange={(e) => setFormData(prev => ({ ...prev, hasPack: e.target.checked }))}
+                    className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold block">امکان فروش پاکتی (تک‌فروشی)</span>
+                    <span className="text-[11px] opacity-75 block">فروش دانه‌ای تک‌پاکت ویژه مشتریان خرده</span>
+                  </div>
+                </label>
+
+                {/* 4. is_box_only */}
+                <label className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                  Boolean(formData.isBoxOnly)
+                    ? 'bg-purple-50/70 border-purple-200 text-purple-900 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(formData.isBoxOnly)}
+                    onChange={(e) => setFormData(prev => ({
+                      ...prev,
+                      isBoxOnly: e.target.checked,
+                      hasCarton: e.target.checked ? false : prev.hasCarton
+                    }))}
+                    className="rounded border-slate-300 text-purple-600 focus:ring-purple-500 w-4 h-4 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold block">فقط فروش باکسی (فاقد کارتن مادر)</span>
+                    <span className="text-[11px] opacity-75 block">کالای فاقد کارتن مادر؛ سفارش فقط به صورت باکس</span>
+                  </div>
+                </label>
+
+                {/* 5. is_pos_only */}
+                <label className={`flex items-center gap-2.5 p-2.5 rounded-xl border transition-all cursor-pointer select-none ${
+                  Boolean(formData.isPosOnly)
+                    ? 'bg-amber-50/70 border-amber-200 text-amber-900 shadow-xs'
+                    : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+                }`}>
+                  <input
+                    type="checkbox"
+                    checked={Boolean(formData.isPosOnly)}
+                    onChange={(e) => setFormData(prev => ({ ...prev, isPosOnly: e.target.checked }))}
+                    className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                  />
+                  <div>
+                    <span className="font-bold block">مختص فروش حضوری صندوق (POS Only)</span>
+                    <span className="text-[11px] opacity-75 block">مخفی در سایت آنلاین؛ فقط در نرم‌افزار صندوق انبار</span>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -1209,61 +1405,208 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
               </div>
             </div>
 
-            {/* Custom Feature Add Form (Collapsible) */}
+            {/* Custom Feature Add Form (Collapsible with Full EAV Attributes) */}
             {showCustomFeatForm && (
-              <div className="p-4 rounded-xl bg-purple-50/70 border border-purple-200 space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-purple-900 flex items-center gap-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                    <span>ثبت مشخصه فنی جدید و سفارشی برای این محصول:</span>
-                  </span>
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-purple-50/95 to-indigo-50/60 border border-purple-200/90 space-y-4 shadow-sm">
+                <div className="flex items-center justify-between border-b border-purple-200/60 pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="p-1.5 rounded-lg bg-purple-600 text-white shadow-xs">
+                      <Sparkles className="w-4 h-4" />
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-black text-purple-950">
+                        ثبت مشخصه فنی جدید در سامانه و انتساب به این محصول
+                      </h4>
+                      <p className="text-[11px] text-purple-700/80">
+                        مشخصه را تعریف کنید؛ این ویژگی به همراه متادیتا در دیتابیس سامانه ثبت شده و بلافاصله به این کالا متصل می‌شود.
+                      </p>
+                    </div>
+                  </div>
                   <button
                     type="button"
-                    onClick={() => setShowCustomFeatForm(false)}
-                    className="text-slate-400 hover:text-slate-600 p-1"
+                    onClick={() => {
+                      setShowCustomFeatForm(false);
+                      setCustomFeatError(null);
+                    }}
+                    className="text-slate-400 hover:text-slate-700 p-1.5 rounded-lg hover:bg-white/60 transition-colors cursor-pointer"
                   >
-                    <X className="w-3.5 h-3.5" />
+                    <X className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+
+                {customFeatError && (
+                  <div className="p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
+                    <span>{customFeatError}</span>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {/* نام فارسی */}
                   <div>
-                    <label className="block text-[11px] font-bold text-purple-900 mb-1">نام ویژگی (فارسی):</label>
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                      نام ویژگی (فارسی) <span className="text-red-500">*</span>:
+                    </label>
                     <input
                       type="text"
                       value={customFeatName}
                       onChange={(e) => setCustomFeatName(e.target.value)}
-                      placeholder="مثلاً: درصد رطوبت یا مونوکسید کربن"
-                      className="w-full bg-white border border-purple-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-purple-500"
+                      placeholder="مثلاً: درصد رطوبت، مونوکسید کربن، طعم..."
+                      className="w-full bg-white border border-purple-200 focus:border-purple-500 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors shadow-2xs"
                     />
                   </div>
+
+                  {/* نام انگلیسی / کلید لاتین */}
                   <div>
-                    <label className="block text-[11px] font-bold text-purple-900 mb-1">مقدار ویژگی:</label>
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                      شناسه لاتین / کلید سیستمی (اختیاری):
+                    </label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      value={customFeatNameEn}
+                      onChange={(e) => setCustomFeatNameEn(e.target.value)}
+                      placeholder="مثلاً: carbon_monoxide یا moisture"
+                      className="w-full bg-white border border-purple-200 focus:border-purple-500 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none font-mono transition-colors shadow-2xs"
+                    />
+                  </div>
+
+                  {/* نوع داده */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                      نوع فیلد و داده (Data Type):
+                    </label>
+                    <select
+                      value={customFeatType}
+                      onChange={(e) => setCustomFeatType(e.target.value as any)}
+                      className="w-full bg-white border border-purple-200 focus:border-purple-500 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors shadow-2xs cursor-pointer"
+                    >
+                      <option value="text">متن ساده (Text)</option>
+                      <option value="number">مقداری / عددی (Number)</option>
+                      <option value="select">انتخابی / چندگزینه‌ای (Select)</option>
+                      <option value="badge">برچسب / وضعیت بله‌خیر (Badge/Boolean)</option>
+                    </select>
+                  </div>
+
+                  {/* مقدار ویژگی برای این محصول */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                      مقدار ویژگی برای این کالا:
+                    </label>
                     <input
                       type="text"
                       value={customFeatValue}
                       onChange={(e) => setCustomFeatValue(e.target.value)}
-                      placeholder="مثلاً: ۱۳٪ یا کپسول دوتایی یخ"
-                      className="w-full bg-white border border-purple-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-purple-500"
+                      placeholder="مثلاً: ۱۳٪ یا کپسول دوتایی یخ یا ۵"
+                      className="w-full bg-white border border-purple-200 focus:border-purple-500 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors shadow-2xs"
                     />
                   </div>
+
+                  {/* واحد سنجش */}
                   <div>
-                    <label className="block text-[11px] font-bold text-purple-900 mb-1">واحد سنجش (اختیاری):</label>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={customFeatUnit}
-                        onChange={(e) => setCustomFeatUnit(e.target.value)}
-                        placeholder="mg، درصد، عدد..."
-                        className="w-full bg-white border border-purple-200 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-purple-500"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddCustomFeature}
-                        className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black shrink-0 transition-all cursor-pointer"
-                      >
-                        افزودن
-                      </button>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-[11px] font-bold text-slate-800">
+                        واحد سنجش (اختیاری):
+                      </label>
+                      <div className="flex gap-1 text-[10px]">
+                        {['mg', 'درصد', 'گرم', 'میلی‌متر', 'عدد', 'نخ', 'باکس'].map((u) => (
+                          <button
+                            key={u}
+                            type="button"
+                            onClick={() => setCustomFeatUnit(u)}
+                            className="px-1.5 py-0.5 rounded bg-white hover:bg-purple-100 text-purple-700 border border-purple-200 cursor-pointer font-medium"
+                          >
+                            {u}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+                    <input
+                      type="text"
+                      value={customFeatUnit}
+                      onChange={(e) => setCustomFeatUnit(e.target.value)}
+                      placeholder="mg، درصد، میلی‌متر، گرم..."
+                      className="w-full bg-white border border-purple-200 focus:border-purple-500 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors shadow-2xs"
+                    />
+                  </div>
+
+                  {/* توضیحات راهنما */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-800 mb-1">
+                      توضیحات راهنما (Help Text):
+                    </label>
+                    <input
+                      type="text"
+                      value={customFeatHelpText}
+                      onChange={(e) => setCustomFeatHelpText(e.target.value)}
+                      placeholder="توضیح کوتاه استاندارد جهت نمایش در کاتالوگ"
+                      className="w-full bg-white border border-purple-200 focus:border-purple-500 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none transition-colors shadow-2xs"
+                    />
+                  </div>
+                </div>
+
+                {/* اگر نوع انتخابی باشد: فیلد گزینه‌های انتخابی */}
+                {customFeatType === 'select' && (
+                  <div className="p-3 bg-white/80 rounded-xl border border-purple-200 space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-800">
+                      گزینه‌های انتخابی (با کاما یا ویرگول جدا کنید):
+                    </label>
+                    <input
+                      type="text"
+                      value={customFeatOptions}
+                      onChange={(e) => setCustomFeatOptions(e.target.value)}
+                      placeholder="مثلاً: کینگ سایز، اسلیم، سوپر اسلیم، نانو یا قرمز، آبی، مشکی"
+                      className="w-full bg-white border border-purple-200 focus:border-purple-500 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none"
+                    />
+                    <p className="text-[10px] text-slate-500">
+                      این گزینه‌ها برای انتخاب سریع مقدار ویژگی به عنوان دکمه‌های پیشنهادی نمایش داده می‌شوند.
+                    </p>
+                  </div>
+                )}
+
+                {/* گزینه‌های ذخیره و دکمه‌ها */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-purple-200/60">
+                  <label className="flex items-center gap-2 text-xs font-bold text-purple-950 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={customFeatSaveToDb}
+                      onChange={(e) => setCustomFeatSaveToDb(e.target.checked)}
+                      className="w-4 h-4 text-purple-600 focus:ring-purple-500 border-purple-300 rounded cursor-pointer"
+                    />
+                    <Database className="w-3.5 h-3.5 text-purple-600 shrink-0" />
+                    <span>ذخیره دائمی در بانک ویژگی‌های پایگاه‌داده سامانه (جهت انتخاب برای سایر کالاها)</span>
+                  </label>
+
+                  <div className="flex items-center gap-2 self-end sm:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowCustomFeatForm(false);
+                        setCustomFeatError(null);
+                      }}
+                      className="px-3.5 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-bold hover:bg-white transition-colors cursor-pointer"
+                    >
+                      انصراف
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isAddingCustomFeat}
+                      onClick={handleAddCustomFeature}
+                      className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black shadow-md shadow-purple-600/25 transition-all flex items-center gap-2 cursor-pointer disabled:opacity-60 disabled:cursor-wait"
+                    >
+                      {isAddingCustomFeat ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>در حال ذخیره در دیتابیس...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>افزودن و ذخیره در دیتابیس</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>

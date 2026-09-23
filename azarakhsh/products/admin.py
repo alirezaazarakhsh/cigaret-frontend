@@ -179,6 +179,8 @@ class ProductAdmin(admin.ModelAdmin):
         'brand',
         'has_carton',
         'has_box',
+        'has_pack',
+        'is_box_only',
         'is_pos_only',
     ]
     search_fields = ['name', 'name_en', 'barcode', 'slug', 'focus_keyword']
@@ -217,7 +219,7 @@ class ProductAdmin(admin.ModelAdmin):
                 ('stock_cartons', 'stock_boxes'),
                 ('boxes_per_carton', 'packs_per_box'),
                 ('min_order_carton', 'min_order_box'),
-                ('has_carton', 'has_box', 'is_pos_only'),
+                ('has_carton', 'has_box', 'has_pack', 'is_box_only', 'is_pos_only'),
             )
         }),
         (_('مشخصات فنی و شناسنامه استاندارد دود'), {

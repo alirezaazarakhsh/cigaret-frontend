@@ -34,6 +34,7 @@ import {
 } from './types';
 import { formatNumberFa } from '../../utils/formatters';
 import { categoriesApi, hologramsApi, attributesApi, brandsApi, productsApi } from '../../services/api';
+import { saveProductToDjango } from '../../services/djangoApi';
 
 interface ProductManagementPanelProps {
   products: CigaretteProduct[];
@@ -242,9 +243,11 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
 
       if (exists) {
         finalProd = await productsApi.update(savedProd.id, savedProd);
+        await saveProductToDjango(finalProd).catch(() => {});
         showToast(`محصول «${finalProd.nameFa}» با موفقیت ویرایش و در دیتابیس بروزرسانی شد.`);
       } else {
         finalProd = await productsApi.create(savedProd);
+        await saveProductToDjango(finalProd).catch(() => {});
         showToast(`کالای جدید «${finalProd.nameFa}» با موفقیت در دیتابیس ثبت و به کاتالوگ اضافه شد.`);
       }
 
@@ -259,6 +262,7 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
       setSelectedProduct(null);
     } catch (err: any) {
       showToast(err?.message || 'خطا در ثبت محصول در دیتابیس', 'error');
+      throw err;
     } finally {
       setIsLoadingCategories(false);
     }
@@ -708,8 +712,9 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
             categories={categories}
             holograms={holograms}
             features={features}
-            onSave={(savedProd) => {
-              handleSaveProduct(savedProd);
+            onAddFeature={handleAddFeature}
+            onSave={async (savedProd) => {
+              await handleSaveProduct(savedProd);
               setCurrentInitialBarcode('');
             }}
             onCancel={() => {

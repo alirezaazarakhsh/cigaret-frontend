@@ -154,7 +154,7 @@ class Product(models.Model):
     slug = models.SlugField(_("اسلاگ سئو"), max_length=220, unique=True, allow_unicode=True)
     barcode = models.CharField(_("بارکد اسکنر فروشگاهی"), max_length=60, unique=True, blank=True, null=True, db_index=True)
 
-    category = models.ForeignKey(Category, on_delete=models.PROTECT, related_name='products', verbose_name=_("دسته‌بندی"))
+    category = models.ForeignKey(Category, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("دسته‌بندی"))
     brand = models.ForeignKey(ProductBrand, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("برند"))
     hologram = models.ForeignKey(ProductHologram, on_delete=models.SET_NULL, null=True, blank=True, related_name='products', verbose_name=_("هولوگرام اصالت"))
 
@@ -178,12 +178,12 @@ class Product(models.Model):
     is_box_only = models.BooleanField(_("فقط فروش باکسی"), default=False)
     is_pos_only = models.BooleanField(_("اختصاصی صندوق (POS)"), default=False)
 
-    # مشخصات فنی و تخصصی دخانیات
+    # مشخصات فنی و تخصصی دخانیات (جهت هماهنگی با مقادیر اینلاین)
     tar = models.CharField(_("میزان قطران (mg)"), max_length=20, blank=True, null=True)
     nicotine = models.CharField(_("میزان نیکوتین (mg)"), max_length=20, blank=True, null=True)
     carbon_monoxide = models.CharField(_("میزان کربن مونوکسید"), max_length=20, blank=True, null=True)
-    cigarette_size = models.CharField(_("سایز سیگار"), max_length=30, choices=SIZE_CHOICES, default='king_size')
-    filter_type = models.CharField(_("نوع فیلتر"), max_length=30, choices=FILTER_CHOICES, default='white')
+    cigarette_size = models.CharField(_("سایز سیگار"), max_length=100, blank=True, null=True)
+    filter_type = models.CharField(_("نوع فیلتر"), max_length=100, blank=True, null=True)
     country_origin = models.CharField(_("کشور تولیدکننده / مبدا"), max_length=100, blank=True, null=True)
 
     # اطلاعات رسانه‌ای و محتوا
@@ -208,6 +208,29 @@ class Product(models.Model):
         verbose_name = _("محصول")
         verbose_name_plural = _("محصولات")
         ordering = ['-created_at']
+
+    @property
+    def name_fa(self):
+        return self.name
+
+    @name_fa.setter
+    def name_fa(self, value):
+        self.name = value
+
+    def save(self, *args, **kwargs):
+        import uuid
+        from django.utils.text import slugify
+        if not self.slug:
+            base_slug = slugify(self.name_en or self.name, allow_unicode=True) or f"prod-{uuid.uuid4().hex[:6]}"
+            slug = base_slug
+            counter = 1
+            while Product.objects.filter(slug=slug).exclude(pk=self.pk).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            self.slug = slug
+        if self.barcode == "":
+            self.barcode = None
+        super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.name} ({self.barcode or 'بدون بارکد'})"
@@ -267,6 +290,9 @@ class ProductAttributeValue(models.Model):
         verbose_name = _("مقدار ویژگی محصول")
         verbose_name_plural = _("مقادیر ویژگی‌های محصولات")
         unique_together = ('product', 'attribute')
+
+    def __str__(self):
+        return f"{self.product.name} - {self.attribute.name}: {self.value or self.value_number or self.value_boolean or '-'}"
 
 
 # ==============================================================================

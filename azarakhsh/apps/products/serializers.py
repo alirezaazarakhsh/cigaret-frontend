@@ -15,8 +15,10 @@ from .models import (
     Product,
     ProductAttributeValue,
     ProductImage,
-    ProductKeyFeature
+    ProductKeyFeature,
+    ProductTierDiscount
 )
+from django.db import transaction
 
 
 class ProductBrandSerializer(serializers.ModelSerializer):
@@ -160,6 +162,8 @@ class ProductAttributeSerializer(serializers.ModelSerializer):
 class ProductAttributeValueSerializer(serializers.ModelSerializer):
     attribute_name = serializers.CharField(source='attribute.name', read_only=True)
     attribute_unit = serializers.CharField(source='attribute.unit', read_only=True)
+    nameFa = serializers.CharField(source='attribute.name', read_only=True)
+    unit = serializers.CharField(source='attribute.unit', read_only=True)
 
     class Meta:
         model = ProductAttributeValue
@@ -168,10 +172,84 @@ class ProductAttributeValueSerializer(serializers.ModelSerializer):
             'attribute',
             'attribute_name',
             'attribute_unit',
+            'nameFa',
+            'unit',
             'value',
             'value_number',
             'value_boolean',
         ]
+
+
+def sync_product_attributes(product, features_list):
+    """
+    همگام‌سازی ویژگی‌های فنی کالا با جدول تعاریف ویژگی‌ها (ProductAttribute)
+    و جدول مقادیر متناظر کالا (ProductAttributeValue - الگوی EAV اینلاین)
+    """
+    if not features_list or not isinstance(features_list, list):
+        return
+
+    for item in features_list:
+        if not isinstance(item, dict):
+            continue
+        attr_name = (
+            item.get('nameFa') or
+            item.get('name') or
+            item.get('title') or
+            item.get('attribute_name') or
+            item.get('feature_name')
+        )
+        if not attr_name:
+            continue
+        attr_name = str(attr_name).strip()
+
+        val = item.get('value')
+        if val is None:
+            continue
+        val_str = str(val).strip()
+        unit = item.get('unit') or ''
+
+        # جستجو یا ایجاد خودکار ویژگی در دیتابیس
+        attr_obj, _ = ProductAttribute.objects.get_or_create(
+            name=attr_name,
+            defaults={
+                'name_en': item.get('nameEn') or item.get('name_en') or None,
+                'unit': unit.strip() if unit else None,
+                'data_type': 'text'
+            }
+        )
+        if unit and not attr_obj.unit:
+            attr_obj.unit = unit.strip()
+            attr_obj.save(update_fields=['unit'])
+
+        val_num = None
+        try:
+            val_num = float(val_str)
+        except (ValueError, TypeError):
+            pass
+
+        ProductAttributeValue.objects.update_or_create(
+            product=product,
+            attribute=attr_obj,
+            defaults={
+                'value': val_str,
+                'value_number': val_num
+            }
+        )
+
+        # همگام‌سازی فیلدهای سنتی در صورت مطابقت نام جهت سئو و فیلترها
+        lower_name = attr_name.lower()
+        if 'قطران' in attr_name or 'tar' in lower_name:
+            product.tar = val_str
+        elif 'نیکوتین' in attr_name or 'nicotine' in lower_name:
+            product.nicotine = val_str
+        elif 'سایز' in attr_name or 'format' in lower_name or 'size' in lower_name:
+            product.cigarette_size = val_str
+        elif 'فیلتر' in attr_name or 'filter' in lower_name:
+            product.filter_type = val_str
+        elif 'کشور' in attr_name or 'origin' in lower_name:
+            product.country_origin = val_str
+
+    product.save(update_fields=['tar', 'nicotine', 'cigarette_size', 'filter_type', 'country_origin'])
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
@@ -326,6 +404,13 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         write_only=True,
         help_text="لیست نکات کلیدی محصول جهت نمایش در سئو و چکیده"
     )
+    tier_discounts = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        allow_empty=True,
+        write_only=True,
+        help_text="لیست تخفیف‌های پلکانی عمده (اختیاری)"
+    )
 
     class Meta:
         model = Product
@@ -360,6 +445,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'image',
             'gallery_images',
             'key_takeaways',
+            'tier_discounts',
             'full_description',
             'excerpt',
             'focus_keyword',
@@ -424,6 +510,31 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         if 'name_fa' in data_dict and data_dict['name_fa'] and not data_dict.get('name'):
             data_dict['name'] = data_dict['name_fa']
 
+        # نگاشت و تبدیل دقیق فیلدهای ۵گانه سطوح فروش و انبارداری
+        # (has_carton, has_box, has_pack, is_box_only, is_pos_only)
+        bool_keys = [
+            ('has_carton', ['hasCarton', 'has_carton']),
+            ('has_box', ['hasBox', 'has_box']),
+            ('has_pack', ['hasPack', 'has_pack']),
+            ('is_box_only', ['isBoxOnly', 'is_box_only']),
+            ('is_pos_only', ['isPosOnly', 'is_pos_only']),
+            ('is_active', ['isActive', 'is_active', 'isAvailable']),
+            ('is_featured', ['isFeatured', 'is_featured']),
+        ]
+        for dest, sources in bool_keys:
+            for src in sources:
+                if src in data_dict:
+                    v = data_dict[src]
+                    if isinstance(v, str):
+                        data_dict[dest] = v.lower() in ('true', '1', 'yes', 't')
+                    else:
+                        data_dict[dest] = bool(v)
+                    break
+
+        # در صورت انتخاب فقط فروش باکسی، فروش کارتنی در صورت عدم تعریف، خاموش می‌شود
+        if data_dict.get('is_box_only') and 'has_carton' not in data_dict:
+            data_dict['has_carton'] = False
+
         # پردازش هوشمند برند
         b_val = data_dict.get('brand') or data_dict.get('brand_id') or data_dict.get('brand_name')
         if b_val is not None and b_val != '':
@@ -460,9 +571,9 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                 elif c_name:
                     cat_obj = Category.objects.filter(Q(slug=c_name) | Q(name=c_name) | Q(name_en=c_name)).first()
                     if not cat_obj:
-                        cat_obj = Category.objects.create(
+                        cat_obj, _ = Category.objects.get_or_create(
                             name=str(c_name),
-                            slug=slugify(str(c_name), allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
+                            defaults={'slug': slugify(str(c_name), allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"}
                         )
                     data_dict['category'] = cat_obj.id
             elif isinstance(c_val, (int, str)):
@@ -472,11 +583,17 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                 elif s_val:
                     cat_obj = Category.objects.filter(Q(slug=s_val) | Q(name=s_val) | Q(name_en=s_val)).first()
                     if not cat_obj:
-                        cat_obj = Category.objects.create(
+                        cat_obj, _ = Category.objects.get_or_create(
                             name=s_val,
-                            slug=slugify(s_val, allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
+                            defaults={'slug': slugify(s_val, allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"}
                         )
                     data_dict['category'] = cat_obj.id
+        else:
+            default_cat, _ = Category.objects.get_or_create(
+                name='سیگار اورجینال',
+                defaults={'slug': 'cigarettes', 'color': '#3B82F6'}
+            )
+            data_dict['category'] = default_cat.id
 
         # پردازش هوشمند و قطعی هولوگرام
         h_val = data_dict.get('hologram') or data_dict.get('hologram_id') or data_dict.get('hologram_title')
@@ -497,45 +614,118 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                     holo_obj, _ = ProductHologram.objects.get_or_create(title=s_val)
                     data_dict['hologram'] = holo_obj.id
 
-        # تولید خودکار اسلاگ
-        if not data_dict.get('slug') and data_dict.get('name'):
-            gen_slug = slugify(data_dict.get('name_en') or data_dict.get('name'), allow_unicode=True)
-            data_dict['slug'] = gen_slug or f"prod-{uuid.uuid4().hex[:8]}"
+        # نگاشت مبدا و توضیحات
+        if 'origin' in data_dict and not data_dict.get('country_origin'):
+            data_dict['country_origin'] = data_dict['origin']
+        if 'description' in data_dict and not data_dict.get('full_description'):
+            data_dict['full_description'] = data_dict['description']
+
+        # پاکسازی و اصلاح بارکد خالی
+        if 'barcode' in data_dict:
+            b_val = data_dict.get('barcode')
+            if b_val is None or str(b_val).strip() == '':
+                data_dict['barcode'] = None
+            else:
+                data_dict['barcode'] = str(b_val).strip()
+
+        # تولید خودکار و تضمین یکتایی اسلاگ
+        slug_val = data_dict.get('slug')
+        if not slug_val and data_dict.get('name'):
+            slug_val = slugify(data_dict.get('name_en') or data_dict.get('name'), allow_unicode=True) or f"prod-{uuid.uuid4().hex[:8]}"
+        if slug_val:
+            base_slug = slug_val
+            counter = 1
+            curr_id = self.instance.id if self.instance else None
+            while Product.objects.filter(slug=slug_val).exclude(id=curr_id).exists():
+                slug_val = f"{base_slug}-{counter}"
+                counter += 1
+            data_dict['slug'] = slug_val
+
+        # استخراج و نگه‌داری ویژگی‌های فنی اینلاین
+        raw_feats = (
+            data_dict.pop('applied_features', None) or 
+            data_dict.pop('appliedFeatures', None) or 
+            data_dict.pop('attributes_values', None)
+        )
+        self._raw_applied_features = raw_feats
 
         return super().to_internal_value(data_dict)
 
     def create(self, validated_data):
         gallery_images = validated_data.pop('gallery_images', [])
         key_takeaways = validated_data.pop('key_takeaways', [])
-        product = super().create(validated_data)
+        tier_discounts = validated_data.pop('tier_discounts', [])
+        applied_features = getattr(self, '_raw_applied_features', None)
 
-        # ثبت گالری تصاویر آپشنال در صورت ارسال در اندپوینت
-        for idx, img_src in enumerate(gallery_images):
-            if img_src:
-                ProductImage.objects.create(product=product, image=img_src, order=idx)
+        with transaction.atomic():
+            product = super().create(validated_data)
 
-        # ثبت نکات کلیدی
-        for idx, feature_text in enumerate(key_takeaways):
-            if feature_text:
-                ProductKeyFeature.objects.create(product=product, title=feature_text, order=idx)
-
-        return product
-
-    def update(self, instance, validated_data):
-        gallery_images = validated_data.pop('gallery_images', None)
-        key_takeaways = validated_data.pop('key_takeaways', None)
-        product = super().update(instance, validated_data)
-
-        if gallery_images is not None:
-            instance.gallery.all().delete()
+            # ثبت گالری تصاویر آپشنال در صورت ارسال در اندپوینت
             for idx, img_src in enumerate(gallery_images):
                 if img_src:
                     ProductImage.objects.create(product=product, image=img_src, order=idx)
 
-        if key_takeaways is not None:
-            instance.key_features.all().delete()
+            # ثبت نکات کلیدی
             for idx, feature_text in enumerate(key_takeaways):
                 if feature_text:
                     ProductKeyFeature.objects.create(product=product, title=feature_text, order=idx)
 
-        return product
+            # ثبت تخفیف‌های پلکانی حجم عمده
+            for td in tier_discounts:
+                if isinstance(td, dict) and td.get('min_quantity') and td.get('discount_percent'):
+                    try:
+                        ProductTierDiscount.objects.create(
+                            product=product,
+                            min_quantity=int(td['min_quantity']),
+                            discount_percent=float(td['discount_percent']),
+                            discount_price_per_unit=int(td.get('discount_price_per_unit') or 0) or None
+                        )
+                    except Exception:
+                        pass
+
+            # همگام‌سازی و ثبت ویژگی‌های فنی اینلاین در دیتابیس
+            if applied_features:
+                sync_product_attributes(product, applied_features)
+
+            return product
+
+    def update(self, instance, validated_data):
+        gallery_images = validated_data.pop('gallery_images', None)
+        key_takeaways = validated_data.pop('key_takeaways', None)
+        tier_discounts = validated_data.pop('tier_discounts', None)
+        applied_features = getattr(self, '_raw_applied_features', None)
+
+        with transaction.atomic():
+            product = super().update(instance, validated_data)
+
+            if gallery_images is not None:
+                instance.gallery.all().delete()
+                for idx, img_src in enumerate(gallery_images):
+                    if img_src:
+                        ProductImage.objects.create(product=product, image=img_src, order=idx)
+
+            if key_takeaways is not None:
+                instance.key_features.all().delete()
+                for idx, feature_text in enumerate(key_takeaways):
+                    if feature_text:
+                        ProductKeyFeature.objects.create(product=product, title=feature_text, order=idx)
+
+            if tier_discounts is not None:
+                instance.tier_discounts.all().delete()
+                for td in tier_discounts:
+                    if isinstance(td, dict) and td.get('min_quantity') and td.get('discount_percent'):
+                        try:
+                            ProductTierDiscount.objects.create(
+                                product=product,
+                                min_quantity=int(td['min_quantity']),
+                                discount_percent=float(td['discount_percent']),
+                                discount_price_per_unit=int(td.get('discount_price_per_unit') or 0) or None
+                            )
+                        except Exception:
+                            pass
+
+            # همگام‌سازی و بروزرسانی ویژگی‌های فنی اینلاین در دیتابیس
+            if applied_features is not None:
+                sync_product_attributes(product, applied_features)
+
+            return product

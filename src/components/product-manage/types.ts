@@ -53,11 +53,17 @@ export const INITIAL_PRODUCT_CATEGORIES: ProductCategoryItem[] = [
 export const INITIAL_PRODUCT_HOLOGRAMS: ProductHologramItem[] = [];
 
 export const INITIAL_PRODUCT_FEATURES: ProductFeatureItem[] = [
-  { id: '1', nameFa: 'قطر نخ', nameEn: 'thread_diameter', type: 'number', unit: 'میلی‌متر', description: 'قطر نخ و مقاومت فیلتر', createdAt: '۱۴۰۵/۰۱/۰۱' },
-  { id: '2', nameFa: 'وزن کالا', nameEn: 'weight', type: 'number', unit: 'گرم', description: 'وزن خالص هر پاکت یا بسته', createdAt: '۱۴۰۵/۰۱/۰۱' },
-  { id: '3', nameFa: 'رنگ بدنه', nameEn: 'color', type: 'text', unit: '', description: 'رنگ ظاهری پاکت و فیلتر', createdAt: '۱۴۰۵/۰۱/۰۱' },
-  { id: '4', nameFa: 'نوع بسته‌بندی', nameEn: 'packaging', type: 'select', unit: 'بسته', options: ['صلب', 'نرم'], description: 'بسته‌بندی صلب یا نرم', createdAt: '۱۴۰۵/۰۱/۰۱' },
-  { id: '5', nameFa: 'کشور تولیدکننده', nameEn: 'country_origin', type: 'text', unit: '', description: 'کشور سازنده و مونتاژکننده', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-tar', nameFa: 'قطران', nameEn: 'tar', type: 'number', unit: 'mg', description: 'میزان قطران استاندارد برحسب میلی‌گرم', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-nicotine', nameFa: 'نیکوتین', nameEn: 'nicotine', type: 'number', unit: 'mg', description: 'میزان نیکوتین استاندارد برحسب میلی‌گرم', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-carbon-monoxide', nameFa: 'کربن مونوکسید', nameEn: 'carbon_monoxide', type: 'number', unit: 'mg', description: 'میزان کربن مونوکسید دود', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-format', nameFa: 'سایز پاکت', nameEn: 'cigarette_size', type: 'select', unit: '', options: ['کینگ سایز (King Size)', 'اسلیم / باریک (Slims)', 'سوپر اسلیم (Super Slims)', 'نانو (Nano)', 'کامپکت (Compact)', 'کویین سایز (Queen Size)'], description: 'ابعاد و فرمت ساختاری پاکت سیگار', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-flavor', nameFa: 'طعم اسانس', nameEn: 'flavor', type: 'select', unit: '', options: ['توتون خالص طبیعی (Original)', 'نعنایی خنک (Menthol)', 'سیب یخ (Apple Ice)', 'بلوبری کپسولی (Blueberry)', 'دابل‌پاپ کپسولی (Double Pop)', 'شکلات و وانیل'], description: 'طعم و اسانس معطر برگ توتون و فیلتر', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-filter', nameFa: 'نوع فیلتر', nameEn: 'filter_type', type: 'select', unit: '', options: ['فیلتر کربن فعال (Active Charcoal)', 'فیلتر سفید معمولی (White)', 'فیلتر کپسول‌دار (Capsule Click)', 'فیلتر سوراخ‌دار / جریان هوا (Recessed)', 'فیلتر پلاسما اکتیو'], description: 'تکنولوژی فیلتراسیون تصفیه دود', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-origin', nameFa: 'کشور تولید کننده', nameEn: 'country_origin', type: 'text', unit: '', description: 'کشور سازنده و مبدأ تولید', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-boxes-carton', nameFa: 'تعداد در هر کارتن', nameEn: 'boxes_per_carton', type: 'number', unit: 'باکس', description: 'تعداد باکس موجود در یک کارتن مادر', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-moisture', nameFa: 'درصد رطوبت', nameEn: 'moisture_percentage', type: 'number', unit: 'درصد', description: 'درصد رطوبت حفظ تازگی توتون', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-weight', nameFa: 'وزن کالا', nameEn: 'weight', type: 'number', unit: 'گرم', description: 'وزن خالص هر پاکت یا بسته', createdAt: '۱۴۰۵/۰۱/۰۱' },
+  { id: 'feat-thread-dia', nameFa: 'قطر نخ', nameEn: 'thread_diameter', type: 'number', unit: 'میلی‌متر', description: 'قطر نخ و مقاومت فیلتر', createdAt: '۱۴۰۵/۰۱/۰۱' },
 ];
 
 export const INITIAL_PRODUCT_BRANDS: ProductBrandItem[] = [];

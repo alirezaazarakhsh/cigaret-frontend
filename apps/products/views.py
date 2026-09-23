@@ -551,9 +551,43 @@ class ProductFeaturedAPIView(APIView):
 class ProductCreateAPIView(APIView):
     """
     اندپوینت ثبت محصول جدید در کاتالوگ آنلاین / صندوق حضوری
-    جهت تست آسان و اتصال اندپوینت فرانت‌ند سطح دسترسی به AllowAny تنظیم شده است (در صورت نیاز به محدودسازی ادمین می‌توانید IsAdminUser قرار دهید)
+    پشتیبانی از درخواست‌های GET (دریافت اطلاعات ساخت فرم) و POST (ثبت نهایی کالا)
+    سازگار با products/product/add/ و shopmanage/products
     """
     permission_classes = [AllowAny]
+
+    @swagger_auto_schema(
+        operation_summary="دریافت ساختار اولیه و اطلاعات دسته‌بندی/برند جهت فرم افزودن محصول (GET /products/product/add/)",
+        responses={200: openapi.Response('اطلاعات فرم ساخت محصول')}
+    )
+    def get(self, request):
+        categories = Category.objects.all().values('id', 'name', 'slug', 'color')
+        brands = ProductBrand.objects.all().values('id', 'name', 'slug', 'country')
+        holograms = ProductHologram.objects.all().values('id', 'title', 'badge_text', 'trust_level')
+        return Response({
+            'status': 'success',
+            'message': 'اطلاعات اولیه فرم افزودن محصول دریافت گردید.',
+            'categories': list(categories),
+            'brands': list(brands),
+            'holograms': list(holograms),
+            'defaults': {
+                'carton_price': 0,
+                'box_price': 0,
+                'pack_price': 0,
+                'boxes_per_carton': 50,
+                'packs_per_box': 10,
+                'stock_cartons': 0,
+                'stock_boxes': 0,
+                'min_order_carton': 1,
+                'min_order_box': 1,
+                'has_carton': True,
+                'has_box': True,
+                'has_pack': False,
+                'is_box_only': False,
+                'is_pos_only': False,
+                'is_active': True,
+            }
+        }, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         operation_summary="ثبت محصول جدید در کاتالوگ آنلاین / صندوق حضوری",
@@ -567,7 +601,7 @@ class ProductCreateAPIView(APIView):
             target_scope = "صندوق حضوری" if product.is_pos_only else "سایت آنلاین و صندوق فروشگاهی"
             return Response({
                 'status': 'success',
-                'message': f'محصول جدید با موفقیت ذخیره شد و به {target_scope} اضافه گردید.',
+                'message': f'محصول جدید «{product.name}» با موفقیت در دیتابیس ثبت شد و به {target_scope} اضافه گردید.',
                 'data': ProductSerializer(product).data
             }, status=status.HTTP_201_CREATED)
         return Response({

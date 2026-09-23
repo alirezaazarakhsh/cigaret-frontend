@@ -145,7 +145,11 @@ class ProductTierDiscountInline(admin.TabularInline):
 
 class ProductAttributeValueInline(admin.TabularInline):
     model = ProductAttributeValue
-    extra = 1
+    extra = 2
+    autocomplete_fields = ['attribute']
+    fields = ['attribute', 'value', 'value_number', 'value_boolean']
+    verbose_name = _("ویژگی فنی / مشخصه کالا")
+    verbose_name_plural = _("ویژگی‌های فنی و مشخصات تخصصی کالا (اینلاین داینامیک)")
 
 class ProductKeyFeatureInline(admin.TabularInline):
     model = ProductKeyFeature
@@ -179,6 +183,8 @@ class ProductAdmin(admin.ModelAdmin):
         'brand',
         'has_carton',
         'has_box',
+        'has_pack',
+        'is_box_only',
         'is_pos_only',
     ]
     search_fields = ['name', 'name_en', 'barcode', 'slug', 'focus_keyword']
@@ -186,8 +192,8 @@ class ProductAdmin(admin.ModelAdmin):
     autocomplete_fields = ['category', 'brand', 'hologram']
 
     inlines = [
-        ProductTierDiscountInline,
         ProductAttributeValueInline,
+        ProductTierDiscountInline,
         ProductKeyFeatureInline,
         ProductImageInline,
     ]
@@ -217,10 +223,11 @@ class ProductAdmin(admin.ModelAdmin):
                 ('stock_cartons', 'stock_boxes'),
                 ('boxes_per_carton', 'packs_per_box'),
                 ('min_order_carton', 'min_order_box'),
-                ('has_carton', 'has_box', 'is_pos_only'),
+                ('has_carton', 'has_box', 'has_pack', 'is_box_only', 'is_pos_only'),
             )
         }),
-        (_('مشخصات فنی و شناسنامه استاندارد دود'), {
+        (_('مشخصات فنی کلاسیک (اختیاری - کلیه ویژگی‌ها به صورت اینلاین در پایین صفحه در دسترس است)'), {
+            'classes': ('collapse',),
             'fields': (
                 ('tar', 'nicotine', 'carbon_monoxide'),
                 ('cigarette_size', 'filter_type'),
