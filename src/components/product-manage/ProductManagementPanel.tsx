@@ -236,60 +236,44 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
   };
 
   const handleSaveProduct = async (savedProd: CigaretteProduct) => {
-    // 1. Optimistic instant UI update for maximum speed
     const exists = products.some((p) => p.id === savedProd.id);
-    const optimisticList = exists 
-      ? products.map(p => p.id === savedProd.id ? savedProd : p)
-      : [savedProd, ...products];
-    
-    onUpdateProducts(optimisticList);
-    try {
-      localStorage.setItem('wholesale_products', JSON.stringify(optimisticList));
-      localStorage.setItem('sovin_django_products', JSON.stringify(optimisticList));
-    } catch {}
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: optimisticList, product: savedProd } }));
-    }
 
-    setActiveTab('list');
-    setSelectedProduct(null);
-    showToast(
-      exists 
-        ? `محصول «${savedProd.nameFa}» با موفقیت ویرایش و در سراسر سایت ثبت شد.` 
-        : `کالای جدید «${savedProd.nameFa}» با موفقیت به ویترین فروشگاه و کاتالوگ سایت اضافه شد.`
-    );
+    // 1. Brief pause to display the loading state on the "ثبت نهایی در انبار" button as requested
+    await new Promise(resolve => setTimeout(resolve, 1200));
 
-    // 2. Fast background persistence
     try {
       if (exists) {
         const finalProd = await productsApi.update(savedProd.id, savedProd);
-        if (finalProd) {
-          const mergedList = optimisticList.map(p => p.id === savedProd.id ? { ...savedProd, ...finalProd } : p);
-          onUpdateProducts(mergedList);
-          try {
-            localStorage.setItem('wholesale_products', JSON.stringify(mergedList));
-            localStorage.setItem('sovin_django_products', JSON.stringify(mergedList));
-          } catch {}
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: mergedList, product: finalProd } }));
-          }
+        const updatedList = products.map(p => p.id === savedProd.id ? { ...savedProd, ...finalProd } : p);
+        onUpdateProducts(updatedList);
+        try {
+          localStorage.setItem('wholesale_products', JSON.stringify(updatedList));
+          localStorage.setItem('sovin_django_products', JSON.stringify(updatedList));
+        } catch {}
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updatedList, product: finalProd } }));
         }
+        setActiveTab('list');
+        setSelectedProduct(null);
+        showToast(`محصول «${savedProd.nameFa}» با موفقیت ویرایش و در پایگاه‌داده انبار ثبت شد.`);
       } else {
         const finalProd = await productsApi.create(savedProd);
-        if (finalProd && finalProd.id && finalProd.id !== savedProd.id) {
-          const mergedList = optimisticList.map(p => p.id === savedProd.id ? { ...savedProd, ...finalProd } : p);
-          onUpdateProducts(mergedList);
-          try {
-            localStorage.setItem('wholesale_products', JSON.stringify(mergedList));
-            localStorage.setItem('sovin_django_products', JSON.stringify(mergedList));
-          } catch {}
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: mergedList, product: finalProd } }));
-          }
+        const updatedList = [finalProd, ...products];
+        onUpdateProducts(updatedList);
+        try {
+          localStorage.setItem('wholesale_products', JSON.stringify(updatedList));
+          localStorage.setItem('sovin_django_products', JSON.stringify(updatedList));
+        } catch {}
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updatedList, product: finalProd } }));
         }
+        setActiveTab('list');
+        setSelectedProduct(null);
+        showToast(`کالای جدید «${savedProd.nameFa}» با موفقیت در دیتابیس ثبت و به ویترین اضافه شد.`);
       }
     } catch (err: any) {
-      console.warn('Background sync status:', err?.message || err);
+      console.error('Database product save error:', err);
+      throw new Error(err?.message || 'خطا در ثبت محصول در پایگاه‌داده دیتابیس. لطفاً مجدداً تلاش کنید.');
     }
   };
 

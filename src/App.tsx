@@ -1666,7 +1666,7 @@ export default function App() {
         )}
 
         {/* TAB: Accounting & POS Terminal Management */}
-        {activeTab === 'accounting-pos' && (
+        {(activeTab as string) === 'accounting-pos' && (
           <AccountingPosPanel
             products={products}
             onUpdateProductsStock={(updatedProds) => {

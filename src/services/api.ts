@@ -831,24 +831,16 @@ export const productsApi = {
       cigarette_size: product.cigaretteSize || product.packSize || 'king_size',
       filter_type: product.filterType || 'white',
       is_pos_only: Boolean(product.isPosOnly),
-      isPosOnly: Boolean(product.isPosOnly),
       is_box_only: Boolean(product.isBoxOnly),
-      isBoxOnly: Boolean(product.isBoxOnly),
       has_carton: product.hasCarton !== false,
-      hasCarton: product.hasCarton !== false,
       has_box: product.hasBox !== false,
-      hasBox: product.hasBox !== false,
       has_pack: Boolean(product.hasPack),
-      hasPack: Boolean(product.hasPack),
       is_active: product.isAvailable !== false,
-      isAvailable: product.isAvailable !== false,
       is_featured: isFeaturedVal,
-      isFeatured: isFeaturedVal,
       key_features: keyFeatures,
       key_takeaways: product.keyTakeaways || [],
       tier_discounts: product.tierDiscounts || [],
       applied_features: product.appliedFeatures || [],
-      appliedFeatures: product.appliedFeatures || [],
     };
 
     const newProdId = product.id || `prod_${Date.now()}`;
@@ -940,9 +932,7 @@ export const productsApi = {
       return created;
     }
 
-    // Local resilience update
-    updateLocalProductList(newProductFull, 'add');
-    return newProductFull;
+    throw new Error(response.error || 'خطا در ثبت نهایی محصول در پایگاه‌داده دیتابیس (Django Database Error)');
   },
 
   /**
@@ -989,7 +979,6 @@ export const productsApi = {
       has_pack: Boolean(productData.hasPack),
       is_active: productData.isAvailable !== false,
       is_featured: isFeaturedVal,
-      isFeatured: isFeaturedVal,
       barcode: productData.barcode || '',
       slug: productData.slug || '',
       image: safeImage,
@@ -1000,7 +989,6 @@ export const productsApi = {
       key_takeaways: productData.keyTakeaways || [],
       tier_discounts: productData.tierDiscounts || [],
       applied_features: productData.appliedFeatures || [],
-      appliedFeatures: productData.appliedFeatures || [],
     };
 
     // Attempt remote PUT / PATCH
