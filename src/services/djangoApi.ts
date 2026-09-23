@@ -1538,6 +1538,12 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
     const baseUrl = getBlogApiBaseUrl(config);
     const adminToken = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
 
+    const isFeaturedVal = product.isFeatured !== undefined 
+      ? Boolean(product.isFeatured) 
+      : Boolean(product.badge === 'پیشنهاد ویژه' || product.badge === 'special');
+
+    const safeImage = (product.image && product.image.startsWith('data:')) ? '' : (product.image || '');
+
     const payload = {
       name: product.nameFa,
       name_fa: product.nameFa,
@@ -1560,9 +1566,10 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
       min_order_box: Number(product.moqBox) || 1,
       tar: product.tar || '',
       nicotine: product.nicotine || '',
-      cigarette_size: product.packSize || '',
+      cigarette_size: product.cigaretteSize || product.packSize || 'king_size',
+      filter_type: product.filterType || 'white',
       badge: product.badge || '',
-      image: product.image || '',
+      image: safeImage,
       images: product.images || [],
       full_description: product.description || '',
       excerpt: product.excerpt || '',
@@ -1572,7 +1579,7 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
       has_box: product.hasBox !== false,
       has_pack: Boolean(product.hasPack),
       is_active: product.isAvailable !== false,
-      is_featured: Boolean(product.badge && product.badge !== 'none'),
+      is_featured: isFeaturedVal,
       key_takeaways: product.keyTakeaways || [],
       tier_discounts: product.tierDiscounts || []
     };
@@ -1842,6 +1849,39 @@ export async function updateProductStock(id: string | number, newStock: number, 
   return false;
 }
 
+export interface DjangoProductItem {
+  id?: number | string;
+  name_fa?: string;
+  name_en?: string;
+  name?: string;
+  brand?: string;
+  category?: string;
+  origin?: string;
+  tar?: string;
+  nicotine?: string;
+  carton_price?: number;
+  box_price?: number;
+  pack_price?: number;
+  boxes_per_carton?: number;
+  packs_per_box?: number;
+  stock_cartons?: number;
+  stock_boxes?: number;
+  moq?: number;
+  image?: string;
+  barcode?: string;
+  price_trend?: 'up' | 'down' | 'stable';
+  hologram?: string;
+  description?: string;
+  excerpt?: string;
+  is_available?: boolean;
+  is_active?: boolean;
+  is_featured?: boolean;
+  cigarette_size?: string;
+  filter_type?: string;
+  badge?: string;
+  [key: string]: any;
+}
+
 function mapDjangoItemToProduct(item: DjangoProductItem, index: number): CigaretteProduct {
   const defaultBase = CIGARETTE_PRODUCTS[index % CIGARETTE_PRODUCTS.length];
   const cartonPrice = item.carton_price || defaultBase.cartonPrice;
@@ -1869,7 +1909,11 @@ function mapDjangoItemToProduct(item: DjangoProductItem, index: number): Cigaret
     hologram: (item.hologram as any) || defaultBase.hologram,
     tierDiscounts: defaultBase.tierDiscounts,
     description: item.description || defaultBase.description,
-    isAvailable: item.is_available ?? true,
+    isAvailable: item.is_active !== undefined ? Boolean(item.is_active) : (item.is_available ?? true),
+    isFeatured: item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean((item as any).isFeatured || item.badge === 'پیشنهاد ویژه' || item.badge === 'special'),
+    cigaretteSize: item.cigarette_size || (item as any).cigaretteSize || defaultBase.packSize || 'king_size',
+    packSize: item.cigarette_size || (item as any).cigaretteSize || defaultBase.packSize || 'king_size',
+    filterType: item.filter_type || (item as any).filterType || 'white',
   };
 }
 

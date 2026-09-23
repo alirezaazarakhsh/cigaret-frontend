@@ -669,11 +669,15 @@ export const productsApi = {
           description: item.full_description || item.description || '',
           excerpt: item.excerpt || '',
           isAvailable: item.is_active !== undefined ? Boolean(item.is_active) : (item.is_available !== undefined ? Boolean(item.is_available) : true),
+          isFeatured: item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean(item.isFeatured || item.badge === 'پیشنهاد ویژه' || item.badge === 'special'),
           hasCarton: item.has_carton !== undefined ? Boolean(item.has_carton) : true,
           hasBox: item.has_box !== undefined ? Boolean(item.has_box) : true,
           hasPack: Boolean(item.has_pack),
           isBoxOnly: Boolean(item.is_box_only),
           isPosOnly: Boolean(item.is_pos_only),
+          cigaretteSize: item.cigarette_size || item.cigaretteSize || item.packSize || 'king_size',
+          packSize: item.cigarette_size || item.cigaretteSize || item.packSize || 'king_size',
+          filterType: item.filter_type || item.filterType || 'white',
           badge: item.badge || (item.is_featured ? 'پیشنهاد ویژه' : undefined),
           keyTakeaways: keyTakeawaysList,
           appliedFeatures,
@@ -709,6 +713,13 @@ export const productsApi = {
       display_order: idx + 1
     }));
 
+    const isFeaturedVal = product.isFeatured !== undefined 
+      ? Boolean(product.isFeatured) 
+      : Boolean(product.badge === 'پیشنهاد ویژه' || product.badge === 'special');
+
+    // Avoid charfield length overflows for base64 data strings sent to CharField
+    const safeImage = (product.image && product.image.startsWith('data:')) ? '' : (product.image || '');
+
     const payload = {
       name: product.nameFa,
       name_fa: product.nameFa,
@@ -728,13 +739,15 @@ export const productsApi = {
       stock_boxes: Number(product.stockBoxes) || 0,
       min_order_carton: Number(product.moq) || 1,
       min_order_box: Number(product.moqBox) || 1,
-      image: product.image || '',
+      image: safeImage,
       images: product.images || [],
       full_description: product.description || '',
       excerpt: product.excerpt || '',
       country_origin: product.origin || '',
       tar: product.tar || '',
       nicotine: product.nicotine || '',
+      cigarette_size: product.cigaretteSize || product.packSize || 'king_size',
+      filter_type: product.filterType || 'white',
       is_pos_only: Boolean(product.isPosOnly),
       isPosOnly: Boolean(product.isPosOnly),
       is_box_only: Boolean(product.isBoxOnly),
@@ -747,7 +760,8 @@ export const productsApi = {
       hasPack: Boolean(product.hasPack),
       is_active: product.isAvailable !== false,
       isAvailable: product.isAvailable !== false,
-      is_featured: Boolean(product.badge && product.badge !== 'none'),
+      is_featured: isFeaturedVal,
+      isFeatured: isFeaturedVal,
       key_features: keyFeatures,
       key_takeaways: product.keyTakeaways || [],
       tier_discounts: product.tierDiscounts || [],
@@ -765,6 +779,10 @@ export const productsApi = {
       origin: product.origin || 'ایران',
       tar: product.tar || '',
       nicotine: product.nicotine || '',
+      cigaretteSize: product.cigaretteSize || product.packSize || 'king_size',
+      packSize: product.packSize || product.cigaretteSize || 'king_size',
+      filterType: product.filterType || 'white',
+      isFeatured: isFeaturedVal,
       cartonPrice: Number(product.cartonPrice) || 0,
       boxPrice: Number(product.boxPrice) || 0,
       packPrice: Number(product.packPrice) || 0,
@@ -795,22 +813,13 @@ export const productsApi = {
       keyTakeaways: product.keyTakeaways || [],
     };
 
-    // Attempt remote POST to DRF endpoint
-    let response = await httpClient.post('/products/product/add/', payload);
-    if (!response.success && response.status === 404) {
-      response = await httpClient.post('/products/create/', payload);
+    // Fast remote POST to DRF endpoint with 8s timeout to avoid VPN lag
+    let response = await httpClient.post('/products/product/add/', payload, { timeoutMs: 8000 });
+    if (!response.success && (response.status === 404 || response.status === 405)) {
+      response = await httpClient.post('/products/create/', payload, { timeoutMs: 8000 });
     }
-    if (!response.success && response.status === 404) {
-      response = await httpClient.post('/products/items/create/', payload);
-    }
-    if (!response.success && response.status === 404) {
-      response = await httpClient.post('/products/add/', payload);
-    }
-    if (!response.success && response.status === 404) {
-      response = await httpClient.post('/products/items/', payload);
-    }
-    if (!response.success && response.status === 404) {
-      response = await httpClient.post('/products/', payload);
+    if (!response.success && (response.status === 404 || response.status === 405)) {
+      response = await httpClient.post('/products/', payload, { timeoutMs: 8000 });
     }
 
     if (response.success && response.data) {
@@ -837,6 +846,12 @@ export const productsApi = {
       display_order: idx + 1
     }));
 
+    const isFeaturedVal = productData.isFeatured !== undefined 
+      ? Boolean(productData.isFeatured) 
+      : Boolean(productData.badge === 'پیشنهاد ویژه' || productData.badge === 'special');
+
+    const safeImage = (productData.image && productData.image.startsWith('data:')) ? '' : (productData.image || '');
+
     const payload: Record<string, any> = {
       name: productData.nameFa,
       name_fa: productData.nameFa,
@@ -854,16 +869,22 @@ export const productsApi = {
       stock_boxes: Number(productData.stockBoxes) || 0,
       min_order_carton: Number(productData.moq) || 1,
       min_order_box: Number(productData.moqBox) || 1,
+      tar: productData.tar || '',
+      nicotine: productData.nicotine || '',
+      country_origin: productData.origin || '',
+      cigarette_size: productData.cigaretteSize || productData.packSize || 'king_size',
+      filter_type: productData.filterType || 'white',
       is_pos_only: Boolean(productData.isPosOnly),
       is_box_only: Boolean(productData.isBoxOnly),
       has_carton: productData.hasCarton !== false,
       has_box: productData.hasBox !== false,
       has_pack: Boolean(productData.hasPack),
       is_active: productData.isAvailable !== false,
-      is_featured: Boolean(productData.badge && productData.badge !== 'none'),
+      is_featured: isFeaturedVal,
+      isFeatured: isFeaturedVal,
       barcode: productData.barcode || '',
       slug: productData.slug || '',
-      image: productData.image || '',
+      image: safeImage,
       images: productData.images || [],
       full_description: productData.description || '',
       excerpt: productData.excerpt || '',

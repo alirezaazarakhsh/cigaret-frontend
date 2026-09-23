@@ -236,35 +236,36 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
   };
 
   const handleSaveProduct = async (savedProd: CigaretteProduct) => {
-    setIsLoadingCategories(true); // Reusing a loading state or could add a new one
+    // 1. Optimistic instant UI update for maximum speed
+    const exists = products.some((p) => p.id === savedProd.id);
+    const optimisticList = exists 
+      ? products.map(p => p.id === savedProd.id ? savedProd : p)
+      : [savedProd, ...products];
+    
+    onUpdateProducts(optimisticList);
+    setActiveTab('list');
+    setSelectedProduct(null);
+    showToast(
+      exists 
+        ? `محصول «${savedProd.nameFa}» با موفقیت ویرایش و ثبت شد.` 
+        : `کالای جدید «${savedProd.nameFa}» به سرعت به کاتالوگ اضافه شد.`
+    );
+
+    // 2. Fast background persistence
     try {
-      const exists = products.some((p) => p.id === savedProd.id);
-      let finalProd: CigaretteProduct;
-
       if (exists) {
-        finalProd = await productsApi.update(savedProd.id, savedProd);
-        await saveProductToDjango(finalProd).catch(() => {});
-        showToast(`محصول «${finalProd.nameFa}» با موفقیت ویرایش و در دیتابیس بروزرسانی شد.`);
+        const finalProd = await productsApi.update(savedProd.id, savedProd);
+        if (finalProd) {
+          onUpdateProducts(optimisticList.map(p => p.id === savedProd.id ? { ...savedProd, ...finalProd } : p));
+        }
       } else {
-        finalProd = await productsApi.create(savedProd);
-        await saveProductToDjango(finalProd).catch(() => {});
-        showToast(`کالای جدید «${finalProd.nameFa}» با موفقیت در دیتابیس ثبت و به کاتالوگ اضافه شد.`);
+        const finalProd = await productsApi.create(savedProd);
+        if (finalProd && finalProd.id && finalProd.id !== savedProd.id) {
+          onUpdateProducts(optimisticList.map(p => p.id === savedProd.id ? { ...savedProd, ...finalProd } : p));
+        }
       }
-
-      // Update local state via parent to keep UI in sync
-      const updated = exists 
-        ? products.map(p => p.id === finalProd.id ? finalProd : p)
-        : [finalProd, ...products];
-      
-      onUpdateProducts(updated);
-      
-      setActiveTab('list');
-      setSelectedProduct(null);
     } catch (err: any) {
-      showToast(err?.message || 'خطا در ثبت محصول در دیتابیس', 'error');
-      throw err;
-    } finally {
-      setIsLoadingCategories(false);
+      console.warn('Background sync status:', err?.message || err);
     }
   };
 

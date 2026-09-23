@@ -32,7 +32,7 @@ export const DEFAULT_NO_CACHE_HEADERS: Record<string, string> = {
 async function fetchWithTimeout(
   url: string,
   options: RequestInit,
-  timeoutMs = 60000
+  timeoutMs = 12000
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);

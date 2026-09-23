@@ -337,6 +337,7 @@ export interface CigaretteProduct {
   tierDiscounts: WholesaleTierDiscount[];
   description: string;
   isAvailable: boolean;
+  isFeatured?: boolean; // پیشنهاد ویژه
   hasCarton?: boolean; // آیا فروش کارتنی فعال است؟
   hasBox?: boolean; // آیا فروش باکسی/جعبه‌ای فعال است؟
   hasPack?: boolean; // آیا فروش تک/پاکتی/عددی فعال است؟
@@ -349,7 +350,8 @@ export interface CigaretteProduct {
   excerpt?: string; // خلاصه و چکیده کوتاه محصول برای کارت‌ها
   keyTakeaways?: string[]; // نکات کلیدی و برجسته محصول برای ریچ اسنیپت
   seoScore?: number; // نمره ارزیابی یواست سئو (۰ تا ۱۰۰)
-  filterType?: string; // نوع فیلتر (کربن فعال، نانو، استات...)
+  cigaretteSize?: string; // سایز سیگار (king_size, slims, super_slims, nano, compact, queen_size)
+  filterType?: string; // نوع فیلتر (white, yellow, charcoal, recessed, capsule)
   appliedFeatures?: ProductAppliedFeature[]; // لیست ویژگی‌های تخصصی و سفارشی کالا
 }
 

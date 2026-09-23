@@ -74,6 +74,23 @@ const COMMON_ORIGINS = [
   'روسیه'
 ];
 
+export const CIGARETTE_SIZE_CHOICES = [
+  { value: 'king_size', label: 'کینگ سایز (King Size)' },
+  { value: 'slims', label: 'اسلیم / باریک (Slims)' },
+  { value: 'super_slims', label: 'سوپر اسلیم (Super Slims)' },
+  { value: 'nano', label: 'نانو (Nano)' },
+  { value: 'compact', label: 'کامپکت (Compact)' },
+  { value: 'queen_size', label: 'کویین سایز (Queen Size)' },
+];
+
+export const FILTER_TYPE_CHOICES = [
+  { value: 'white', label: 'فیلتر سفید استاندارد (White)' },
+  { value: 'yellow', label: 'فیلتر زرد سنتی (Yellow / Cork)' },
+  { value: 'charcoal', label: 'فیلتر کربن / زغالی (Charcoal)' },
+  { value: 'recessed', label: 'فیلتر مجوف (Recessed)' },
+  { value: 'capsule', label: 'فیلتر طعم‌دار / پاور (Capsule)' },
+];
+
 export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
   product,
   initialBarcode,
@@ -96,9 +113,15 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
             { id: 'feat-nicotine', featureId: 'feat-nicotine', nameFa: 'نیکوتین (Nicotine)', value: product.nicotine ? product.nicotine.replace(/[^0-9.]/g, '') || product.nicotine : '0.5', unit: 'mg' },
             { id: 'feat-format', featureId: 'feat-format', nameFa: 'سایز و اندازه پاکت (Format)', value: product.packSize || 'کینگ سایز (King Size)' },
             { id: 'feat-flavor', featureId: 'feat-flavor', nameFa: 'طعم و اسانس (Flavor)', value: product.flavor || 'توتون خالص طبیعی (Original)' },
-            { id: 'feat-filter', featureId: 'feat-filter', nameFa: 'نوع فیلتر (Filter Technology)', value: product.filterType || 'فیلتر کربن فعال (Active Charcoal)' },
+            { id: 'feat-filter', featureId: 'feat-filter', nameFa: 'نوع فیلتر (Filter Technology)', value: product.filterType || 'فیلتر سفید استاندارد' },
             { id: 'feat-origin', featureId: 'feat-origin', nameFa: 'کشور سازنده و مبدأ', value: product.origin || 'سوئیس اصل (Duty Free)' },
           ];
+
+      const initialIsFeatured = Boolean(
+        product.isFeatured !== undefined 
+          ? product.isFeatured 
+          : ((product as any).is_featured || product.badge === 'پیشنهاد ویژه' || product.badge === 'special')
+      );
 
       return {
         ...product,
@@ -114,7 +137,10 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         metaTitle: product.metaTitle || product.nameFa || '',
         metaDescription: product.metaDescription || product.excerpt || '',
         excerpt: product.excerpt || '',
-        filterType: product.filterType || 'فیلتر کربن فعال (Active Charcoal)',
+        cigaretteSize: product.cigaretteSize || product.packSize || (product as any).cigarette_size || 'king_size',
+        packSize: product.packSize || product.cigaretteSize || (product as any).cigarette_size || 'king_size',
+        filterType: product.filterType || (product as any).filter_type || 'white',
+        isFeatured: initialIsFeatured,
         appliedFeatures: initialApplied,
         images: product.images ? [...product.images] : [],
       };
@@ -127,7 +153,8 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       origin: 'سوئیس اصل (Duty Free)',
       tar: '6 mg',
       nicotine: '0.5 mg',
-      packSize: 'کینگ سایز (King Size)',
+      cigaretteSize: 'king_size',
+      packSize: 'king_size',
       packagingType: 'باکس هارد (Hard Box)',
       manufacturer: 'JTI / شرکت دخانیات بین‌المللی',
       cartonPrice: 0,
@@ -143,7 +170,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       image: '',
       barcode: initialBarcode || '',
       flavor: 'طعم کلاسیک توتون',
-      filterType: 'فیلتر کربن فعال (Active Charcoal)',
+      filterType: 'white',
       badge: 'بار تازه',
       priceTrend: 'stable',
       lastPriceUpdate: new Date().toLocaleDateString('fa-IR'),
@@ -152,6 +179,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       excerpt: '',
       slug: '',
       isAvailable: true,
+      isFeatured: false,
       hasCarton: true,
       hasBox: true,
       hasPack: false,
@@ -167,7 +195,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         { id: 'feat-nicotine', featureId: 'feat-nicotine', nameFa: 'نیکوتین (Nicotine)', value: '0.5', unit: 'mg' },
         { id: 'feat-format', featureId: 'feat-format', nameFa: 'سایز و اندازه پاکت (Format)', value: 'کینگ سایز (King Size)' },
         { id: 'feat-flavor', featureId: 'feat-flavor', nameFa: 'طعم و اسانس (Flavor)', value: 'توتون خالص طبیعی (Original)' },
-        { id: 'feat-filter', featureId: 'feat-filter', nameFa: 'نوع فیلتر (Filter Technology)', value: 'فیلتر کربن فعال (Active Charcoal)' },
+        { id: 'feat-filter', featureId: 'feat-filter', nameFa: 'نوع فیلتر (Filter Technology)', value: 'فیلتر سفید استاندارد' },
         { id: 'feat-origin', featureId: 'feat-origin', nameFa: 'کشور سازنده و مبدأ', value: 'سوئیس اصل (Duty Free)' },
       ],
       images: [],
@@ -655,6 +683,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         excerpt: formData.excerpt || '',
         slug: formData.slug || `prod-${Date.now()}`,
         isAvailable: formData.isAvailable !== false,
+        isFeatured: Boolean(formData.isFeatured),
         hasCarton: formData.hasCarton !== false,
         hasBox: formData.hasBox !== false,
         hasPack: Boolean(formData.hasPack),
@@ -666,13 +695,12 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         metaDescription: formData.metaDescription?.trim() || formData.excerpt || '',
         keyTakeaways: formData.keyTakeaways || [],
         seoScore: seoReport.overallScore,
-        filterType: formData.filterType || '',
+        cigaretteSize: formData.cigaretteSize || formData.packSize || 'king_size',
+        filterType: formData.filterType || 'white',
         appliedFeatures: formData.appliedFeatures || []
       };
 
-      const savePromise = Promise.resolve(onSave(completeProduct));
-      const minDelay = new Promise(resolve => setTimeout(resolve, 500));
-      await Promise.all([savePromise, minDelay]);
+      await Promise.resolve(onSave(completeProduct));
     } catch (err: any) {
       console.error(err);
       setValidationError(err?.message || 'خطا در ثبت نهایی و پردازش اطلاعات محصول در دیتابیس.');
@@ -899,6 +927,102 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                   dir="ltr"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-800 font-mono focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
+              </div>
+
+              {/* Cigarette Size (سایز سیگار دیتابیس) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  سایز و اندازه سیگار (Cigarette Size):
+                </label>
+                <select
+                  value={formData.cigaretteSize || formData.packSize || 'king_size'}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    cigaretteSize: e.target.value,
+                    packSize: e.target.value 
+                  }))}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-bold focus:outline-none focus:border-blue-500 focus:bg-white"
+                >
+                  {CIGARETTE_SIZE_CHOICES.map(c => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                  {CIGARETTE_SIZE_CHOICES.map(c => (
+                    <button
+                      key={c.value}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, cigaretteSize: c.value, packSize: c.value }))}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                        (formData.cigaretteSize === c.value || formData.packSize === c.value)
+                          ? 'bg-blue-600 text-white'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {c.label.split(' ')[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Filter Type (نوع فیلتر انتخابی دیتابیس) */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  نوع فیلتر (Filter Type):
+                </label>
+                <select
+                  value={formData.filterType || 'white'}
+                  onChange={(e) => setFormData(prev => ({ ...prev, filterType: e.target.value }))}
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-800 font-bold focus:outline-none focus:border-blue-500 focus:bg-white"
+                >
+                  {FILTER_TYPE_CHOICES.map(f => (
+                    <option key={f.value} value={f.value}>{f.label}</option>
+                  ))}
+                </select>
+                <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                  {FILTER_TYPE_CHOICES.map(f => (
+                    <button
+                      key={f.value}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, filterType: f.value }))}
+                      className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition-colors ${
+                        formData.filterType === f.value
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-slate-100 hover:bg-slate-200 text-slate-600'
+                      }`}
+                    >
+                      {f.label.split(' ')[0]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Tar & Nicotine */}
+              <div className="grid grid-cols-2 gap-2 sm:col-span-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    میزان قطران (Tar):
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.tar || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tar: e.target.value }))}
+                    placeholder="مثلاً: 6 mg"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-blue-500 focus:bg-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-600 mb-1">
+                    میزان نیکوتین (Nicotine):
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.nicotine || ''}
+                    onChange={(e) => setFormData(prev => ({ ...prev, nicotine: e.target.value }))}
+                    placeholder="مثلاً: 0.5 mg"
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-1.5 text-xs text-slate-800 font-bold focus:outline-none focus:border-blue-500 focus:bg-white"
+                  />
+                </div>
               </div>
 
               {/* Short Excerpt */}
@@ -2344,7 +2468,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
             <div className="pt-2 border-t border-slate-100">
               <label className="flex items-center justify-between cursor-pointer select-none">
                 <div>
-                  <div className="text-xs font-black text-slate-900">وضعیت موجودی در انبار</div>
+                  <div className="text-xs font-black text-slate-900">وضعیت موجودی در انبار (Active)</div>
                   <div className="text-[10px] text-slate-400">در صورت غیرفعال بودن کالا در فروشگاه «ناموجود» اعلام می‌شود</div>
                 </div>
                 <input
@@ -2352,6 +2476,44 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                   checked={formData.isAvailable !== false}
                   onChange={(e) => setFormData(prev => ({ ...prev, isAvailable: e.target.checked }))}
                   className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                />
+              </label>
+            </div>
+
+            {/* Special Offer / Featured Product Toggle (پیشنهاد ویژه دیتابیس) */}
+            <div className="pt-2 border-t border-slate-100">
+              <label className={`flex items-center justify-between p-3 rounded-xl border transition-all cursor-pointer select-none ${
+                Boolean(formData.isFeatured)
+                  ? 'bg-amber-50/90 border-amber-300 text-amber-950 shadow-2xs'
+                  : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
+              }`}>
+                <div className="flex items-center gap-2.5">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                    Boolean(formData.isFeatured) ? 'bg-amber-500 text-white shadow-xs' : 'bg-slate-200 text-slate-500'
+                  }`}>
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-black flex items-center gap-1.5">
+                      <span>پیشنهاد ویژه (Featured Product)</span>
+                      {Boolean(formData.isFeatured) && (
+                        <span className="px-1.5 py-0.2 text-[9px] font-bold bg-amber-200 text-amber-800 rounded">فعال</span>
+                      )}
+                    </div>
+                    <div className="text-[10px] text-slate-500 mt-0.5">
+                      نمایش در اسلایدر و بخش پیشنهادهای شگفت‌انگیز صفحه اصلی
+                    </div>
+                  </div>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={Boolean(formData.isFeatured)}
+                  onChange={(e) => setFormData(prev => ({ 
+                    ...prev, 
+                    isFeatured: e.target.checked,
+                    badge: e.target.checked && (!prev.badge || prev.badge === 'بار تازه') ? 'پیشنهاد ویژه' : prev.badge
+                  }))}
+                  className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
                 />
               </label>
             </div>

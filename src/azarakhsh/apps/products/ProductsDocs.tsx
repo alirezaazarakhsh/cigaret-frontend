@@ -1731,6 +1731,62 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             slug_raw = slugify(str(slug_raw).strip(), allow_unicode=True) or f"prod-{uuid.uuid4().hex[:8]}"
         data_dict['slug'] = slug_raw
 
+        # نرمال‌سازی سایز سیگار (cigarette_size)
+        size_map = {
+            'کینگ سایز': 'king_size',
+            'کینگ سایز (king size)': 'king_size',
+            'king size': 'king_size',
+            'اسلیم': 'slims',
+            'اسلیم / باریک (slims)': 'slims',
+            'slims': 'slims',
+            'سوپر اسلیم': 'super_slims',
+            'سوپر اسلیم (super slims)': 'super_slims',
+            'super slims': 'super_slims',
+            'super_slims': 'super_slims',
+            'نانو': 'nano',
+            'نانو (nano)': 'nano',
+            'nano': 'nano',
+            'کامپکت': 'compact',
+            'کامپکت (compact)': 'compact',
+            'compact': 'compact',
+            'کویین سایز': 'queen_size',
+            'کویین سایز (queen size)': 'queen_size',
+            'queen size': 'queen_size',
+            'queen_size': 'queen_size',
+        }
+        if 'cigarette_size' in data_dict and data_dict['cigarette_size']:
+            cs = str(data_dict['cigarette_size']).strip().lower()
+            data_dict['cigarette_size'] = size_map.get(cs, data_dict['cigarette_size'])
+
+        # نرمال‌سازی نوع فیلتر (filter_type)
+        filter_map = {
+            'سفید': 'white',
+            'فیلتر سفید': 'white',
+            'فیلتر سفید استاندارد': 'white',
+            'white': 'white',
+            'زرد': 'yellow',
+            'فیلتر زرد': 'yellow',
+            'فیلتر زرد سنتی': 'yellow',
+            'yellow': 'yellow',
+            'کربن': 'charcoal',
+            'زغالی': 'charcoal',
+            'فیلتر کربن': 'charcoal',
+            'فیلتر کربن / زغالی': 'charcoal',
+            'فیلتر کربن فعال (active charcoal)': 'charcoal',
+            'charcoal': 'charcoal',
+            'مجوف': 'recessed',
+            'فیلتر مجوف': 'recessed',
+            'recessed': 'recessed',
+            'کپسول': 'capsule',
+            'پاور': 'capsule',
+            'فیلتر طعمدار': 'capsule',
+            'فیلتر پاور': 'capsule',
+            'capsule': 'capsule',
+        }
+        if 'filter_type' in data_dict and data_dict['filter_type']:
+            ft = str(data_dict['filter_type']).strip().lower()
+            data_dict['filter_type'] = filter_map.get(ft, data_dict['filter_type'])
+
         ret = super().to_internal_value(data_dict)
         if attributes_raw is not None and isinstance(attributes_raw, list):
             ret['attributes'] = attributes_raw
