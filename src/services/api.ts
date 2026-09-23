@@ -892,10 +892,7 @@ export const productsApi = {
       '/products/items/create/',
       '/products/create/',
       '/products/',
-      '/products/items/',
-      '/api/v1/products/items/create/',
-      '/api/v1/products/create/',
-      '/api/v1/products/'
+      '/products/items/'
     ];
 
     let response: any = { success: false, status: 404 };

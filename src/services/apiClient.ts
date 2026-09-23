@@ -121,7 +121,8 @@ async function request<T = any>(
         if (storedRefreshToken) {
           try {
             const baseUrl = getApiBaseUrl();
-            const refreshUrl = `${baseUrl}/api/v1/accounts/token/refresh/`;
+            const rootBase = baseUrl.replace(/\/api\/v1\/?$/, '');
+            const refreshUrl = `${rootBase}/api/v1/accounts/token/refresh/`;
             const refreshRes = await fetch(refreshUrl, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
