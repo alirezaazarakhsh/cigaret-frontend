@@ -568,28 +568,28 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data_dict)
 
     def create(self, validated_data):
-        validated_data.pop('name_fa', None)
+        name_fa_val = validated_data.pop('name_fa', None)
+        if name_fa_val and not validated_data.get('name'):
+            validated_data['name'] = name_fa_val
         validated_data.pop('images', None)
         validated_data.pop('key_features', None)
         validated_data.pop('applied_features', None)
         gallery_images = validated_data.pop('gallery_images', [])
         key_takeaways = validated_data.pop('key_takeaways', [])
         tier_discounts = validated_data.pop('tier_discounts', [])
+        applied_features = getattr(self, '_raw_applied_features', None)
 
         with transaction.atomic():
             product = super().create(validated_data)
 
-            # ثبت گالری تصاویر آپشنال در صورت ارسال در اندپوینت
             for idx, img_src in enumerate(gallery_images):
                 if img_src:
                     ProductImage.objects.create(product=product, image=img_src, order=idx)
 
-            # ثبت نکات کلیدی
             for idx, feature_text in enumerate(key_takeaways):
                 if feature_text:
                     ProductKeyFeature.objects.create(product=product, title=feature_text, order=idx)
 
-            # ثبت تخفیف‌های پلکانی حجم عمده
             for td in tier_discounts:
                 if isinstance(td, dict) and td.get('min_quantity') and td.get('discount_percent'):
                     try:
@@ -602,16 +602,22 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                     except Exception:
                         pass
 
+            if applied_features:
+                sync_product_attributes(product, applied_features)
+
             return product
 
     def update(self, instance, validated_data):
-        validated_data.pop('name_fa', None)
+        name_fa_val = validated_data.pop('name_fa', None)
+        if name_fa_val and not validated_data.get('name'):
+            validated_data['name'] = name_fa_val
         validated_data.pop('images', None)
         validated_data.pop('key_features', None)
         validated_data.pop('applied_features', None)
         gallery_images = validated_data.pop('gallery_images', None)
         key_takeaways = validated_data.pop('key_takeaways', None)
         tier_discounts = validated_data.pop('tier_discounts', None)
+        applied_features = getattr(self, '_raw_applied_features', None)
 
         with transaction.atomic():
             product = super().update(instance, validated_data)
@@ -641,5 +647,8 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                             )
                         except Exception:
                             pass
+
+            if applied_features is not None:
+                sync_product_attributes(product, applied_features)
 
             return product
