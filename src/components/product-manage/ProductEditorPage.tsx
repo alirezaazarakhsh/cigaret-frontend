@@ -1,4 +1,5 @@
 import React, { useState, useRef, useMemo } from 'react';
+import { useFormPersistence } from '../../hooks/useFormPersistence';
 import {
   ArrowRight,
   Check,
@@ -104,7 +105,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
   const isEditing = Boolean(product && product.id);
 
   // Initial form data
-  const [formData, setFormData] = useState<Partial<CigaretteProduct>>(() => {
+  const initialFormValues = useMemo(() => {
     if (product) {
       const initialApplied = product.appliedFeatures && product.appliedFeatures.length > 0
         ? product.appliedFeatures
@@ -200,7 +201,14 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       ],
       images: [],
     };
-  });
+  }, [product, initialBarcode]);
+
+  const {
+    values: formData,
+    setValues: setFormData,
+    hasDraft,
+    clear: clearFormPersistence,
+  } = useFormPersistence<any>('sevin_product_draft', initialFormValues, !product);
 
   // UI States
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -212,6 +220,20 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
   const [imageFileSize, setImageFileSize] = useState<string>('');
   const [validationError, setValidationError] = useState<string | null>(null);
   const [newGalleryInput, setNewGalleryInput] = useState<string>('');
+
+  const handleRestoreDraft = () => {
+    try {
+      const saved = localStorage.getItem('sevin_product_draft');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        setFormData(parsed);
+      }
+    } catch {}
+  };
+
+  const handleClearDraft = () => {
+    clearFormPersistence();
+  };
 
   const handleAddGalleryImage = () => {
     if (newGalleryInput.trim()) {
@@ -701,6 +723,9 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       };
 
       await Promise.resolve(onSave(completeProduct));
+      try {
+        localStorage.removeItem('sevin_product_draft');
+      } catch {}
     } catch (err: any) {
       console.error(err);
       setValidationError(err?.message || 'خطا در ثبت نهایی و پردازش اطلاعات محصول در دیتابیس.');
@@ -719,6 +744,34 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
           <span>در حال ثبت نهایی محصول و ارسال اطلاعات به پایگاه‌داده انبار و صندوق... لطفاً صبر کنید.</span>
         </div>
       )}
+
+      {/* Draft Restoration Banner */}
+      {hasDraft && !product && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-2xl shadow-xs flex items-center justify-between text-xs font-bold" dir="rtl">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <span>پیش‌نویس ذخیره‌شده‌ای از فرم ثبت محصول قبلی شما در مرورگر موجود است. آیا مایل به بارگذاری آن هستید؟</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleRestoreDraft}
+              className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-black shadow-xs transition-colors cursor-pointer"
+            >
+              بارگذاری پیش‌نویس
+            </button>
+            <button
+              type="button"
+              onClick={handleClearDraft}
+              className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            >
+              حذف پیش‌نویس
+            </button>
+          </div>
+        </div>
+      )}
+
+
       
       {/* TOP ACTION BAR - Matching BlogManagementPanel */}
       <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-xs sticky top-28 z-20">

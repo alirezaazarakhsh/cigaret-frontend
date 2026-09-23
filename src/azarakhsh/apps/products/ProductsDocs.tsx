@@ -1156,6 +1156,7 @@ products/serializers.py
 \"\"\"
 
 from rest_framework import serializers
+from django.db import transaction
 from django.db.models import Q
 from django.utils.text import slugify
 import uuid
@@ -1166,6 +1167,8 @@ from .models import (
     ProductAttribute,
     Product,
     ProductAttributeValue,
+    ProductKeyFeature,
+    ProductTierDiscount,
     ProductImage
 )
 
@@ -1358,6 +1361,31 @@ class ProductImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProductImage
         fields = ['id', 'image', 'order']
+        extra_kwargs = {
+            'image': {'required': False, 'allow_null': True},
+            'order': {'required': False, 'default': 0}
+        }
+
+
+class ProductKeyFeatureSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductKeyFeature
+        fields = ['id', 'title', 'display_order']
+        extra_kwargs = {
+            'title': {'required': True},
+            'display_order': {'required': False, 'default': 0}
+        }
+
+
+class ProductTierDiscountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ProductTierDiscount
+        fields = ['id', 'min_quantity', 'discount_percent', 'discount_price_per_unit']
+        extra_kwargs = {
+            'min_quantity': {'required': True},
+            'discount_percent': {'required': True},
+            'discount_price_per_unit': {'required': False, 'allow_null': True}
+        }
 
 
 class ProductSerializer(serializers.ModelSerializer):
@@ -1368,6 +1396,8 @@ class ProductSerializer(serializers.ModelSerializer):
     brand_logo = serializers.SerializerMethodField(read_only=True)
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
+    key_features = ProductKeyFeatureSerializer(many=True, read_only=True)
+    tier_discounts = ProductTierDiscountSerializer(many=True, read_only=True)
     attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
     cigarette_size_display = serializers.CharField(source='get_cigarette_size_display', read_only=True)
     filter_type_display = serializers.CharField(source='get_filter_type_display', read_only=True)
@@ -1412,6 +1442,8 @@ class ProductSerializer(serializers.ModelSerializer):
             'badge_display',
             'image',
             'gallery',
+            'key_features',
+            'tier_discounts',
             'attributes_values',
             'is_pos_only',
             'is_box_only',
@@ -1443,6 +1475,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
     brand_logo = serializers.SerializerMethodField(read_only=True)
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
+    key_features = ProductKeyFeatureSerializer(many=True, read_only=True)
+    tier_discounts = ProductTierDiscountSerializer(many=True, read_only=True)
     attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
     cigarette_size_display = serializers.CharField(source='get_cigarette_size_display', read_only=True)
     filter_type_display = serializers.CharField(source='get_filter_type_display', read_only=True)
@@ -1486,6 +1520,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'badge_display',
             'image',
             'gallery',
+            'key_features',
+            'tier_discounts',
             'attributes_values',
             'full_description',
             'excerpt',
@@ -1514,10 +1550,8 @@ class ProductDetailSerializer(serializers.ModelSerializer):
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     """
-    سریالایزر هوشمند و جامع ثبت و بروزرسانی کالا در دیتابیس دجانگو
-    پشتیبانی کامل از تمامی فیلدهای دیتابیس و ورودی‌های رشته‌ای، عددی یا دیکشنری برند، دسته‌بندی و هولوگرام
-    پشتیبانی کامل از ذخیره‌سازی ویژگی‌های فنی (EAV) در جدول ProductAttribute و ProductAttributeValue
-    پشتیبانی از گالری تصاویر آپشنال، نکات کلیدی و تخفیف‌های تیراژ
+    سریالایزر هوشمند و جامع ثبت و بروزرسانی کالا در دیتابیس دجانگو با پشتیبانی از تراکنش‌های اتمیک
+    پشتیبانی کامل از سریالایزرهای توکار ProductImage, ProductKeyFeature, ProductTierDiscount و ویژگی‌های داینامیک EAV
     """
     slug = serializers.SlugField(allow_unicode=True, required=False, allow_blank=True)
     name_fa = serializers.CharField(write_only=True, required=False, allow_blank=True)
@@ -1529,15 +1563,18 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         required=False,
         allow_empty=True,
         write_only=True,
-        help_text="لیست آدرس‌ها یا تصویرهای گالری محصول (اختیاری)"
+        help_text="لیست آدرس‌ها یا تصویرهای گالری محصول (رشته‌ای)"
     )
+    gallery = ProductImageSerializer(many=True, required=False, write_only=True)
     key_takeaways = serializers.ListField(
         child=serializers.CharField(),
         required=False,
         allow_empty=True,
         write_only=True,
-        help_text="لیست نکات کلیدی محصول جهت نمایش در سئو و چکیده"
+        help_text="لیست نکات کلیدی محصول (رشته‌ای)"
     )
+    key_features = ProductKeyFeatureSerializer(many=True, required=False, write_only=True)
+    tier_discounts = ProductTierDiscountSerializer(many=True, required=False, write_only=True)
     attributes = serializers.ListField(
         child=serializers.DictField(),
         required=False,
@@ -1578,8 +1615,11 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'main_image',
             'image',
             'gallery_images',
+            'gallery',
             'key_takeaways',
+            'key_features',
             'attributes',
+            'tier_discounts',
             'full_description',
             'excerpt',
             'focus_keyword',
@@ -1630,10 +1670,16 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     def to_internal_value(self, data):
         data_dict = data.copy() if hasattr(data, 'copy') else dict(data)
 
-        # نگهداری لیست ویژگی‌های فنی قبل از اعتبارسنجی
+        # استخراج فیلدهای توکار قبل از اعتبارسنجی
         attributes_raw = data_dict.pop('attributes', None)
         if attributes_raw is None:
             attributes_raw = data_dict.pop('custom_features', None)
+
+        tier_discounts_raw = data_dict.pop('tier_discounts', None)
+        gallery_raw = data_dict.pop('gallery', None)
+        gallery_images_raw = data_dict.pop('gallery_images', None)
+        key_features_raw = data_dict.pop('key_features', None)
+        key_takeaways_raw = data_dict.pop('key_takeaways', None)
 
         # پاکسازی اعداد و قیمت‌ها در صورت ارسال رشته خالی یا تهی
         for num_field in ['box_price', 'boxes_per_carton', 'carton_price', 'pack_price', 'packs_per_box', 'purchase_price', 'stock_cartons', 'stock_boxes', 'min_order_carton', 'min_order_box']:
@@ -1722,194 +1768,169 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                     holo_obj, _ = ProductHologram.objects.get_or_create(title=s_val)
                     data_dict['hologram'] = holo_obj.id
 
-        # تولید خودکار یا پالایش اسلاگ سئو
-        slug_raw = data_dict.get('slug')
-        if not slug_raw:
-            base_for_slug = data_dict.get('name_en') or data_dict.get('name') or f"prod-{uuid.uuid4().hex[:6]}"
-            slug_raw = slugify(str(base_for_slug), allow_unicode=True) or f"prod-{uuid.uuid4().hex[:8]}"
-        else:
-            slug_raw = slugify(str(slug_raw).strip(), allow_unicode=True) or f"prod-{uuid.uuid4().hex[:8]}"
-        data_dict['slug'] = slug_raw
-
-        # نرمال‌سازی سایز سیگار (cigarette_size)
-        size_map = {
-            'کینگ سایز': 'king_size',
-            'کینگ سایز (king size)': 'king_size',
-            'king size': 'king_size',
-            'اسلیم': 'slims',
-            'اسلیم / باریک (slims)': 'slims',
-            'slims': 'slims',
-            'سوپر اسلیم': 'super_slims',
-            'سوپر اسلیم (super slims)': 'super_slims',
-            'super slims': 'super_slims',
-            'super_slims': 'super_slims',
-            'نانو': 'nano',
-            'نانو (nano)': 'nano',
-            'nano': 'nano',
-            'کامپکت': 'compact',
-            'کامپکت (compact)': 'compact',
-            'compact': 'compact',
-            'کویین سایز': 'queen_size',
-            'کویین سایز (queen size)': 'queen_size',
-            'queen size': 'queen_size',
-            'queen_size': 'queen_size',
-        }
-        if 'cigarette_size' in data_dict and data_dict['cigarette_size']:
-            cs = str(data_dict['cigarette_size']).strip().lower()
-            data_dict['cigarette_size'] = size_map.get(cs, data_dict['cigarette_size'])
-
-        # نرمال‌سازی نوع فیلتر (filter_type)
-        filter_map = {
-            'سفید': 'white',
-            'فیلتر سفید': 'white',
-            'فیلتر سفید استاندارد': 'white',
-            'white': 'white',
-            'زرد': 'yellow',
-            'فیلتر زرد': 'yellow',
-            'فیلتر زرد سنتی': 'yellow',
-            'yellow': 'yellow',
-            'کربن': 'charcoal',
-            'زغالی': 'charcoal',
-            'فیلتر کربن': 'charcoal',
-            'فیلتر کربن / زغالی': 'charcoal',
-            'فیلتر کربن فعال (active charcoal)': 'charcoal',
-            'charcoal': 'charcoal',
-            'مجوف': 'recessed',
-            'فیلتر مجوف': 'recessed',
-            'recessed': 'recessed',
-            'کپسول': 'capsule',
-            'پاور': 'capsule',
-            'فیلتر طعمدار': 'capsule',
-            'فیلتر پاور': 'capsule',
-            'capsule': 'capsule',
-        }
-        if 'filter_type' in data_dict and data_dict['filter_type']:
-            ft = str(data_dict['filter_type']).strip().lower()
-            data_dict['filter_type'] = filter_map.get(ft, data_dict['filter_type'])
+        # تولید خودکار اسلاگ
+        if not data_dict.get('slug') and data_dict.get('name'):
+            gen_slug = slugify(data_dict.get('name_en') or data_dict.get('name'), allow_unicode=True)
+            data_dict['slug'] = gen_slug or f"prod-{uuid.uuid4().hex[:8]}"
 
         ret = super().to_internal_value(data_dict)
+
         if attributes_raw is not None and isinstance(attributes_raw, list):
             ret['attributes'] = attributes_raw
+        if tier_discounts_raw is not None and isinstance(tier_discounts_raw, list):
+            ret['tier_discounts'] = tier_discounts_raw
+        if gallery_raw is not None and isinstance(gallery_raw, list):
+            ret['gallery'] = gallery_raw
+        if gallery_images_raw is not None and isinstance(gallery_images_raw, list):
+            ret['gallery_images'] = gallery_images_raw
+        if key_features_raw is not None and isinstance(key_features_raw, list):
+            ret['key_features'] = key_features_raw
+        if key_takeaways_raw is not None and isinstance(key_takeaways_raw, list):
+            ret['key_takeaways'] = key_takeaways_raw
+
         return ret
 
-    def _save_attributes(self, product, attributes_data):
+    def _save_nested_relations(self, product, attributes_data, tier_discounts_data, gallery_data, gallery_images_data, key_features_data, key_takeaways_data):
         """
-        متد اختصاصی ذخیره‌سازی ویژگی‌های فنی در پایگاه‌داده
-        اگر ویژگی وجود نداشته باشد، با کلیه فیلدها در جدول ProductAttribute ایجاد می‌شود
-        سپس مقدار آن در جدول ProductAttributeValue ذخیره یا بروزرسانی می‌گردد.
+        مدیریت اتمیک و صریح ذخیره‌سازی روابط توکار کالا
         """
-        if not attributes_data or not isinstance(attributes_data, list):
-            return
+        # ۱. ذخیره‌سازی ویژگی‌های فنی EAV
+        if attributes_data is not None and isinstance(attributes_data, list):
+            for item in attributes_data:
+                if not isinstance(item, dict):
+                    continue
 
-        for item in attributes_data:
-            if not isinstance(item, dict):
-                continue
+                attr_id = item.get('attribute_id') or item.get('id')
+                attr_name = item.get('name') or item.get('title')
+                val = item.get('value')
+                val_num = item.get('value_number')
+                val_bool = item.get('value_boolean')
 
-            attr_id = item.get('attribute_id') or item.get('id')
-            attr_name = item.get('name') or item.get('title')
-            val = item.get('value')
-            val_num = item.get('value_number')
-            val_bool = item.get('value_boolean')
+                attr_obj = None
+                if attr_id and str(attr_id).isdigit():
+                    attr_obj = ProductAttribute.objects.filter(id=int(attr_id)).first()
 
-            attr_obj = None
-            if attr_id and str(attr_id).isdigit():
-                attr_obj = ProductAttribute.objects.filter(id=int(attr_id)).first()
+                if not attr_obj and attr_name:
+                    name_clean = str(attr_name).strip()
+                    attr_obj = ProductAttribute.objects.filter(Q(name__iexact=name_clean) | Q(name_en__iexact=name_clean)).first()
+                    if not attr_obj:
+                        attr_obj = ProductAttribute.objects.create(
+                            name=name_clean,
+                            name_en=item.get('name_en') or slugify(name_clean, allow_unicode=True),
+                            data_type=item.get('data_type') or 'text',
+                            unit=item.get('unit') or '',
+                            options=item.get('options') or '',
+                            help_text=item.get('help_text') or '',
+                            is_required=item.get('is_required', False),
+                            is_filterable=item.get('is_filterable', True),
+                        )
 
-            if not attr_obj and attr_name:
-                name_clean = str(attr_name).strip()
-                attr_obj = ProductAttribute.objects.filter(Q(name__iexact=name_clean) | Q(name_en__iexact=name_clean)).first()
                 if not attr_obj:
-                    # تعریف خودکار ویژگی جدید در دیتابیس
-                    attr_obj = ProductAttribute.objects.create(
-                        name=name_clean,
-                        name_en=item.get('name_en') or slugify(name_clean, allow_unicode=True),
-                        data_type=item.get('data_type') or 'text',
-                        unit=item.get('unit') or '',
-                        options=item.get('options') or '',
-                        help_text=item.get('help_text') or '',
-                        is_required=item.get('is_required', False),
-                        is_filterable=item.get('is_filterable', True),
+                    continue
+
+                if val_num is None and val is not None and attr_obj.data_type == 'number':
+                    try:
+                        cleaned_num = str(val).replace(attr_obj.unit or '', '').strip()
+                        val_num = float(cleaned_num)
+                    except (ValueError, TypeError):
+                        val_num = None
+
+                if val_bool is None and val is not None and attr_obj.data_type == 'boolean':
+                    val_bool = str(val).lower() in ['true', '1', 'yes', 'بله', 'دارد']
+
+                ProductAttributeValue.objects.update_or_create(
+                    product=product,
+                    attribute=attr_obj,
+                    defaults={
+                        'value': str(val) if val is not None else '',
+                        'value_number': val_num,
+                        'value_boolean': val_bool
+                    }
+                )
+
+        # ۲. ذخیره‌سازی تخفیف‌های تیراژ عمده
+        if tier_discounts_data is not None and isinstance(tier_discounts_data, list):
+            product.tier_discounts.all().delete()
+            for t_item in tier_discounts_data:
+                if isinstance(t_item, dict):
+                    min_q = t_item.get('min_quantity') or t_item.get('min_qty') or 1
+                    disc_pct = t_item.get('discount_percent') or t_item.get('percent') or 0
+                    disc_price = t_item.get('discount_price_per_unit') or t_item.get('price')
+                    ProductTierDiscount.objects.create(
+                        product=product,
+                        min_quantity=int(min_q),
+                        discount_percent=float(disc_pct),
+                        discount_price_per_unit=int(disc_price) if disc_price else None
                     )
 
-            if not attr_obj:
-                continue
+        # ۳. ذخیره‌سازی گالری تصاویر
+        g_list = gallery_data if gallery_data is not None else gallery_images_data
+        if g_list is not None and isinstance(g_list, list):
+            product.gallery.all().delete()
+            for idx, g_item in enumerate(g_list):
+                if isinstance(g_item, dict):
+                    img_val = g_item.get('image') or g_item.get('url')
+                    order_val = g_item.get('order', idx)
+                    if img_val:
+                        ProductImage.objects.create(product=product, image=img_val, order=order_val)
+                elif isinstance(g_item, str) and g_item.strip():
+                    ProductImage.objects.create(product=product, image=g_item.strip(), order=idx)
 
-            # تحلیل عددی در صورت لزوم
-            if val_num is None and val is not None and attr_obj.data_type == 'number':
-                try:
-                    cleaned_num = str(val).replace(attr_obj.unit or '', '').strip()
-                    val_num = float(cleaned_num)
-                except (ValueError, TypeError):
-                    val_num = None
+        # ۴. ذخیره‌سازی نکات کلیدی
+        kf_list = key_features_data if key_features_data is not None else key_takeaways_data
+        if kf_list is not None and isinstance(kf_list, list):
+            product.key_features.all().delete()
+            for idx, k_item in enumerate(kf_list):
+                if isinstance(k_item, dict):
+                    title_val = k_item.get('title') or k_item.get('text')
+                    order_val = k_item.get('display_order', idx)
+                    if title_val:
+                        ProductKeyFeature.objects.create(product=product, title=title_val, display_order=order_val)
+                elif isinstance(k_item, str) and k_item.strip():
+                    ProductKeyFeature.objects.create(product=product, title=k_item.strip(), display_order=idx)
 
-            # تحلیل بولی در صورت لزوم
-            if val_bool is None and val is not None and attr_obj.data_type == 'boolean':
-                val_bool = str(val).lower() in ['true', '1', 'yes', 'بله', 'دارد']
-
-            ProductAttributeValue.objects.update_or_create(
-                product=product,
-                attribute=attr_obj,
-                defaults={
-                    'value': str(val) if val is not None else '',
-                    'value_number': val_num,
-                    'value_boolean': val_bool,
-                }
-            )
-
+    @transaction.atomic
     def create(self, validated_data):
-        attributes_data = validated_data.pop('attributes', [])
-        gallery_images = validated_data.pop('gallery_images', [])
-        key_takeaways = validated_data.pop('key_takeaways', [])
-
-        # جلوگیری از تکراری شدن اسلاگ در صورت وجود کالای همنام
-        slug = validated_data.get('slug')
-        if slug:
-            orig_slug = slug
-            counter = 1
-            while Product.objects.filter(slug=slug).exists():
-                slug = f"{orig_slug}-{counter}"
-                counter += 1
-            validated_data['slug'] = slug
+        validated_data.pop('name_fa', None)
+        gallery_images = validated_data.pop('gallery_images', None)
+        gallery_data = validated_data.pop('gallery', None)
+        key_takeaways = validated_data.pop('key_takeaways', None)
+        key_features_data = validated_data.pop('key_features', None)
+        attributes_data = validated_data.pop('attributes', None)
+        tier_discounts_data = validated_data.pop('tier_discounts', None)
 
         product = super().create(validated_data)
-
-        # ذخیره‌سازی پایگاه‌داده‌ای ویژگی‌های فنی کالا
-        self._save_attributes(product, attributes_data)
-
-        # ثبت گالری تصاویر آپشنال در صورت ارسال در اندپوینت
-        for idx, img_src in enumerate(gallery_images):
-            if img_src:
-                ProductImage.objects.create(product=product, image=img_src, order=idx)
-
-        # ثبت نکات کلیدی
-        for idx, feature_text in enumerate(key_takeaways):
-            if feature_text:
-                ProductKeyFeature.objects.create(product=product, title=feature_text, display_order=idx)
-
+        self._save_nested_relations(
+            product,
+            attributes_data=attributes_data,
+            tier_discounts_data=tier_discounts_data,
+            gallery_data=gallery_data,
+            gallery_images_data=gallery_images,
+            key_features_data=key_features_data,
+            key_takeaways_data=key_takeaways
+        )
         return product
 
+    @transaction.atomic
     def update(self, instance, validated_data):
-        attributes_data = validated_data.pop('attributes', None)
+        validated_data.pop('name_fa', None)
         gallery_images = validated_data.pop('gallery_images', None)
+        gallery_data = validated_data.pop('gallery', None)
         key_takeaways = validated_data.pop('key_takeaways', None)
+        key_features_data = validated_data.pop('key_features', None)
+        attributes_data = validated_data.pop('attributes', None)
+        tier_discounts_data = validated_data.pop('tier_discounts', None)
+
         product = super().update(instance, validated_data)
-
-        # بروزرسانی مقادیر ویژگی‌های فنی در پایگاه‌داده
-        if attributes_data is not None:
-            self._save_attributes(product, attributes_data)
-
-        if gallery_images is not None:
-            instance.gallery.all().delete()
-            for idx, img_src in enumerate(gallery_images):
-                if img_src:
-                    ProductImage.objects.create(product=product, image=img_src, order=idx)
-
-        if key_takeaways is not None:
-            instance.key_features.all().delete()
-            for idx, feature_text in enumerate(key_takeaways):
-                if feature_text:
-                    ProductKeyFeature.objects.create(product=product, title=feature_text, display_order=idx)
-
+        self._save_nested_relations(
+            product,
+            attributes_data=attributes_data,
+            tier_discounts_data=tier_discounts_data,
+            gallery_data=gallery_data,
+            gallery_images_data=gallery_images,
+            key_features_data=key_features_data,
+            key_takeaways_data=key_takeaways
+        )
         return product
 `;
 

@@ -498,6 +498,9 @@ class ProductListAPIView(APIView):
             'results': serializer.data
         }, status=status.HTTP_200_OK)
 
+    def post(self, request):
+        return ProductCreateAPIView().post(request)
+
 
 class PosCatalogAPIView(APIView):
     """
