@@ -568,6 +568,10 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         return super().to_internal_value(data_dict)
 
     def create(self, validated_data):
+        validated_data.pop('name_fa', None)
+        validated_data.pop('images', None)
+        validated_data.pop('key_features', None)
+        validated_data.pop('applied_features', None)
         gallery_images = validated_data.pop('gallery_images', [])
         key_takeaways = validated_data.pop('key_takeaways', [])
         tier_discounts = validated_data.pop('tier_discounts', [])
@@ -601,6 +605,10 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             return product
 
     def update(self, instance, validated_data):
+        validated_data.pop('name_fa', None)
+        validated_data.pop('images', None)
+        validated_data.pop('key_features', None)
+        validated_data.pop('applied_features', None)
         gallery_images = validated_data.pop('gallery_images', None)
         key_takeaways = validated_data.pop('key_takeaways', None)
         tier_discounts = validated_data.pop('tier_discounts', None)
