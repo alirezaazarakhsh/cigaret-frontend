@@ -1,5 +1,5 @@
 import axios, { AxiosRequestConfig, AxiosInstance } from 'axios';
-import { CigaretteProduct, DjangoCrmConfig, CigaretteCategory, BlogPost, BlogCategoryItem, FooterSettingsData, FooterColumnItem, FooterSocialItem, FooterLinkItem } from '../types';
+import { CigaretteProduct, DjangoCrmConfig, CigaretteCategory, BlogPost, BlogCategoryItem, FooterSettingsData, FooterColumnItem, FooterSocialItem, FooterLinkItem, SyncLogEntry } from '../types';
 import { CIGARETTE_PRODUCTS } from '../data/products';
 import { BLOG_POSTS } from '../data/blogPosts';
 import { notificationsApi } from './api';
@@ -213,27 +213,40 @@ class DjangoDatabaseStore {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
+          return parsed.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
         }
       }
     } catch {}
-    return [...this.products];
+    return [...this.products].map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
   }
 
   addProduct(product: CigaretteProduct): CigaretteProduct {
+    const sanitizedInput = mapDjangoItemToProduct(product, 0);
     const current = this.getProducts();
-    const existingIndex = current.findIndex(p => p.id === product.id || (product.barcode && p.barcode === product.barcode));
+    const existingIndex = current.findIndex(p => p.id === sanitizedInput.id || (sanitizedInput.barcode && p.barcode === sanitizedInput.barcode));
+    let resultProduct: CigaretteProduct;
+
     if (existingIndex >= 0) {
-      current[existingIndex] = { ...current[existingIndex], ...product };
+      const prev = current[existingIndex];
+      console.log(`[DjangoDatabaseStore.addProduct] Merging into existing product at index ${existingIndex} (id=${prev.id}, barcode=${prev.barcode}):`);
+      resultProduct = mapDjangoItemToProduct({ ...prev, ...sanitizedInput }, existingIndex);
+      current[existingIndex] = resultProduct;
+      console.log('[DjangoDatabaseStore.addProduct] -> Merged result:', resultProduct);
     } else {
-      current.unshift(product);
+      console.log(`[DjangoDatabaseStore.addProduct] Inserting new product (id=${sanitizedInput.id}, barcode=${sanitizedInput.barcode}):`, sanitizedInput);
+      resultProduct = sanitizedInput;
+      current.unshift(resultProduct);
     }
+
     try {
       localStorage.setItem('wholesale_products', JSON.stringify(current));
       localStorage.setItem('sovin_django_products', JSON.stringify(current));
-    } catch {}
+    } catch (e) {
+      console.warn('[DjangoDatabaseStore.addProduct] LocalStorage save warning:', e);
+    }
     this.products = current;
-    return product;
+    console.log(`[DjangoDatabaseStore.addProduct] Store now contains ${current.length} total products.`);
+    return resultProduct;
   }
 
   saveSalesAnalysis(record: any) {
@@ -1694,13 +1707,56 @@ export async function saveSalesAnalyticsToDjango(salesReport: any, config?: Djan
  * Fetches products from a Django REST Framework endpoint or simulates
  * live updates if connecting to local/demo server.
  */
-export async function syncWithDjangoApi(config: DjangoCrmConfig): Promise<CigaretteProduct[]> {
-  if (!config.apiUrl || config.apiUrl.trim() === '') {
+export async function syncWithDjangoApi(
+  config: DjangoCrmConfig, 
+  onLog?: (entry: SyncLogEntry) => void
+): Promise<CigaretteProduct[]> {
+  const emitLog = (
+    level: SyncLogEntry['level'], 
+    category: SyncLogEntry['category'], 
+    title: string, 
+    message: string, 
+    details?: Record<string, any>,
+    targetProductId?: string
+  ) => {
+    const entry: SyncLogEntry = {
+      id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '.' + String(Date.now() % 1000).padStart(3, '0'),
+      level,
+      category,
+      title,
+      message,
+      details,
+      targetProductId,
+    };
+    if (onLog) {
+      onLog(entry);
+    }
+  };
+
+  console.log('[djangoApi.syncWithDjangoApi] Starting product sync with config:', {
+    apiUrl: config?.apiUrl,
+    autoSync: config?.autoSync,
+    syncIntervalMinutes: config?.syncIntervalMinutes
+  });
+
+  emitLog('INFO', 'REQUEST', 'آغاز فرآیند همگام‌سازی کالاها', `شروع درخواست دریافت اطلاعات کالا از Django CRM با URL: ${config?.apiUrl || 'تعریف نشده'}`, {
+    apiUrl: config?.apiUrl,
+    autoSync: config?.autoSync,
+    syncIntervalMinutes: config?.syncIntervalMinutes,
+    hasToken: Boolean(config?.apiToken)
+  });
+
+  if (!config?.apiUrl || config.apiUrl.trim() === '') {
+    console.error('[djangoApi.syncWithDjangoApi] Error: API URL is missing or empty.');
+    emitLog('ERROR', 'REQUEST', 'آدرس وب‌سرویس نامعتبر است', 'آدرس API URL خالی است یا تعریف نشده است.');
     throw new Error('آدرس وب‌سرویس (API URL) وارد نشده است.');
   }
 
+  const cleanBaseUrl = config.apiUrl.trim().replace(/\/+$/, '');
+
   // If user has provided a custom live endpoint, attempt real fetch
-  if (config.apiUrl.startsWith('http://') || config.apiUrl.startsWith('https://')) {
+  if (cleanBaseUrl.startsWith('http://') || cleanBaseUrl.startsWith('https://')) {
     try {
       const headers: Record<string, string> = {
         'Accept': 'application/json',
@@ -1709,59 +1765,178 @@ export async function syncWithDjangoApi(config: DjangoCrmConfig): Promise<Cigare
         'Expires': '0',
       };
       if (config.apiToken && config.apiToken.trim() !== '') {
-        headers['Authorization'] = `Token ${config.apiToken.trim()}`;
+        const tokenVal = config.apiToken.trim();
+        headers['Authorization'] = tokenVal.startsWith('Token ') || tokenVal.startsWith('Bearer ')
+          ? tokenVal
+          : `Token ${tokenVal}`;
       }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
+      // Build candidate endpoint URLs to attempt fetching products
+      const candidateEndpoints: string[] = [];
+      if (cleanBaseUrl.includes('/products')) {
+        candidateEndpoints.push(cleanBaseUrl);
+      } else {
+        candidateEndpoints.push(`${cleanBaseUrl}/products/`);
+        candidateEndpoints.push(`${cleanBaseUrl}/products/items/`);
+        candidateEndpoints.push(`${cleanBaseUrl}/items/`);
+        candidateEndpoints.push(cleanBaseUrl);
+      }
 
-      const separator = config.apiUrl.includes('?') ? '&' : '?';
-      const noCacheUrl = `${config.apiUrl}${separator}_nocache=${Date.now()}`;
+      for (const targetUrl of candidateEndpoints) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-      const response = await fetch(noCacheUrl, {
-        method: 'GET',
-        headers,
-        cache: 'no-store',
-        signal: controller.signal,
-      }).catch((e) => {
-        return null;
-      });
+        const separator = targetUrl.includes('?') ? '&' : '?';
+        const noCacheUrl = `${targetUrl}${separator}_nocache=${Date.now()}`;
 
-      clearTimeout(timeoutId);
+        console.log(`[djangoApi.syncWithDjangoApi] Sending GET request to API endpoint: ${noCacheUrl}`);
+        emitLog('INFO', 'REQUEST', 'ارسال درخواست GET به اندپوینت Django', `تلاش برای دریافت اطلاعات کالاها از آدرس: ${noCacheUrl}`, {
+          targetUrl: noCacheUrl,
+          headers,
+          method: 'GET'
+        });
 
-      if (response && response.ok) {
-        const data = await response.json();
-        const results = Array.isArray(data) ? data : data.results || [];
-        if (results.length > 0) {
-          const fetched = results.map((item: DjangoProductItem, idx: number) => mapDjangoItemToProduct(item, idx));
-          fetched.forEach(p => djangoDatabaseStore.addProduct(p));
-          return fetched;
+        const startTime = Date.now();
+        const response = await fetch(noCacheUrl, {
+          method: 'GET',
+          headers,
+          cache: 'no-store',
+          signal: controller.signal,
+        }).catch((e) => {
+          console.warn(`[djangoApi.syncWithDjangoApi] Network request failed for ${noCacheUrl}:`, e);
+          emitLog('WARNING', 'REQUEST', 'خطای شبکه‌ای در درخواست HTTP', `عدم امکان برقراری ارتباط با اندپوینت ${noCacheUrl}: ${e.message || String(e)}`, { error: String(e) });
+          return null;
+        });
+
+        clearTimeout(timeoutId);
+        const latencyMs = Date.now() - startTime;
+
+        if (response) {
+          console.log(`[djangoApi.syncWithDjangoApi] HTTP Response received from ${noCacheUrl}: status=${response.status} ok=${response.ok}`);
+          emitLog(
+            response.ok ? 'SUCCESS' : 'WARNING',
+            'RESPONSE',
+            `پاسخ HTTP دریافت شد (Status ${response.status})`,
+            `زمان پاسخگویی سرور: ${latencyMs} میلی‌ثانیه | وضعیت OK: ${response.ok}`,
+            { status: response.status, ok: response.ok, latencyMs, statusText: response.statusText }
+          );
+        }
+
+        if (response && response.ok) {
+          const data = await response.json().catch((jsonErr) => {
+            console.error(`[djangoApi.syncWithDjangoApi] JSON parse error for response from ${noCacheUrl}:`, jsonErr);
+            emitLog('ERROR', 'RESPONSE', 'خطا در تجزیه JSON پاسخ سرور', `پاسخ دریافتی فرمت JSON معتبر ندارد: ${jsonErr.message}`);
+            return null;
+          });
+
+          console.log(`[djangoApi.syncWithDjangoApi] API raw response payload from ${noCacheUrl}:`, data);
+
+          if (data) {
+            const results = Array.isArray(data) ? data : (data.results || data.data || []);
+            console.log(`[djangoApi.syncWithDjangoApi] Extracted ${results.length} raw product items from API response.`);
+            emitLog('INFO', 'PARSING', 'استخراج آرایه کالاهای خام', `تعداد ${results.length} قلم کالا از باریاب JSON استخراج گردید.`, {
+              rawItemsCount: results.length,
+              isArrayDirect: Array.isArray(data),
+              hasResultsField: Boolean(data?.results),
+              sampleRawItem: results[0] || null
+            });
+
+            if (results.length > 0) {
+              const fetched = results.map((item: DjangoProductItem, idx: number) => mapDjangoItemToProduct(item, idx));
+              console.log(`[djangoApi.syncWithDjangoApi] Mapped ${fetched.length} products to CigaretteProduct model. Sample product[0]:`, fetched[0]);
+              
+              emitLog('SUCCESS', 'PARSING', 'تبدیل و نگاشت موفق به مدل UI', `تعداد ${fetched.length} کالا به ساختار CigaretteProduct نگاشت شدند.`, {
+                mappedCount: fetched.length,
+                sampleMappedProduct: fetched[0]
+              });
+
+              // Update local in-memory store and localStorage immediately
+              let mergedCount = 0;
+              fetched.forEach(p => {
+                djangoDatabaseStore.addProduct(p);
+                mergedCount++;
+              });
+
+              emitLog('SUCCESS', 'MERGING', 'ثبت در دیتابیس درون‌حافظه‌ای', `تعداد ${mergedCount} محصول در DjangoDatabaseStore به‌روزرسانی و ترکیب شدند.`, {
+                totalProductsInStore: djangoDatabaseStore.getProducts().length
+              });
+
+              try {
+                localStorage.setItem('wholesale_products', JSON.stringify(fetched));
+                localStorage.setItem('sovin_django_products', JSON.stringify(fetched));
+                console.log(`[djangoApi.syncWithDjangoApi] Successfully saved ${fetched.length} products to localStorage.`);
+                emitLog('SUCCESS', 'CACHE', 'ذخیره‌سازی پایداری در LocalStorage', `کلیدهای wholesale_products و sovin_django_products با ${fetched.length} کالا به‌روز شدند.`);
+              } catch (e) {
+                console.warn('[djangoApi.syncWithDjangoApi] LocalStorage save warning:', e);
+                emitLog('WARNING', 'CACHE', 'هشدار ذخیره در LocalStorage', `امکان ذخیره در حافظه مرورگر وجود ندارد: ${String(e)}`);
+              }
+
+              // Broadcast global custom event to trigger instant UI re-renders across all tabs and panels
+              if (typeof window !== 'undefined') {
+                window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: fetched } }));
+                console.log('[djangoApi.syncWithDjangoApi] Dispatched "sevin-products-changed" event to window.');
+                emitLog('SUCCESS', 'STATE_COMMIT', 'انتشار رویداد سراسری UI', 'رویداد sevin-products-changed برای تمام کامپوننت‌های گوش به زنگ ارسال شد.');
+              }
+
+              console.log(`[djangoApi.syncWithDjangoApi] Live product sync complete. Returning ${fetched.length} products.`);
+              return fetched;
+            } else {
+              console.log(`[djangoApi.syncWithDjangoApi] Endpoint ${noCacheUrl} returned 0 items. Trying next candidate if available.`);
+              emitLog('WARNING', 'PARSING', 'آرایه کالای خالی', `اندپویینت ${noCacheUrl} تعداد ۰ کالا برگرداند.`);
+            }
+          }
         }
       }
     } catch (err) {
-      console.warn('Django CRM live fetch fallback to synchronized dataset:', err);
+      console.warn('[djangoApi.syncWithDjangoApi] Live fetch exception encountered, falling back to dataset sync:', err);
+      emitLog('WARNING', 'REQUEST', 'استثنا در ارتباط زنده', `انتقال به همگام‌سازی دیتابیس محلی به دلیل استثنا: ${String(err)}`);
     }
   }
 
-  // Simulate instant sync with live jitter for realistic real-time price demonstration
-  await new Promise(resolve => setTimeout(resolve, 600));
+  // Fallback simulation / local dataset sync
+  console.log('[djangoApi.syncWithDjangoApi] Fallback: Executing dataset price sync / simulation.');
+  emitLog('INFO', 'MERGING', 'اجرای همگام‌سازی دیتابیس محلی/شبیه‌سازی', 'ارتباط زنده مستقیم در دسترس نبود، همگام‌سازی از روی دیتابیس محلی اجرا گردید.');
+  
+  await new Promise(resolve => setTimeout(resolve, 400));
 
   const now = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
   const allProds = djangoDatabaseStore.getProducts();
 
-  return allProds.map((prod, index) => {
+  const syncedProds = allProds.map((prod, index) => {
     const changeFactor = index % 3 === 0 ? 1.01 : index % 3 === 1 ? 0.99 : 1;
     const newCartonPrice = Math.round((prod.cartonPrice * changeFactor) / 10000) * 10000;
     const newBoxPrice = Math.round(newCartonPrice / (prod.boxesPerCarton || 50));
+
+    const trend: 'stable' | 'up' | 'down' = changeFactor > 1 ? 'up' : changeFactor < 1 ? 'down' : 'stable';
 
     return {
       ...prod,
       cartonPrice: newCartonPrice,
       boxPrice: newBoxPrice,
       lastPriceUpdate: `امروز ${now}`,
-      priceTrend: changeFactor > 1 ? 'up' : changeFactor < 1 ? 'down' : 'stable',
+      priceTrend: trend,
     };
   });
+
+  syncedProds.forEach(p => djangoDatabaseStore.addProduct(p));
+  try {
+    localStorage.setItem('wholesale_products', JSON.stringify(syncedProds));
+    localStorage.setItem('sovin_django_products', JSON.stringify(syncedProds));
+    console.log(`[djangoApi.syncWithDjangoApi] Local dataset sync saved ${syncedProds.length} updated products to localStorage.`);
+    emitLog('SUCCESS', 'CACHE', 'ذخیره‌سازی پایداری دیتابیس محلی', `تعداد ${syncedProds.length} کالا در LocalStorage قرار گرفت.`);
+  } catch (e) {
+    console.warn('[djangoApi.syncWithDjangoApi] LocalStorage save warning:', e);
+    emitLog('WARNING', 'CACHE', 'هشدار ذخیره‌سازی محلی', String(e));
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: syncedProds } }));
+    console.log('[djangoApi.syncWithDjangoApi] Dispatched "sevin-products-changed" event to window.');
+    emitLog('SUCCESS', 'STATE_COMMIT', 'انتشار رویداد تغییر کالاهای محلی', 'سیگنال sevin-products-changed ارسال شد.');
+  }
+
+  console.log(`[djangoApi.syncWithDjangoApi] Fallback dataset sync finished. Returning ${syncedProds.length} products. Sample product[0]:`, syncedProds[0]);
+  return syncedProds;
 }
 
 /**
@@ -1770,6 +1945,7 @@ export async function syncWithDjangoApi(config: DjangoCrmConfig): Promise<Cigare
  */
 export async function fetchAllProducts(config?: DjangoCrmConfig): Promise<CigaretteProduct[]> {
   const baseUrl = config?.apiUrl || getBlogApiBaseUrl(config);
+  console.log('[djangoApi.fetchAllProducts] Fetching products from baseUrl:', baseUrl);
   
   // Attempt to fetch from real API if URL is provided
   if (baseUrl && baseUrl.startsWith('http')) {
@@ -1780,16 +1956,30 @@ export async function fetchAllProducts(config?: DjangoCrmConfig): Promise<Cigare
       { token: config?.apiToken, apiUrl: baseUrl }
     );
 
+    console.log('[djangoApi.fetchAllProducts] executeDjangoAxiosRequest result:', {
+      success: res.success,
+      status: res.status,
+      dataLength: Array.isArray(res.data) ? res.data.length : 'non-array',
+      error: res.error
+    });
+
     if (res.success && Array.isArray(res.data)) {
       const fetched = res.data.map((item, idx) => mapDjangoItemToProduct(item, idx));
+      console.log(`[djangoApi.fetchAllProducts] Mapped ${fetched.length} products from API response. Sample:`, fetched[0]);
       // Sync local store
       fetched.forEach(p => djangoDatabaseStore.addProduct(p));
+      try {
+        localStorage.setItem('wholesale_products', JSON.stringify(fetched));
+        localStorage.setItem('sovin_django_products', JSON.stringify(fetched));
+      } catch {}
       return fetched;
     }
   }
   
-  // Fallback to local store simulation
-  return djangoDatabaseStore.getProducts();
+  // Fallback to local store
+  const localProds = djangoDatabaseStore.getProducts();
+  console.log(`[djangoApi.fetchAllProducts] Fallback returning ${localProds.length} products from local store.`);
+  return localProds;
 }
 
 /**
@@ -1885,44 +2075,327 @@ export interface DjangoProductItem {
   [key: string]: any;
 }
 
-function mapDjangoItemToProduct(item: DjangoProductItem, index: number): CigaretteProduct {
-  const defaultBase = CIGARETTE_PRODUCTS[index % CIGARETTE_PRODUCTS.length];
-  const cartonPrice = item.carton_price || defaultBase.cartonPrice;
-  const boxesPerCarton = item.boxes_per_carton || defaultBase.boxesPerCarton || 50;
+/**
+ * Safely extracts a primitive string from string, number, or object fields returned by Django DRF APIs.
+ * Ensures properties like brand, name, hologram, description never hold nested JS objects.
+ */
+export function extractStringFromField(val: any, fallback: string = ''): string {
+  if (val === null || val === undefined) return fallback;
+  if (typeof val === 'string') return val.trim();
+  if (typeof val === 'number') return String(val);
+  if (typeof val === 'boolean') return val ? 'true' : 'false';
+  if (typeof val === 'object') {
+    return (
+      val.name_fa ||
+      val.title_fa ||
+      val.name ||
+      val.title ||
+      val.label ||
+      val.name_en ||
+      val.slug ||
+      val.code ||
+      val.value ||
+      fallback
+    );
+  }
+  return fallback;
+}
 
-  return {
-    id: `django-${item.id || index + 1}`,
-    djangoId: item.id,
-    nameFa: item.name_fa || defaultBase.nameFa,
-    nameEn: item.name_en || defaultBase.nameEn,
-    brand: item.brand || defaultBase.brand,
-    category: (item.category as any) || defaultBase.category,
-    origin: item.origin || defaultBase.origin,
-    tar: item.tar || defaultBase.tar,
-    nicotine: item.nicotine || defaultBase.nicotine,
-    cartonPrice: cartonPrice,
-    boxPrice: item.box_price || Math.round(cartonPrice / boxesPerCarton),
-    boxesPerCarton: boxesPerCarton,
-    stockCartons: item.stock_cartons ?? defaultBase.stockCartons,
-    moq: item.moq || 1,
-    image: item.image || defaultBase.image,
-    barcode: item.barcode || defaultBase.barcode,
-    priceTrend: item.price_trend || 'stable',
-    lastPriceUpdate: `لحظاتی پیش (${new Date().toLocaleTimeString('fa-IR')})`,
-    hologram: (item.hologram as any) || defaultBase.hologram,
-    tierDiscounts: defaultBase.tierDiscounts,
-    description: item.description || defaultBase.description,
-    isAvailable: item.is_active !== undefined ? Boolean(item.is_active) : (item.is_available ?? true),
-    isFeatured: item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean((item as any).isFeatured || item.badge === 'پیشنهاد ویژه' || item.badge === 'special'),
-    isPosOnly: item.is_pos_only !== undefined ? Boolean(item.is_pos_only) : Boolean((item as any).isPosOnly || (item as any).is_pos_exclusive),
-    isBoxOnly: item.is_box_only !== undefined ? Boolean(item.is_box_only) : Boolean((item as any).isBoxOnly),
-    hasCarton: item.has_carton !== undefined ? Boolean(item.has_carton) : (item as any).hasCarton !== false,
-    hasBox: item.has_box !== undefined ? Boolean(item.has_box) : (item as any).hasBox !== false,
-    hasPack: item.has_pack !== undefined ? Boolean(item.has_pack) : Boolean((item as any).hasPack),
-    cigaretteSize: item.cigarette_size || (item as any).cigaretteSize || defaultBase.packSize || 'king_size',
-    packSize: item.cigarette_size || (item as any).cigaretteSize || defaultBase.packSize || 'king_size',
-    filterType: item.filter_type || (item as any).filterType || 'white',
+/**
+ * Safely parses numeric values from numbers, strings (e.g. "12500000.00"), or nulls.
+ * Prevents NaN or string concatenation issues in state updates and price math.
+ */
+export function parseNumeric(val: any, fallback: number = 0): number {
+  if (val === null || val === undefined || val === '') return fallback;
+  if (typeof val === 'number') return isNaN(val) ? fallback : val;
+  if (typeof val === 'string') {
+    const cleaned = val.replace(/[^0-9.-]/g, '');
+    if (!cleaned) return fallback;
+    const parsed = parseFloat(cleaned);
+    return isNaN(parsed) ? fallback : Math.round(parsed);
+  }
+  return fallback;
+}
+
+/**
+ * Normalizes raw category value (string, object, or ID) into a clean valid CigaretteCategory slug or string.
+ */
+export function extractCategory(val: any, fallback: CigaretteCategory = 'cigarettes'): CigaretteCategory {
+  if (!val) return fallback;
+  let raw = '';
+  if (typeof val === 'string') raw = val;
+  else if (typeof val === 'object') {
+    raw = val.slug || val.name_en || val.id || val.name || val.title || '';
+  } else if (typeof val === 'number') {
+    raw = String(val);
+  }
+
+  const catStr = raw.toLowerCase().trim();
+  if (!catStr) return fallback;
+
+  if (catStr.includes('cigar') || catStr.includes('سیگار') || catStr === '1') return 'cigarettes';
+  if (catStr.includes('device') || catStr.includes('دستگاه') || catStr.includes('ایکاس')) return 'iqos_devices';
+  if (catStr.includes('heet') || catStr.includes('تیریا') || catStr.includes('هیتس')) return 'iqos_heets';
+  if (catStr.includes('pod') || catStr.includes('vape') || catStr.includes('پاد') || catStr.includes('ویپ')) return 'pods_vapes';
+  if (catStr.includes('tobacco') || catStr.includes('تنباکو') || catStr.includes('توتون')) return 'tobacco';
+  if (catStr.includes('accessory') || catStr.includes('جانبی') || catStr.includes('لوازم')) return 'accessories';
+  if (catStr.includes('drink') || catStr.includes('coffee') || catStr.includes('نوشیدنی') || catStr.includes('قهوه')) return 'drinks_coffee';
+  if (catStr.includes('charcoal') || catStr.includes('زغال')) return 'charcoal';
+  if (catStr.includes('hookah') || catStr.includes('قلیان')) return 'hookah';
+
+  return catStr as CigaretteCategory;
+}
+
+/**
+ * Safely extracts image URL from string, file object, or media path.
+ */
+export function extractImageUrl(val: any, fallback: string = ''): string {
+  if (!val) return fallback;
+  let url = '';
+  if (typeof val === 'string') url = val;
+  else if (typeof val === 'object') {
+    url = val.url || val.image || val.file || val.src || val.path || '';
+  }
+
+  if (!url) return fallback;
+
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+    return url;
+  }
+
+  if (url.startsWith('/')) {
+    try {
+      const base = getBlogApiBaseUrl();
+      if (base && base.startsWith('http')) {
+        const origin = new URL(base).origin;
+        return `${origin}${url}`;
+      }
+    } catch {}
+  }
+
+  return url || fallback;
+}
+
+/**
+ * Robustly validates and maps any raw API item or product object into the canonical CigaretteProduct interface.
+ * Enforces primitive string types for text fields and clean numbers for prices and quantities.
+ */
+export function mapDjangoItemToProduct(rawItem: any, index: number = 0): CigaretteProduct {
+  const item: DjangoProductItem = (rawItem && typeof rawItem === 'object') ? rawItem : {};
+  const defaultBase = CIGARETTE_PRODUCTS[index % CIGARETTE_PRODUCTS.length];
+
+  // Resolve ID & djangoId
+  const rawId = item.id ?? item.pk ?? item.code ?? item.django_id ?? item.djangoId;
+  const djangoId = (rawId !== undefined && rawId !== null) ? rawId : (index + 1);
+  const idStr = String(djangoId);
+  const finalId = idStr.startsWith('django-') ? idStr : `django-${idStr}`;
+
+  // Names
+  const nameFa = extractStringFromField(
+    item.name_fa || item.nameFa || item.name || item.title || item.product_name || item.fa_name,
+    defaultBase.nameFa
+  );
+  const nameEn = extractStringFromField(
+    item.name_en || item.nameEn || item.title_en || item.en_name || item.slug,
+    defaultBase.nameEn
+  );
+
+  // Brand, Category, Origin, Hologram
+  const brand = extractStringFromField(
+    item.brand_name || item.brand || item.brand_title,
+    defaultBase.brand
+  );
+  const category = extractCategory(
+    item.category_name || item.category || item.category_slug || item.group,
+    defaultBase.category
+  );
+  const origin = extractStringFromField(
+    item.country_origin || item.origin || item.country,
+    defaultBase.origin
+  );
+  const hologram = extractStringFromField(
+    item.hologram_name || item.hologram || item.hologram_type || item.hologram_title,
+    defaultBase.hologram || 'اورجینال'
+  );
+
+  // Tar & Nicotine
+  const tar = extractStringFromField(item.tar, defaultBase.tar);
+  const nicotine = extractStringFromField(item.nicotine, defaultBase.nicotine);
+
+  // Quantities & Ratios
+  const boxesPerCarton = parseNumeric(item.boxes_per_carton ?? item.boxesPerCarton, defaultBase.boxesPerCarton || 50);
+  const safeBoxesPerCarton = boxesPerCarton > 0 ? boxesPerCarton : 50;
+
+  const packsPerBox = parseNumeric(item.packs_per_box ?? item.packsPerBox, defaultBase.packsPerBox || 10);
+  const safePacksPerBox = packsPerBox > 0 ? packsPerBox : 10;
+
+  // Prices
+  const cartonPrice = parseNumeric(
+    item.carton_price ?? item.cartonPrice ?? item.wholesale_price ?? item.price_carton ?? item.price,
+    defaultBase.cartonPrice
+  );
+  const boxPrice = parseNumeric(
+    item.box_price ?? item.boxPrice ?? item.price_box,
+    cartonPrice > 0 ? Math.round(cartonPrice / safeBoxesPerCarton) : defaultBase.boxPrice
+  );
+  const packPrice = parseNumeric(
+    item.pack_price ?? item.packPrice ?? item.price_pack,
+    boxPrice > 0 ? Math.round(boxPrice / safePacksPerBox) : (defaultBase.packPrice || 0)
+  );
+  const purchasePrice = parseNumeric(
+    item.purchase_price ?? item.purchasePrice ?? item.price_purchase,
+    defaultBase.purchasePrice || Math.round(cartonPrice * 0.95)
+  );
+
+  // Stock
+  const stockCartons = parseNumeric(
+    item.stock_cartons ?? item.stockCartons ?? item.stock_carton ?? item.stock ?? item.inventory,
+    defaultBase.stockCartons
+  );
+  const stockBoxes = parseNumeric(
+    item.stock_boxes ?? item.stockBoxes ?? item.stock_box,
+    defaultBase.stockBoxes || 0
+  );
+
+  // Minimum Order Quantities
+  const moq = parseNumeric(
+    item.moq ?? item.min_order_carton ?? item.min_order_quantity ?? item.moqCarton,
+    defaultBase.moq || 1
+  );
+  const moqBox = parseNumeric(
+    item.moq_box ?? item.min_order_box ?? item.moqBox,
+    defaultBase.moqBox || 1
+  );
+
+  // Images
+  const mainImg = extractImageUrl(
+    item.image || item.photo || item.main_image || item.picture || item.image_url,
+    defaultBase.image
+  );
+  
+  let imagesArr: string[] = [];
+  if (Array.isArray(item.gallery)) {
+    imagesArr = item.gallery.map((g: any) => extractImageUrl(g?.image || g, '')).filter(Boolean);
+  } else if (Array.isArray(item.images)) {
+    imagesArr = item.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
+  }
+  if (imagesArr.length === 0 && mainImg) {
+    imagesArr = [mainImg];
+  }
+
+  // Barcode & Badge
+  const barcode = extractStringFromField(
+    item.barcode || item.upc || item.gtin || item.code,
+    defaultBase.barcode
+  );
+  const badge = extractStringFromField(
+    item.badge || item.badge_text,
+    defaultBase.badge || ''
+  );
+
+  // Price Trend
+  const priceTrend: 'up' | 'down' | 'stable' = 
+    item.price_trend === 'up' || item.priceTrend === 'up' ? 'up' :
+    item.price_trend === 'down' || item.priceTrend === 'down' ? 'down' : 'stable';
+
+  // Booleans
+  const isAvailable = item.is_active !== undefined ? Boolean(item.is_active) : (item.is_available !== undefined ? Boolean(item.is_available) : true);
+  const isFeatured = item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean(item.isFeatured || badge === 'پیشنهاد ویژه' || badge === 'special');
+  const isPosOnly = item.is_pos_only !== undefined ? Boolean(item.is_pos_only) : Boolean(item.isPosOnly || item.is_pos_exclusive);
+  const isBoxOnly = item.is_box_only !== undefined ? Boolean(item.is_box_only) : Boolean(item.isBoxOnly);
+  const hasCarton = item.has_carton !== undefined ? Boolean(item.has_carton) : item.hasCarton !== false;
+  const hasBox = item.has_box !== undefined ? Boolean(item.has_box) : item.hasBox !== false;
+  const hasPack = item.has_pack !== undefined ? Boolean(item.has_pack) : Boolean(item.hasPack);
+
+  // Descriptions
+  const description = extractStringFromField(
+    item.description || item.full_description || item.content,
+    defaultBase.description
+  );
+  const excerpt = extractStringFromField(
+    item.excerpt || item.summary || item.short_description,
+    defaultBase.excerpt || ''
+  );
+
+  // Sizes & Filters
+  const cigaretteSize = extractStringFromField(
+    item.cigarette_size || item.cigaretteSize || item.packSize,
+    defaultBase.packSize || 'king_size'
+  );
+  const filterType = extractStringFromField(
+    item.filter_type || item.filterType,
+    defaultBase.filterType || 'white'
+  );
+
+  // Tier Discounts & Features
+  const tierDiscounts = Array.isArray(item.tier_discounts || item.tierDiscounts)
+    ? (item.tier_discounts || item.tierDiscounts)
+    : defaultBase.tierDiscounts || [];
+
+  let keyTakeawaysList: string[] = [];
+  if (Array.isArray(item.key_features)) {
+    keyTakeawaysList = item.key_features.map((kf: any) => typeof kf === 'string' ? kf : extractStringFromField(kf, '')).filter(Boolean);
+  } else if (Array.isArray(item.key_takeaways || item.keyTakeaways)) {
+    keyTakeawaysList = (item.key_takeaways || item.keyTakeaways).map((k: any) => extractStringFromField(k, '')).filter(Boolean);
+  } else {
+    keyTakeawaysList = defaultBase.keyTakeaways || [];
+  }
+
+  const rawAttrs = item.attributes_values || item.attributes || item.appliedFeatures;
+  const appliedFeatures = Array.isArray(rawAttrs) ? rawAttrs.map((a: any) => ({
+    id: String(a.id || Math.random()),
+    featureId: a.attribute ? String(a.attribute) : undefined,
+    nameFa: extractStringFromField(a.attribute_name || a.nameFa || a.name, ''),
+    value: extractStringFromField(a.value, a.value_number !== null && a.value_number !== undefined ? String(a.value_number) : (a.value_boolean !== null && a.value_boolean !== undefined ? (a.value_boolean ? 'بله' : 'خیر') : '')),
+    unit: extractStringFromField(a.attribute_unit || a.unit, ''),
+  })).filter((f: any) => f.nameFa) : (defaultBase.appliedFeatures || []);
+
+  const mapped: CigaretteProduct = {
+    id: finalId,
+    djangoId,
+    nameFa,
+    nameEn,
+    brand,
+    category,
+    origin,
+    tar,
+    nicotine,
+    cartonPrice,
+    boxPrice,
+    packPrice,
+    purchasePrice,
+    boxesPerCarton: safeBoxesPerCarton,
+    packsPerBox: safePacksPerBox,
+    stockCartons,
+    stockBoxes,
+    moq,
+    moqBox,
+    image: mainImg,
+    images: imagesArr,
+    barcode,
+    badge,
+    priceTrend,
+    lastPriceUpdate: `امروز (${new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })})`,
+    hologram,
+    tierDiscounts,
+    description,
+    excerpt,
+    isAvailable,
+    isFeatured,
+    isPosOnly,
+    isBoxOnly,
+    hasCarton,
+    hasBox,
+    hasPack,
+    cigaretteSize,
+    packSize: cigaretteSize,
+    filterType,
+    slug: extractStringFromField(item.slug, `prod-${finalId}`),
+    keyTakeaways: keyTakeawaysList,
+    appliedFeatures,
   };
+
+  return mapped;
 }
 
 /**

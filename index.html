@@ -10,12 +10,12 @@
     <meta name="description" content="سامانه جامع پخش و بنکداری عمده دخانیات دخانیات سرو با کاتالوگ انواع سیگار اورجینال، دستگاه‌های آیکاس و تیریا، ویپ و پاد، لیست قیمت لحظه‌ای، صدور پیش‌فاکتور رسمی و رهگیری بارنامه" />
     <meta property="og:title" content="سامانه پخش عمده دخانیات دخانیات سرو" />
     <meta property="og:description" content="سامانه جامع پخش و بنکداری عمده دخانیات دخانیات سرو با کاتالوگ انواع سیگار اورجینال، دستگاه‌های آیکاس و تیریا، ویپ و پاد، لیست قیمت لحظه‌ای، صدور پیش‌فاکتور رسمی و رهگیری بارنامه" />
-    <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#2563eb" />
-    <link rel="apple-touch-icon" href="/icon.png" />
+    <link rel="manifest" href="/manifest.json" id="app-manifest-link" />
+    <meta name="theme-color" content="#2563eb" id="app-theme-color" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" id="app-apple-touch-icon" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="پخش دخانیات سرو" />
+    <meta name="apple-mobile-web-app-title" content="دخانیات سرو" id="app-apple-title" />
     <meta name="format-detection" content="telephone=no" />
     <meta name="mobile-web-app-capable" content="yes" />
     <!-- Ultra-fast Asynchronous Font Loading (Non-blocking for instant page render even under VPN / high latency) -->
@@ -37,8 +37,8 @@
     <script>
       // Safe Service Worker Registration & Anti-Stale Auto-Update Engine
       // Enforces strict 'no-cache' policy and versioned cache busting for instant DB sync
-      const SW_VERSION = 'v3.5.4';
-      const SW_BUILD_TIME = '1725020001'; // Versioned build identifier
+      const SW_VERSION = 'v3.6.0';
+      const SW_BUILD_TIME = '1725030000'; // Versioned build identifier
 
       // 1. Proactive Cache Purging: Delete any outdated or legacy caches on page load
       if ('caches' in window) {

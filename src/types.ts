@@ -1,3 +1,37 @@
+export interface SyncLogEntry {
+  id: string;
+  timestamp: string; // e.g. "04:59:32.123"
+  level: 'INFO' | 'SUCCESS' | 'WARNING' | 'ERROR' | 'DEBUG';
+  category: 'REQUEST' | 'RESPONSE' | 'PARSING' | 'MERGING' | 'STATE_COMMIT' | 'CACHE';
+  title: string;
+  message: string;
+  details?: Record<string, any>;
+  targetProductId?: string;
+}
+
+export interface SyncDiagnosticSummary {
+  requestUrl: string;
+  httpStatus: number | string;
+  totalIncomingItems: number;
+  previousProductsCount: number;
+  finalProductsCount: number;
+  updatedProductsCount: number;
+  newProductsCount: number;
+  unchangedProductsCount: number;
+  arrayReferenceChanged: boolean;
+  eventDispatched: boolean;
+  localStorageSaved: boolean;
+  primaryCauseAnalysis: string;
+  changedProductsPreview?: {
+    id: string;
+    nameFa: string;
+    oldPrice: number;
+    newPrice: number;
+    oldStock: number;
+    newStock: number;
+  }[];
+}
+
 export interface PosSaleItem {
   product: CigaretteProduct;
   unit: "carton" | "box" | "pack";

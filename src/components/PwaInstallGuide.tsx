@@ -17,11 +17,13 @@ import {
 interface PwaInstallGuideProps {
   isOpenOnly?: boolean; // if true, behaves purely as modal
   onCloseModal?: () => void;
+  isPosContext?: boolean;
 }
 
 export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
   isOpenOnly = false,
-  onCloseModal
+  onCloseModal,
+  isPosContext = false
 }) => {
   const [showBanner, setShowBanner] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -126,27 +128,31 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
       {/* 1. TOP FLOATING SMART BANNER (FOR MOBILE/DESKTOP ACCESS) */}
       {isBannerVisible && (
         <div className="fixed top-4 left-4 right-4 z-50 animate-in slide-in-from-top duration-300">
-          <div className="max-w-md mx-auto bg-gradient-to-r from-blue-700 to-indigo-800 text-white shadow-2xl rounded-2xl p-4 border border-blue-500/30 flex items-center justify-between gap-4">
+          <div className="max-w-md mx-auto bg-gradient-to-r from-indigo-800 to-blue-900 text-white shadow-2xl rounded-2xl p-4 border border-indigo-500/30 flex items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
-                <Smartphone className="w-5 h-5 text-blue-200" />
+                <Smartphone className="w-5 h-5 text-indigo-200" />
               </div>
               <div className="space-y-0.5">
-                <div className="text-[13px] font-black tracking-wide">نصب وب‌اپلیکیشن پخش دخانیات سرو</div>
-                <div className="text-[10px] text-blue-100 font-bold">دسترسی سریع‌تر، بدون فیلتر و آفلاین روی گوشی شما</div>
+                <div className="text-[13px] font-black tracking-wide">
+                  {isPosContext ? 'نصب اپلیکیشن اختصاصی صندوق سرو (POS)' : 'نصب وب‌اپلیکیشن پخش دخانیات سرو'}
+                </div>
+                <div className="text-[10px] text-indigo-100 font-bold">
+                  {isPosContext ? 'ورود مستقیم به پنل صندوق، بارکدخوان و انبار روی موبایل' : 'دسترسی سریع‌تر، بدون فیلتر و آفلاین روی گوشی شما'}
+                </div>
               </div>
             </div>
 
             <div className="flex items-center gap-2 shrink-0">
               <button 
                 onClick={handleOpenGuide}
-                className="px-3.5 py-1.5 bg-white text-blue-800 rounded-xl text-[11px] font-black hover:bg-blue-50 transition-colors active:scale-95"
+                className="px-3.5 py-1.5 bg-white text-indigo-900 rounded-xl text-[11px] font-black hover:bg-indigo-50 transition-colors active:scale-95"
               >
                 راهنما و نصب
               </button>
               <button 
                 onClick={handleCloseBanner}
-                className="w-8 h-8 rounded-full bg-black/10 hover:bg-black/20 text-blue-100 flex items-center justify-center transition-colors"
+                className="w-8 h-8 rounded-full bg-black/10 hover:bg-black/20 text-indigo-100 flex items-center justify-center transition-colors"
                 aria-label="بستن"
               >
                 <X className="w-4 h-4" />
@@ -171,14 +177,16 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
             {/* Header */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50 shrink-0">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
+                <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center text-indigo-600">
                   <Smartphone className="w-4.5 h-4.5" />
                 </div>
                 <div>
                   <h3 className="text-xs font-black text-slate-900 ">
-                    راهنمای راه‌اندازی و نصب وب‌اپلیکیشن (PWA)
+                    {isPosContext ? 'نصب وب‌اپلیکیشن اختصاصی صندوق و انبار (POS)' : 'راهنمای راه‌اندازی و نصب وب‌اپلیکیشن (PWA)'}
                   </h3>
-                  <p className="text-[9px] text-slate-500 mt-0.5">پخش عمده دخانیات دخانیات سرو روی صفحه موبایل شما</p>
+                  <p className="text-[9px] text-slate-500 mt-0.5">
+                    {isPosContext ? 'دسترسی مستقیم و سریع به ورود صندوق‌داری و بارکدخوان' : 'پخش عمده دخانیات دخانیات سرو روی صفحه موبایل شما'}
+                  </p>
                 </div>
               </div>
 
@@ -196,27 +204,39 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
               {/* Feature Highlights */}
               <div className="grid grid-cols-3 gap-2.5 text-center">
                 <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 ">
-                  <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center mx-auto text-blue-600 text-[10px] font-bold mb-1">
+                  <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center mx-auto text-indigo-600 text-[10px] font-bold mb-1">
                     ۱
                   </div>
-                  <div className="text-[9.5px] font-black text-slate-900 ">سرعت بالا</div>
-                  <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">لود سریع‌تر نرخ روز</p>
+                  <div className="text-[9.5px] font-black text-slate-900 ">
+                    {isPosContext ? 'ورود به صندوق' : 'سرعت بالا'}
+                  </div>
+                  <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">
+                    {isPosContext ? 'بازشدن مستقیم صفحه ورود POS' : 'لود سریع‌تر نرخ روز'}
+                  </p>
                 </div>
 
                 <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 ">
                   <div className="w-6 h-6 rounded-full bg-emerald-100 flex items-center justify-center mx-auto text-emerald-600 text-[10px] font-bold mb-1">
                     ۲
                   </div>
-                  <div className="text-[9.5px] font-black text-slate-900 ">دسترسی مستقیم</div>
-                  <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">آیکون صفحه خانه گوشی</p>
+                  <div className="text-[9.5px] font-black text-slate-900 ">
+                    {isPosContext ? 'بارکدخوان پرسرعت' : 'دسترسی مستقیم'}
+                  </div>
+                  <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">
+                    {isPosContext ? 'ثبت فاکتور با دوربین گوشی' : 'آیکون صفحه خانه گوشی'}
+                  </p>
                 </div>
 
                 <div className="bg-slate-50 p-2.5 rounded-2xl border border-slate-100 ">
                   <div className="w-6 h-6 rounded-full bg-purple-100 flex items-center justify-center mx-auto text-purple-600 text-[10px] font-bold mb-1">
                     ۳
                   </div>
-                  <div className="text-[9.5px] font-black text-slate-900 ">بدون بازار و مارکت</div>
-                  <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">بدون نیاز به دانلود فیلتر</p>
+                  <div className="text-[9.5px] font-black text-slate-900 ">
+                    {isPosContext ? 'بدون نیاز به آدرس' : 'بدون بازار و مارکت'}
+                  </div>
+                  <p className="text-[8.5px] text-slate-400 mt-0.5 leading-normal">
+                    {isPosContext ? 'شورتکات مستقیم رو گوشی' : 'بدون نیاز به دانلود فیلتر'}
+                  </p>
                 </div>
               </div>
 
@@ -232,7 +252,7 @@ export const PwaInstallGuide: React.FC<PwaInstallGuideProps> = ({
                     className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-black text-xs rounded-xl transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2"
                   >
                     <Download className="w-4 h-4" />
-                    <span>نصب مستقیم وب‌اپلیکیشن دخانیات سرو</span>
+                    <span>{isPosContext ? 'نصب مستقیم اپلیکیشن اختصاصی صندوق سرو' : 'نصب مستقیم وب‌اپلیکیشن دخانیات سرو'}</span>
                   </button>
                 </div>
               )}

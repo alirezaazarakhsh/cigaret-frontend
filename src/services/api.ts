@@ -65,7 +65,8 @@ import {
   djangoPosLoginApi,
   djangoPosLogoutApi,
   djangoFetchSliders,
-  djangoFetchFooterSettings
+  djangoFetchFooterSettings,
+  mapDjangoItemToProduct
 } from './djangoApi';
 
 // Local storage keys for resilient offline-first fallback
@@ -616,73 +617,7 @@ export const productsApi = {
         ? response.data 
         : (response.data.results || response.data.data || []);
       
-      const mappedProducts: CigaretteProduct[] = items.map((item: any, idx: number) => {
-        // Handle key_features (نقاط قوت کالا)
-        let keyTakeawaysList: string[] = [];
-        if (Array.isArray(item.key_features)) {
-          keyTakeawaysList = item.key_features.map((kf: any) => 
-            typeof kf === 'string' ? kf : (kf.title || '')
-          ).filter(Boolean);
-        } else if (Array.isArray(item.key_takeaways)) {
-          keyTakeawaysList = item.key_takeaways;
-        } else if (Array.isArray(item.keyTakeaways)) {
-          keyTakeawaysList = item.keyTakeaways;
-        }
-
-        const rawAttrs = item.attributes_values || item.attributes || [];
-        const appliedFeatures = Array.isArray(rawAttrs) ? rawAttrs.map((a: any) => ({
-          id: String(a.id || Math.random()),
-          featureId: a.attribute ? String(a.attribute) : undefined,
-          nameFa: a.attribute_name || a.nameFa || a.name || '',
-          value: a.value || (a.value_number !== null && a.value_number !== undefined ? String(a.value_number) : (a.value_boolean !== null && a.value_boolean !== undefined ? (a.value_boolean ? 'بله' : 'خیر') : '')),
-          unit: a.attribute_unit || a.unit || '',
-        })).filter((f: any) => f.nameFa) : (item.appliedFeatures || []);
-
-        return {
-          id: String(item.id || `p-${idx + 1}`),
-          nameFa: item.name || item.name_fa || item.nameFa || item.title || 'کالای بدون نام',
-          nameEn: item.name_en || item.nameEn || '',
-          slug: item.slug || '',
-          brand: item.brand_name || (typeof item.brand === 'object' ? item.brand?.name : item.brand) || '',
-          category: item.category_name || (typeof item.category === 'object' ? item.category?.name || item.category?.id : item.category) || 'cigarettes',
-          origin: item.country_origin || item.origin || 'ایران',
-          tar: item.tar || '',
-          nicotine: item.nicotine || '',
-          cartonPrice: Number(item.carton_price || item.cartonPrice || 0),
-          boxPrice: Number(item.box_price || item.boxPrice || 0),
-          packPrice: Number(item.pack_price || item.packPrice || 0),
-          singlePrice: item.single_price ? Number(item.single_price) : item.singlePrice,
-          purchasePrice: Number(item.purchase_price || item.purchasePrice || 0),
-          boxesPerCarton: Number(item.boxes_per_carton || item.boxesPerCarton || 50),
-          packsPerBox: Number(item.packs_per_box || item.packsPerBox || 10),
-          stockCartons: Number(item.stock_cartons !== undefined ? item.stock_cartons : (item.stockCartons ?? 0)),
-          stockBoxes: Number(item.stock_boxes !== undefined ? item.stock_boxes : (item.stockBoxes ?? 0)),
-          moq: Number(item.min_order_carton || item.moq || 1),
-          moqBox: Number(item.min_order_box || item.moqBox || 1),
-          image: item.image || item.main_image || '',
-          images: Array.isArray(item.gallery) ? item.gallery.map((g: any) => g.image) : (item.images || []),
-          barcode: item.barcode || '',
-          priceTrend: item.price_trend || item.priceTrend || 'stable',
-          lastPriceUpdate: item.last_price_update || item.lastPriceUpdate || 'به‌روزرسانی خودکار دیتابیس',
-          hologram: item.hologram_name || (typeof item.hologram === 'object' ? item.hologram?.title : item.hologram) || '',
-          tierDiscounts: item.tier_discounts || item.tierDiscounts || [],
-          description: item.full_description || item.description || '',
-          excerpt: item.excerpt || '',
-          isAvailable: item.is_active !== undefined ? Boolean(item.is_active) : (item.is_available !== undefined ? Boolean(item.is_available) : true),
-          isFeatured: item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean(item.isFeatured || item.badge === 'پیشنهاد ویژه' || item.badge === 'special'),
-          hasCarton: item.has_carton !== undefined ? Boolean(item.has_carton) : true,
-          hasBox: item.has_box !== undefined ? Boolean(item.has_box) : true,
-          hasPack: Boolean(item.has_pack),
-          isBoxOnly: Boolean(item.is_box_only),
-          isPosOnly: Boolean(item.is_pos_only),
-          cigaretteSize: item.cigarette_size || item.cigaretteSize || item.packSize || 'king_size',
-          packSize: item.cigarette_size || item.cigaretteSize || item.packSize || 'king_size',
-          filterType: item.filter_type || item.filterType || 'white',
-          badge: item.badge || (item.is_featured ? 'پیشنهاد ویژه' : undefined),
-          keyTakeaways: keyTakeawaysList,
-          appliedFeatures,
-        };
-      });
+      const mappedProducts: CigaretteProduct[] = items.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
 
       const isProd = typeof window !== 'undefined' && 
                      process.env.NODE_ENV === 'production' && 

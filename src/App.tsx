@@ -46,7 +46,8 @@ const renderFeatureIcon = (iconName: string) => {
   }
   return <Award className="w-5 h-5 text-emerald-500" />;
 };
-import { CigaretteProduct, CigaretteCategory, CartItem, CustomerInfo, OrderInvoice, DjangoCrmConfig, NavigationTab, UserProfile, RetailShopCustomer, NotificationItem, FooterSettingsData, BannerSlide } from './types';
+import { CigaretteProduct, CigaretteCategory, CartItem, CustomerInfo, OrderInvoice, DjangoCrmConfig, NavigationTab, UserProfile, RetailShopCustomer, NotificationItem, FooterSettingsData, BannerSlide, SyncLogEntry, SyncDiagnosticSummary } from './types';
+import { SyncLogsModal } from './components/SyncLogsModal';
 import { CIGARETTE_PRODUCTS, WHOLESALE_BENEFITS } from './data/products';
 import { INITIAL_RETAIL_SHOPS } from './data/retailShops';
 import { Header } from './components/Header';
@@ -292,6 +293,37 @@ export default function App() {
     }
   }, [activeTab]);
 
+  // Dynamic PWA Manifest & PWA Metadata Sync Effect (Isolates POS PWA from Main Site)
+  useEffect(() => {
+    const isPosRoute = activeTab === 'accounting-pos' || window.location.pathname.startsWith('/shopmanage');
+    
+    const manifestLink = (document.getElementById('app-manifest-link') || document.querySelector('link[rel="manifest"]')) as HTMLLinkElement;
+    if (manifestLink) {
+      manifestLink.setAttribute('href', isPosRoute ? '/pos-manifest.json' : '/manifest.json');
+    }
+
+    const appleIconLink = (document.getElementById('app-apple-touch-icon') || document.querySelector('link[rel="apple-touch-icon"]')) as HTMLLinkElement;
+    if (appleIconLink) {
+      appleIconLink.setAttribute('href', isPosRoute ? '/pos-apple-touch-icon.png' : '/apple-touch-icon.png');
+    }
+
+    const themeColorMeta = (document.getElementById('app-theme-color') || document.querySelector('meta[name="theme-color"]')) as HTMLMetaElement;
+    if (themeColorMeta) {
+      themeColorMeta.setAttribute('content', isPosRoute ? '#4f46e5' : '#2563eb');
+    }
+
+    const appleTitleMeta = (document.getElementById('app-apple-title') || document.querySelector('meta[name="apple-mobile-web-app-title"]')) as HTMLMetaElement;
+    if (appleTitleMeta) {
+      appleTitleMeta.setAttribute('content', isPosRoute ? 'صندوق سرو' : 'دخانیات سرو');
+    }
+
+    if (isPosRoute) {
+      document.title = 'صندوق و مدیریت انبار سرو (POS)';
+    } else {
+      document.title = 'سامانه پخش عمده دخانیات دخانیات سرو';
+    }
+  }, [activeTab]);
+
   // Sync with browser back/forward buttons
   useEffect(() => {
     const handlePopState = () => {
@@ -472,6 +504,12 @@ export default function App() {
   });
 
   const [isProductsLoading, setIsProductsLoading] = useState<boolean>(true);
+
+  // Detailed Django Sync Logs & Debugger State
+  const [syncLogs, setSyncLogs] = useState<SyncLogEntry[]>([]);
+  const [syncDiagnosticSummary, setSyncDiagnosticSummary] = useState<SyncDiagnosticSummary | null>(null);
+  const [isSyncLogsModalOpen, setIsSyncLogsModalOpen] = useState<boolean>(false);
+  const [isSyncingDjango, setIsSyncingDjango] = useState<boolean>(false);
 
   // Django CRM Configuration
   const [djangoConfig, setDjangoConfig] = useState<DjangoCrmConfig>(() => {
@@ -922,33 +960,195 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Sync with Django CRM
+  // Sync with Django CRM with detailed logging & debugging
   const handleSyncDjango = async () => {
+    setIsSyncingDjango(true);
+    const runLogs: SyncLogEntry[] = [];
+
+    const addLog = (
+      level: SyncLogEntry['level'],
+      category: SyncLogEntry['category'],
+      title: string,
+      message: string,
+      details?: Record<string, any>,
+      targetProductId?: string
+    ) => {
+      const entry: SyncLogEntry = {
+        id: `log-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+        timestamp: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) + '.' + String(Date.now() % 1000).padStart(3, '0'),
+        level,
+        category,
+        title,
+        message,
+        details,
+        targetProductId,
+      };
+      runLogs.push(entry);
+      setSyncLogs(prev => [...prev, entry]);
+    };
+
+    console.log('[App.handleSyncDjango] Initiating product sync with current config:', {
+      apiUrl: djangoConfig.apiUrl,
+      autoSync: djangoConfig.autoSync,
+      syncIntervalMinutes: djangoConfig.syncIntervalMinutes,
+      status: djangoConfig.status
+    });
+
+    addLog('INFO', 'REQUEST', 'اجرای handleSyncDjango در App.tsx', `آغاز همگام‌سازی کالاهای Django. تعداد کالاهای فعلی در React UI State: ${products.length} کالا.`, {
+      apiUrl: djangoConfig.apiUrl,
+      autoSync: djangoConfig.autoSync,
+      syncIntervalMinutes: djangoConfig.syncIntervalMinutes,
+      previousProductsCount: products.length,
+      samplePreviousProducts: products.slice(0, 3)
+    });
+
     setDjangoConfig(prev => ({ ...prev, status: 'connecting', errorMessage: undefined }));
+
     try {
-      const syncedProducts = await syncWithDjangoApi(djangoConfig);
-      setProducts(syncedProducts);
-      localStorage.setItem('wholesale_products', JSON.stringify(syncedProducts));
+      const syncedProducts = await syncWithDjangoApi(djangoConfig, (streamLog) => {
+        runLogs.push(streamLog);
+        setSyncLogs(prev => [...prev, streamLog]);
+      });
+
+      console.log(`[App.handleSyncDjango] syncWithDjangoApi returned ${syncedProducts.length} updated products.`);
+      addLog('INFO', 'MERGING', 'دریافت آرایه همگام‌شده از syncWithDjangoApi', `تعداد ${syncedProducts.length} محصول از سرویس دریافت شد. شروع تحلیل مقایسه‌ای و جایگزینی...`);
+
+      // Calculate Diffs
+      const prevProducts = products;
+      let updatedCount = 0;
+      let newItemsCount = 0;
+      let unchangedCount = 0;
+      const changedPreview: any[] = [];
+
+      syncedProducts.forEach(syncedItem => {
+        const existing = prevProducts.find(p => p.id === syncedItem.id || (syncedItem.barcode && p.barcode === syncedItem.barcode));
+        if (existing) {
+          const priceChanged = existing.cartonPrice !== syncedItem.cartonPrice || existing.boxPrice !== syncedItem.boxPrice;
+          const stockChanged = existing.stockCartons !== syncedItem.stockCartons;
+          if (priceChanged || stockChanged) {
+            updatedCount++;
+            changedPreview.push({
+              id: String(syncedItem.id),
+              nameFa: syncedItem.nameFa,
+              oldPrice: existing.cartonPrice,
+              newPrice: syncedItem.cartonPrice,
+              oldStock: existing.stockCartons,
+              newStock: syncedItem.stockCartons
+            });
+          } else {
+            unchangedCount++;
+          }
+        } else {
+          newItemsCount++;
+        }
+      });
+
+      addLog('SUCCESS', 'MERGING', 'تحلیل تفاوت داده‌ها (Data Merging & Diffing Engine)', 
+        `نتیجه مقایسه: ${updatedCount} کالا دارای تغییر قیمت/موجودی، ${newItemsCount} کالای جدید، ${unchangedCount} کالا بدون تغییر.`,
+        { updatedCount, newItemsCount, unchangedCount, changedPreviewSample: changedPreview.slice(0, 5) }
+      );
+
+      // Enforce fresh array reference to trigger immediate React UI state re-render
+      const freshArray = [...syncedProducts];
+      setProducts(freshArray);
+      setIsProductsLoading(false);
+
+      addLog('SUCCESS', 'STATE_COMMIT', 'به‌روزرسانی فوری React UI State (setProducts)', 
+        `دستور setProducts با مرایه جدید (New Reference) و تعداد ${freshArray.length} کالا اجرا شد تا تمام اجزای UI (صندوق، جدول قیمت، کاتالوگ) بلافاصله ری‌رندر شوند.`,
+        { previousCount: prevProducts.length, newCount: freshArray.length, isNewReference: true }
+      );
+
+      // Persist updated products to local storage
+      let storageSaved = false;
+      try {
+        localStorage.setItem('wholesale_products', JSON.stringify(freshArray));
+        localStorage.setItem('sovin_django_products', JSON.stringify(freshArray));
+        storageSaved = true;
+        console.log('[App.handleSyncDjango] Saved synced products to localStorage.');
+        addLog('SUCCESS', 'CACHE', 'ذخیره‌سازی پایداری در LocalStorage', 'آرایه جدید محصولات در کلیدهای wholesale_products و sovin_django_products ذخیره شد.');
+      } catch (storageErr) {
+        console.warn('[App.handleSyncDjango] Failed to save synced products to localStorage:', storageErr);
+        addLog('WARNING', 'CACHE', 'خطا در ذخیره‌سازی LocalStorage', String(storageErr));
+      }
+
+      // Broadcast custom event to notify listening UI components
+      let eventDispatched = false;
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: freshArray } }));
+        eventDispatched = true;
+        console.log('[App.handleSyncDjango] Broadcasted "sevin-products-changed" event to window.');
+        addLog('SUCCESS', 'STATE_COMMIT', 'انتشار رویداد sevin-products-changed', 'سیگنال تغییر محصولات برای تمام کامپوننت‌های گوش‌به‌زنگ صادر گردید.');
+      }
       
       const nowStr = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
       const updatedConfig: DjangoCrmConfig = {
         ...djangoConfig,
         status: 'connected',
         lastSyncTime: nowStr,
-        totalSyncedProducts: syncedProducts.length,
+        totalSyncedProducts: freshArray.length,
       };
+
+      // Primary Cause Analysis Diagnosis text
+      let causeText = '';
+      if (freshArray.length === 0) {
+        causeText = '⚠️ اندپویینت Django هیچ منطق منطبق یا کالایی را برنگرداند (آرایه دریافتی ۰ عنصر داشت).';
+      } else if (updatedCount === 0 && newItemsCount === 0) {
+        causeText = '🟢 کالاهای دریافت شده با لیست محلی کاملاً از نظر قیمت و موجودی یکسان بودند. React State با مرجع جدید جایگزین شد و تغییرات بلافاصله تثبیت گردید.';
+      } else {
+        causeText = `🟢 همگام‌سازی کامل انجام شد: تعداد ${updatedCount} کالا تغییر قیمت/موجودی داشتند، ${newItemsCount} کالای جدید اضافه شدند و state اصلی React با موفقیت به روز شد.`;
+      }
+
+      const summary: SyncDiagnosticSummary = {
+        requestUrl: djangoConfig.apiUrl || 'Local DB',
+        httpStatus: 200,
+        totalIncomingItems: freshArray.length,
+        previousProductsCount: prevProducts.length,
+        finalProductsCount: freshArray.length,
+        updatedProductsCount: updatedCount,
+        newProductsCount: newItemsCount,
+        unchangedProductsCount: unchangedCount,
+        arrayReferenceChanged: true,
+        eventDispatched,
+        localStorageSaved: storageSaved,
+        primaryCauseAnalysis: causeText,
+        changedProductsPreview: changedPreview
+      };
+
+      setSyncDiagnosticSummary(summary);
       setDjangoConfig(updatedConfig);
       localStorage.setItem('django_crm_config', JSON.stringify(updatedConfig));
-      showToast(`همگام‌سازی با موفقیت انجام شد (${formatNumberFa(syncedProducts.length)} کالا به‌روزرسانی شد).`);
+      console.log('[App.handleSyncDjango] UI state and djangoConfig state updated immediately with success status.', updatedConfig);
+
+      showToast(`همگام‌سازی با موفقیت انجام شد (${formatNumberFa(freshArray.length)} کالا به‌روزرسانی شد).`);
     } catch (err: any) {
+      console.error('[App.handleSyncDjango] Error during product sync:', err);
+      addLog('ERROR', 'REQUEST', 'شکست در فرایند همگام‌سازی', err.message || 'خطا در ارتباط با وب‌سرویس');
       setDjangoConfig(prev => ({
         ...prev,
         status: 'error',
         errorMessage: err.message || 'خطا در برقراری ارتباط با وب‌سرویس جنگو',
       }));
       showToast('خطا در دریافت اطلاعات از جنگو CRM.');
+    } finally {
+      setIsSyncingDjango(false);
     }
   };
+
+  // Background auto-sync interval when enabled in djangoConfig
+  useEffect(() => {
+    if (!djangoConfig.autoSync || !djangoConfig.syncIntervalMinutes || djangoConfig.syncIntervalMinutes <= 0) {
+      return;
+    }
+    const intervalMs = djangoConfig.syncIntervalMinutes * 60 * 1000;
+    console.log(`[App] Scheduling auto-sync interval every ${djangoConfig.syncIntervalMinutes} minutes (${intervalMs}ms).`);
+    
+    const intervalId = setInterval(() => {
+      console.log('[App] Auto-sync interval triggered. Executing handleSyncDjango...');
+      handleSyncDjango();
+    }, intervalMs);
+
+    return () => clearInterval(intervalId);
+  }, [djangoConfig.autoSync, djangoConfig.syncIntervalMinutes, djangoConfig.apiUrl, djangoConfig.apiToken]);
 
   const handleAddNewProduct = (partial: Partial<CigaretteProduct>) => {
     const fullProduct: CigaretteProduct = {
@@ -1792,6 +1992,22 @@ export default function App() {
         products={products}
         onProductsUpdated={(newProducts) => setProducts(newProducts)}
         showToast={showToast}
+        onOpenSyncLogsModal={() => setIsSyncLogsModalOpen(true)}
+      />
+
+      {/* Django Sync Logs Modal */}
+      <SyncLogsModal
+        isOpen={isSyncLogsModalOpen}
+        onClose={() => setIsSyncLogsModalOpen(false)}
+        logs={syncLogs}
+        summary={syncDiagnosticSummary}
+        onTriggerSync={handleSyncDjango}
+        isSyncing={isSyncingDjango}
+        djangoConfigUrl={djangoConfig.apiUrl}
+        onClearLogs={() => {
+          setSyncLogs([]);
+          setSyncDiagnosticSummary(null);
+        }}
       />
 
     </div>

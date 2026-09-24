@@ -20,7 +20,12 @@ import {
   Smartphone, 
   Search,
   Sparkles,
-  UserCheck
+  UserCheck,
+  Wrench,
+  Grid,
+  Store,
+  Sliders,
+  FileCode
 } from 'lucide-react';
 import { formatNumberFa } from '../utils/formatters';
 import { NavigationTab, UserProfile } from '../types';
@@ -68,6 +73,8 @@ export const Header: React.FC<HeaderProps> = ({
   pendingOrdersCount = 0,
   onOpenNotifications,
   onOpenInstallGuide,
+  onOpenProductsMenu,
+  onOpenInPersonPickup,
   companyTitle,
   phoneNumber,
   warehouseAddress,
@@ -80,6 +87,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   const headerRef = useRef<HTMLDivElement>(null);
   const userDropdownRef = useRef<HTMLDivElement>(null);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkStandalone = () => {
@@ -137,15 +145,23 @@ export const Header: React.FC<HeaderProps> = ({
     };
   }, []);
 
-  // Close dropdowns on click outside
+  // Close dropdowns on click/touch outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node;
+
+      if (userDropdownRef.current && !userDropdownRef.current.contains(target)) {
         setUserDropdownOpen(false);
       }
     };
+
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
   }, []);
 
   const navTabs = ALL_NAV_TABS.filter(tab => {
@@ -529,7 +545,7 @@ export const Header: React.FC<HeaderProps> = ({
 
       {/* MOBILE COLLAPSIBLE DRAWER / MENU */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white border-b border-slate-200 p-4 space-y-4 animate-in slide-in-from-top-2 duration-200 shadow-2xl">
+        <div ref={mobileMenuRef} className="md:hidden bg-white border-b border-slate-200 p-4 space-y-4 animate-in slide-in-from-top-2 duration-200 shadow-2xl">
           
           {/* User Status Card inside Mobile Menu */}
           {currentUser ? (

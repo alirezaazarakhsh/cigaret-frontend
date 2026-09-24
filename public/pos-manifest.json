@@ -1,0 +1,32 @@
+{
+  "id": "/shopmanage/sandogh",
+  "name": "صندوق و مدیریت انبار سرو (POS)",
+  "short_name": "صندوق سرو",
+  "description": "سامانه هوشمند مدیریت انبار، صندوق بارکدخوان و ثبت فاکتورهای فروش انبار سرو",
+  "start_url": "/shopmanage/sandogh",
+  "scope": "/shopmanage/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/pos-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pos-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pos-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

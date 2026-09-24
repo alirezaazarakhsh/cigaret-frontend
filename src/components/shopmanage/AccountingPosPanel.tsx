@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { UserManagementPanel } from './UserManagementPanel';
 import { CurrencyRateSettings } from './CurrencyRateSettings';
 import { SiteSettingsManagementPanel } from './SiteSettingsManagementPanel';
@@ -519,18 +520,33 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     };
   }, []);
 
+  // Dynamic Manifest Swapping for POS PWA
+  useEffect(() => {
+    const manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
+    if (manifestLink) {
+      manifestLink.setAttribute('href', '/pos-manifest.json');
+    }
+    return () => {
+      if (manifestLink) {
+        manifestLink.setAttribute('href', '/manifest.json');
+      }
+    };
+  }, []);
+
   // Close tools dropdown on click outside
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
       if (toolsRef.current && !toolsRef.current.contains(event.target as Node)) {
         setShowToolsDropdown(false);
       }
     };
     if (showToolsDropdown) {
       document.addEventListener('mousedown', handleClickOutside);
+      document.addEventListener('touchstart', handleClickOutside);
     }
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [showToolsDropdown]);
 
@@ -2409,13 +2425,14 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         <div className="max-w-[1750px] mx-auto flex flex-col xl:flex-row items-center justify-between gap-2">
           
           {/* Quick Tools & Actions (Moved to Visual Left Side) */}
-          <div className="flex items-center justify-start gap-2 relative shrink-0 order-last xl:order-last w-full xl:w-auto overflow-x-auto no-scrollbar py-1">
+          <div className="flex items-center justify-start gap-2 relative shrink-0 order-last xl:order-last w-full xl:w-auto overflow-visible py-1">
             
             {/* Message Icon - Restored per user request */}
             {hasStaffPerm('manage_warehouse_messages') && (
               <button
+                type="button"
                 onClick={() => { setActiveSubTab('warehouse_messages'); }}
-                className="relative p-2 bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-xl border border-slate-200 transition-all active:scale-95"
+                className="relative p-2 bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-xl border border-slate-200 transition-all active:scale-95 cursor-pointer"
                 title="صندوق پیام‌های تماس سایت"
               >
                 <MessageSquare className="w-4 h-4" />
@@ -2426,10 +2443,14 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             )}
 
             {/* Tools & Settings Dropdown */}
-            <div className="relative" ref={toolsRef}>
+            <div className="relative z-50" ref={toolsRef}>
               <button
-                onClick={() => setShowToolsDropdown(!showToolsDropdown)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all active:scale-95"
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowToolsDropdown(prev => !prev);
+                }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-all active:scale-95 shrink-0 cursor-pointer"
                 title="ابزارها و تنظیمات صندوق"
               >
                 <Settings className="w-4 h-4 text-indigo-600" />
@@ -2439,77 +2460,108 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
               {showToolsDropdown && (
                 <div 
-                  className="header-dropdown-overlay absolute top-full mt-2 right-0 w-64 max-w-[calc(100vw-2rem)] bg-white border border-slate-200 rounded-2xl shadow-2xl p-2 z-[99999] space-y-1 animate-in fade-in zoom-in-95 duration-200"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowToolsDropdown(false);
-                  }}
+                  className="absolute left-0 right-0 sm:right-auto sm:left-0 top-full mt-2 w-[calc(100vw-1.5rem)] sm:w-80 max-w-md mx-auto sm:mx-0 bg-white border border-slate-200 rounded-2xl shadow-2xl p-2.5 z-[1000] space-y-1 animate-in fade-in zoom-in-95 duration-150 text-right max-h-[75vh] overflow-y-auto font-['Samim','Vazirmatn',sans-serif]"
+                  dir="rtl"
                 >
+                  <div className="flex items-center justify-between px-2 py-1.5 border-b border-slate-100 mb-1">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-slate-800">
+                      <Settings className="w-4 h-4 text-indigo-600" />
+                      <span>ابزارها و تنظیمات صندوق</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowToolsDropdown(false)}
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
                   <button
+                    type="button"
                     onClick={() => { setShowSessionSecurityModal(true); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right"
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 rounded-xl transition-colors text-right cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
+                      <ShieldCheck className="w-4 h-4 text-indigo-600 shrink-0" />
                       <span>امنیت و زمان توکن صندوق</span>
                     </div>
-                    <span className="text-[10px] font-mono bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-md font-bold">
+                    <span className="text-[10px] font-mono bg-indigo-100 text-indigo-800 px-1.5 py-0.5 rounded-md font-bold shrink-0">
                       {formatRemainingTime(sessionRemainingSeconds)}
                     </span>
                   </button>
 
                   <div className="my-1 border-t border-slate-100"></div>
+
                   {currentStaff.role === 'super_admin' && (
                     <button
+                      type="button"
                       onClick={() => { setShowBackendModal(true); setShowToolsDropdown(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/90 rounded-xl transition-colors text-right"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-blue-700 bg-blue-50/70 hover:bg-blue-100/90 rounded-xl transition-colors text-right cursor-pointer"
                     >
-                      <Server className="w-4 h-4 text-blue-600" />
+                      <Server className="w-4 h-4 text-blue-600 shrink-0" />
                       <span>اتصال API و وب‌سرویس جنگو</span>
                     </button>
                   )}
                   
                   {(currentStaff.role === 'super_admin' || hasStaffPerm('view_reports')) && (
                     <button
+                      type="button"
                       onClick={() => { setShowCurrencyRateModal(true); setShowToolsDropdown(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right cursor-pointer"
                     >
-                      <Coins className="w-4 h-4 text-blue-600" />
+                      <Coins className="w-4 h-4 text-blue-600 shrink-0" />
                       <span>تنظیم نرخ ارز (دلار/یورو)</span>
                     </button>
                   )}
 
                   {hasStaffPerm('customer_app_connect') && (
                     <button
+                      type="button"
                       onClick={() => { setShowCustomerAppModal(true); setShowToolsDropdown(false); }}
-                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      className="w-full flex items-center gap-2 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right cursor-pointer"
                     >
-                      <Smartphone className="w-4 h-4 text-indigo-600" />
+                      <Smartphone className="w-4 h-4 text-indigo-600 shrink-0" />
                       <span>اتصال اپلیکیشن مشتریان</span>
                     </button>
                   )}
 
+                  {/* Quick PWA Install Option in Tools */}
                   <button
-                    onClick={() => { setActiveSubTab('blog'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl transition-colors text-right"
+                    type="button"
+                    onClick={() => { setShowPwaInstallGuideModal(true); setShowToolsDropdown(false); }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-indigo-700 bg-indigo-50/70 hover:bg-indigo-100 rounded-xl transition-colors text-right cursor-pointer"
                   >
                     <div className="flex items-center gap-2">
-                      <BookOpen className="w-4 h-4 text-blue-600" />
+                      <Download className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <span>راهنمای نصب اپلیکیشن صندوق (PWA)</span>
+                    </div>
+                    <span className="text-[9px] bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded-md font-black shrink-0">نصب</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { setActiveSubTab('blog'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl transition-colors text-right cursor-pointer"
+                  >
+                    <div className="flex items-center gap-2">
+                      <BookOpen className="w-4 h-4 text-blue-600 shrink-0" />
                       <span>مدیریت مقالات و وبلاگ</span>
                     </div>
-                    <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                    <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-bold shrink-0">جنگو</span>
                   </button>
 
                   {(currentStaff.role === 'super_admin' || hasStaffPerm('manage_site_settings') || hasStaffPerm('manage_sliders') || hasStaffPerm('manage_footer_settings')) && (
                     <button
+                      type="button"
                       onClick={() => { setActiveSubTab('site_settings'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-indigo-900 bg-indigo-50/80 hover:bg-indigo-100 rounded-xl transition-colors text-right"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-indigo-900 bg-indigo-50/80 hover:bg-indigo-100 rounded-xl transition-colors text-right cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <Sliders className="w-4 h-4 text-indigo-600" />
+                        <Sliders className="w-4 h-4 text-indigo-600 shrink-0" />
                         <span>تنظیمات سایت (بنر و اسلایدر)</span>
                       </div>
-                      <span className="text-[9px] bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded-md font-black">تب‌بندی</span>
+                      <span className="text-[9px] bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded-md font-black shrink-0">تب‌بندی</span>
                     </button>
                   )}
 
@@ -2517,53 +2569,57 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
                   {hasStaffPerm('manage_staff') && (
                     <button
+                      type="button"
                       onClick={() => { setActiveSubTab('staff_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl transition-colors text-right"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl transition-colors text-right cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <UserPlus className="w-4 h-4 text-emerald-600" />
+                        <UserPlus className="w-4 h-4 text-emerald-600 shrink-0" />
                         <span>افزودن پرسنل جدید (صفحه مجزا)</span>
                       </div>
-                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md font-bold">جدید</span>
+                      <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-md font-bold shrink-0">جدید</span>
                     </button>
                   )}
 
                   {hasStaffPerm('manage_tickets') && (
                     <button
+                      type="button"
                       onClick={() => { setActiveSubTab('tickets'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <Headphones className="w-4 h-4 text-indigo-600" />
+                        <Headphones className="w-4 h-4 text-indigo-600 shrink-0" />
                         <span>پشتیبانی تیکت‌ها</span>
                       </div>
-                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold shrink-0">جنگو</span>
                     </button>
                   )}
 
                   {hasStaffPerm('send_sms') && (
                     <button
+                      type="button"
                       onClick={() => { setActiveSubTab('sms_management'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <Smartphone className="w-4 h-4 text-indigo-600" />
+                        <Smartphone className="w-4 h-4 text-indigo-600 shrink-0" />
                         <span>سامانه پیامکی کاوه‌نگار</span>
                       </div>
-                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                      <span className="text-[9px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded-md font-bold shrink-0">جنگو</span>
                     </button>
                   )}
 
                   {hasStaffPerm('manage_notifications') && (
                     <button
+                      type="button"
                       onClick={() => { setActiveSubTab('notifications'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right"
+                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-xl transition-colors text-right cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
-                        <Bell className="w-4 h-4 text-purple-600" />
+                        <Bell className="w-4 h-4 text-purple-600 shrink-0" />
                         <span>اعلانات و نوتیفیکیشن‌ها</span>
                       </div>
-                      <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-md font-bold">جنگو</span>
+                      <span className="text-[9px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-md font-bold shrink-0">جنگو</span>
                     </button>
                   )}
                 </div>
@@ -7075,6 +7131,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         <PwaInstallGuide
           isOpenOnly={true}
           onCloseModal={() => setShowPwaInstallGuideModal(false)}
+          isPosContext={true}
         />
       )}
 

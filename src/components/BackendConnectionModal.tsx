@@ -20,7 +20,8 @@ import {
   Zap,
   Radio,
   FileCode,
-  ArrowLeft
+  ArrowLeft,
+  Terminal
 } from 'lucide-react';
 import { api } from '../services/api';
 import { CigaretteProduct } from '../types';
@@ -32,6 +33,7 @@ interface BackendConnectionModalProps {
   products: CigaretteProduct[];
   onProductsUpdated?: (products: CigaretteProduct[]) => void;
   showToast?: (msg: string) => void;
+  onOpenSyncLogsModal?: () => void;
 }
 
 export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
@@ -40,6 +42,7 @@ export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
   products,
   onProductsUpdated,
   showToast = () => {},
+  onOpenSyncLogsModal,
 }) => {
   const [baseUrlInput, setBaseUrlInput] = useState<string>(() => api.config.getBaseUrl());
   const [webAppUrlInput, setWebAppUrlInput] = useState<string>(() => api.config.getWebAppUrl());
@@ -415,6 +418,17 @@ export const BackendConnectionModal: React.FC<BackendConnectionModalProps> = ({
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>پاکسازی کامل کش و نوسازی زنده</span>
                     </button>
+
+                    {onOpenSyncLogsModal && (
+                      <button
+                        type="button"
+                        onClick={onOpenSyncLogsModal}
+                        className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-black flex items-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Terminal className="w-3.5 h-3.5 text-amber-600" />
+                        <span>دیباگر لاگ همگام‌سازی</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
