@@ -66,7 +66,8 @@ import {
   djangoPosLogoutApi,
   djangoFetchSliders,
   djangoFetchFooterSettings,
-  mapDjangoItemToProduct
+  mapDjangoItemToProduct,
+  normalizeBadgeForDjango
 } from './djangoApi';
 
 // Local storage keys for resilient offline-first fallback
@@ -597,6 +598,8 @@ export const productsApi = {
     if (params?.category && params.category !== 'all') query.append('category', params.category);
     if (params?.brand && params.brand !== 'all') query.append('brand', params.brand);
     if (params?.search) query.append('search', params.search);
+    query.append('page_size', '1000');
+    query.append('limit', '1000');
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
     
@@ -615,7 +618,7 @@ export const productsApi = {
     if (response.success && response.data) {
       const items = Array.isArray(response.data) 
         ? response.data 
-        : (response.data.results || response.data.data || []);
+        : (response.data.results || response.data.data || response.data.items || []);
       
       const mappedProducts: CigaretteProduct[] = items.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
 
@@ -737,6 +740,51 @@ export const productsApi = {
       } catch {}
     }
 
+    const normalizedBadge = normalizeBadgeForDjango(product.badge);
+
+    const safeImages = (product.images || [])
+      .map(img => (img && img.startsWith('data:')) ? '' : img)
+      .filter(Boolean);
+
+    const mappedAttributes = (product.appliedFeatures || []).map(af => {
+      const valStr = String(af.value || '').trim();
+      const numVal = !isNaN(Number(valStr)) && valStr !== '' ? Number(valStr) : null;
+      const boolVal = valStr === 'بله' || valStr === 'true' ? true : (valStr === 'خیر' || valStr === 'false' ? false : null);
+      const attrPk = af.featureId && !isNaN(Number(af.featureId)) ? Number(af.featureId) : (af.id && !isNaN(Number(af.id)) ? Number(af.id) : null);
+
+      return {
+        attribute: attrPk,
+        attribute_id: attrPk,
+        attribute_name: af.nameFa || '',
+        name: af.nameFa || '',
+        value: valStr,
+        text_value: valStr,
+        numeric_value: numVal,
+        value_number: numVal,
+        boolean_value: boolVal,
+        value_boolean: boolVal,
+        unit: af.unit || ''
+      };
+    });
+
+    const mappedTierDiscounts = (product.tierDiscounts || []).map(td => {
+      const minQty = Number(td.minQuantity) || Number((td as any).min_quantity) || Number((td as any).min_cartons) || 1;
+      const discPercent = Number(td.discountPercent) || Number((td as any).discount_percent) || Number((td as any).discount_percentage) || 0;
+      const unitPrice = Number((td as any).discountPrice) || Number((td as any).discount_price) || Number((td as any).unit_discount_price) || 0;
+
+      return {
+        min_quantity: minQty,
+        quantity: minQty,
+        min_cartons: minQty,
+        discount_percent: discPercent,
+        discount_percentage: discPercent,
+        discount_price: unitPrice,
+        unit_discount_price: unitPrice,
+        unit_type: td.unitType || td.unit || (td as any).unit_type || 'carton',
+        target_label: td.targetLabel || td.label || (td as any).target_label || ''
+      };
+    });
+
     const payload = {
       name: product.nameFa || 'کالای جدید',
       name_fa: product.nameFa || 'کالای جدید',
@@ -756,10 +804,23 @@ export const productsApi = {
       stock_boxes: Number(product.stockBoxes) || 0,
       min_order_carton: Number(product.moq) || 1,
       min_order_box: Number(product.moqBox) || 1,
+      badge: normalizedBadge,
       image: safeImage,
-      images: product.images || [],
+      image_url: safeImage,
+      main_image: safeImage,
+      photo: safeImage,
+      picture: safeImage,
+      images: safeImages,
+      gallery_images: safeImages,
+      gallery: safeImages.map(url => ({ image: url, image_url: url })),
       full_description: product.description || '',
+      description: product.description || '',
       excerpt: product.excerpt || '',
+      meta_title: product.metaTitle || product.nameFa || '',
+      meta_description: product.metaDescription || product.excerpt || product.description || '',
+      focus_keyword: product.focusKeyword || product.nameFa || '',
+      seo_keywords: Array.isArray(product.keywords) ? product.keywords.join(', ') : (product.keywords || product.focusKeyword || product.nameFa || ''),
+      canonical_url: product.canonicalUrl || '',
       country_origin: product.origin || '',
       tar: product.tar || '',
       nicotine: product.nicotine || '',
@@ -771,11 +832,16 @@ export const productsApi = {
       has_box: product.hasBox !== false,
       has_pack: Boolean(product.hasPack),
       is_active: product.isAvailable !== false,
+      is_published: true,
+      is_approved: true,
+      status: 'active',
       is_featured: isFeaturedVal,
       key_features: keyFeatures,
       key_takeaways: product.keyTakeaways || [],
-      tier_discounts: product.tierDiscounts || [],
-      applied_features: product.appliedFeatures || [],
+      tier_discounts: mappedTierDiscounts,
+      attributes_values: mappedAttributes,
+      applied_features: mappedAttributes,
+      product_attributes: mappedAttributes,
     };
 
     const newProdId = product.id || `prod_${Date.now()}`;
@@ -882,6 +948,51 @@ export const productsApi = {
 
     const safeImage = (productData.image && productData.image.startsWith('data:')) ? '' : (productData.image || '');
 
+    const normalizedBadge = normalizeBadgeForDjango(productData.badge);
+
+    const safeImages = (productData.images || [])
+      .map(img => (img && img.startsWith('data:')) ? '' : img)
+      .filter(Boolean);
+
+    const mappedAttributes = (productData.appliedFeatures || []).map(af => {
+      const valStr = String(af.value || '').trim();
+      const numVal = !isNaN(Number(valStr)) && valStr !== '' ? Number(valStr) : null;
+      const boolVal = valStr === 'بله' || valStr === 'true' ? true : (valStr === 'خیر' || valStr === 'false' ? false : null);
+      const attrPk = af.featureId && !isNaN(Number(af.featureId)) ? Number(af.featureId) : (af.id && !isNaN(Number(af.id)) ? Number(af.id) : null);
+
+      return {
+        attribute: attrPk,
+        attribute_id: attrPk,
+        attribute_name: af.nameFa || '',
+        name: af.nameFa || '',
+        value: valStr,
+        text_value: valStr,
+        numeric_value: numVal,
+        value_number: numVal,
+        boolean_value: boolVal,
+        value_boolean: boolVal,
+        unit: af.unit || ''
+      };
+    });
+
+    const mappedTierDiscounts = (productData.tierDiscounts || []).map(td => {
+      const minQty = Number(td.minQuantity) || Number((td as any).min_quantity) || Number((td as any).min_cartons) || 1;
+      const discPercent = Number(td.discountPercent) || Number((td as any).discount_percent) || Number((td as any).discount_percentage) || 0;
+      const unitPrice = Number((td as any).discountPrice) || Number((td as any).discount_price) || Number((td as any).unit_discount_price) || 0;
+
+      return {
+        min_quantity: minQty,
+        quantity: minQty,
+        min_cartons: minQty,
+        discount_percent: discPercent,
+        discount_percentage: discPercent,
+        discount_price: unitPrice,
+        unit_discount_price: unitPrice,
+        unit_type: td.unitType || td.unit || (td as any).unit_type || 'carton',
+        target_label: td.targetLabel || td.label || (td as any).target_label || ''
+      };
+    });
+
     const payload: Record<string, any> = {
       name: productData.nameFa,
       name_fa: productData.nameFa,
@@ -904,23 +1015,41 @@ export const productsApi = {
       country_origin: productData.origin || '',
       cigarette_size: productData.cigaretteSize || productData.packSize || 'king_size',
       filter_type: productData.filterType || 'white',
+      badge: normalizedBadge,
       is_pos_only: Boolean(productData.isPosOnly),
       is_box_only: Boolean(productData.isBoxOnly),
       has_carton: productData.hasCarton !== false,
       has_box: productData.hasBox !== false,
       has_pack: Boolean(productData.hasPack),
       is_active: productData.isAvailable !== false,
+      is_published: true,
+      is_approved: true,
+      status: 'active',
       is_featured: isFeaturedVal,
       barcode: productData.barcode || '',
       slug: productData.slug || '',
       image: safeImage,
-      images: productData.images || [],
+      image_url: safeImage,
+      main_image: safeImage,
+      photo: safeImage,
+      picture: safeImage,
+      images: safeImages,
+      gallery_images: safeImages,
+      gallery: safeImages.map(url => ({ image: url, image_url: url })),
       full_description: productData.description || '',
+      description: productData.description || '',
       excerpt: productData.excerpt || '',
+      meta_title: productData.metaTitle || productData.nameFa || '',
+      meta_description: productData.metaDescription || productData.excerpt || productData.description || '',
+      focus_keyword: productData.focusKeyword || productData.nameFa || '',
+      seo_keywords: Array.isArray(productData.keywords) ? productData.keywords.join(', ') : (productData.keywords || productData.focusKeyword || productData.nameFa || ''),
+      canonical_url: productData.canonicalUrl || '',
       key_features: keyFeatures,
       key_takeaways: productData.keyTakeaways || [],
-      tier_discounts: productData.tierDiscounts || [],
-      applied_features: productData.appliedFeatures || [],
+      tier_discounts: mappedTierDiscounts,
+      attributes_values: mappedAttributes,
+      applied_features: mappedAttributes,
+      product_attributes: mappedAttributes,
     };
 
     // Attempt remote PUT / PATCH
@@ -1021,6 +1150,39 @@ export const productsApi = {
       return { synced: products.length, success: true };
     }
     return { synced: 0, success: false };
+  }
+};
+
+// ==========================================
+// TIER DISCOUNT TEMPLATES API
+// ==========================================
+export const tierDiscountTemplatesApi = {
+  async getAll(): Promise<any[]> {
+    let response = await httpClient.get<any>('/products/tier-templates/', {
+      headers: API_CACHE_CONTROL_HEADERS,
+    });
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>('/products/tier-discount-templates/', {
+        headers: API_CACHE_CONTROL_HEADERS,
+      });
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>('/api/v1/products/tier-templates/', {
+        headers: API_CACHE_CONTROL_HEADERS,
+      });
+    }
+    if (!response.success && response.status === 404) {
+      response = await httpClient.get<any>('/api/v1/products/tier-discount-templates/', {
+        headers: API_CACHE_CONTROL_HEADERS,
+      });
+    }
+
+    if (response.success && response.data) {
+      return Array.isArray(response.data)
+        ? response.data
+        : (response.data.results || response.data.data || response.data.items || []);
+    }
+    return [];
   }
 };
 

@@ -1573,6 +1573,51 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
       hologramPk = Number(product.hologram);
     }
 
+    const normalizedBadge = normalizeBadgeForDjango(product.badge);
+
+    const safeImages = (product.images || [])
+      .map(img => (img && img.startsWith('data:')) ? '' : img)
+      .filter(Boolean);
+
+    const mappedAttributes = (product.appliedFeatures || []).map(af => {
+      const valStr = String(af.value || '').trim();
+      const numVal = !isNaN(Number(valStr)) && valStr !== '' ? Number(valStr) : null;
+      const boolVal = valStr === 'بله' || valStr === 'true' ? true : (valStr === 'خیر' || valStr === 'false' ? false : null);
+      const attrPk = af.featureId && !isNaN(Number(af.featureId)) ? Number(af.featureId) : (af.id && !isNaN(Number(af.id)) ? Number(af.id) : null);
+
+      return {
+        attribute: attrPk,
+        attribute_id: attrPk,
+        attribute_name: af.nameFa || '',
+        name: af.nameFa || '',
+        value: valStr,
+        text_value: valStr,
+        numeric_value: numVal,
+        value_number: numVal,
+        boolean_value: boolVal,
+        value_boolean: boolVal,
+        unit: af.unit || ''
+      };
+    });
+
+    const mappedTierDiscounts = (product.tierDiscounts || []).map(td => {
+      const minQty = Number(td.minQuantity) || Number((td as any).min_quantity) || Number((td as any).min_cartons) || 1;
+      const discPercent = Number(td.discountPercent) || Number((td as any).discount_percent) || Number((td as any).discount_percentage) || 0;
+      const unitPrice = Number((td as any).discountPrice) || Number((td as any).discount_price) || Number((td as any).unit_discount_price) || 0;
+
+      return {
+        min_quantity: minQty,
+        quantity: minQty,
+        min_cartons: minQty,
+        discount_percent: discPercent,
+        discount_percentage: discPercent,
+        discount_price: unitPrice,
+        unit_discount_price: unitPrice,
+        unit_type: td.unitType || td.unit || (td as any).unit_type || 'carton',
+        target_label: td.targetLabel || td.label || (td as any).target_label || ''
+      };
+    });
+
     const payload = {
       name: product.nameFa,
       name_fa: product.nameFa,
@@ -1597,20 +1642,38 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
       nicotine: product.nicotine || '',
       cigarette_size: product.cigaretteSize || product.packSize || 'king_size',
       filter_type: product.filterType || 'white',
-      badge: product.badge || '',
+      badge: normalizedBadge,
       image: safeImage,
-      images: product.images || [],
+      image_url: safeImage,
+      main_image: safeImage,
+      photo: safeImage,
+      picture: safeImage,
+      images: safeImages,
+      gallery_images: safeImages,
+      gallery: safeImages.map(url => ({ image: url, image_url: url })),
       full_description: product.description || '',
+      description: product.description || '',
       excerpt: product.excerpt || '',
+      meta_title: product.metaTitle || product.nameFa || '',
+      meta_description: product.metaDescription || product.excerpt || product.description || '',
+      focus_keyword: product.focusKeyword || product.nameFa || '',
+      seo_keywords: Array.isArray(product.keywords) ? product.keywords.join(', ') : (product.keywords || product.focusKeyword || product.nameFa || ''),
+      canonical_url: product.canonicalUrl || '',
       is_pos_only: Boolean(product.isPosOnly),
       is_box_only: Boolean(product.isBoxOnly),
       has_carton: product.hasCarton !== false,
       has_box: product.hasBox !== false,
       has_pack: Boolean(product.hasPack),
       is_active: product.isAvailable !== false,
+      is_published: true,
+      is_approved: true,
+      status: 'active',
       is_featured: isFeaturedVal,
       key_takeaways: product.keyTakeaways || [],
-      tier_discounts: product.tierDiscounts || []
+      tier_discounts: mappedTierDiscounts,
+      attributes_values: mappedAttributes,
+      applied_features: mappedAttributes,
+      product_attributes: mappedAttributes,
     };
 
     const headers: Record<string, string> = {
@@ -2118,6 +2181,36 @@ export function parseNumeric(val: any, fallback: number = 0): number {
 }
 
 /**
+ * Normalizes Persian/English badge strings into Django DB choice codes.
+ */
+export function normalizeBadgeForDjango(badge?: string): string {
+  if (!badge) return 'none';
+  const b = badge.trim().toLowerCase();
+  if (b === 'original_import' || b.includes('وارداتی') || b.includes('اصل')) return 'original_import';
+  if (b === 'special' || b === 'special_offer' || b.includes('پیشنهاد') || b.includes('ویژه')) return 'special';
+  if (b === 'bestseller' || b.includes('پرفروش')) return 'bestseller';
+  if (b === 'newest' || b.includes('جدید')) return 'newest';
+  if (b === 'special_discount' || b.includes('تخفیف')) return 'special_discount';
+  if (b === 'none' || b.includes('بدون') || b === '') return 'none';
+  return badge;
+}
+
+/**
+ * Maps Django DB badge choice codes into Persian titles for UI display.
+ */
+export function mapBadgeFromDjango(badgeCode?: string): string {
+  if (!badgeCode) return '';
+  const b = badgeCode.trim().toLowerCase();
+  if (b === 'original_import') return 'وارداتی اصل';
+  if (b === 'special') return 'پیشنهاد ویژه';
+  if (b === 'bestseller') return 'پرفروش‌ترین';
+  if (b === 'newest') return 'جدیدترین';
+  if (b === 'special_discount') return 'تخفیف ویژه';
+  if (b === 'none') return '';
+  return badgeCode;
+}
+
+/**
  * Normalizes raw category value (string, object, or ID) into a clean valid CigaretteCategory slug or string.
  */
 export function extractCategory(val: any, fallback: CigaretteCategory = 'cigarettes'): CigaretteCategory {
@@ -2269,13 +2362,15 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
 
   // Images
   const mainImg = extractImageUrl(
-    item.image || item.photo || item.main_image || item.picture || item.image_url,
+    item.image_url || item.image || item.photo || item.main_image || item.picture || item.image_url,
     defaultBase.image
   );
   
   let imagesArr: string[] = [];
   if (Array.isArray(item.gallery)) {
-    imagesArr = item.gallery.map((g: any) => extractImageUrl(g?.image || g, '')).filter(Boolean);
+    imagesArr = item.gallery.map((g: any) => extractImageUrl(g?.image_url || g?.image || g, '')).filter(Boolean);
+  } else if (Array.isArray(item.gallery_images)) {
+    imagesArr = item.gallery_images.map((img: any) => extractImageUrl(img?.image_url || img?.image || img, '')).filter(Boolean);
   } else if (Array.isArray(item.images)) {
     imagesArr = item.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
   }
@@ -2288,10 +2383,11 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     item.barcode || item.upc || item.gtin || item.code,
     defaultBase.barcode
   );
-  const badge = extractStringFromField(
+  const rawBadge = extractStringFromField(
     item.badge || item.badge_text,
     defaultBase.badge || ''
   );
+  const badge = mapBadgeFromDjango(rawBadge);
 
   // Price Trend
   const priceTrend: 'up' | 'down' | 'stable' = 
@@ -2300,14 +2396,14 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
 
   // Booleans
   const isAvailable = item.is_active !== undefined ? Boolean(item.is_active) : (item.is_available !== undefined ? Boolean(item.is_available) : true);
-  const isFeatured = item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean(item.isFeatured || badge === 'پیشنهاد ویژه' || badge === 'special');
+  const isFeatured = item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean(item.isFeatured || badge === 'پیشنهاد ویژه' || rawBadge === 'special');
   const isPosOnly = item.is_pos_only !== undefined ? Boolean(item.is_pos_only) : Boolean(item.isPosOnly || item.is_pos_exclusive);
   const isBoxOnly = item.is_box_only !== undefined ? Boolean(item.is_box_only) : Boolean(item.isBoxOnly);
   const hasCarton = item.has_carton !== undefined ? Boolean(item.has_carton) : item.hasCarton !== false;
   const hasBox = item.has_box !== undefined ? Boolean(item.has_box) : item.hasBox !== false;
   const hasPack = item.has_pack !== undefined ? Boolean(item.has_pack) : Boolean(item.hasPack);
 
-  // Descriptions
+  // Descriptions & SEO
   const description = extractStringFromField(
     item.description || item.full_description || item.content,
     defaultBase.description
@@ -2315,6 +2411,22 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
   const excerpt = extractStringFromField(
     item.excerpt || item.summary || item.short_description,
     defaultBase.excerpt || ''
+  );
+  const focusKeyword = extractStringFromField(
+    item.focus_keyword || item.focusKeyword || item.seo_keywords,
+    nameFa
+  );
+  const metaTitle = extractStringFromField(
+    item.meta_title || item.metaTitle,
+    nameFa
+  );
+  const metaDescription = extractStringFromField(
+    item.meta_description || item.metaDescription,
+    excerpt || description
+  );
+  const canonicalUrl = extractStringFromField(
+    item.canonical_url || item.canonicalUrl,
+    ''
   );
 
   // Sizes & Filters
@@ -2328,9 +2440,20 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
   );
 
   // Tier Discounts & Features
-  const tierDiscounts = Array.isArray(item.tier_discounts || item.tierDiscounts)
+  const rawTierDiscounts = Array.isArray(item.tier_discounts || item.tierDiscounts)
     ? (item.tier_discounts || item.tierDiscounts)
     : defaultBase.tierDiscounts || [];
+  
+  const tierDiscounts = rawTierDiscounts.map((td: any) => ({
+    minQuantity: parseNumeric(td.min_quantity ?? td.quantity ?? td.minCartons ?? td.minQuantity, 1),
+    minCartons: parseNumeric(td.min_cartons ?? td.min_quantity ?? td.minCartons, 1),
+    discountPercent: parseNumeric(td.discount_percent ?? td.discount_percentage ?? td.discountPercent, 0),
+    discountPercentage: parseNumeric(td.discount_percentage ?? td.discount_percent ?? td.discountPercentage, 0),
+    discountPrice: parseNumeric(td.discount_price ?? td.unit_discount_price ?? td.discountPrice, 0),
+    unit: td.unit_type || td.unit || 'carton',
+    unitType: td.unit_type || td.unitType || 'carton',
+    label: td.target_label || td.label || `خرید بالای ${td.min_quantity || td.minQuantity || 1} (${td.discount_percent || td.discountPercent || 0}٪ تخفیف)`
+  }));
 
   let keyTakeawaysList: string[] = [];
   if (Array.isArray(item.key_features)) {
@@ -2341,12 +2464,12 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     keyTakeawaysList = defaultBase.keyTakeaways || [];
   }
 
-  const rawAttrs = item.attributes_values || item.attributes || item.appliedFeatures;
+  const rawAttrs = item.attributes_values || item.applied_features || item.product_attributes || item.attributes || item.appliedFeatures;
   const appliedFeatures = Array.isArray(rawAttrs) ? rawAttrs.map((a: any) => ({
     id: String(a.id || Math.random()),
-    featureId: a.attribute ? String(a.attribute) : undefined,
+    featureId: a.attribute || a.attribute_id ? String(a.attribute || a.attribute_id) : undefined,
     nameFa: extractStringFromField(a.attribute_name || a.nameFa || a.name, ''),
-    value: extractStringFromField(a.value, a.value_number !== null && a.value_number !== undefined ? String(a.value_number) : (a.value_boolean !== null && a.value_boolean !== undefined ? (a.value_boolean ? 'بله' : 'خیر') : '')),
+    value: extractStringFromField(a.text_value || a.value, a.value_number !== null && a.value_number !== undefined ? String(a.value_number) : (a.value_boolean !== null && a.value_boolean !== undefined ? (a.value_boolean ? 'بله' : 'خیر') : '')),
     unit: extractStringFromField(a.attribute_unit || a.unit, ''),
   })).filter((f: any) => f.nameFa) : (defaultBase.appliedFeatures || []);
 
@@ -2380,6 +2503,10 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     tierDiscounts,
     description,
     excerpt,
+    focusKeyword,
+    metaTitle,
+    metaDescription,
+    canonicalUrl,
     isAvailable,
     isFeatured,
     isPosOnly,

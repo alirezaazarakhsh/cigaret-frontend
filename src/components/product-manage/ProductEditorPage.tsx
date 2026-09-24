@@ -36,7 +36,7 @@ import { TinyMceEditor } from '../common/TinyMceEditor';
 import { calculateProductYoastSeo, ProductYoastSeoReport } from './seoUtils';
 import { formatNumberFa } from '../../utils/formatters';
 import { getFrontendDomain } from '../../services/apiConfig';
-import { attributesApi } from '../../services/api';
+import { attributesApi, tierDiscountTemplatesApi } from '../../services/api';
 
 interface ProductEditorPageProps {
   product: CigaretteProduct | null;
@@ -300,6 +300,41 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
   const [newTierUnit, setNewTierUnit] = useState<'carton' | 'box'>('carton');
   const [newTierQty, setNewTierQty] = useState<number | ''>('');
   const [newTierDiscount, setNewTierDiscount] = useState<number | ''>('');
+  const [remoteTemplates, setRemoteTemplates] = useState<any[]>([]);
+
+  // Fetch Tier Discount Templates from Django Endpoint
+  React.useEffect(() => {
+    async function loadTemplates() {
+      try {
+        const templates = await tierDiscountTemplatesApi.getAll();
+        if (Array.isArray(templates) && templates.length > 0) {
+          setRemoteTemplates(templates);
+        }
+      } catch (e) {
+        console.warn('Tier templates fetch notice:', e);
+      }
+    }
+    loadTemplates();
+  }, []);
+
+  const handleApplyRemoteTemplate = (template: any) => {
+    const rawTiers = template.tiers || template.tier_discounts || template.discounts || (Array.isArray(template) ? template : []);
+    if (!Array.isArray(rawTiers) || rawTiers.length === 0) return;
+
+    const parsedTiers: WholesaleTierDiscount[] = rawTiers.map((t: any) => ({
+      unit: t.unit_type || t.unit || 'carton',
+      minQuantity: Number(t.min_quantity || t.minQuantity || t.quantity || 1),
+      minCartons: Number(t.min_cartons || t.minQuantity || 1),
+      discountPercentage: Number(t.discount_percent || t.discount_percentage || t.discountPercent || 0),
+      discountPercent: Number(t.discount_percent || t.discount_percentage || t.discountPercent || 0),
+      label: t.target_label || t.label || t.name || `خرید بالای ${t.min_quantity || t.minQuantity || 1} (${t.discount_percent || t.discountPercent || 0}٪ تخفیف)`
+    }));
+
+    setFormData(prev => ({
+      ...prev,
+      tierDiscounts: [...(prev.tierDiscounts || []), ...parsedTiers]
+    }));
+  };
 
   const handleAddTier = () => {
     const qty = Number(newTierQty);
@@ -1268,6 +1303,17 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                   </div>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
+                  {remoteTemplates.map((tmpl: any, tIdx: number) => (
+                    <button
+                      key={tmpl.id || tIdx}
+                      type="button"
+                      onClick={() => handleApplyRemoteTemplate(tmpl)}
+                      className="px-2.5 py-1 text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3 h-3 text-emerald-600" />
+                      <span>+ {tmpl.title || tmpl.name || tmpl.label || `الگوی ${tIdx + 1}`}</span>
+                    </button>
+                  ))}
                   <button
                     type="button"
                     onClick={handleAddCartonPresets}

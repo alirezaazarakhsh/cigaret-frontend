@@ -328,8 +328,11 @@ export interface WholesaleTierDiscount {
   minQuantity?: number;
   discountPercentage?: number;
   discountPercent?: number;
+  discountPrice?: number;
   unit?: string;
+  unitType?: string;
   label?: string;
+  targetLabel?: string;
 }
 
 export interface CigaretteProduct {
@@ -381,6 +384,8 @@ export interface CigaretteProduct {
   metaTitle?: string; // عنوان متای سئو در نتایج گوگل
   metaDescription?: string; // توضیحات متای سئو
   focusKeyword?: string; // کلمه کلیدی کانونی سئو (Focus Keyphrase)
+  canonicalUrl?: string; // آدرس کانونیکال سئو
+  keywords?: string[] | string; // کلمات کلیدی سئو
   excerpt?: string; // خلاصه و چکیده کوتاه محصول برای کارت‌ها
   keyTakeaways?: string[]; // نکات کلیدی و برجسته محصول برای ریچ اسنیپت
   seoScore?: number; // نمره ارزیابی یواست سئو (۰ تا ۱۰۰)
