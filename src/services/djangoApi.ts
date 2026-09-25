@@ -2183,13 +2183,13 @@ export function parseNumeric(val: any, fallback: number = 0): number {
 export function normalizeBadgeForDjango(badge?: string): string {
   if (!badge) return 'none';
   const b = badge.trim().toLowerCase();
-  if (b === 'original_import' || b.includes('وارداتی') || b.includes('اصل')) return 'original_import';
+  if (b === 'original_import' || b === 'import' || b.includes('وارداتی') || b.includes('اصل')) return 'import';
   if (b === 'special' || b === 'special_offer' || b.includes('پیشنهاد') || b.includes('ویژه')) return 'special';
   if (b === 'bestseller' || b.includes('پرفروش')) return 'bestseller';
-  if (b === 'newest' || b.includes('جدید')) return 'newest';
-  if (b === 'special_discount' || b.includes('تخفیف')) return 'special_discount';
+  if (b === 'newest' || b === 'new' || b.includes('جدید') || b.includes('تازه')) return 'new';
+  if (b === 'special_discount' || b === 'discount' || b.includes('تخفیف')) return 'discount';
   if (b === 'none' || b.includes('بدون') || b === '') return 'none';
-  return badge;
+  return 'none';
 }
 
 /**
@@ -2198,11 +2198,11 @@ export function normalizeBadgeForDjango(badge?: string): string {
 export function mapBadgeFromDjango(badgeCode?: string): string {
   if (!badgeCode) return '';
   const b = badgeCode.trim().toLowerCase();
-  if (b === 'original_import') return 'وارداتی اصل';
+  if (b === 'import') return 'وارداتی اصل';
   if (b === 'special') return 'پیشنهاد ویژه';
   if (b === 'bestseller') return 'پرفروش‌ترین';
-  if (b === 'newest') return 'جدیدترین';
-  if (b === 'special_discount') return 'تخفیف ویژه';
+  if (b === 'new') return 'جدیدترین';
+  if (b === 'discount') return 'تخفیف ویژه';
   if (b === 'none') return '';
   return badgeCode;
 }

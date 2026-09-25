@@ -4,6 +4,14 @@ import { UserManagementPanel } from './UserManagementPanel';
 import { CurrencyRateSettings } from './CurrencyRateSettings';
 import { SiteSettingsManagementPanel } from './SiteSettingsManagementPanel';
 import { PwaInstallGuide } from '../PwaInstallGuide';
+import { PosLoginScreen } from './pos/PosLoginScreen';
+import { PosLogoutOverlay, PosSessionExpiryAlert } from './pos/PosSessionOverlay';
+import { PosInventoryView } from './pos/PosInventoryView';
+import { PosCustomerLedgerView } from './pos/PosCustomerLedgerView';
+import { PosReportsView } from './pos/PosReportsView';
+import { PosSalesLedgerView } from './pos/PosSalesLedgerView';
+import { KavenegarSmsManagementPanel } from './sms/KavenegarSmsManagementPanel';
+import { isPosOnlyMode } from '../../config/appMode';
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Barcode, 
@@ -351,6 +359,21 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       return false;
     }
   });
+
+  // Sync URL with login state: if not authenticated, ensure address bar shows /shopmanage/login
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      if (!isAuthenticated) {
+        if (!window.location.pathname.includes('/shopmanage/login')) {
+          window.history.replaceState({ subTab: 'login' }, '', '/shopmanage/login');
+        }
+      } else {
+        if (window.location.pathname.includes('/shopmanage/login')) {
+          window.history.replaceState({ subTab: 'pos' }, '', '/shopmanage/sandogh');
+        }
+      }
+    }
+  }, [isAuthenticated]);
 
   const [sessionRemainingSeconds, setSessionRemainingSeconds] = useState<number>(() => {
     return getRemainingSessionSeconds();
@@ -1288,8 +1311,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     setSessionExpiredNotice('');
     setIsLoggingOut(false);
     
-    // اطمینان از ریدایرکت به صفحه لاگین (اگر با تغییر وضعیت isAuthenticated ریدایرکت خودکار نشد)
-    window.location.href = '/shopmanage/sandogh'; 
+    // اطمینان از ریدایرکت مستقیم به صفحه لاگین
+    window.location.href = '/shopmanage/login'; 
   };
 
   const handleExtendSession = () => {
@@ -2268,155 +2291,31 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   // If Not Authenticated -> Show Executive Secure Login
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4" dir="rtl">
-        <div className="max-w-md w-full bg-slate-800 border border-slate-700 rounded-3xl p-8 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 left-0 h-2 bg-gradient-to-r from-indigo-500 via-blue-500 to-cyan-500" />
-          
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-indigo-500/10 border border-indigo-500/30 rounded-2xl flex items-center justify-center mx-auto mb-4 text-indigo-400">
-              <Building2 className="w-8 h-8" />
-            </div>
-            <h1 className="text-2xl font-black text-white tracking-tight">
-              سامانه حسابداری و صندوق فروشگاهی دخانیات سرو
-            </h1>
-            <p className="text-xs text-slate-400 mt-2">
-              کنترل یکپارچه موجودی انبار، صندوق بارکدخوان POS و ثبت فاکتورهای فروش حضوری
-            </p>
-          </div>
-
-          {sessionExpiredNotice && (
-            <div className="mb-5 p-4 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
-              <Clock className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-              <div className="leading-relaxed">
-                <strong className="font-bold block mb-1 text-amber-200 text-xs">خروج امنیتی خودکار از صندوق:</strong>
-                <p className="text-amber-300/95 text-[11px] leading-5">{sessionExpiredNotice}</p>
-              </div>
-            </div>
-          )}
-
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                شماره همراه مدیر فروشگاه / انباردار
-              </label>
-              <div className="relative">
-                <Phone className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="tel"
-                  dir="ltr"
-                  value={loginPhone}
-                  onChange={(e) => setLoginPhone(e.target.value)}
-                  placeholder="09120759419"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pr-10 pl-4 py-3 text-sm text-white font-mono focus:border-indigo-500 focus:outline-none transition-colors"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-bold text-slate-300 mb-1.5">
-                رمز عبور امنیتی
-              </label>
-              <div className="relative">
-                <KeyRound className="w-4 h-4 absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="password"
-                  value={loginPass}
-                  onChange={(e) => setLoginPass(e.target.value)}
-                  placeholder="••••••••••••"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl pr-10 pl-4 py-3 text-sm text-white font-mono focus:border-indigo-500 focus:outline-none transition-colors"
-                  required
-                />
-              </div>
-            </div>
-
-            {loginError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 shrink-0 text-rose-400" />
-                <span>{loginError}</span>
-              </div>
-            )}
-
-            <button
-              type="submit"
-              disabled={isLoggingIn}
-              className="w-full py-3.5 px-4 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 disabled:opacity-75 disabled:cursor-not-allowed text-white rounded-xl font-black text-sm shadow-lg shadow-indigo-600/30 transition-all active:scale-98 flex items-center justify-center gap-2"
-            >
-              {isLoggingIn ? (
-                <>
-                  <RefreshCw className="w-4 h-4 animate-spin text-white" />
-                  <span>در حال احراز هویت و ورود...</span>
-                </>
-              ) : (
-                <>
-                  <Lock className="w-4 h-4" />
-                  <span>ورود به میز کار حسابداری و صندوق</span>
-                </>
-              )}
-            </button>
-          </form>
-
-          <div className="mt-6 pt-6 border-t border-slate-700 text-center">
-            <button
-              onClick={onReturnToStore}
-              className="inline-flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors"
-            >
-              <ArrowRight className="w-4 h-4" />
-              <span>بازگشت به کاتالوگ فروشگاه آنلاین دخانیات سرو</span>
-            </button>
-          </div>
-        </div>
-      </div>
+      <PosLoginScreen
+        loginPhone={loginPhone}
+        loginPass={loginPass}
+        isLoggingIn={isLoggingIn}
+        loginError={loginError}
+        sessionExpiredNotice={sessionExpiredNotice}
+        onPhoneChange={setLoginPhone}
+        onPassChange={setLoginPass}
+        onSubmit={handleLogin}
+        onReturnToStore={onReturnToStore}
+      />
     );
   }
 
   // Authenticated Main POS View
   return (
     <div className="min-h-screen max-w-full overflow-x-hidden bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-indigo-600 selection:text-white print:hidden pb-16 md:pb-0" dir="rtl">
-      {isLoggingOut && (
-        <div className="fixed inset-0 bg-slate-900/85 backdrop-blur-md z-[9999] flex flex-col items-center justify-center text-white animate-in fade-in duration-300">
-          <div className="p-8 rounded-3xl bg-slate-800 border border-slate-700 shadow-2xl flex flex-col items-center gap-4 max-w-xs text-center">
-            <div className="w-16 h-16 bg-rose-500/10 border border-rose-500/30 rounded-2xl flex items-center justify-center text-rose-500">
-              <RefreshCw className="w-8 h-8 animate-spin" />
-            </div>
-            <div className="space-y-1.5">
-              <h3 className="font-black text-white text-base">در حال خروج از صندوق...</h3>
-              <p className="text-xs text-slate-400">نشست صندوق‌داری شما در حال بسته‌شدن امن است.</p>
-            </div>
-          </div>
-        </div>
-      )}
+      <PosLogoutOverlay isLoggingOut={isLoggingOut} />
 
-      {showExtendNotice && (
-        <div className="fixed bottom-6 right-6 z-[9999] max-w-md w-full bg-slate-950 text-white rounded-2xl border border-slate-800 shadow-2xl p-5 animate-in slide-in-from-bottom duration-300">
-          <div className="flex gap-4 items-start">
-            <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
-              <AlertTriangle className="w-6 h-6 animate-pulse" />
-            </div>
-            <div className="flex-1 space-y-1">
-              <h4 className="font-black text-sm text-white">هشدار امنیتی انقضای نشست صندوق</h4>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                اعتبار نشست صندوق‌داری شما تا <span className="font-black text-amber-400 font-mono">{sessionRemainingSeconds} ثانیه دیگر</span> به پایان می‌رسد. جهت جلوگیری از خروج خودکار، مایلید نشست خود را تمدید کنید؟
-              </p>
-              <div className="flex items-center gap-2 pt-3">
-                <button
-                  onClick={handleExtendSession}
-                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black rounded-lg transition-colors flex items-center gap-1 shadow-md shadow-indigo-600/10"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>تمدید ۳۰ دقیقه‌ای نشست</span>
-                </button>
-                <button
-                  onClick={handleLogout}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-lg transition-colors"
-                >
-                  <span>خروج امن هم‌اکنون</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      <PosSessionExpiryAlert
+        showExtendNotice={showExtendNotice}
+        sessionRemainingSeconds={sessionRemainingSeconds}
+        onExtendSession={handleExtendSession}
+        onLogout={handleLogout}
+      />
       
       {/* Sticky Header Container */}
       <div className="sticky top-0 z-[100] w-full bg-white shadow-sm border-b border-slate-200 print:hidden">
@@ -2427,8 +2326,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           {/* Quick Tools & Actions (Moved to Visual Left Side) */}
           <div className="flex items-center justify-start gap-2 relative shrink-0 order-last xl:order-last w-full xl:w-auto overflow-visible py-1">
             
-            {/* Message Icon - Restored per user request */}
-            {hasStaffPerm('manage_warehouse_messages') && (
+            {/* Message Icon - Restored per user request (تنها در حالت فول‌سوئیت که وب‌سایت آنلاین دارد نمایش داده می‌شود) */}
+            {!isPosOnlyMode() && hasStaffPerm('manage_warehouse_messages') && (
               <button
                 type="button"
                 onClick={() => { setActiveSubTab('warehouse_messages'); }}
@@ -2539,30 +2438,34 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                     <span className="text-[9px] bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded-md font-black shrink-0">نصب</span>
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => { setActiveSubTab('blog'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                    className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl transition-colors text-right cursor-pointer"
-                  >
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="w-4 h-4 text-blue-600 shrink-0" />
-                      <span>مدیریت مقالات و وبلاگ</span>
-                    </div>
-                    <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-bold shrink-0">جنگو</span>
-                  </button>
+                  {!isPosOnlyMode() && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => { setActiveSubTab('blog'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                        className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-slate-800 hover:bg-blue-50 hover:text-blue-700 rounded-xl transition-colors text-right cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <BookOpen className="w-4 h-4 text-blue-600 shrink-0" />
+                          <span>مدیریت مقالات و وبلاگ</span>
+                        </div>
+                        <span className="text-[9px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded-md font-bold shrink-0">جنگو</span>
+                      </button>
 
-                  {(currentStaff.role === 'super_admin' || hasStaffPerm('manage_site_settings') || hasStaffPerm('manage_sliders') || hasStaffPerm('manage_footer_settings')) && (
-                    <button
-                      type="button"
-                      onClick={() => { setActiveSubTab('site_settings'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
-                      className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-indigo-900 bg-indigo-50/80 hover:bg-indigo-100 rounded-xl transition-colors text-right cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <Sliders className="w-4 h-4 text-indigo-600 shrink-0" />
-                        <span>تنظیمات سایت (بنر و اسلایدر)</span>
-                      </div>
-                      <span className="text-[9px] bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded-md font-black shrink-0">تب‌بندی</span>
-                    </button>
+                      {(currentStaff.role === 'super_admin' || hasStaffPerm('manage_site_settings') || hasStaffPerm('manage_sliders') || hasStaffPerm('manage_footer_settings')) && (
+                        <button
+                          type="button"
+                          onClick={() => { setActiveSubTab('site_settings'); setShowToolsDropdown(false); setIsMenuOpen(false); }}
+                          className="w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-indigo-900 bg-indigo-50/80 hover:bg-indigo-100 rounded-xl transition-colors text-right cursor-pointer"
+                        >
+                          <div className="flex items-center gap-2">
+                            <Sliders className="w-4 h-4 text-indigo-600 shrink-0" />
+                            <span>تنظیمات سایت (بنر و اسلایدر)</span>
+                          </div>
+                          <span className="text-[9px] bg-indigo-200 text-indigo-900 px-1.5 py-0.5 rounded-md font-black shrink-0">تب‌بندی</span>
+                        </button>
+                      )}
+                    </>
                   )}
 
                   <div className="my-1 border-t border-slate-100"></div>
@@ -2664,14 +2567,16 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               <span>نصب اپلیکیشن</span>
             </button>
 
-            {/* Catalog Button */}
-            <button
-              onClick={onReturnToStore}
-              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-200 transition-colors whitespace-nowrap"
-            >
-              <ArrowRight className="w-4 h-4" />
-              <span>کاتالوگ</span>
-            </button>
+            {/* Catalog Button (تنها زمانی که سامانه در حالت فول‌سوئیت است نمایش داده می‌شود) */}
+            {!isPosOnlyMode() && (
+              <button
+                onClick={onReturnToStore}
+                className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 hover:text-slate-900 text-xs font-bold rounded-xl border border-slate-200 transition-colors whitespace-nowrap cursor-pointer"
+              >
+                <ArrowRight className="w-4 h-4" />
+                <span>کاتالوگ</span>
+              </button>
+            )}
 
             {/* Logout Button */}
             <button
@@ -3641,1040 +3546,83 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
           {/* TAB 2: Warehouse Inventory & Stock Controls */}
           {activeSubTab === 'inventory' && (
-            <motion.div 
-              key="inventory-tab"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white border border-slate-200 rounded-3xl p-5">
-                  <span className="text-xs text-slate-500 font-bold">ارزش کل انبار</span>
-                  <div className="text-lg font-black text-indigo-600 mt-1">{formatToman(totalInventoryValue)}</div>
-                </div>
-                <div className="bg-white border border-slate-200 rounded-3xl p-5">
-                  <span className="text-xs text-slate-500 font-bold">کل موجودی (کارتن)</span>
-                  <div className="text-lg font-black text-slate-900 mt-1">{formatNumberFa(totalCartonsInStock)} کارتن</div>
-                </div>
-                <div className="bg-white border border-slate-200 rounded-3xl p-5">
-                  <span className="text-xs text-slate-500 font-bold">معادل (باکس / پاکت)</span>
-                  <div className="text-xs font-bold text-slate-700 mt-1">
-                    {formatNumberFa(totalBoxesInStock)} باکس / {formatNumberFa(totalPacksInStock)} پاکت
-                  </div>
-                </div>
-                <div className="bg-white border border-slate-200 rounded-3xl p-5">
-                  <span className="text-xs text-slate-500 font-bold">اقلام رو به اتمام</span>
-                  <div className="text-lg font-black text-amber-600 mt-1">{formatNumberFa(lowStockCount)} کالا</div>
-                </div>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="text-lg font-black text-slate-900">جدول کامل موجودی انبار به تفکیک ۳ واحد</h2>
-                    <p className="text-xs text-slate-500 mt-1">کنترل مستقیم و کم/زیاد کردن تعداد کارتن، باکس و پاکت و ثبت ورود بار جدید</p>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setProductManagementSelectedProduct(null);
-                      setProductManagementInitialBarcode('');
-                      setProductManagementInitialTab('editor');
-                      setActiveSubTab('product-manage');
-                    }}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black px-4 py-2.5 rounded-2xl shadow-md transition-all flex items-center gap-2 shrink-0 cursor-pointer"
-                  >
-                    <Plus className="w-4 h-4" />
-                    <span>+ تعریف کالا / جنس جدید در انبار</span>
-                  </button>
-                </div>
-
-                {/* Table of Inventory */}
-                <div className="overflow-x-auto rounded-2xl border border-slate-200">
-                  <table className="w-full text-right text-xs min-w-[780px]">
-                    <thead>
-                      <tr className="bg-slate-50 text-slate-600 border-b border-slate-200">
-                        <th className="p-3">تصویر</th>
-                        <th className="p-3">نام کالا و نوع فروش</th>
-                        <th className="p-3 text-center">کارتن (کلیدی)</th>
-                        <th className="p-3 text-center">باکس (تعدیل)</th>
-                        <th className="p-3 text-left">قیمت فروش</th>
-                        <th className="p-3 text-left">ارزش ریالی</th>
-                        <th className="p-3 text-center">وضعیت</th>
-                        <th className="p-3 text-center">ویرایش و مشخصات کالا</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {productsList.map((prod) => {
-                        const stockInfo = getProductStockInfo(prod);
-                        const productTotalVal = prod.stockCartons * prod.cartonPrice;
-                        return (
-                          <tr key={prod.id} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-3">
-                              <img
-                                src={prod.image}
-                                alt={prod.nameFa}
-                                className="w-10 h-10 rounded-lg object-cover bg-slate-50 border border-slate-200"
-                              />
-                            </td>
-                            <td className="p-3">
-                              <strong className="text-slate-900 text-xs">{prod.nameFa}</strong>
-                              <div className="flex items-center gap-1.5 mt-0.5">
-                                <span className="text-[10px] text-slate-500">{prod.brand} • بارکد: {prod.barcode}</span>
-                                {prod.isPosOnly ? (
-                                  <span className="bg-purple-100 text-purple-700 text-[9px] font-bold px-1.5 py-0.2 rounded">مخصوص حضوری</span>
-                                ) : (
-                                  <span className="bg-blue-100 text-blue-700 text-[9px] font-bold px-1.5 py-0.2 rounded">همگام آنلاین</span>
-                                )}
-                              </div>
-                            </td>
-
-                            {/* Carton Stock Stepper */}
-                            <td className="p-3 text-center">
-                              {prod.category !== 'drinks_coffee' && (
-                              <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickAdjustStock(prod, 'carton', 1)}
-                                  className="w-5 h-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded font-bold text-xs flex items-center justify-center"
-                                  title="افزایش ۱ کارتن"
-                                >
-                                  +
-                                </button>
-                                <span className="font-bold font-mono text-xs text-indigo-700 px-1 min-w-[24px] text-center">
-                                  {formatNumberFa(Math.floor(stockInfo.cartons))}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickAdjustStock(prod, 'carton', -1)}
-                                  className="w-5 h-5 bg-white hover:bg-rose-100 text-rose-700 rounded font-bold text-xs flex items-center justify-center border border-slate-200"
-                                  title="کاهش ۱ کارتن"
-                                >
-                                  -
-                                </button>
-                              </div>
-                              )}
-                            </td>
-
-                            {/* Box Stock Stepper */}
-                            <td className="p-3 text-center">
-                              {prod.category !== 'drinks_coffee' && (
-                              <div className="inline-flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200">
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickAdjustStock(prod, 'box', 1)}
-                                  className="w-5 h-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-xs flex items-center justify-center"
-                                  title="افزایش ۱ باکس"
-                                >
-                                  +
-                                </button>
-                                <span className="font-bold font-mono text-xs text-slate-800 px-1 min-w-[30px] text-center">
-                                  {formatNumberFa(Math.floor(stockInfo.totalBoxes))}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => handleQuickAdjustStock(prod, 'box', -1)}
-                                  className="w-5 h-5 bg-white hover:bg-rose-100 text-rose-700 rounded font-bold text-xs flex items-center justify-center border border-slate-200"
-                                  title="کاهش ۱ باکس"
-                                >
-                                  -
-                                </button>
-                              </div>
-                              )}
-                            </td>
-
-                            <td className="p-3 text-left font-mono font-bold text-slate-800">
-                              {prod.category === 'drinks_coffee' ? (
-                                <div>{formatToman(prod.packPrice || prod.boxPrice || 50000)} (تکی)</div>
-                              ) : (
-                                <>
-                                  <div>{formatToman(prod.cartonPrice)}</div>
-                                  <div className="text-[10px] text-slate-400 font-normal mt-0.5">
-                                    {formatToman(prod.boxPrice)} باکس / {formatToman(prod.packPrice)} پاکت
-                                  </div>
-                                </>
-                              )}
-                            </td>
-                            <td className="p-3 text-left font-mono font-black text-emerald-600">
-                              {formatToman(productTotalVal)}
-                            </td>
-                            <td className="p-3 text-center">
-                              {stockInfo.isAvailable ? (
-                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap">
-                                  {prod.category === 'drinks_coffee' ? `موجود (${formatNumberFa(stockInfo.cartons)} عدد)` : `موجود (${formatNumberFa(Math.floor(stockInfo.cartons))} کارتن)`}
-                                </span>
-                              ) : (
-                                <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-md whitespace-nowrap">
-                                  اتمام موجودی
-                                </span>
-                              )}
-                            </td>
-                            <td className="p-3 text-center">
-                              <button
-                                onClick={() => {
-                                  setProductManagementSelectedProduct(prod);
-                                  setProductManagementInitialBarcode(prod.barcode || '');
-                                  setProductManagementInitialTab('editor');
-                                  setActiveSubTab('product-manage');
-                                }}
-                                className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-700 rounded-xl text-xs font-bold transition-colors border border-indigo-200 whitespace-nowrap cursor-pointer flex items-center gap-1.5 mx-auto"
-                                title="ویرایش کامل کالا در بخش مدیریت کالا"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                                <span>ویرایش کالا</span>
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* Stock Movement Audit Log */}
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                <h3 className="text-sm font-black text-slate-900 mb-4">گزارش کاردکس و گردش کالا در انبار</h3>
-                <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                  {stockLogs.length === 0 ? (
-                    <p className="text-xs text-slate-400 text-center py-6">هنوز هیچ لاگ ورود یا خروج باری ثبت نشده است.</p>
-                  ) : (
-                    stockLogs.map((log) => (
-                      <div key={log.id} className="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex items-center justify-between text-xs">
-                        <div>
-                          <span className="font-bold text-slate-900">{log.productName}</span>
-                          <div className="text-[10px] text-slate-500 mt-0.5">{log.date} • {log.note}</div>
-                        </div>
-                        <div className="flex items-center gap-3">
-                          <span className={`font-mono font-black ${log.deltaCartons > 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {log.deltaCartons > 0 ? `+${log.deltaCartons}` : log.deltaCartons} کارتن
-                          </span>
-                          <span className="text-[10px] bg-white px-2 py-1 rounded border border-slate-200 text-slate-600 font-mono">
-                            مانده: {log.finalStockCartons} کارتن
-                          </span>
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </div>
-
-            </motion.div>
+            <PosInventoryView
+              productsList={productsList}
+              totalInventoryValue={totalInventoryValue}
+              totalCartonsInStock={totalCartonsInStock}
+              totalBoxesInStock={totalBoxesInStock}
+              totalPacksInStock={totalPacksInStock}
+              lowStockCount={lowStockCount}
+              stockLogs={stockLogs}
+              onQuickAdjustStock={(prod, unit, delta) => handleQuickAdjustStock(prod, unit, delta)}
+              onOpenProductEditor={(prod) => {
+                setProductManagementSelectedProduct(prod || null);
+                setProductManagementInitialBarcode(prod ? prod.barcode || '' : '');
+                setProductManagementInitialTab('editor');
+                setActiveSubTab('product-manage');
+              }}
+            />
           )}
 
           {/* TAB 3: Ledger Accounts & Credit Customers */}
-          {activeSubTab === 'customers' && (() => {
-            const totalDebtorBalance = posCustomers
-              .filter(c => c.balance > 0)
-              .reduce((sum, c) => sum + c.balance, 0);
-            const totalCreditorBalance = posCustomers
-              .filter(c => c.balance < 0)
-              .reduce((sum, c) => sum + Math.abs(c.balance), 0);
-
-            const filteredCustomers = posCustomers.filter(cust => {
-              const matchesSearch = 
-                cust.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-                cust.phone.includes(customerSearchQuery) ||
-                (cust.city && cust.city.includes(customerSearchQuery)) ||
-                (cust.address && cust.address.includes(customerSearchQuery));
-
-              if (!matchesSearch) return false;
-              if (customerStatusFilter === 'debtors') return cust.balance > 0;
-              if (customerStatusFilter === 'creditors') return cust.balance < 0;
-              if (customerStatusFilter === 'settled') return cust.balance === 0;
-              return true;
-            });
-
-            return (
-              <motion.div
-                key="customers-tab"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                className="space-y-6"
-              >
-                <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
-                  
-                  {/* Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-                    <div>
-                      <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                        <Users className="w-5 h-5 text-indigo-600" />
-                        <span>مدیریت پیشرفته حساب‌های دفتری و بدهکاران / بستانکاران</span>
-                      </h2>
-                      <p className="text-xs text-slate-500 mt-1">
-                        ثبت مشتریان نسیه، مانده بدهی، گردش حساب و تسویه با فاکتورهای صندوق
-                      </p>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setEditingCustomer(null);
-                        setNewCustName('');
-                        setNewCustPhone('');
-                        setNewCustAddress('');
-                        setNewCustCity('تهران');
-                        setNewCustNotes('');
-                        setNewCustInitialBalance(0);
-                        setShowNewCustomerModal(true);
-                      }}
-                      className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl shadow-md flex items-center gap-1.5 transition-all active:scale-98"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>+ تعریف مشتری دفتری جدید</span>
-                    </button>
-                  </div>
-
-                  {/* Summary Metric Cards */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div className="bg-rose-50/70 border border-rose-200 p-4 rounded-2xl">
-                      <span className="text-xs text-rose-700 font-bold flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        مجموع مطالبات (طلب فروشگاه از بدهکاران)
-                      </span>
-                      <div className="text-xl font-black text-rose-700 mt-2 font-mono">{formatToman(totalDebtorBalance)}</div>
-                      <span className="text-[10px] text-rose-600 font-bold mt-1 block">
-                        تعداد مشتریان بدهکار: {posCustomers.filter(c => c.balance > 0).length} نفر
-                      </span>
-                    </div>
-
-                    <div className="bg-emerald-50/70 border border-emerald-200 p-4 rounded-2xl">
-                      <span className="text-xs text-emerald-700 font-bold flex items-center gap-1">
-                        <Wallet className="w-4 h-4" />
-                        مجموع بستانکاری مشتریان
-                      </span>
-                      <div className="text-xl font-black text-emerald-700 mt-2 font-mono">{formatToman(totalCreditorBalance)}</div>
-                      <span className="text-[10px] text-emerald-600 font-bold mt-1 block">
-                        تعداد بستانکاران: {posCustomers.filter(c => c.balance < 0).length} نفر
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-50 border border-slate-200 p-4 rounded-2xl">
-                      <span className="text-xs text-slate-600 font-bold flex items-center gap-1">
-                        <Users className="w-4 h-4 text-indigo-600" />
-                        کل طرف‌های حساب دفتری
-                      </span>
-                      <div className="text-xl font-black text-slate-900 mt-2 font-mono">{posCustomers.length} مشتری</div>
-                      <span className="text-[10px] text-slate-500 font-bold mt-1 block">
-                        حساب‌های کاملاً تسویه: {posCustomers.filter(c => c.balance === 0).length} طرف حساب
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Search and Filter Row */}
-                  <div className="flex flex-col md:flex-row items-center justify-between gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-                    <div className="relative w-full md:w-80">
-                      <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
-                      <input
-                        type="text"
-                        value={customerSearchQuery}
-                        onChange={(e) => setCustomerSearchQuery(e.target.value)}
-                        placeholder="جستجوی نام مشتری، شماره تلفن، شهر یا آدرس..."
-                        className="w-full bg-white border border-slate-200 rounded-xl pr-9 pl-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-bold"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto">
-                      <button
-                        onClick={() => setCustomerStatusFilter('all')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                          customerStatusFilter === 'all'
-                            ? 'bg-indigo-600 text-white shadow-xs'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        همه ({posCustomers.length})
-                      </button>
-                      <button
-                        onClick={() => setCustomerStatusFilter('debtors')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                          customerStatusFilter === 'debtors'
-                            ? 'bg-rose-600 text-white shadow-xs'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        فقط بدهکاران ({posCustomers.filter(c => c.balance > 0).length})
-                      </button>
-                      <button
-                        onClick={() => setCustomerStatusFilter('creditors')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                          customerStatusFilter === 'creditors'
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        فقط بستانکاران ({posCustomers.filter(c => c.balance < 0).length})
-                      </button>
-                      <button
-                        onClick={() => setCustomerStatusFilter('settled')}
-                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                          customerStatusFilter === 'settled'
-                            ? 'bg-slate-700 text-white shadow-xs'
-                            : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
-                        }`}
-                      >
-                        تسویه شده ({posCustomers.filter(c => c.balance === 0).length})
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Customer Cards Grid */}
-                  {filteredCustomers.length === 0 ? (
-                    <div className="py-12 text-center text-slate-400 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-                      <Users className="w-10 h-10 mx-auto mb-2 opacity-30 text-indigo-500" />
-                      <p className="text-xs font-bold text-slate-600">مشتری با این مشخصات یافت نشد</p>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {filteredCustomers.map(cust => (
-                        <div 
-                          key={cust.id} 
-                          className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 flex flex-col justify-between hover:border-indigo-300 hover:shadow-md transition-all"
-                        >
-                          <div>
-                            {/* Card Top: Name & Badges */}
-                            <div className="flex items-start justify-between gap-2 mb-2.5">
-                              <div>
-                                <h4 className="font-black text-sm text-slate-900 leading-snug">{cust.name}</h4>
-                                {cust.phone && cust.phone !== '-' && (
-                                  <a 
-                                    href={`tel:${cust.phone}`}
-                                    className="inline-flex items-center gap-1 text-[11px] text-indigo-600 hover:text-indigo-800 font-mono mt-0.5 font-bold"
-                                    dir="ltr"
-                                  >
-                                    <PhoneCall className="w-3 h-3" />
-                                    <span>{cust.phone}</span>
-                                  </a>
-                                )}
-                              </div>
-                              <span 
-                                className={`px-2.5 py-1 rounded-xl text-[10px] font-black whitespace-nowrap ${
-                                  cust.balance > 0 
-                                    ? 'bg-rose-100 text-rose-700 border border-rose-200' 
-                                    : cust.balance < 0 
-                                      ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
-                                      : 'bg-slate-200/80 text-slate-700'
-                                }`}
-                              >
-                                {cust.balance > 0 ? `بدهکار: ${formatToman(cust.balance)}` : cust.balance < 0 ? `بستانکار: ${formatToman(Math.abs(cust.balance))}` : 'تسویه کامل'}
-                              </span>
-                            </div>
-
-                            {/* Address / Location */}
-                            {cust.address && (
-                              <div className="flex items-start gap-1 text-[11px] text-slate-500 mb-2 leading-relaxed">
-                                <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
-                                <span>{cust.address}</span>
-                              </div>
-                            )}
-
-                            {/* Notes / Credit Limit */}
-                            {cust.notes && (
-                              <div className="bg-white/80 border border-slate-200/60 rounded-xl px-2.5 py-1.5 text-[10px] text-slate-600 mb-2 font-bold">
-                                📝 {cust.notes}
-                              </div>
-                            )}
-
-                            <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1">
-                              <span>افتتاح حساب: {cust.createdAt}</span>
-                              {cust.city && <span className="font-bold text-slate-500">📍 {cust.city}</span>}
-                            </div>
-                          </div>
-
-                          {/* Card Actions */}
-                          <div className="mt-4 pt-3 border-t border-slate-200 flex items-center justify-between gap-1.5">
-                            <div className="flex items-center gap-1">
-                              <button
-                                onClick={() => handleOpenEditCustomer(cust)}
-                                title="ویرایش اطلاعات مشتری"
-                                className="p-1.5 bg-white border border-slate-200 hover:bg-slate-100 text-slate-600 rounded-lg transition-colors"
-                              >
-                                <Edit2 className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                onClick={() => handleDeleteCustomer(cust.id)}
-                                title="حذف مشتری"
-                                className="p-1.5 bg-white border border-slate-200 hover:bg-rose-50 text-rose-600 rounded-lg transition-colors"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={() => setCustomerHistoryModalCust(cust)}
-                                className="px-2.5 py-1.5 bg-indigo-50 border border-indigo-200 text-indigo-700 hover:bg-indigo-100 rounded-xl text-[11px] font-bold transition-colors flex items-center gap-1"
-                              >
-                                <History className="w-3.5 h-3.5" />
-                                <span>گردش حساب</span>
-                              </button>
-
-                              <button
-                                onClick={() => {
-                                  setSelectedCustomerForPayment(cust);
-                                  setPaymentAmount(Math.abs(cust.balance));
-                                  setPaymentType(cust.balance >= 0 ? 'credit' : 'debit');
-                                }}
-                                className="px-3 py-1.5 bg-emerald-600 text-white rounded-xl text-[11px] font-bold hover:bg-emerald-700 transition-colors shadow-xs"
-                              >
-                                تسویه / دریافت وجه
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Ledger Transactions Audit History */}
-                  <div className="pt-4 border-t border-slate-200">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
-                        <History className="w-4 h-4 text-indigo-600" />
-                        <span>آخرین تراکنش‌ها و ریز گردش دفاتر حساب</span>
-                      </h3>
-                      <span className="text-xs text-slate-500 font-mono font-bold">
-                        {ledgerTransactions.length} تراکنش ثبت شده
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
-                      {ledgerTransactions.map(tx => {
-                        const cust = posCustomers.find(c => c.id === tx.customerId);
-                        return (
-                          <div key={tx.id} className="bg-slate-50 border border-slate-200 p-3 rounded-2xl flex items-center justify-between text-xs hover:bg-slate-100/80 transition-colors">
-                            <div className="flex items-center gap-2.5">
-                              <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs ${
-                                tx.type === 'debit' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
-                              }`}>
-                                {tx.type === 'debit' ? 'بدهی' : 'واریز'}
-                              </div>
-                              <div>
-                                <span className="font-bold text-slate-900">{cust?.name || 'مشتری دفتری'}</span>
-                                <p className="text-[11px] text-slate-500 mt-0.5">{tx.date} • {tx.description}</p>
-                              </div>
-                            </div>
-                            <span className={`font-mono font-black text-sm ${tx.type === 'debit' ? 'text-rose-600' : 'text-emerald-600'}`}>
-                              {tx.type === 'debit' ? `+${formatToman(tx.amount)}` : `-${formatToman(tx.amount)}`}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                </div>
-              </motion.div>
-            );
-          })()}
+          {activeSubTab === 'customers' && (
+            <PosCustomerLedgerView
+              posCustomers={posCustomers}
+              ledgerTransactions={ledgerTransactions}
+              customerSearchQuery={customerSearchQuery}
+              setCustomerSearchQuery={setCustomerSearchQuery}
+              customerStatusFilter={customerStatusFilter}
+              setCustomerStatusFilter={setCustomerStatusFilter}
+              onOpenNewCustomerModal={() => {
+                setEditingCustomer(null);
+                setNewCustName('');
+                setNewCustPhone('');
+                setNewCustAddress('');
+                setNewCustCity('تهران');
+                setNewCustNotes('');
+                setNewCustInitialBalance(0);
+                setShowNewCustomerModal(true);
+              }}
+              onOpenEditCustomer={(cust) => handleOpenEditCustomer(cust)}
+              onDeleteCustomer={(id) => handleDeleteCustomer(id)}
+              onOpenCustomerHistory={(cust) => setCustomerHistoryModalCust(cust)}
+              onOpenPaymentModal={(cust) => {
+                setSelectedCustomerForPayment(cust);
+                setPaymentAmount(Math.abs(cust.balance));
+                setPaymentType(cust.balance >= 0 ? 'credit' : 'debit');
+              }}
+            />
+          )}
 
           {/* TAB 4: Daily & Monthly Sales Reports */}
           {activeSubTab === 'reports' && (
-            <motion.div
-              key="reports-tab"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
-                
-                {/* Header & Date Controls */}
-                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 pb-5">
-                  <div>
-                    <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-                      <BarChart3 className="w-6 h-6 text-indigo-600" />
-                      <span>سامانه گزارش‌گیری پیشرفته فروش روزانه و ماهانه</span>
-                    </h2>
-                    <p className="text-xs text-slate-500 mt-1">
-                      مشاهده ریز آمار فروش، گزارش تفکیکی تاریخ‌ها، ماه‌ها و عملکرد کالاها با قابلیت استخراج و جزئیات فاکتورها
-                    </p>
-                  </div>
-
-                  {/* Date Filter Badges */}
-                  <div className="flex flex-wrap items-center gap-1.5 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200">
-                    <button
-                      onClick={() => { setReportDateFilter('all'); setCustomSearchDate(''); }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${reportDateFilter === 'all' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      کل فاکتورها ({receiptsList.length})
-                    </button>
-                    <button
-                      onClick={() => { setReportDateFilter('today'); setCustomSearchDate(''); }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${reportDateFilter === 'today' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      امروز (۰۴ شهریور)
-                    </button>
-                    <button
-                      onClick={() => { setReportDateFilter('yesterday'); setCustomSearchDate(''); }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${reportDateFilter === 'yesterday' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      دیروز (۰۳ شهریور)
-                    </button>
-                    <button
-                      onClick={() => { setReportDateFilter('7days'); setCustomSearchDate(''); }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${reportDateFilter === '7days' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      ۷ روز اخیر
-                    </button>
-                    <button
-                      onClick={() => { setReportDateFilter('this_month'); setCustomSearchDate(''); }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${reportDateFilter === 'this_month' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      ماه جاری (شهریور ۱۴۰۳)
-                    </button>
-                    <button
-                      onClick={() => { setReportDateFilter('last_month'); setCustomSearchDate(''); }}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${reportDateFilter === 'last_month' ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                    >
-                      ماه گذشته (مرداد ۱۴۰۳)
-                    </button>
-                  </div>
-                </div>
-
-                {/* Filter & Search Bar */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200/80">
-                  <div className="relative">
-                    <Search className="w-4 h-4 text-slate-400 absolute right-3 top-3" />
-                    <input
-                      type="text"
-                      value={reportSearchQuery}
-                      onChange={(e) => setReportSearchQuery(e.target.value)}
-                      placeholder="جستجوی نام مشتری، شماره فاکتور یا نام کالا..."
-                      className="w-full bg-white border border-slate-200 rounded-xl pr-9 pl-3 py-2 text-xs text-slate-900 focus:outline-none focus:border-indigo-500 font-bold"
-                    />
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
-                    <input
-                      type="text"
-                      value={customSearchDate}
-                      onChange={(e) => {
-                        setCustomSearchDate(e.target.value);
-                        setReportDateFilter('custom');
-                      }}
-                      placeholder="فیلتر تاریخ خاص (مثال: 1403/06/04)"
-                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs text-slate-900 font-mono focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div className="flex items-center justify-end gap-2 text-xs font-bold text-slate-500">
-                    <Filter className="w-4 h-4 text-indigo-600" />
-                    <span>تعداد فاکتورهای یافت شده: <strong className="text-slate-900 font-mono text-sm">{filteredReceiptsForReports.length}</strong> فاکتور</span>
-                  </div>
-                </div>
-
-                {/* Metric Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-gradient-to-br from-indigo-50 to-slate-50 border border-indigo-100 p-4 rounded-2xl shadow-2xs">
-                    <span className="text-xs text-slate-500 font-bold flex items-center gap-1">
-                      <Wallet className="w-3.5 h-3.5 text-indigo-600" />
-                      مجموع درآمد کل دوره
-                    </span>
-                    <div className="text-xl font-black text-indigo-700 mt-1.5">{formatToman(reportMetrics.totalSales)}</div>
-                    <span className="text-[10px] text-indigo-900/60 font-mono mt-1 block font-bold">تعداد کل فاکتورها: {reportMetrics.count}</span>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-blue-50 to-slate-50 border border-blue-100 p-4 rounded-2xl shadow-2xs">
-                    <span className="text-xs text-slate-500 font-bold flex items-center gap-1">
-                      <CreditCard className="w-3.5 h-3.5 text-blue-600" />
-                      فروش دستگاه کارتخوان (POS)
-                    </span>
-                    <div className="text-xl font-black text-blue-700 mt-1.5">{formatToman(reportMetrics.posTerminalSales)}</div>
-                    <span className="text-[10px] text-blue-900/60 font-mono mt-1 block font-bold">
-                      {reportMetrics.totalSales > 0 ? `${Math.round((reportMetrics.posTerminalSales / reportMetrics.totalSales) * 100)}٪ از کل فروش` : '۰٪'}
-                    </span>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-emerald-50 to-slate-50 border border-emerald-100 p-4 rounded-2xl shadow-2xs">
-                    <span className="text-xs text-slate-500 font-bold flex items-center gap-1">
-                      <DollarSign className="w-3.5 h-3.5 text-emerald-600" />
-                      فروش نقدی (وجه نقد)
-                    </span>
-                    <div className="text-xl font-black text-emerald-700 mt-1.5">{formatToman(reportMetrics.cashSales)}</div>
-                    <span className="text-[10px] text-emerald-900/60 font-mono mt-1 block font-bold">
-                      {reportMetrics.totalSales > 0 ? `${Math.round((reportMetrics.cashSales / reportMetrics.totalSales) * 100)}٪ از کل فروش` : '۰٪'}
-                    </span>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-purple-50 to-slate-50 border border-purple-100 p-4 rounded-2xl shadow-2xs">
-                    <span className="text-xs text-slate-500 font-bold flex items-center gap-1">
-                      <BookOpen className="w-3.5 h-3.5 text-purple-600" />
-                      فروش حساب دفتری (نسیه)
-                    </span>
-                    <div className="text-xl font-black text-purple-700 mt-1.5">{formatToman(reportMetrics.ledgerSales)}</div>
-                    <span className="text-[10px] text-purple-900/60 font-mono mt-1 block font-bold">
-                      {reportMetrics.totalSales > 0 ? `${Math.round((reportMetrics.ledgerSales / reportMetrics.totalSales) * 100)}٪ از کل فروش` : '۰٪'}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Stock Outflow Summary Pills */}
-                <div className="bg-slate-900 text-white p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400 border border-indigo-500/30">
-                      <Layers className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-black">حجم کلی بار و مقادیر خروجی از انبار در این بازه:</h4>
-                      <p className="text-[10px] text-slate-400 mt-0.5">تفکیک دقیق واحدهای کارتنی، باکسی و پاکتی تحویل داده شده به مشتریان</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-3 w-full md:w-auto text-center font-mono">
-                    <div className="bg-slate-800 border border-slate-700 px-4 py-2 rounded-xl">
-                      <span className="text-[10px] text-slate-400 block font-sans">کارتن فروخته شده</span>
-                      <span className="text-indigo-400 text-base font-black">{formatNumberFa(reportMetrics.cartonsSold)}</span>
-                    </div>
-                    <div className="bg-slate-800 border border-slate-700 px-4 py-2 rounded-xl">
-                      <span className="text-[10px] text-slate-400 block font-sans">باکس فروخته شده</span>
-                      <span className="text-emerald-400 text-base font-black">{formatNumberFa(reportMetrics.boxesSold)}</span>
-                    </div>
-                    <div className="bg-slate-800 border border-slate-700 px-4 py-2 rounded-xl">
-                      <span className="text-[10px] text-slate-400 block font-sans">پاکت فروخته شده</span>
-                      <span className="text-amber-400 text-base font-black">{formatNumberFa(reportMetrics.packsSold)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Sub-Tab Navigation for Reports */}
-                <div className="border-b border-slate-200 flex items-center gap-2 sm:gap-4 text-xs font-bold pt-2 overflow-x-auto whitespace-nowrap pb-1">
-                  <button
-                    onClick={() => setReportSubTab('daily')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${reportSubTab === 'daily' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>🗓️ گزارش فروش روزانه (بر اساس تاریخ)</span>
-                    <span className="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 rounded-full font-mono">{dailySalesGrouped.length} روز</span>
-                  </button>
-
-                  <button
-                    onClick={() => setReportSubTab('monthly')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${reportSubTab === 'monthly' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-                  >
-                    <CalendarRange className="w-4 h-4" />
-                    <span>📅 گزارش فروش ماهانه (بر اساس ماه)</span>
-                    <span className="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-mono">{monthlySalesGrouped.length} ماه</span>
-                  </button>
-
-                  <button
-                    onClick={() => setReportSubTab('products')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${reportSubTab === 'products' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-                  >
-                    <Package className="w-4 h-4" />
-                    <span>🛍️ ریز گزارش اقلام فروخته شده (محصولات)</span>
-                  </button>
-
-                  <button
-                    onClick={() => setReportSubTab('receipts')}
-                    className={`pb-3 border-b-2 transition-colors flex items-center gap-1.5 shrink-0 ${reportSubTab === 'receipts' ? 'border-indigo-600 text-indigo-600 font-black' : 'border-transparent text-slate-500 hover:text-slate-800'}`}
-                  >
-                    <FileText className="w-4 h-4" />
-                    <span>🧾 لیست تمام فاکتورهای این بازه</span>
-                  </button>
-                </div>
-
-                {/* SUB-VIEW 1: DAILY SALES TABLE */}
-                {reportSubTab === 'daily' && (
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <h3 className="text-sm font-black text-slate-900">جدول تفکیکی فروش روز به روز (بر اساس تاریخ شمسی)</h3>
-                      <span className="text-xs text-slate-500">جهت مشاهده ریز فاکتورهای هر روز، روی دکمه «ریز گزارش روزانه» کلیک کنید.</span>
-                    </div>
-
-                    <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
-                      <table className="w-full text-right text-xs min-w-[720px]">
-                        <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                          <tr>
-                            <th className="p-3">تاریخ فروش</th>
-                            <th className="p-3 text-center">تعداد فاکتور</th>
-                            <th className="p-3">فروش کارتخوان</th>
-                            <th className="p-3">فروش نقدی</th>
-                            <th className="p-3">حساب دفتری (نسیه)</th>
-                            <th className="p-3 text-center">حجم بار خروجی</th>
-                            <th className="p-3">مجموع فروش روز</th>
-                            <th className="p-3 text-center">عملیات & ریز گزارش</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {dailySalesGrouped.length === 0 ? (
-                            <tr>
-                              <td colSpan={8} className="p-8 text-center text-slate-400">
-                                هیچ تراکنش و فاکتور فروشی برای این بازه یافت نشد.
-                              </td>
-                            </tr>
-                          ) : (
-                            dailySalesGrouped.map((day) => (
-                              <tr key={day.date} className="hover:bg-indigo-50/40 transition-colors">
-                                <td className="p-3 font-mono font-black text-indigo-900 flex items-center gap-1.5">
-                                  <Calendar className="w-3.5 h-3.5 text-indigo-600" />
-                                  <span>{day.date}</span>
-                                </td>
-                                <td className="p-3 text-center font-mono font-bold">
-                                  <span className="bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 text-slate-700">
-                                    {day.receipts.length} فاکتور
-                                  </span>
-                                </td>
-                                <td className="p-3 font-mono text-blue-700 font-bold">{formatToman(day.posSales)}</td>
-                                <td className="p-3 font-mono text-emerald-700 font-bold">{formatToman(day.cashSales)}</td>
-                                <td className="p-3 font-mono text-purple-700 font-bold">{formatToman(day.ledgerSales)}</td>
-                                <td className="p-3 text-center font-mono text-[11px]">
-                                  {day.cartons > 0 && <span className="bg-indigo-50 text-indigo-700 px-1.5 py-0.5 rounded font-bold ml-1">{day.cartons} کارتن</span>}
-                                  {day.boxes > 0 && <span className="bg-slate-100 text-slate-800 px-1.5 py-0.5 rounded font-bold ml-1">{day.boxes} باکس</span>}
-                                  {day.packs > 0 && <span className="bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold">{day.packs} پاکت</span>}
-                                </td>
-                                <td className="p-3 font-mono font-black text-sm text-indigo-600">{formatToman(day.totalSales)}</td>
-                                <td className="p-3 text-center">
-                                  <button
-                                    onClick={() => setSelectedDateForDetailModal(day.date)}
-                                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 mx-auto"
-                                  >
-                                    <Eye className="w-3.5 h-3.5" />
-                                    <span>ریز گزارش روزانه</span>
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* SUB-VIEW 2: MONTHLY SALES TABLE */}
-                {reportSubTab === 'monthly' && (
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <h3 className="text-sm font-black text-slate-900">جدول خلاصه عملکرد ماهانه فروشگاه (ماه به ماه)</h3>
-                      <span className="text-xs text-slate-500">تحلیل درآمد کل ماه‌ها و میانگین فروش روزانه هر ماه</span>
-                    </div>
-
-                    <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
-                      <table className="w-full text-right text-xs min-w-[720px]">
-                        <thead className="bg-purple-50 text-purple-900 font-bold border-b border-purple-200">
-                          <tr>
-                            <th className="p-3">ماه و سال</th>
-                            <th className="p-3 text-center">روزهای کاری فعال</th>
-                            <th className="p-3 text-center">تعداد فاکتورها</th>
-                            <th className="p-3">میانگین فروش روزانه</th>
-                            <th className="p-3">فروش کارتخوان</th>
-                            <th className="p-3">فروش نقدی و دفتری</th>
-                            <th className="p-3">درآمد کل ماه</th>
-                            <th className="p-3 text-center">جزئیات کامل ماه</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {monthlySalesGrouped.length === 0 ? (
-                            <tr>
-                              <td colSpan={8} className="p-8 text-center text-slate-400">
-                                اطلاعاتی برای این ماه ثبت نشده است.
-                              </td>
-                            </tr>
-                          ) : (
-                            monthlySalesGrouped.map((m) => {
-                              const avgDaily = Math.round(m.totalSales / (m.activeDaysCount || 1));
-                              return (
-                                <tr key={m.monthKey} className="hover:bg-purple-50/40 transition-colors">
-                                  <td className="p-3 font-black text-purple-950 flex items-center gap-2">
-                                    <CalendarRange className="w-4 h-4 text-purple-600" />
-                                    <span>{m.monthName}</span>
-                                  </td>
-                                  <td className="p-3 text-center font-mono font-bold text-slate-700">{m.activeDaysCount} روز</td>
-                                  <td className="p-3 text-center font-mono font-bold text-slate-700">{m.receipts.length} فاکتور</td>
-                                  <td className="p-3 font-mono font-bold text-slate-600">{formatToman(avgDaily)}</td>
-                                  <td className="p-3 font-mono text-blue-700 font-bold">{formatToman(m.posSales)}</td>
-                                  <td className="p-3 font-mono text-emerald-700 font-bold">{formatToman(m.cashSales + m.ledgerSales)}</td>
-                                  <td className="p-3 font-mono font-black text-sm text-purple-700">{formatToman(m.totalSales)}</td>
-                                  <td className="p-3 text-center">
-                                    <button
-                                      onClick={() => setSelectedMonthForDetailModal(m.monthKey)}
-                                      className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 mx-auto"
-                                    >
-                                      <Eye className="w-3.5 h-3.5" />
-                                      <span>ریز گزارش ماهانه</span>
-                                    </button>
-                                  </td>
-                                </tr>
-                              );
-                            })
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* SUB-VIEW 3: PRODUCTS SALES BREAKDOWN */}
-                {reportSubTab === 'products' && (
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <h3 className="text-sm font-black text-slate-900">گزارش خروجی کالاها و رتبه‌بندی اقلام پرفروش</h3>
-                      <span className="text-xs text-slate-500">تفکیک دقیق تعداد کارتن، باکس و پاکت فروخته شده هر محصول</span>
-                    </div>
-
-                    <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
-                      <table className="w-full text-right text-xs min-w-[700px]">
-                        <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                          <tr>
-                            <th className="p-3">رتبه</th>
-                            <th className="p-3">نام فارسی کالا</th>
-                            <th className="p-3">برند / دسته</th>
-                            <th className="p-3 text-center">کارتن فروخته شده</th>
-                            <th className="p-3 text-center">باکس فروخته شده</th>
-                            <th className="p-3 text-center">پاکت فروخته شده</th>
-                            <th className="p-3">مجموع درآمد کل محصول</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {productSalesGrouped.length === 0 ? (
-                            <tr>
-                              <td colSpan={7} className="p-8 text-center text-slate-400">
-                                هیچ کالایی در این بازه فروخته نشده است.
-                              </td>
-                            </tr>
-                          ) : (
-                            productSalesGrouped.map((prod, idx) => (
-                              <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                                <td className="p-3 font-mono font-bold text-slate-400 text-center">{idx + 1}</td>
-                                <td className="p-3 font-black text-slate-900">{prod.productName}</td>
-                                <td className="p-3 text-slate-500">{prod.brand}</td>
-                                <td className="p-3 text-center font-mono font-bold text-indigo-700">{prod.cartons > 0 ? `${prod.cartons} کارتن` : '-'}</td>
-                                <td className="p-3 text-center font-mono font-bold text-slate-800">{prod.boxes > 0 ? `${prod.boxes} باکس` : '-'}</td>
-                                <td className="p-3 text-center font-mono font-bold text-emerald-700">{prod.packs > 0 ? `${prod.packs} پاکت` : '-'}</td>
-                                <td className="p-3 font-mono font-black text-indigo-600">{formatToman(prod.totalRevenue)}</td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-                {/* SUB-VIEW 4: RECEIPTS AUDIT LIST */}
-                {reportSubTab === 'receipts' && (
-                  <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1">
-                      <h3 className="text-sm font-black text-slate-900">لیست تمام فاکتورهای فروش در این بازه انتخاب شده</h3>
-                      <span className="text-xs text-slate-500">قابلیت مشاهده فیش، چاپ مجدد و بررسی روش تسویه</span>
-                    </div>
-
-                    <div className="border border-slate-200 rounded-2xl overflow-x-auto shadow-2xs">
-                      <table className="w-full text-right text-xs min-w-[700px]">
-                        <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                          <tr>
-                            <th className="p-3">شماره فاکتور</th>
-                            <th className="p-3">تاریخ و زمان</th>
-                            <th className="p-3">نام خریدار / مشتری</th>
-                            <th className="p-3">روش تسویه</th>
-                            <th className="p-3 text-center">تعداد اقلام</th>
-                            <th className="p-3">مبلغ کل فاکتور</th>
-                            <th className="p-3 text-center">چاپ فیش</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {filteredReceiptsForReports.map((rcpt) => (
-                            <tr key={rcpt.id} className="hover:bg-slate-50 transition-colors">
-                              <td className="p-3 font-mono font-bold text-indigo-700">{rcpt.receiptNumber}</td>
-                              <td className="p-3 font-mono text-slate-600">{rcpt.createdAt}</td>
-                              <td className="p-3 font-bold text-slate-900">{rcpt.customerName}</td>
-                              <td className="p-3">
-                                <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                                  rcpt.paymentMethod === 'pos_terminal' ? 'bg-blue-100 text-blue-800' :
-                                  rcpt.paymentMethod === 'cash' ? 'bg-emerald-100 text-emerald-800' : 'bg-purple-100 text-purple-800'
-                                }`}>
-                                  {rcpt.paymentMethod === 'pos_terminal' ? 'کارتخوان' : rcpt.paymentMethod === 'cash' ? 'نقدی' : 'حساب دفتری'}
-                                </span>
-                              </td>
-                              <td className="p-3 text-center font-mono font-bold">{rcpt.items.length} آیتم</td>
-                              <td className="p-3 font-mono font-black text-indigo-600">{formatToman(rcpt.finalTotal)}</td>
-                              <td className="p-3 text-center">
-                                <button
-                                  onClick={() => setActiveReceiptToPrint(rcpt)}
-                                  className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-[11px] font-bold flex items-center gap-1 mx-auto"
-                                >
-                                  <Printer className="w-3.5 h-3.5 text-indigo-600" />
-                                  <span>فیش</span>
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                )}
-
-              </div>
-            </motion.div>
+            <PosReportsView
+              receiptsList={receiptsList}
+              reportDateFilter={reportDateFilter}
+              setReportDateFilter={setReportDateFilter}
+              customSearchDate={customSearchDate}
+              setCustomSearchDate={setCustomSearchDate}
+              reportSearchQuery={reportSearchQuery}
+              setReportSearchQuery={setReportSearchQuery}
+              filteredReceiptsForReports={filteredReceiptsForReports}
+              reportMetrics={reportMetrics}
+              reportSubTab={reportSubTab}
+              setReportSubTab={setReportSubTab}
+              dailySalesGrouped={dailySalesGrouped}
+              monthlySalesGrouped={monthlySalesGrouped}
+              productSalesGrouped={productSalesGrouped}
+              onOpenDailyDetail={(date) => setSelectedDateForDetailModal(date)}
+              onOpenMonthlyDetail={(mKey) => setSelectedMonthForDetailModal(mKey)}
+              onPrintReceipt={(rcpt) => setActiveReceiptToPrint(rcpt)}
+            />
           )}
 
           {/* TAB 5: Sales Receipts Ledger & Print */}
           {activeSubTab === 'ledger' && (
-            <motion.div
-              key="ledger-tab"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="space-y-6"
-            >
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-                  <div>
-                    <h2 className="text-lg font-black text-slate-900">دفتر فاکتورهای فروش و تراکنش‌های صندوق</h2>
-                    <p className="text-xs text-slate-500 mt-1">مشاهده فاکتورهای صادر شده، چاپ مجدد فاکتور فروش و ریز اقلام مشتریان</p>
-                  </div>
-                </div>
-
-                {receiptsList.length === 0 ? (
-                  <div className="py-16 text-center text-slate-400">
-                    <Receipt className="w-12 h-12 mx-auto mb-2 opacity-30" />
-                    <p className="text-xs font-bold">هنوز فاکتور فروشی از صندوق صادر نشده است.</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {receiptsList.map((rcpt) => (
-                      <div
-                        key={rcpt.id}
-                        className="bg-slate-50 border border-slate-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:border-indigo-400 transition-colors"
-                      >
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-xs font-black text-slate-900 font-mono">{rcpt.receiptNumber}</span>
-                            <span className="text-[10px] bg-indigo-50 text-indigo-700 border border-indigo-200 px-2 py-0.5 rounded font-bold">
-                              {rcpt.paymentMethod === 'pos_terminal' ? 'کارتخوان' : rcpt.paymentMethod === 'cash' ? 'نقدی' : 'حساب دفتری'}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-500 mt-1">
-                            خریدار: <strong className="text-slate-800">{rcpt.customerName}</strong> • زمان ثبت: <span className="font-mono">{rcpt.createdAt}</span>
-                          </div>
-                          <div className="text-[11px] text-slate-600 mt-1">
-                            اقلام: {rcpt.items.map(i => `${i.product.nameFa} (${i.quantity} ${i.unit === 'carton' ? 'کارتن' : i.unit === 'box' ? 'باکس' : 'پاکت'})`).join('، ')}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-4">
-                          <div className="text-left">
-                            <p className="text-[10px] text-slate-500 font-medium">مبلغ کل فاکتور</p>
-                            <p className="text-sm font-black text-emerald-600 font-mono">{formatToman(rcpt.finalTotal)}</p>
-                          </div>
-
-                          <button
-                            onClick={() => setActiveReceiptToPrint(rcpt)}
-                            className="flex items-center gap-1.5 px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
-                          >
-                            <Printer className="w-4 h-4" />
-                            <span>چاپ فیش</span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
+            <PosSalesLedgerView
+              receiptsList={receiptsList}
+              onPrintReceipt={(rcpt) => setActiveReceiptToPrint(rcpt)}
+            />
           )}
 
           {/* TAB: Online Customer Orders */}
@@ -4822,604 +3770,43 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
           {/* TAB: SMS Gateway Management */}
           {activeSubTab === 'sms_management' && (
-            <motion.div
-              key="sms-management-tab"
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              dir="rtl"
-              className="space-y-6"
-            >
-              {/* Permission check */}
-              {!(currentStaff.role === 'super_admin' || currentStaff.permissions?.includes('send_sms')) ? (
-                <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center max-w-xl mx-auto shadow-sm space-y-6">
-                  <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto text-rose-500 text-3xl">
-                    🔒
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-black text-slate-900">عدم دسترسی به پنل پیامکی کاوه‌نگار</h3>
-                    <p className="text-xs text-slate-500 leading-relaxed">
-                      شمای کاربری فعلی شما ({currentStaff.fullName}) فاقد دسترسی «ارسال و مدیریت پیامک» است. لطفاً از طریق دکمه زیر سطح دسترسی را ارتقا دهید.
-                    </p>
-                  </div>
-                  <div className="pt-2">
-                    <button
-                      onClick={() => {
-                        setShowStaffModal(true);
-                      }}
-                      className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl transition-colors active:scale-95 shadow-md shadow-indigo-600/10"
-                    >
-                      تغییر یا ارتقای دسترسی کاربر
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Top Notification Banner */}
-                  {smsSuccessMessage && (
-                    <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-2xl flex items-center gap-2 shadow-xs">
-                      <span>✓</span>
-                      <span>{smsSuccessMessage}</span>
-                    </div>
-                  )}
-
-                  {smsErrorMessage && (
-                    <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-800 text-xs font-bold rounded-2xl flex items-center gap-2 shadow-xs">
-                      <span>⚠️</span>
-                      <span>{smsErrorMessage}</span>
-                    </div>
-                  )}
-
-                  {/* Sub-Tab Navigation Header */}
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white border border-slate-200/90 rounded-2xl p-2 shadow-xs">
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => setSmsSubTab('settings_patterns')}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all ${
-                          smsSubTab === 'settings_patterns'
-                            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-                        }`}
-                      >
-                        <span>⚙️</span>
-                        <span>تنظیمات درگاه و پترن‌ها (Gateway & Patterns)</span>
-                      </button>
-
-                      <button
-                        onClick={() => setSmsSubTab('sms_logs')}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-black transition-all relative ${
-                          smsSubTab === 'sms_logs'
-                            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
-                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100/70'
-                        }`}
-                      >
-                        <span>📜</span>
-                        <span>تاریخچه و لاگ‌های دیتابیس پیامک (SMS Database Logs)</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
-                          smsSubTab === 'sms_logs' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-700'
-                        }`}>
-                          {smsLogs.length}
-                        </span>
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-xs text-slate-500 font-bold px-3 py-1">
-                      <span className={`w-2 h-2 rounded-full ${lastSmsSync ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
-                      <span>سرویس کاوه‌نگار: {lastSmsSync ? `متصل به دیتابیس جنگو (آخرین بروزرسانی: ${lastSmsSync.toLocaleTimeString('fa-IR')})` : 'در حال بررسی اتصال...'}</span>
-                    </div>
-                  </div>
-
-                  {/* SUB-TAB 1: Gateway Settings & Patterns */}
-                  {smsSubTab === 'settings_patterns' && (
-                    <div className="space-y-6">
-                      {/* Gateway Core Settings Card */}
-                      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-6">
-                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                          <div>
-                            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                              <span>🔑</span>
-                              <span>تنظیمات وب‌سرویس کاوه‌نگار (Kavenegar SMS Gateway)</span>
-                            </h3>
-                            <p className="text-xs text-slate-500 mt-1">
-                              پیکربندی کلید API در جدول <code className="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600 font-mono text-[11px]">KavenegarSMSSetting</code> در پایگاه‌داده جنگو
-                            </p>
-                          </div>
-                          <span className="bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                            <span>درگاه فعال</span>
-                          </span>
-                        </div>
-
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                          {/* Setting: Gateway Title */}
-                          <div className="space-y-1.5">
-                            <label className="text-xs font-black text-slate-700">نام سامانه پیامکی:</label>
-                            <input
-                              type="text"
-                              value={kavenegarConfig.name}
-                              onChange={(e) => setKavenegarConfig(prev => ({ ...prev, name: e.target.value }))}
-                              className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                              placeholder="مثال: سامانه پیامک هوشمند دخانیات سرو"
-                            />
-                          </div>
-
-                          {/* Setting: API Token */}
-                          <div className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <label className="text-xs font-black text-slate-700">کلید وب‌سرویس (API Token):</label>
-                              <button
-                                type="button"
-                                onClick={() => setShowApiToken(!showApiToken)}
-                                className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold"
-                              >
-                                {showApiToken ? 'مخفی‌سازی' : 'نمایش کلید'}
-                              </button>
-                            </div>
-                            <div className="relative">
-                              <input
-                                type={showApiToken ? 'text' : 'password'}
-                                value={kavenegarConfig.api_token}
-                                onChange={(e) => setKavenegarConfig(prev => ({ ...prev, api_token: e.target.value }))}
-                                className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                                placeholder="توکن دریافتی از پنل کاوه‌نگار"
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Toggles & Save Button */}
-                        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 pt-4 border-t border-slate-100">
-                          <div className="flex flex-wrap items-center gap-6">
-                            <label className="flex items-center gap-2 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={kavenegarConfig.is_active}
-                                onChange={(e) => setKavenegarConfig(prev => ({ ...prev, is_active: e.target.checked }))}
-                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                              />
-                              <span className="text-xs font-black text-slate-800">فعال بودن درگاه پیامک</span>
-                            </label>
-
-                            <label className="flex items-center gap-2 cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={kavenegarConfig.debug_mode}
-                                onChange={(e) => setKavenegarConfig(prev => ({ ...prev, debug_mode: e.target.checked }))}
-                                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300"
-                              />
-                              <span className="text-xs font-black text-slate-800">حالت اشکال‌زدایی / شبیه‌ساز بدون کسر شارژ</span>
-                            </label>
-                          </div>
-
-                          <button
-                            onClick={async () => {
-                              try {
-                                setIsSmsLoading(true);
-                                const res = await djangoSaveKavenegarSettings(kavenegarConfig, crmConfig);
-                                if (res) {
-                                  setSmsSuccessMessage('تنظیمات درگاه کاوه‌نگار با موفقیت در پایگاه‌داده جنگو ذخیره شد.');
-                                  await loadSmsData(); // Refresh from server
-                                  setTimeout(() => setSmsSuccessMessage(''), 4000);
-                                } else {
-                                  setSmsErrorMessage('خطا: ارتباط با سرور جنگو برقرار شد اما تنظیمات ذخیره نگردید. وضعیت توکن یا دسترسی را بررسی کنید.');
-                                  setTimeout(() => setSmsErrorMessage(''), 5000);
-                                }
-                              } catch (err) {
-                                setSmsErrorMessage('خطای سیستمی در ذخیره‌سازی تنظیمات: ' + (err instanceof Error ? err.message : 'نامشخص'));
-                                setTimeout(() => setSmsErrorMessage(''), 5000);
-                              } finally {
-                                setIsSmsLoading(false);
-                              }
-                            }}
-                            disabled={isSmsLoading}
-                            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-black transition-all active:scale-95 shadow-md shadow-indigo-600/10 flex items-center justify-center gap-2"
-                          >
-                            <span>💾 ذخیره تنظیمات درگاه در سرور جنگو</span>
-                          </button>
-                        </div>
-                      </div>
-
-                      {/* Patterns Configuration Grid */}
-                      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-5">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-                          <div>
-                            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                              <span>📑</span>
-                              <span>پترن‌ها و الگوهای خدماتی کاوه‌نگار (Pattern Templates)</span>
-                            </h3>
-                            <p className="text-xs text-slate-500 mt-1">
-                              ثبت کد پترن انگلیسی برای هر بخش مطابق با تاییدیه وب‌سرویس خدماتی کاوه‌نگار (<code className="font-mono text-indigo-600 text-[11px]">SMSPattern</code> Model)
-                            </p>
-                          </div>
-                          
-                          <div className="flex items-center gap-3 self-start sm:self-auto">
-                            <span className="bg-indigo-50 text-indigo-700 text-xs font-bold px-3 py-1 rounded-full font-mono">
-                              {smsPatterns.length} الگو تعریف شده
-                            </span>
-
-                            <button
-                              onClick={async () => {
-                                try {
-                                  setIsSavingAllPatterns(true);
-                                  const res = await djangoSaveAllSmsPatterns(smsPatterns, crmConfig);
-                                  if (res) {
-                                    setSmsSuccessMessage('تمامی کدهای پترن با موفقیت در پایگاه‌داده جنگو ذخیره و فعال شدند.');
-                                    await loadSmsData(); // Refresh from server
-                                    setTimeout(() => setSmsSuccessMessage(''), 4000);
-                                  } else {
-                                    setSmsErrorMessage('خطا در ذخیره‌سازی گروهی پترن‌ها.');
-                                    setTimeout(() => setSmsErrorMessage(''), 4000);
-                                  }
-                                } catch {
-                                  setSmsErrorMessage('خطای ارتباطی در ذخیره پترن‌ها.');
-                                  setTimeout(() => setSmsErrorMessage(''), 4000);
-                                } finally {
-                                  setIsSavingAllPatterns(false);
-                                }
-                              }}
-                              disabled={isSavingAllPatterns || isSmsLoading}
-                              className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 text-white rounded-xl text-xs font-black transition-all active:scale-95 shadow-sm flex items-center gap-1.5"
-                            >
-                              {isSavingAllPatterns ? (
-                                <span>در حال ذخیره...</span>
-                              ) : (
-                                <>
-                                  <span>💾</span>
-                                  <span>ذخیره همه الگوها</span>
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-
-                        {isSmsLoading && smsPatterns.length === 0 ? (
-                          <div className="text-center py-12 text-xs text-slate-500">در حال دریافت الگوها از پایگاه‌داده...</div>
-                        ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {smsPatterns.map((p) => {
-                              const isSaving = Boolean(savingPatternKey[p.name_fa]);
-                              const isSaved = Boolean(savedPatternKey[p.name_fa]);
-
-                              const handleSaveSingle = async () => {
-                                try {
-                                  setSavingPatternKey(prev => ({ ...prev, [p.name_fa]: true }));
-                                  const sRes = await djangoSaveSmsPattern(p.name_fa, p.pattern_code, crmConfig);
-                                  if (sRes) {
-                                    setSavedPatternKey(prev => ({ ...prev, [p.name_fa]: true }));
-                                    setSmsSuccessMessage(`کد پترن «${p.title_fa || p.name_fa}» با موفقیت در دیتابیس ذخیره شد.`);
-                                    setTimeout(() => {
-                                      setSavedPatternKey(prev => ({ ...prev, [p.name_fa]: false }));
-                                    }, 2500);
-                                    setTimeout(() => setSmsSuccessMessage(''), 3500);
-                                  } else {
-                                    setSmsErrorMessage('خطا در ذخیره‌سازی الگو.');
-                                    setTimeout(() => setSmsErrorMessage(''), 3500);
-                                  }
-                                } catch {
-                                  setSmsErrorMessage('خطای ارتباطی با وب‌سرویس.');
-                                  setTimeout(() => setSmsErrorMessage(''), 3500);
-                                } finally {
-                                  setSavingPatternKey(prev => ({ ...prev, [p.name_fa]: false }));
-                                }
-                              };
-
-                              return (
-                                <div
-                                  key={p.id || p.name_fa}
-                                  className="border border-slate-200/80 rounded-2xl p-4 bg-slate-50/40 hover:bg-white hover:border-indigo-300 transition-all shadow-xs space-y-3.5 relative flex flex-col justify-between"
-                                >
-                                  <div className="space-y-1.5">
-                                    <div className="flex items-start justify-between gap-2">
-                                      <h4 className="text-xs font-black text-slate-950">
-                                        {p.title_fa || p.name_fa}
-                                      </h4>
-                                      <span className="text-[10px] bg-slate-100 text-slate-700 font-mono px-2 py-0.5 rounded font-bold">
-                                        {p.name_fa}
-                                      </span>
-                                    </div>
-
-                                    <div className="text-[10px] text-slate-500 bg-white p-2 rounded-lg border border-slate-100/80 leading-relaxed font-mono">
-                                      <span className="font-sans font-bold text-slate-700">متغیرها: </span>
-                                      {p.tokens_info || 'token, token2, token3'}
-                                    </div>
-                                  </div>
-
-                                  <div className="space-y-1.5 pt-1">
-                                    <label className="text-[11px] font-black text-slate-700 flex items-center justify-between">
-                                      <span>کد پترن انگلیسی (Pattern Code):</span>
-                                      <span className="text-[10px] text-slate-400 font-mono">Kavenegar Template</span>
-                                    </label>
-                                    <div className="flex gap-2">
-                                      <input
-                                        type="text"
-                                        value={p.pattern_code || ''}
-                                        onChange={(e) => {
-                                          const newVal = e.target.value;
-                                          setSmsPatterns(prev => prev.map(item => item.name_fa === p.name_fa ? { ...item, pattern_code: newVal } : item));
-                                        }}
-                                        onKeyDown={(e) => {
-                                          if (e.key === 'Enter') {
-                                            handleSaveSingle();
-                                          }
-                                        }}
-                                        className="flex-1 px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        placeholder="e.g. pos_receipt_sms"
-                                        dir="ltr"
-                                      />
-                                      <button
-                                        onClick={handleSaveSingle}
-                                        disabled={isSaving}
-                                        className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all active:scale-95 flex items-center justify-center gap-1 min-w-[65px] ${
-                                          isSaved
-                                            ? 'bg-emerald-600 text-white'
-                                            : 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white'
-                                        }`}
-                                        title="ذخیره کد پترن در دیتابیس (Enter)"
-                                      >
-                                        {isSaving ? (
-                                          <span className="text-[11px]">...</span>
-                                        ) : isSaved ? (
-                                          <span>✓ ذخیره شد</span>
-                                        ) : (
-                                          <span>ذخیره</span>
-                                        )}
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* SUB-TAB 2: SMS Database Logs (Django Admin Style) */}
-                  {smsSubTab === 'sms_logs' && (
-                    <div className="space-y-6">
-                      {/* Summary Metric Cards */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-1">
-                          <span className="text-[11px] font-bold text-slate-500">کل پیامک‌های ارسالی</span>
-                          <div className="text-xl font-black text-slate-900 font-mono">{smsLogs.length}</div>
-                        </div>
-
-                        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-1">
-                          <span className="text-[11px] font-bold text-emerald-600">رسیده به گوشی (Delivered)</span>
-                          <div className="text-xl font-black text-emerald-700 font-mono">
-                            {smsLogs.filter(l => l.status === 'delivered').length}
-                          </div>
-                        </div>
-
-                        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-1">
-                          <span className="text-[11px] font-bold text-amber-600">در صف ارسال (Queued)</span>
-                          <div className="text-xl font-black text-amber-700 font-mono">
-                            {smsLogs.filter(l => l.status === 'queued' || l.status === 'sent').length}
-                          </div>
-                        </div>
-
-                        <div className="bg-white border border-slate-200/90 rounded-2xl p-4 shadow-xs space-y-1">
-                          <span className="text-[11px] font-bold text-indigo-600">مجموع هزینه ریالی</span>
-                          <div className="text-xl font-black text-indigo-700 font-mono">
-                            {smsLogs.reduce((acc, curr) => acc + (curr.cost_rial || 0), 0).toLocaleString()} <span className="text-xs font-sans">ریال</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Main Logs Table Container */}
-                      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-5">
-                        {/* Table Controls / Filters */}
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
-                          <div>
-                            <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
-                              <span>📊</span>
-                              <span>لاگ و تاریخچه پیامک‌های ارسالی دیتابیس (SmsLog Table)</span>
-                            </h3>
-                            <p className="text-xs text-slate-500 mt-0.5">
-                              دقیقاً مطابق با فیلدهای مدل جنگو <code className="font-mono text-indigo-600 text-[11px]">SmsLog</code> همراه با شناسه پیامک و وضعیت تحویل
-                            </p>
-                          </div>
-
-                          <div className="flex flex-wrap items-center gap-3">
-                            {/* Search Filter */}
-                            <div className="relative min-w-[220px]">
-                              <input
-                                type="text"
-                                value={smsSearch}
-                                onChange={(e) => setSmsSearch(e.target.value)}
-                                placeholder="جستجو شماره، پترن، شناسه..."
-                                className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                              />
-                              <span className="absolute right-2.5 top-2.5 text-slate-400 text-xs">🔍</span>
-                            </div>
-
-                            {/* Status Filter */}
-                            <select
-                              value={smsStatusFilter}
-                              onChange={(e: any) => setSmsStatusFilter(e.target.value)}
-                              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            >
-                              <option value="all">تمام وضعیت‌ها</option>
-                              <option value="delivered">رسیده به گوشی (Delivered)</option>
-                              <option value="queued">در صف ارسال (Queued)</option>
-                              <option value="failed">ناموفق (Failed)</option>
-                            </select>
-
-                            {/* Refresh Button */}
-                            <button
-                              onClick={async () => {
-                                setIsSmsLoading(true);
-                                try {
-                                  const logs = await djangoFetchSmsLogs(crmConfig);
-                                  setSmsLogs(logs);
-                                  setSmsSuccessMessage('لاگ‌ها با موفقیت از دیتابیس جنگو به‌روزرسانی شدند.');
-                                  setTimeout(() => setSmsSuccessMessage(''), 3000);
-                                } catch {
-                                  setSmsErrorMessage('خطا در دریافت لاگ‌های جدید.');
-                                  setTimeout(() => setSmsErrorMessage(''), 3000);
-                                } finally {
-                                  setIsSmsLoading(false);
-                                }
-                              }}
-                              disabled={isSmsLoading}
-                              className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors active:scale-95 flex items-center gap-1.5"
-                            >
-                              <span>🔄</span>
-                              <span>به‌روزرسانی لاگ‌ها</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        {/* Logs Table */}
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-right border-collapse">
-                            <thead>
-                              <tr className="border-b border-slate-200 text-slate-500 text-[11px] font-black bg-slate-50/70">
-                                <th className="py-3 px-3"># شناسه</th>
-                                <th className="py-3 px-3">زمان ارسال (شمسی)</th>
-                                <th className="py-3 px-3">شماره گیرنده</th>
-                                <th className="py-3 px-3">پترن / قالب</th>
-                                <th className="py-3 px-3">توکن‌های ارسالی</th>
-                                <th className="py-3 px-3">شناسه کاوه‌نگار</th>
-                                <th className="py-3 px-3">وضعیت تحویل</th>
-                                <th className="py-3 px-3">هزینه</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 text-xs">
-                              {smsLogs
-                                .filter(log => {
-                                  if (smsStatusFilter !== 'all' && log.status !== smsStatusFilter) return false;
-                                  const q = smsSearch.trim().toLowerCase();
-                                  if (!q) return true;
-                                  return (
-                                    (log.recipient_phone || log.recipient || '').toLowerCase().includes(q) ||
-                                    (log.pattern || '').toLowerCase().includes(q) ||
-                                    (log.pattern_code || '').toLowerCase().includes(q) ||
-                                    (log.kavenegar_message_id || '').toLowerCase().includes(q)
-                                  );
-                                })
-                                .map((log, idx) => {
-                                  const isDelivered = log.status === 'delivered';
-                                  const isFailed = log.status === 'failed';
-                                  const isQueued = log.status === 'queued';
-
-                                  // Format Shamsi date
-                                  let shamsiDate = '-';
-                                  if (log.created_at) {
-                                    try {
-                                      shamsiDate = new Intl.DateTimeFormat('fa-IR', {
-                                        year: 'numeric',
-                                        month: '2-digit',
-                                        day: '2-digit',
-                                        hour: '2-digit',
-                                        minute: '2-digit',
-                                        second: '2-digit'
-                                      }).format(new Date(log.created_at));
-                                    } catch {
-                                      shamsiDate = log.created_at;
-                                    }
-                                  }
-
-                                  const tokens = log.tokens_sent || {};
-
-                                  return (
-                                    <tr key={log.id || idx} className="hover:bg-slate-50/80 transition-colors">
-                                      {/* ID */}
-                                      <td className="py-3 px-3 font-mono text-[11px] text-slate-500 font-bold">
-                                        {log.id}
-                                      </td>
-
-                                      {/* Date */}
-                                      <td className="py-3 px-3 font-mono text-slate-700 text-[11px] whitespace-nowrap">
-                                        {shamsiDate}
-                                      </td>
-
-                                      {/* Recipient */}
-                                      <td className="py-3 px-3 font-mono font-bold text-slate-900" dir="ltr">
-                                        {log.recipient_phone || log.recipient}
-                                      </td>
-
-                                      {/* Pattern */}
-                                      <td className="py-3 px-3">
-                                        <div className="font-bold text-slate-900 text-xs">{log.pattern || '-'}</div>
-                                        {log.pattern_code && (
-                                          <div className="font-mono text-[10px] text-indigo-600">{log.pattern_code}</div>
-                                        )}
-                                      </td>
-
-                                      {/* Tokens */}
-                                      <td className="py-3 px-3">
-                                        <div className="flex flex-wrap gap-1 max-w-xs">
-                                          {tokens.token && (
-                                            <span className="bg-slate-100 border border-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded font-mono">
-                                              T1: {tokens.token}
-                                            </span>
-                                          )}
-                                          {tokens.token2 && (
-                                            <span className="bg-slate-100 border border-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded font-mono">
-                                              T2: {tokens.token2}
-                                            </span>
-                                          )}
-                                          {tokens.token3 && (
-                                            <span className="bg-slate-100 border border-slate-200 text-slate-700 text-[10px] px-1.5 py-0.5 rounded font-mono">
-                                              T3: {tokens.token3}
-                                            </span>
-                                          )}
-                                          {!tokens.token && !tokens.token2 && !tokens.token3 && (
-                                            <span className="text-slate-400 text-[11px]">-</span>
-                                          )}
-                                        </div>
-                                      </td>
-
-                                      {/* Message ID */}
-                                      <td className="py-3 px-3 font-mono text-[11px] text-slate-600" dir="ltr">
-                                        {log.kavenegar_message_id || '-'}
-                                      </td>
-
-                                      {/* Status Badge */}
-                                      <td className="py-3 px-3 whitespace-nowrap">
-                                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                                          isDelivered ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
-                                          isFailed ? 'bg-rose-50 text-rose-700 border border-rose-200' :
-                                          isQueued ? 'bg-amber-50 text-amber-700 border border-amber-200' :
-                                          'bg-blue-50 text-blue-700 border border-blue-200'
-                                        }`}>
-                                          <span className={`w-1.5 h-1.5 rounded-full ${
-                                            isDelivered ? 'bg-emerald-500' :
-                                            isFailed ? 'bg-rose-500' :
-                                            isQueued ? 'bg-amber-500' : 'bg-blue-500'
-                                          }`}></span>
-                                          <span>
-                                            {isDelivered ? 'رسیده به گوشی' : isFailed ? 'خطا در ارسال' : isQueued ? 'در صف ارسال' : 'ارسال‌شده'}
-                                          </span>
-                                        </span>
-                                      </td>
-
-                                      {/* Cost */}
-                                      <td className="py-3 px-3 font-mono text-slate-700 text-[11px] whitespace-nowrap">
-                                        {(log.cost_rial || 240).toLocaleString()} ریال
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-
-                              {smsLogs.length === 0 && (
-                                <tr>
-                                  <td colSpan={8} className="text-center py-12 text-slate-400 text-xs">
-                                    هنوز هیچ لاگ پیامکی در دیتابیس ثبت نشده است.
-                                  </td>
-                                </tr>
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </motion.div>
+            <KavenegarSmsManagementPanel
+              hasStaffPerm={hasStaffPerm}
+              currentStaff={currentStaff}
+              smsSuccessMessage={smsSuccessMessage}
+              smsErrorMessage={smsErrorMessage}
+              smsSubTab={smsSubTab}
+              setSmsSubTab={setSmsSubTab}
+              smsLogs={smsLogs}
+              lastSmsSync={lastSmsSync}
+              kavenegarConfig={kavenegarConfig}
+              setKavenegarConfig={setKavenegarConfig}
+              showApiToken={showApiToken}
+              setShowApiToken={setShowApiToken}
+              smsSearch={smsSearch}
+              setSmsSearch={setSmsSearch}
+              smsStatusFilter={smsStatusFilter}
+              setSmsStatusFilter={setSmsStatusFilter}
+              isSmsLoading={isSmsLoading}
+              crmConfig={crmConfig}
+              setSmsSuccessMessage={setSmsSuccessMessage}
+              setSmsErrorMessage={setSmsErrorMessage}
+              onRefreshLogs={async () => {
+                setIsSmsLoading(true);
+                try {
+                  const logs = await djangoFetchSmsLogs(crmConfig);
+                  setSmsLogs(logs);
+                  setSmsSuccessMessage('لاگ‌ها با موفقیت از دیتابیس جنگو به‌روزرسانی شدند.');
+                  setTimeout(() => setSmsSuccessMessage(''), 3000);
+                } catch {
+                  setSmsErrorMessage('خطا در دریافت لاگ‌های جدید.');
+                  setTimeout(() => setSmsErrorMessage(''), 3000);
+                } finally {
+                  setIsSmsLoading(false);
+                }
+              }}
+              onOpenStaffModal={() => setShowStaffModal(true)}
+            />
           )}
 
           {/* TAB: Notification Management (Django UserNotification) */}
@@ -7072,14 +5459,18 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   { id: 'inventory', label: 'موجودی انبار و کاردکس', icon: Package, perm: 'manage_inventory' },
                   { id: 'customers', label: 'حساب‌های دفتری (نسیه)', icon: Users, perm: 'manage_ledger' },
                   { id: 'ledger', label: 'دفتر فاکتورهای فروش', icon: Receipt, perm: 'manage_ledger' },
-                  { id: 'warehouse_messages', label: 'پیام‌های تماس سایت', icon: MessageSquare, perm: 'manage_warehouse_messages' },
-                  { id: 'user_management', label: 'مدیریت کاربران سایت', icon: UserCheck, perm: 'manage_ledger' },
+                  ...(!isPosOnlyMode() ? [
+                    { id: 'warehouse_messages', label: 'پیام‌های تماس سایت', icon: MessageSquare, perm: 'manage_warehouse_messages' },
+                    { id: 'user_management', label: 'مدیریت کاربران سایت', icon: UserCheck, perm: 'manage_ledger' },
+                  ] : []),
                   { id: 'sms_management', label: 'سامانه پیامک هوشمند', icon: Smartphone, perm: 'send_sms' },
                   { id: 'notifications', label: 'نوتیفیکیشن و اعلانات', icon: Bell, perm: 'manage_notifications' },
                   { id: 'staff_management', label: 'مدیریت پرسنل و دسترسی', icon: Sliders, perm: 'manage_staff' },
                   { id: 'tickets', label: 'تیکت‌های پشتیبانی', icon: Headphones, perm: 'manage_tickets' },
-                  { id: 'blog', label: 'وبلاگ و مقالات سایت', icon: FileText, perm: 'manage_site_settings' },
-                  { id: 'site_settings', label: 'تنظیمات اسلایدر و فوتر', icon: Settings, perm: 'manage_site_settings' },
+                  ...(!isPosOnlyMode() ? [
+                    { id: 'blog', label: 'وبلاگ و مقالات سایت', icon: FileText, perm: 'manage_site_settings' },
+                    { id: 'site_settings', label: 'تنظیمات اسلایدر و فوتر', icon: Settings, perm: 'manage_site_settings' },
+                  ] : []),
                 ]
                   .filter(item => !item.perm || hasStaffPerm(item.perm as StaffPermission))
                   .map(item => {

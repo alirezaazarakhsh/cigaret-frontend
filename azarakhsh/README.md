@@ -80,7 +80,7 @@ python manage.py startapp visitor_tickets
 
 ```bash
 # ساخت همزمان تمام ۲۴ اپلیکیشن و ایجاد فایل‌های serializers.py و urls.py درون هر اپ
-for app in accounts roles posuser regular_customers categories products orders pos ledger wallet shipping blog tickets visitors site_settings footer_settings sliders kavenegar_sms notifications pos_products finance reports warehouse_contact visitor_tickets; do
+for app in accounts roles posuser regular_customers categories products orders pos ledger wallet shipping blog tickets visitors site_settings footer_settings sliders kavenegar_sms notifications finance reports warehouse_contact visitor_tickets; do
     python manage.py startapp $app
     touch $app/serializers.py
     touch $app/urls.py
@@ -154,7 +154,6 @@ INSTALLED_APPS = [
     'sliders.apps.SlidersConfig',
     'kavenegar_sms.apps.KavenegarSmsConfig',
     'notifications.apps.NotificationsConfig',
-    'pos_products.apps.PosProductsConfig',
     'finance.apps.FinanceConfig',
     'reports.apps.ReportsConfig',
     'warehouse_contact.apps.WarehouseContactConfig',
@@ -212,7 +211,6 @@ urlpatterns = [
     path('api/v1/sliders/', include('sliders.urls')),
     path('api/v1/sms/', include('kavenegar_sms.urls')),
     path('api/v1/notifications/', include('notifications.urls')),
-    path('api/v1/pos-products/', include('pos_products.urls')),
     path('api/v1/finance/', include('finance.urls')),
     path('api/v1/reports/', include('reports.urls')),
     path('api/v1/warehouse-contact/', include('warehouse_contact.urls')),
@@ -231,7 +229,7 @@ if settings.DEBUG:
 
 ```bash
 # ایجاد فایل‌های مایگریشن برای دیتابیس
-python manage.py makemigrations accounts roles posuser regular_customers categories products orders pos ledger wallet shipping blog tickets visitors site_settings footer_settings sliders kavenegar_sms notifications pos_products finance reports warehouse_contact visitor_tickets
+python manage.py makemigrations accounts roles posuser regular_customers categories products orders pos ledger wallet shipping blog tickets visitors site_settings footer_settings sliders kavenegar_sms notifications finance reports warehouse_contact visitor_tickets
 
 # اعمال ساختار جداول به پایگاه داده PostgreSQL
 python manage.py migrate

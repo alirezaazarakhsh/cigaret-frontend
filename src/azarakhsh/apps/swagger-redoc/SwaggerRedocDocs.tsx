@@ -136,7 +136,6 @@ urlpatterns = [
     path('api/v1/sliders/', include('sliders.urls')),
     path('api/v1/kavenegar-sms/', include('kavenegar_sms.urls')),
     path('api/v1/notifications/', include('notifications.urls')),
-    path('api/v1/pos-products/', include('pos_products.urls')),
     path('api/v1/finance/', include('finance.urls')),
     path('api/v1/reports/', include('reports.urls')),
     path('api/v1/warehouse-contact/', include('warehouse_contact.urls')),

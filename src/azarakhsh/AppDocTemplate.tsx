@@ -105,19 +105,20 @@ export const AppDocTemplate: React.FC<AppDocTemplateProps> = ({
   const [copiedEndpointIdx, setCopiedEndpointIdx] = useState<number | null>(null);
 
   const tabs: { id: CodeTab; label: string; file: string; icon: string }[] = [
-    { id: 'models', label: 'مدل‌ها (models.py)', file: `${appFolder}/models.py`, icon: 'Database' },
-    { id: 'admin', label: 'پنل ادمین (admin.py)', file: `${appFolder}/admin.py`, icon: 'ShieldCheck' },
-    { id: 'serializers', label: 'سریالایزرها (serializers.py)', file: `${appFolder}/serializers.py`, icon: 'Layers' },
-    { id: 'views', label: 'ویوها و کنترلرها (views.py)', file: `${appFolder}/views.py`, icon: 'Code2' },
-    { id: 'urls', label: 'مسیرها (urls.py)', file: `${appFolder}/urls.py`, icon: 'Globe' },
+    { id: 'models', label: 'مدل‌ها (models)', file: `apps/${appFolder}/models.py`, icon: 'Database' },
+    { id: 'admin', label: 'پنل ادمین (admin)', file: `apps/${appFolder}/admin.py`, icon: 'ShieldCheck' },
+    { id: 'serializers', label: 'سریالایزرها (serializers)', file: `apps/${appFolder}/serializers.py`, icon: 'Layers' },
+    { id: 'views', label: 'ویوها و کنترلرها (views)', file: `apps/${appFolder}/views.py`, icon: 'Code2' },
+    { id: 'urls', label: 'مسیرها (urls)', file: `apps/${appFolder}/urls.py`, icon: 'Globe' },
   ];
 
   if (servicesCode) {
-    tabs.push({ id: 'services', label: `سرویس‌ها (${servicesFileName})`, file: `${appFolder}/${servicesFileName}`, icon: 'FileCode' });
+    const cleanServiceName = servicesFileName.replace(/\.py$/i, '');
+    tabs.push({ id: 'services', label: `سرویس‌ها (${cleanServiceName})`, file: `apps/${appFolder}/${servicesFileName}`, icon: 'FileCode' });
   }
 
   if (notesCode) {
-    tabs.push({ id: 'notes', label: 'راهنمای تکمیلی', file: `${appFolder}/README.md`, icon: 'Terminal' });
+    tabs.push({ id: 'notes', label: 'راهنمای تکمیلی', file: `apps/${appFolder}/README.md`, icon: 'Terminal' });
   }
 
   const getCurrentCode = () => {

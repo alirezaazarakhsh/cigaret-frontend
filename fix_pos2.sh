@@ -1,1 +1,0 @@
-sed -i 's/<\/div>\n                            <\/td>/\n                              <\/div>\n                              )}\n                            <\/td>/g' src/components/shopmanage/AccountingPosPanel.tsx

@@ -36,7 +36,6 @@ import { PosDocs } from './apps/pos/PosDocs';
 import { PosUserDocs } from './apps/posuser/PosUserDocs';
 import { CashRegisterDocs } from './apps/cash-register/CashRegisterDocs';
 import { CurrencyDocs } from './apps/currency-rates/CurrencyDocs';
-import { PosProductsDocs } from './apps/pos-products/PosProductsDocs';
 import { WarehouseStockDocs } from './apps/warehouse-stock/WarehouseStockDocs';
 import { LedgerDocs } from './apps/ledger/LedgerDocs';
 import { ReportsDocs } from './apps/reports/ReportsDocs';
@@ -113,7 +112,6 @@ const AzarakhshRouterContent: React.FC<{
         <Route path="/posuser" element={<PosUserDocs />} />
         <Route path="/cash-register" element={<CashRegisterDocs />} />
         <Route path="/currency-rates" element={<CurrencyDocs />} />
-        <Route path="/pos-products" element={<PosProductsDocs />} />
         <Route path="/warehouse-stock" element={<WarehouseStockDocs />} />
         <Route path="/ledger" element={<LedgerDocs />} />
         <Route path="/reports" element={<ReportsDocs />} />

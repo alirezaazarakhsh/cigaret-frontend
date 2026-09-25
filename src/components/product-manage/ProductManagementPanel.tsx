@@ -208,7 +208,7 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
   const fetchProductsFromDatabase = async () => {
     setIsRefreshingProducts(true);
     try {
-      const liveProducts = await productsApi.getAll();
+      const liveProducts = await productsApi.getAll({ all: 'true' });
       onUpdateProducts(liveProducts);
       showToast(`فهرست محصولات با موفقیت از دیتابیس همگام شد (${formatNumberFa(liveProducts.length)} محصول).`);
     } catch (err: any) {

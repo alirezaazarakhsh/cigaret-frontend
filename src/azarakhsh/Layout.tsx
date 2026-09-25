@@ -241,19 +241,8 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'فروش، مالی و لجستیک'
   },
   {
-    id: 'pos-products',
-    title: '۱۸. محصولات فروشگاه حضوری',
-    titleEn: 'pos_products / POS Products',
-    description: 'مدیریت کالاهای صندوق، دسته‌بندی نوشیدنی و قهوه',
-    badge: 'کالای حضوری',
-    iconName: 'Package',
-    appFolder: 'pos_products',
-    group: 'commerce',
-    groupTitle: 'فروش، مالی و لجستیک'
-  },
-  {
     id: 'warehouse-stock',
-    title: '۱۹. موجودی انبار و کاردکس',
+    title: '۱۸. موجودی انبار و کاردکس',
     titleEn: 'warehouse_stock / Stock & Kardex',
     description: 'مدیریت موجودی کالا و تاریخچه ورود و خروج',
     badge: 'انبار کالا',
@@ -264,7 +253,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'ledger',
-    title: '۲۰. حساب‌های دفتری (نسیه)',
+    title: '۱۹. حساب‌های دفتری (نسیه)',
     titleEn: 'ledger / Credit Ledger',
     description: 'مدیریت حساب مشتریان اعتباری و تسویه‌ها',
     badge: 'حساب دفتری',
@@ -275,7 +264,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'reports',
-    title: '۲۱. گزارشات فروش و کالا',
+    title: '۲۰. گزارشات فروش و کالا',
     titleEn: 'reports / Analytics',
     description: 'آمار فروش روزانه و تحلیل تک محصول',
     badge: 'گزارش تحلیلی',
@@ -285,10 +274,10 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'فروش، مالی و لجستیک'
   },
 
-  // Group 6: Support & Content (22 to 25)
+  // Group 6: Support & Content (21 to 24)
   {
     id: 'blog-tinymce',
-    title: '۲۲. اپلیکیشن وبلاگ و TinyMCE',
+    title: '۲۱. اپلیکیشن وبلاگ و TinyMCE',
     titleEn: 'blog / SEO Article App',
     description: 'مقالات با HTMLField ادیتور TinyMCE، شمارش بازدید و تصاویر',
     badge: 'TinyMCE',
@@ -299,7 +288,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'warehouse-contact',
-    title: '۲۳. فرم تماس با انبار و استعلام عمده',
+    title: '۲۲. فرم تماس با انبار و استعلام عمده',
     titleEn: 'warehouse_contact / Warehouse Contact App',
     description: 'مدیریت پیام‌های فرم تماس، استعلام نرخ عمده کارتن و پاسخگویی مدیریت انبار جنت‌آباد',
     badge: 'تماس با انبار',
@@ -310,7 +299,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'notifications',
-    title: '۲۴. سیستم نوتیفیکیشن و اطلاعیه‌ها',
+    title: '۲۳. سیستم نوتیفیکیشن و اطلاعیه‌ها',
     titleEn: 'notifications / User Notifications App',
     description: 'ارسال هشدارهای تغییرات نرخ کارتن، وضعیت سفارشات و اخبار انبار به کاربران',
     badge: 'نوتیفیکیشن',
@@ -321,7 +310,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'tickets-support',
-    title: '۲۵. سامانه جامع تیکتینگ و پشتیبانی (مشتریان و ویزیتورها)',
+    title: '۲۴. سامانه جامع تیکتینگ و پشتیبانی (مشتریان و ویزیتورها)',
     titleEn: 'tickets / Integrated Support & Ticket System',
     description: 'مدیریت متمرکز تیکت‌های پشتیبانی، تسویه پورسانت ویزیتور و تایید فیش واریزی مشتریان',
     badge: 'تیکت هوشمند',

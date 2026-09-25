@@ -24,6 +24,7 @@ from .views import (
     ProductUpdateAPIView,
     ProductSyncPosStockAPIView,
     ProductDeleteAPIView,
+    TierDiscountTemplateListAPIView,
 )
 
 router = DefaultRouter()
@@ -58,6 +59,7 @@ urlpatterns = [
     path('create/', ProductCreateAPIView.as_view(), name='product-create-short'),
 
     # کاتالوگ محصولات، پیشنهاد ویژه و صندوق (APIView)
+    path('tier-templates/', TierDiscountTemplateListAPIView.as_view(), name='tier-templates'),
     path('items/', ProductListAPIView.as_view(), name='product-list'),
     path('items/create/', ProductCreateAPIView.as_view(), name='product-create'),
     path('items/featured/', ProductFeaturedAPIView.as_view(), name='product-featured'),

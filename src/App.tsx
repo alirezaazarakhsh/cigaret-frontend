@@ -92,6 +92,7 @@ import { ProductCategoryItem } from './components/product-manage/types';
 import { getApiToken, setApiToken } from './services/apiConfig';
 import { generatePriceListPdf } from './utils/pdfGenerator';
 import { formatToman, formatNumberFa, toShamsiDate } from './utils/formatters';
+import { getAppDeploymentMode, isPosOnlyMode } from './config/appMode';
 
 export function normalizeUserProfile(rawUser: any): UserProfile {
   if (!rawUser) {
@@ -199,6 +200,9 @@ function getCategoryFromPath(pathname: string): string | null {
 }
 
 function getTabFromPath(pathname: string): NavigationTab {
+  if (isPosOnlyMode()) {
+    return 'accounting-pos';
+  }
   // Normalize path by checking both the pathname and the hash (for legacy or fallback support)
   const hash = typeof window !== 'undefined' ? window.location.hash : '';
   const p = (pathname + hash).toLowerCase();
@@ -233,7 +237,14 @@ function getPathForTab(tab: NavigationTab, selectedCat?: string): string {
     case 'live-prices': return '/live-prices';
     case 'django-crm': return '/django-crm';
     case 'django-docs': return '/azarakhsh';
-    case 'accounting-pos': return '/shopmanage/sandogh';
+    case 'accounting-pos': {
+      // If user isn't logged in, redirect them to /shopmanage/login cleanly
+      if (typeof window !== 'undefined') {
+        const isAuth = localStorage.getItem('sovin_pos_auth') === 'true';
+        if (!isAuth) return '/shopmanage/login';
+      }
+      return '/shopmanage/sandogh';
+    }
     default: return '/';
   }
 }

@@ -20,7 +20,6 @@ export type AzarakhshSectionId =
   | 'regular-customers'
   | 'footer-settings'
   | 'notifications'
-  | 'pos-products'
   | 'warehouse-stock'
   | 'ledger'
   | 'reports';

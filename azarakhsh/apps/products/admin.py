@@ -14,7 +14,6 @@ from .models import (
 )
 
 def to_jalali_str(dt):
-    """تبدیل تاریخ میلادی به تاریخ شمسی با پشتیبانی از jalali_date، jdatetime و الگوریتم داخلی"""
     if not dt:
         return "-"
     try:
@@ -31,7 +30,6 @@ def to_jalali_str(dt):
     except Exception:
         pass
 
-    # الگوریتم تبدیل میلادی به شمسی بدون نیاز به پکیج خارجی
     g_y, g_m, g_d = dt.year, dt.month, dt.day
     g_days_in_month = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
     if (g_y % 4 == 0 and g_y % 100 != 0) or (g_y % 400 == 0):
@@ -70,9 +68,6 @@ def to_jalali_str(dt):
     return f"{jy:04d}/{jm:02d}/{jd:02d} - {time_str}"
 
 
-# ==============================================================================
-# ۱. مدیریت دسته‌بندی‌ها (Category Admin)
-# ==============================================================================
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
     list_display = ['name', 'name_en', 'slug', 'color_badge', 'created_at_jalali']
@@ -94,9 +89,6 @@ class CategoryAdmin(admin.ModelAdmin):
         )
 
 
-# ==============================================================================
-# ۲. مدیریت برندهای کالا (Product Brand Admin)
-# ==============================================================================
 @admin.register(ProductBrand)
 class ProductBrandAdmin(admin.ModelAdmin):
     list_display = ['id', 'logo_preview', 'name', 'name_en', 'country', 'created_at_jalali']
@@ -118,13 +110,9 @@ class ProductBrandAdmin(admin.ModelAdmin):
         return format_html('<span style="color: #94a3b8; font-size: 12px; font-weight: 500;">بدون تصویر لوگو</span>')
 
 
-# نام مستعار جهت پشتیبانی از پروژه‌هایی که از BrandAdmin استفاده می‌کنند
 BrandAdmin = ProductBrandAdmin
 
 
-# ==============================================================================
-# ۳. مدیریت هولوگرام و اصالت کالا (Product Hologram Admin)
-# ==============================================================================
 @admin.register(ProductHologram)
 class ProductHologramAdmin(admin.ModelAdmin):
     list_display = ['title', 'issuer_org', 'country_origin', 'security_level', 'is_verified', 'updated_at_jalali']
@@ -136,20 +124,13 @@ class ProductHologramAdmin(admin.ModelAdmin):
         return to_jalali_str(obj.updated_at)
 
 
-# ==============================================================================
-# ۴. اینلاین‌های محصول (Product Inlines)
-# ==============================================================================
 class ProductTierDiscountInline(admin.TabularInline):
     model = ProductTierDiscount
     extra = 1
 
 class ProductAttributeValueInline(admin.TabularInline):
     model = ProductAttributeValue
-    extra = 2
-    autocomplete_fields = ['attribute']
-    fields = ['attribute', 'value', 'value_number', 'value_boolean']
-    verbose_name = _("ویژگی فنی / مشخصه کالا")
-    verbose_name_plural = _("ویژگی‌های فنی و مشخصات تخصصی کالا (اینلاین داینامیک)")
+    extra = 1
 
 class ProductKeyFeatureInline(admin.TabularInline):
     model = ProductKeyFeature
@@ -160,9 +141,6 @@ class ProductImageInline(admin.TabularInline):
     extra = 1
 
 
-# ==============================================================================
-# ۵. مدیریت اصلی محصولات (Product Admin)
-# ==============================================================================
 @admin.register(Product)
 class ProductAdmin(admin.ModelAdmin):
     list_display = [
@@ -183,8 +161,6 @@ class ProductAdmin(admin.ModelAdmin):
         'brand',
         'has_carton',
         'has_box',
-        'has_pack',
-        'is_box_only',
         'is_pos_only',
     ]
     search_fields = ['name', 'name_en', 'barcode', 'slug', 'focus_keyword']
@@ -192,8 +168,8 @@ class ProductAdmin(admin.ModelAdmin):
     autocomplete_fields = ['category', 'brand', 'hologram']
 
     inlines = [
-        ProductAttributeValueInline,
         ProductTierDiscountInline,
+        ProductAttributeValueInline,
         ProductKeyFeatureInline,
         ProductImageInline,
     ]
@@ -223,11 +199,10 @@ class ProductAdmin(admin.ModelAdmin):
                 ('stock_cartons', 'stock_boxes'),
                 ('boxes_per_carton', 'packs_per_box'),
                 ('min_order_carton', 'min_order_box'),
-                ('has_carton', 'has_box', 'has_pack', 'is_box_only', 'is_pos_only'),
+                ('has_carton', 'has_box', 'is_pos_only'),
             )
         }),
-        (_('مشخصات فنی کلاسیک (اختیاری - کلیه ویژگی‌ها به صورت اینلاین در پایین صفحه در دسترس است)'), {
-            'classes': ('collapse',),
+        (_('مشخصات فنی و شناسنامه استاندارد دود'), {
             'fields': (
                 ('tar', 'nicotine', 'carbon_monoxide'),
                 ('cigarette_size', 'filter_type'),
@@ -277,9 +252,6 @@ class ProductAdmin(admin.ModelAdmin):
     badge_display.short_description = _('نشان محصول')
 
 
-# ==============================================================================
-# ۶. مدیریت تعاریف ویژگی‌ها (Product Attribute Admin)
-# ==============================================================================
 @admin.register(ProductAttribute)
 class ProductAttributeAdmin(admin.ModelAdmin):
     list_display = ['id', 'name', 'name_en', 'data_type', 'unit', 'help_text_short', 'created_at_jalali']
@@ -298,9 +270,6 @@ class ProductAttributeAdmin(admin.ModelAdmin):
         return obj.help_text[:50] + ('...' if len(obj.help_text) > 50 else '')
 
 
-# ==============================================================================
-# ۷. مقادیر ویژگی‌های کالاها (Product Attribute Value Admin)
-# ==============================================================================
 @admin.register(ProductAttributeValue)
 class ProductAttributeValueAdmin(admin.ModelAdmin):
     list_display = ['id', 'product', 'attribute', 'display_val']

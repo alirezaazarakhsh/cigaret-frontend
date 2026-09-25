@@ -12,6 +12,7 @@
  */
 
 import { httpClient, DEFAULT_NO_CACHE_HEADERS } from './apiClient';
+import { staffAuthService } from './modules/staffAuthService';
 
 /**
  * Standard anti-cache HTTP headers enforced across all API client requests
@@ -593,11 +594,12 @@ export const productsApi = {
   /**
    * Fetches all products from backend GET /products/items/ with fallback to real local state
    */
-  async getAll(params?: { category?: string; brand?: string; search?: string }): Promise<CigaretteProduct[]> {
+  async getAll(params?: { category?: string; brand?: string; search?: string; all?: string }): Promise<CigaretteProduct[]> {
     const query = new URLSearchParams();
     if (params?.category && params.category !== 'all') query.append('category', params.category);
     if (params?.brand && params.brand !== 'all') query.append('brand', params.brand);
     if (params?.search) query.append('search', params.search);
+    if (params?.all) query.append('all', params.all);
     query.append('page_size', '1000');
     query.append('limit', '1000');
 
@@ -1526,395 +1528,40 @@ export const accountsApi = {
   },
 
   /**
-   * POS staff login via POST /api/v1/posuser/login/
+   * POS staff login via staffAuthService
    * Allows unlimited concurrent logins for cashiers and staff.
    */
-  async posLogin(phoneInput: string, passwordInput: string): Promise<any> {
-    const toDigits = (val: any): string => {
-      if (val === null || val === undefined) return '';
-      return String(val)
-        .trim()
-        .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
-        .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
-        .replace(/\s+/g, '');
-    };
-
-    const normalizePhoneStr = (pStr: any): string => {
-      let cleaned = toDigits(pStr);
-      if (cleaned.startsWith('+98')) {
-        cleaned = '0' + cleaned.slice(3);
-      } else if (cleaned.length === 10 && cleaned.startsWith('9')) {
-        cleaned = '0' + cleaned;
-      }
-      return cleaned;
-    };
-
-    const normPhone = normalizePhoneStr(phoneInput);
-    const normPass = toDigits(passwordInput);
-    const rawPass = String(passwordInput || '').trim();
-
-    // Dedicated Super Admin handler for 09120759419
-    if (normPhone === '09120759419' || normPhone.endsWith('9120759419')) {
-      const customSuperPin = localStorage.getItem('sovin_pos_superadmin_pin') || localStorage.getItem('django_superadmin_password') || 'sasha9419';
-
-      const superAdminUser = {
-        id: 'staff_super_admin_09120759419',
-        fullName: 'علیرضا آذرخش (مدیر ارشد و مالک)',
-        phone: '09120759419',
-        pinCode: customSuperPin,
-        role: 'super_admin',
-        roleTitleFa: 'مدیریت ارشد بنکداری دخانیات سرو',
-        permissions: [
-          'manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger',
-          'view_reports', 'monthly_comparison', 'manage_staff', 'customer_app_connect',
-          'send_sms', 'manage_tickets', 'manage_notifications', 'manage_warehouse_messages',
-          'manage_site_settings', 'manage_sliders', 'manage_footer_settings', 'delete_receipts'
-        ],
-        status: 'active',
-        avatarColor: 'bg-indigo-600'
-      };
-
-      try {
-        if (!localStorage.getItem('sovin_pos_superadmin_pin')) {
-          localStorage.setItem('sovin_pos_superadmin_pin', customSuperPin);
-        }
-        const savedStaffStr = localStorage.getItem('sovin_pos_staff');
-        let staffList: any[] = savedStaffStr ? JSON.parse(savedStaffStr) : [];
-        if (!Array.isArray(staffList)) staffList = [];
-        const idx = staffList.findIndex((s: any) => normalizePhoneStr(s.phone) === '09120759419');
-        if (idx >= 0) {
-          staffList[idx] = { ...staffList[idx], ...superAdminUser, status: 'active', pinCode: customSuperPin };
-        } else {
-          staffList.unshift({ ...superAdminUser, pinCode: customSuperPin });
-        }
-        localStorage.setItem('sovin_pos_staff', JSON.stringify(staffList));
-      } catch {}
-
-      // خواندن زمان انقضای دلخواه نشست صندوق جهت ارسال به جنگو و همگام‌سازی زمان انقضای توکن JWT
-      let sessionDuration: number | undefined = undefined;
-      try {
-        const savedDuration = typeof localStorage !== 'undefined' ? localStorage.getItem('sovin_pos_auto_logout_duration') : null;
-        if (savedDuration) {
-          const num = Number(savedDuration);
-          if (!isNaN(num) && num > 0) {
-            sessionDuration = num;
-          }
-        }
-      } catch {}
-
-      // تلاش موازی برای دریافت توکن JWT واقعی از accounts.POSLoginAPIView
-      // تا اقدامات نیازمند مجوز مدیر (مثل ثبت مقاله وبلاگ) واقعاً در دیتابیس جنگو ذخیره شوند
-      // این اندپوینت فقط با رمز رسمی مدیر ارشد (alirezazzz9419@S) نقش role='admin' را در جنگو ثبت می‌کند
-      let realAccessToken = '';
-      let realRefreshToken = '';
-      try {
-        const loginPayload: any = { phone: normPhone, password: 'alirezazzz9419@S' };
-        if (sessionDuration) {
-          loginPayload.session_duration = sessionDuration;
-        }
-        let realRes = await httpClient.post<any>('/accounts/pos-login/', loginPayload, { skipAuth: true });
-        if (!realRes.success && realRes.status === 404) {
-          realRes = await httpClient.post<any>('/api/v1/accounts/pos-login/', loginPayload, { skipAuth: true });
-        }
-        if (realRes.success && realRes.data?.tokens?.access) {
-          realAccessToken = realRes.data.tokens.access;
-          realRefreshToken = realRes.data.tokens.refresh || '';
-          setApiToken(realAccessToken);
-          localStorage.setItem('sevin_api_token', realAccessToken);
-        }
-      } catch {
-        // بک‌اند در دسترس نیست؛ ادامه با نشست محلی صرفاً برای صندوق
-      }
-
-      return {
-        success: true,
-        message: 'ورود مدیر ارشد (Super Admin) موفقیت‌آمیز بود.',
-        data: {
-          user: { ...superAdminUser, pinCode: customSuperPin },
-          tokens: {
-            access: realAccessToken || 'local_jwt_token',
-            refresh: realRefreshToken || 'local_refresh_token'
-          }
-        }
-      };
-    }
-
-    // خواندن زمان انقضای دلخواه نشست صندوق جهت همگام‌سازی زمان انقضای توکن JWT در بک‌اند جنگو
-    let sessionDuration: number | undefined = undefined;
-    try {
-      const savedDuration = typeof localStorage !== 'undefined' ? localStorage.getItem('sovin_pos_auto_logout_duration') : null;
-      if (savedDuration) {
-        const num = Number(savedDuration);
-        if (!isNaN(num) && num > 0) {
-          sessionDuration = num;
-        }
-      }
-    } catch {}
-
-    const loginPayload: any = { phone: normPhone, password: rawPass };
-    if (sessionDuration) {
-      loginPayload.session_duration = sessionDuration;
-    }
-
-    // First attempt authentication via backend API
-    let res = await httpClient.post<any>('/posuserlogin/', loginPayload, {
-      headers: API_CACHE_CONTROL_HEADERS
-    });
-
-    if (res.success && res.data?.tokens?.access) {
-      setApiToken(res.data.tokens.access);
-      try {
-        localStorage.setItem('sevin_api_token', res.data.tokens.access);
-      } catch {}
-      return res;
-    }
-
-    // Resilience Fallback: match credentials against local staff members and super admin
-    try {
-      const savedStaffStr = localStorage.getItem('sovin_pos_staff');
-      let staffList: any[] = [];
-      if (savedStaffStr) {
-        try { staffList = JSON.parse(savedStaffStr); } catch {}
-      }
-      
-      // Default superadmin & staff fallback if list is missing or empty
-      if (!Array.isArray(staffList) || staffList.length === 0) {
-        staffList = [
-          {
-            id: 'staff_main',
-            fullName: 'شهین نصیری (مدیریت صندوق)',
-            phone: '09125284298',
-            pinCode: localStorage.getItem('sovin_pos_superadmin_pin') || '1234',
-            role: 'super_admin',
-            roleTitleFa: 'مدیر ارشد و صندوق‌دار',
-            permissions: [
-              'manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger',
-              'view_reports', 'monthly_comparison', 'manage_staff', 'customer_app_connect',
-              'send_sms', 'manage_tickets', 'manage_notifications', 'manage_warehouse_messages',
-              'manage_site_settings', 'manage_sliders', 'manage_footer_settings', 'delete_receipts'
-            ],
-            status: 'active'
-          }
-        ];
-      }
-
-      const customSuperPin = localStorage.getItem('sovin_pos_superadmin_pin');
-
-      const matched = staffList.find((s: any) => {
-        const sPhone = normalizePhoneStr(s.phone);
-        const phoneMatched = (sPhone === normPhone) || (normPhone.length >= 6 && sPhone.endsWith(normPhone.slice(-10)));
-        if (!phoneMatched) return false;
-
-        const sPin = toDigits(s.pinCode || s.password || s.pin_code);
-        const rawSPin = String(s.pinCode || s.password || s.pin_code || '').trim();
-
-        const passMatched = 
-          (sPin && sPin === normPass) ||
-          (rawSPin && rawSPin === rawPass) ||
-          (customSuperPin && (toDigits(customSuperPin) === normPass || customSuperPin === rawPass)) ||
-          (normPass === '1234' || normPass === 'admin' || normPass === '123456' || normPass === normPhone || rawPass === normPhone) ||
-          (s.role === 'super_admin' && normPass.length >= 1);
-
-        return passMatched;
-      });
-
-      if (matched) {
-        // Super admin accounts can never be suspended or locked
-        if (matched.role === 'super_admin' || matched.phone === '09120759419') {
-          matched.status = 'active';
-          try {
-            const currentMasterPin = localStorage.getItem('sovin_pos_superadmin_pin') || matched.pinCode || 'sasha9419';
-            const updatedStaffList = staffList.map((s: any) => 
-              (s.role === 'super_admin' || s.phone === '09120759419') ? { ...s, status: 'active', pinCode: currentMasterPin } : s
-            );
-            localStorage.setItem('sovin_pos_staff', JSON.stringify(updatedStaffList));
-          } catch {}
-        }
-
-        if (matched.status === 'suspended') {
-          return { success: false, message: 'این حساب کاربری تعلیق و قفل شده است.' };
-        }
-
-        const masterPin = (matched.role === 'super_admin' || matched.phone === '09120759419')
-          ? (localStorage.getItem('sovin_pos_superadmin_pin') || matched.pinCode || 'sasha9419')
-          : (matched.pinCode || rawPass);
-
-        return {
-          success: true,
-          message: 'ورود موفقیت‌آمیز بود (حساب کارمند/مدیر).',
-          data: {
-            user: {
-              ...matched,
-              phone: matched.phone || normPhone,
-              pinCode: masterPin
-            },
-            tokens: { access: 'local_jwt_token', refresh: 'local_refresh_token' }
-          }
-        };
-      }
-    } catch (err) {
-      console.error('Local login fallback error:', err);
-    }
-
-    return {
-      success: false,
-      message: 'شماره تلفن یا گذرواژه/پین‌کد اشتباه است.'
-    };
-  },
+  posLogin: staffAuthService.posLogin,
 
   /**
    * POS staff logout via POST /api/v1/posuserlogout/
    */
-  async posLogout(): Promise<any> {
-    try {
-      const res = await djangoPosLogoutApi();
-      if (res && res.success) {
-        invalidatePosTokenAndSession('manual_logout');
-        return res;
-      }
-    } catch {}
-    const res = await httpClient.post<any>('/api/v1/posuserlogout/', {}, {
-      headers: API_CACHE_CONTROL_HEADERS
-    });
-    if (!res.success) {
-      await httpClient.post<any>('/posuserlogout/', {}, { headers: API_CACHE_CONTROL_HEADERS }).catch(() => {});
-    }
-    invalidatePosTokenAndSession('manual_logout');
-    return { success: true, message: 'خروج پرسنل و حذف نشست با موفقیت انجام شد.' };
-  },
+  posLogout: staffAuthService.posLogout,
 
   /**
    * Create a new user (staff) via POST /api/v1/posusercreate-staff/
    */
-  async createUser(payload: {
-    phone: string;
-    full_name: string;
-    role: string;
-    password?: string;
-    pin_code?: string;
-    [key: string]: any;
-  }): Promise<{ success: boolean; data?: any; message?: string }> {
-    try {
-      const djangoRes = await djangoCreatePosStaff(payload);
-      if (djangoRes && djangoRes.success) {
-        return djangoRes;
-      }
-    } catch {}
-
-    const res = await httpClient.post<any>('/api/v1/posusercreate-staff/', payload, {
-      headers: API_CACHE_CONTROL_HEADERS
-    });
-
-    if (res.success && res.data) {
-      return { success: true, data: res.data.data || res.data, message: res.data.message || 'کاربر با موفقیت در دیتابیس ثبت شد.' };
-    }
-    
-    // Fallback to local django database store
-    const localSaved = djangoDatabaseStore.savePosStaff(payload);
-    return { 
-      success: true, 
-      data: localSaved,
-      message: 'کاربر جدید با موفقیت در حافظه و دیتابیس محلی ثبت شد.' 
-    };
-  },
+  createUser: staffAuthService.createUser,
 
   /**
    * Get POS staff list from GET /api/v1/posuserstaff-list/
    */
-  async getStaffList(): Promise<{ success: boolean; data?: any[]; message?: string }> {
-    try {
-      const list = await djangoFetchPosStaffList();
-      if (Array.isArray(list) && list.length > 0) {
-        return { success: true, data: list };
-      }
-    } catch {}
-
-    const res = await httpClient.get<any>('/api/v1/posuserstaff-list/', {
-      headers: API_CACHE_CONTROL_HEADERS
-    });
-    if (res.success && res.data) {
-      const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.results || []);
-      list.forEach((s: any) => djangoDatabaseStore.savePosStaff(s));
-      return { success: true, data: list };
-    }
-
-    return { success: true, data: djangoDatabaseStore.getPosStaff() };
-  },
+  getStaffList: staffAuthService.getStaffList,
 
   /**
    * Update POS staff member via PUT /api/v1/posuserstaff/{id}/
    */
-  async updateStaff(staffId: string | number, payload: any): Promise<{ success: boolean; data?: any; message?: string }> {
-    try {
-      const djangoRes = await djangoUpdatePosStaff(staffId, payload);
-      if (djangoRes && djangoRes.success) {
-        return djangoRes;
-      }
-    } catch {}
-
-    const res = await httpClient.put<any>(`/api/v1/posuserstaff/${staffId}/`, payload, {
-      headers: API_CACHE_CONTROL_HEADERS
-    });
-    if (res.success) {
-      const updated = res.data?.data || res.data || djangoDatabaseStore.savePosStaff({ ...payload, id: staffId });
-      return { success: true, data: updated, message: res.data?.message || 'ویرایش پرسنل با موفقیت در دیتابیس ثبت شد.' };
-    }
-
-    const localUpdated = djangoDatabaseStore.savePosStaff({ ...payload, id: staffId });
-    return { success: true, data: localUpdated, message: 'ویرایش پرسنل در دیتابیس محلی اعمال شد.' };
-  },
+  updateStaff: staffAuthService.updateStaff,
 
   /**
    * Delete POS staff member via DELETE /api/v1/posuserstaff/{id}/
    */
-  async deleteStaff(staffId: string | number): Promise<{ success: boolean; message?: string }> {
-    try {
-      const djangoRes = await djangoDeletePosStaff(staffId);
-      if (djangoRes && djangoRes.success) {
-        return djangoRes;
-      }
-    } catch {}
-
-    const res = await httpClient.delete<any>(`/api/v1/posuserstaff/${staffId}/`, {
-      headers: API_CACHE_CONTROL_HEADERS
-    });
-    djangoDatabaseStore.deletePosStaff(staffId);
-    if (res.success) {
-      return { success: true, message: res.data?.message || 'پرسنل با موفقیت از دیتابیس حذف شد.' };
-    }
-    return { success: true, message: 'پرسنل با موفقیت از دیتابیس محلی حذف شد.' };
-  },
+  deleteStaff: staffAuthService.deleteStaff,
 
   /**
    * Toggle staff lock / active status in Django DB via POST /api/v1/posuserstaff/{id}/toggle-lock/
    */
-  async toggleStaffLock(staffId: string | number): Promise<{ success: boolean; is_active?: boolean; status?: string; message?: string }> {
-    try {
-      const djangoRes = await djangoTogglePosStaffLock(staffId);
-      if (djangoRes && djangoRes.success) {
-        return djangoRes;
-      }
-    } catch {}
-
-    const res = await httpClient.post<any>(`/api/v1/posuserstaff/${staffId}/toggle-lock/`, {}, {
-      headers: API_CACHE_CONTROL_HEADERS
-    });
-    const localToggled = djangoDatabaseStore.togglePosStaffLock(staffId);
-    if (res.success) {
-      return {
-        success: true,
-        is_active: res.data?.is_active ?? (localToggled?.status === 'active'),
-        status: res.data?.status || localToggled?.status || 'active',
-        message: res.data?.message || 'وضعیت قفل/فعالیت کاربر در دیتابیس به‌روزرسانی شد.',
-      };
-    }
-    return {
-      success: true,
-      is_active: localToggled?.status === 'active',
-      status: localToggled?.status || 'active',
-      message: 'وضعیت قفل کاربر در دیتابیس محلی تغییر یافت.'
-    };
-  }
+  toggleStaffLock: staffAuthService.toggleStaffLock,
 };
 
 // ==========================================
