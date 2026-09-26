@@ -76,6 +76,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     address = models.TextField(_("آدرس دقیق انبار / مغازه خریدار"), blank=True)
     postal_code = models.CharField(_("کد پستی ۱۰ رقمی"), max_length=10, blank=True)
     
+    # دسترسی و امکانات ویزیتور (ادغام شده مستقیم روی کاربر)
+    is_visitor = models.BooleanField(_("دسترسی ویزیتور و بازاریاب"), default=False, help_text=_("در صورت تیک زدن، این کاربر امکانات پنل ویزیتور را خواهد دید"))
+    visitor_code = models.CharField(_("کد اختصاصی ویزیتور"), max_length=50, blank=True, null=True, unique=True, help_text="مثال: VISITOR-9419")
+    commission_rate = models.DecimalField(_("درصد سود/کمیسیون ویزیتور"), max_digits=5, decimal_places=2, default=2.50)
+    total_sales_amount = models.DecimalField(_("مجموع مبلغ فروش‌های ثبت‌شده"), max_digits=14, decimal_places=0, default=0)
+    total_commission_earned = models.DecimalField(_("مجموع سود و کمیسیون دریافتی"), max_digits=12, decimal_places=0, default=0)
+
     # دسترسی‌های سیستمی
     is_active = models.BooleanField(_("حساب فعال"), default=True)
     is_staff = models.BooleanField(_("دسترسی به پنل مدیریت جنگو"), default=False)
@@ -91,8 +98,17 @@ class User(AbstractBaseUser, PermissionsMixin):
         verbose_name_plural = _("مدیریت کاربران و بنکداران")
         ordering = ['-date_joined']
 
+    def save(self, *args, **kwargs):
+        # تولید خودکار کد ویزیتور در صورت فعال‌سازی دسترسی ویزیتوری
+        if self.is_visitor and not self.visitor_code:
+            clean_phone = (self.phone or '0000').replace(' ', '').replace('-', '')
+            last4 = clean_phone[-4:] if len(clean_phone) >= 4 else '9419'
+            self.visitor_code = f"VISITOR-{last4}"
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.full_name or 'کاربر'} ({self.phone}) - {self.business_name or 'شخصی'}"
+        visitor_tag = " [ویزیتور]" if self.is_visitor else ""
+        return f"{self.full_name or 'کاربر'} ({self.phone}) - {self.business_name or 'شخصی'}{visitor_tag}"
 
 
 class PhoneOTP(models.Model):

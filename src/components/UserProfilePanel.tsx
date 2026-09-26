@@ -903,44 +903,48 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
             </div>
           </div>
 
-          {/* Quick Actions & Instant Role Switcher for Preview */}
+          {/* Quick Actions & Instant Role Switcher for Master Admin (09120759419) */}
           <div className="flex items-center gap-2 shrink-0 self-stretch sm:self-auto justify-between sm:justify-end pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-wrap">
-            {/* Instant Preview Role Switcher */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
-              <button
-                type="button"
-                onClick={() => {
-                  const updated: UserProfile = {
-                    ...currentUser,
-                    role: 'customer',
-                    shopName: currentUser.shopName || 'فروشگاه دخانیات نگین',
-                  };
-                  localStorage.setItem('sevin_current_user', JSON.stringify(updated));
-                  onUpdateProfile(updated);
-                  showToast('سوییچ به پنل فروشگاه انجام شد.');
-                }}
-                className={`px-3 py-1.5 rounded-lg transition-all ${currentUser.role === 'customer' ? 'bg-white text-blue-600 shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                پنل فروشگاه
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const updated: UserProfile = {
-                    ...currentUser,
-                    role: 'visitor',
-                    visitorCode: currentUser.visitorCode || 'VIS-9419',
-                    commissionRate: currentUser.commissionRate || 2.5,
-                  };
-                  localStorage.setItem('sevin_current_user', JSON.stringify(updated));
-                  onUpdateProfile(updated);
-                  showToast('سوییچ به پنل ویزیتور و بازاریاب انجام شد.');
-                }}
-                className={`px-3 py-1.5 rounded-lg transition-all ${currentUser.role === 'visitor' ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'}`}
-              >
-                پنل ویزیتور
-              </button>
-            </div>
+            {/* Instant Preview Role Switcher ONLY for Master Admin 09120759419 */}
+            {(currentUser.phone === '09120759419' || currentUser.phone?.endsWith('9120759419')) && (
+              <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold" title="سوییچ نقش تست اختصاصی مدیریت">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updated: UserProfile = {
+                      ...currentUser,
+                      role: 'customer',
+                      isVisitor: false,
+                      shopName: currentUser.shopName || 'فروشگاه دخانیات نگین',
+                    };
+                    localStorage.setItem('sevin_current_user', JSON.stringify(updated));
+                    onUpdateProfile(updated);
+                    showToast('سوییچ به پنل فروشگاه انجام شد.');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${currentUser.role === 'customer' && !currentUser.isVisitor ? 'bg-white text-blue-600 shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  پنل فروشگاه
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const updated: UserProfile = {
+                      ...currentUser,
+                      role: 'visitor',
+                      isVisitor: true,
+                      visitorCode: currentUser.visitorCode || 'VIS-9419',
+                      commissionRate: currentUser.commissionRate || 2.5,
+                    };
+                    localStorage.setItem('sevin_current_user', JSON.stringify(updated));
+                    onUpdateProfile(updated);
+                    showToast('سوییچ به پنل ویزیتور و بازاریاب انجام شد.');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${currentUser.role === 'visitor' || currentUser.isVisitor ? 'bg-blue-600 text-white shadow-xs font-black' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  پنل ویزیتور
+                </button>
+              </div>
+            )}
 
             <div className="flex items-center gap-2">
               <button
@@ -1058,7 +1062,7 @@ export const UserProfilePanel: React.FC<UserProfilePanelProps> = ({
           </button>
 
           {/* Visitor Only Tabs */}
-          {currentUser.role === 'visitor' && (
+          {(currentUser.role === 'visitor' || currentUser.isVisitor) && (
             <>
               <button
                 onClick={() => {

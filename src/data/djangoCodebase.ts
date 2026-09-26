@@ -21,242 +21,15 @@ export interface DjangoProjectConfig {
 }
 
 export const DJANGO_APPS_DATA: Record<string, DjangoAppCode> = {
-  visitors: {
-    id: 'visitors',
-    name: 'visitors',
-    nameFa: 'اپ ویزیتوران و باشگاه مشتریان مغازه‌داران (Visitors & Retail Club)',
-    icon: 'Users',
-    description: 'مدیریت ویزیتوران، کدهای تخصصی ویزیتور، باشگاه مشتریان مغازه‌دار و گزارشات محاسبه سود و کمیسیون فروش',
-    models: `"""
-visitors/models.py
-مدل‌های سیستم ویزیتوری، کدهای اختصاصی ویزیتور، باشگاه مشتریان (مغازه‌داران) و گزارش کمیسیون سود
-"""
-from django.db import models
-from django.utils.translation import gettext_lazy as _
-from accounts.models import User
-from orders.models import OrderInvoice
-
-
-class VisitorProfile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='visitor_profile', verbose_name=_("حساب کاربر ویزیتور"))
-    visitor_code = models.CharField(_("کد اختصاصی ویزیتور"), max_length=50, unique=True, db_index=True, help_text="مثال: VISITOR-9419")
-    commission_rate = models.DecimalField(_("درصد سود/کمیسیون ویزیتور"), max_digits=5, decimal_places=2, default=2.50, help_text="درصد کمیسیون از هر فروش (مثلا 2.50)")
-    total_sales_amount = models.DecimalField(_("مجموع مبلغ فروش‌های ثبت‌شده"), max_digits=14, decimal_places=0, default=0)
-    total_commission_earned = models.DecimalField(_("مجموع سود و کمیسیون دریافتی"), max_digits=12, decimal_places=0, default=0)
-    is_active = models.BooleanField(_("ویزیتور فعال"), default=True)
-    created_at = models.DateTimeField(_("تاریخ ایجاد"), auto_now_add=True)
-
-    class Meta:
-        verbose_name = _("پروفایل ویزیتور")
-        verbose_name_plural = _("مدیریت ویزیتوران و کمیسیون‌ها")
-
-    def __str__(self):
-        return f"ویزیتور: {self.user.full_name} (کد: {self.visitor_code})"
-
-
-class RetailShopCustomer(models.Model):
-    visitor = models.ForeignKey(VisitorProfile, on_delete=models.CASCADE, related_name='retail_shops', verbose_name=_("ویزیتور معرف"))
-    shop_name = models.CharField(_("نام مغازه / سوپرمارکت"), max_length=200)
-    owner_name = models.CharField(_("نام صاحب مغازه"), max_length=150)
-    phone = models.CharField(_("شماره تماس مغازه‌دار"), max_length=15)
-    city = models.CharField(_("شهر"), max_length=60, default="تهران")
-    address = models.TextField(_("آدرس دقیق مغازه"))
-    license_no = models.CharField(_("شماره پروانه کسب"), max_length=50, blank=True, null=True)
-    total_purchases = models.DecimalField(_("مجموع خریدهای مغازه"), max_digits=12, decimal_places=0, default=0)
-    created_at = models.DateTimeField(_("تاریخ ثبت در باشگاه"), auto_now_add=True)
-
-    class Meta:
-        verbose_name = _("مغازه باشگاه مشتریان")
-        verbose_name_plural = _("باشگاه مشتریان مغازه‌داران ویزیتور")
-
-    def __str__(self):
-        return f"{self.shop_name} - {self.owner_name} ({self.city})"
-
-
-class VisitorCommissionLog(models.Model):
-    visitor = models.ForeignKey(VisitorProfile, on_delete=models.CASCADE, related_name='commissions', verbose_name=_("ویزیتور"))
-    order = models.ForeignKey(OrderInvoice, on_delete=models.CASCADE, related_name='visitor_commissions', verbose_name=_("سفارش مرجع"))
-    retail_shop = models.ForeignKey(RetailShopCustomer, on_delete=models.SET_NULL, null=True, blank=True, verbose_name=_("مغازه خریدار"))
-    sale_amount = models.DecimalField(_("مبلغ کل فاکتور فروش"), max_digits=12, decimal_places=0)
-    commission_rate = models.DecimalField(_("درصد کمیسیون اعمالی"), max_digits=5, decimal_places=2)
-    commission_amount = models.DecimalField(_("مبلغ سود و کمیسیون ویزیتور"), max_digits=10, decimal_places=0)
-    is_settled = models.BooleanField(_("تسویه شده با ویزیتور"), default=False)
-    created_at = models.DateTimeField(_("تاریخ ثبت تراکنش کمیسیون"), auto_now_add=True)
-
-    class Meta:
-        verbose_name = _("گزارش سود و کمیسیون ویزیتور")
-        verbose_name_plural = _("گزارشات مالی سود و کمیسیون ویزیتوران")
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"کمیسیون {self.visitor.visitor_code} برای فاکتور {self.order.order_id}: {self.commission_amount} تومان"
-`,
-    admin: `"""
-visitors/admin.py
-مدیریت پیشرفته ویزیتوران، باشگاه مشتریان و گزارش سود در پنل جنگو
-"""
-from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
-from .models import VisitorProfile, RetailShopCustomer, VisitorCommissionLog
-
-
-@admin.register(VisitorProfile)
-class VisitorProfileAdmin(admin.ModelAdmin):
-    list_display = ('visitor_code', 'get_full_name', 'commission_rate', 'total_sales_amount', 'total_commission_earned', 'is_active', 'created_at')
-    list_filter = ('is_active', 'created_at')
-    search_fields = ('visitor_code', 'user__full_name', 'user__phone')
-    actions = ['activate_visitors', 'deactivate_visitors']
-
-    @admin.display(description=_("نام ویزیتور"))
-    def get_full_name(self, obj):
-        return obj.user.full_name or obj.user.phone
-
-    @admin.action(description=_("✔ فعال‌سازی ویزیتوران انتخاب شده"))
-    def activate_visitors(self, request, queryset):
-        queryset.update(is_active=True)
-
-    @admin.action(description=_("⛔ غیرفعال‌سازی ویزیتوران"))
-    def deactivate_visitors(self, request, queryset):
-        queryset.update(is_active=False)
-
-
-@admin.register(RetailShopCustomer)
-class RetailShopCustomerAdmin(admin.ModelAdmin):
-    list_display = ('shop_name', 'owner_name', 'phone', 'city', 'get_visitor_code', 'total_purchases', 'created_at')
-    list_filter = ('city', 'created_at')
-    search_fields = ('shop_name', 'owner_name', 'phone', 'visitor__visitor_code')
-
-    @admin.display(description=_("کد ویزیتور معرف"))
-    def get_visitor_code(self, obj):
-        return obj.visitor.visitor_code
-
-
-@admin.register(VisitorCommissionLog)
-class VisitorCommissionLogAdmin(admin.ModelAdmin):
-    list_display = ('id', 'get_visitor_code', 'get_shop_name', 'sale_amount', 'commission_amount', 'is_settled', 'created_at')
-    list_filter = ('is_settled', 'created_at')
-    search_fields = ('visitor__visitor_code', 'order__order_id', 'retail_shop__shop_name')
-    actions = ['mark_as_settled']
-
-    @admin.display(description=_("کد ویزیتور"))
-    def get_visitor_code(self, obj):
-        return obj.visitor.visitor_code
-
-    @admin.display(description=_("مغازه خریدار"))
-    def get_shop_name(self, obj):
-        return obj.retail_shop.shop_name if obj.retail_shop else 'خرید مستقیم'
-
-    @admin.action(description=_("💰 تأیید تسویه حساب کمیسیون با ویزیتور"))
-    def mark_as_settled(self, request, queryset):
-        queryset.update(is_settled=True)
-`,
-    serializers: `"""
-visitors/serializers.py
-سریالایزرهای DRF برای مدیریت مغازه‌داران باشگاه مشتریان و گزارشات سود ویزیتور
-"""
-from rest_framework import serializers
-from .models import VisitorProfile, RetailShopCustomer, VisitorCommissionLog
-
-
-class RetailShopCustomerSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = RetailShopCustomer
-        fields = ['id', 'visitor', 'shop_name', 'owner_name', 'phone', 'city', 'address', 'license_no', 'total_purchases', 'created_at']
-        read_only_fields = ['id', 'visitor', 'total_purchases', 'created_at']
-
-
-class VisitorCommissionLogSerializer(serializers.ModelSerializer):
-    shop_name = serializers.CharField(source='retail_shop.shop_name', read_only=True)
-    order_id = serializers.CharField(source='order.order_id', read_only=True)
-
-    class Meta:
-        model = VisitorCommissionLog
-        fields = ['id', 'order_id', 'shop_name', 'sale_amount', 'commission_rate', 'commission_amount', 'is_settled', 'created_at']
-
-
-class VisitorProfileSerializer(serializers.ModelSerializer):
-    full_name = serializers.CharField(source='user.full_name', read_only=True)
-    phone = serializers.CharField(source='user.phone', read_only=True)
-    retail_shops = RetailShopCustomerSerializer(many=True, read_only=True)
-    commissions = VisitorCommissionLogSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = VisitorProfile
-        fields = ['id', 'visitor_code', 'full_name', 'phone', 'commission_rate', 'total_sales_amount', 'total_commission_earned', 'is_active', 'retail_shops', 'commissions']
-`,
-    views: `"""
-visitors/views.py
-ویوهای API جنگو برای ثبت سفارش مغازه‌داران، مدیریت باشگاه مشتریان و دریافت گزارش سود ویزیتور
-"""
-from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from .models import VisitorProfile, RetailShopCustomer, VisitorCommissionLog
-from .serializers import VisitorProfileSerializer, RetailShopCustomerSerializer, VisitorCommissionLogSerializer
-
-
-class VisitorProfileViewSet(viewsets.ModelViewSet):
-    queryset = VisitorProfile.objects.all()
-    serializer_class = VisitorProfileSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    @action(detail=False, methods=['get'])
-    pythome_my_profile(self, request):
-        profile, created = VisitorProfile.objects.get_or_create(user=request.user, defaults={
-            'visitor_code': f"VISITOR-{request.user.phone[-4:]}"
-        })
-        serializer = self.get_serializer(profile)
-        return Response(serializer.data)
-
-
-class RetailShopCustomerViewSet(viewsets.ModelViewSet):
-    queryset = RetailShopCustomer.objects.all()
-    serializer_class = RetailShopCustomerSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def perform_create(self, serializer):
-        visitor_profile, _ = VisitorProfile.objects.get_or_create(user=self.request.user)
-        serializer.save(visitor=visitor_profile)
-
-
-class VisitorCommissionLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = VisitorCommissionLog.objects.all()
-    serializer_class = VisitorCommissionLogSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get_queryset(self):
-        user = self.request.user
-        if user.is_staff:
-            return VisitorCommissionLog.objects.all()
-        return VisitorCommissionLog.objects.filter(visitor__user=user)
-`,
-    urls: `"""
-visitors/urls.py
-مسیرهای URL برای اپ ویزیتوران و باشگاه مشتریان
-"""
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import VisitorProfileViewSet, RetailShopCustomerViewSet, VisitorCommissionLogViewSet
-
-router = DefaultRouter()
-router.register(r'profiles', VisitorProfileViewSet)
-router.register(r'retail-shops', RetailShopCustomerViewSet)
-router.register(r'commissions', VisitorCommissionLogViewSet)
-
-urlpatterns = [
-    path('', include(router.urls)),
-]
-`
-  },
   accounts: {
     id: 'accounts',
     name: 'accounts',
-    nameFa: 'اپ کاربری و احراز هویت پیامکی (Accounts & Wholesalers)',
+    nameFa: 'اپ کاربری، احراز هویت و ویزیتوری (Accounts & Visitors)',
     icon: 'User',
-    description: 'مدیریت کاربران، بنکداران رسمی، لاگین با کد یکبار مصرف پیامکی (OTP)، پروانه کسب و کدهای ملی',
+    description: 'مدیریت یکپارچه کاربران، بنکداران رسمی، ویزیتورها، لاگین با کد یکبار مصرف پیامکی (OTP)، کدهای اختصاصی ویزیتوری و پورسانت',
     models: `"""
 accounts/models.py
-مدل کاربری اختصاصی بر پایه شماره تلفن همراه، پروفایل بنکداری و لاگین پیامکی OTP
+مدل کاربری اختصاصی بر پایه شماره تلفن همراه، پروفایل بنکداری، دسترسی ویزیتوری و لاگین پیامکی OTP
 """
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
@@ -332,6 +105,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     address = models.TextField(_("آدرس دقیق انبار / مغازه خریدار"), blank=True)
     postal_code = models.CharField(_("کد پستی ۱۰ رقمی"), max_length=10, blank=True)
     
+    # دسترسی و امکانات ویزیتور (ادغام شده مستقیم روی کاربر)
+    is_visitor = models.BooleanField(_("دسترسی ویزیتور و بازاریاب"), default=False, help_text=_("در صورت تیک زدن، این کاربر امکانات پنل ویزیتور را خواهد دید"))
+    visitor_code = models.CharField(_("کد اختصاصی ویزیتور"), max_length=50, blank=True, null=True, unique=True, help_text="مثال: VISITOR-9419")
+    commission_rate = models.DecimalField(_("درصد سود/کمیسیون ویزیتور"), max_digits=5, decimal_places=2, default=2.50)
+    total_sales_amount = models.DecimalField(_("مجموع مبلغ فروش‌های ثبت‌شده"), max_digits=14, decimal_places=0, default=0)
+    total_commission_earned = models.DecimalField(_("مجموع سود و کمیسیون دریافتی"), max_digits=12, decimal_places=0, default=0)
+
     # دسترسی‌های سیستمی
     is_active = models.BooleanField(_("حساب فعال"), default=True)
     is_staff = models.BooleanField(_("دسترسی به پنل مدیریت جنگو"), default=False)
@@ -343,12 +123,21 @@ class User(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ['full_name']
 
     class Meta:
-        verbose_name = _("کاربر / بنکدار")
-        verbose_name_plural = _("مدیریت کاربران و بنکداران")
+        verbose_name = _("کاربر / بنکدار / ویزیتور")
+        verbose_name_plural = _("مدیریت کاربران و ویزیتورها")
         ordering = ['-date_joined']
 
+    def save(self, *args, **kwargs):
+        # تولید خودکار کد ویزیتور در صورت فعال‌سازی دسترسی ویزیتوری
+        if self.is_visitor and not self.visitor_code:
+            clean_phone = (self.phone or '0000').replace(' ', '').replace('-', '')
+            last4 = clean_phone[-4:] if len(clean_phone) >= 4 else '9419'
+            self.visitor_code = f"VISITOR-{last4}"
+        super().save(*args, **kwargs)
+
     def __str__(self):
-        return f"{self.full_name or 'کاربر'} ({self.phone}) - {self.business_name or 'شخصی'}"
+        visitor_tag = " [ویزیتور]" if self.is_visitor else ""
+        return f"{self.full_name or 'کاربر'} ({self.phone}) - {self.business_name or 'شخصی'}{visitor_tag}"
 
 
 class PhoneOTP(models.Model):
@@ -368,23 +157,15 @@ class PhoneOTP(models.Model):
 
     @classmethod
     def generate_otp(cls, phone: str, digits: int = 4, validity_minutes: int = 3):
-        # باطل کردن کدهای قبلی این شماره
         cls.objects.filter(phone=phone, is_used=False).update(is_used=True)
-        
-        # تولید کد رندوم عددی
         code = str(random.randint(10**(digits-1), (10**digits)-1))
         expires = timezone.now() + timezone.timedelta(minutes=validity_minutes)
-        
-        otp = cls.objects.create(
-            phone=phone,
-            code=code,
-            expires_at=expires
-        )
+        otp = cls.objects.create(phone=phone, code=code, expires_at=expires)
         return otp
 `,
     admin: `"""
 accounts/admin.py
-ثبت و پیکربندی کامل مدل کاربر در پنل مدیریت پیشرفته جنگو با فیلترها و عملیات اختصاصی
+ثبت و پیکربندی کامل مدل کاربر و ویزیتور در پنل مدیریت پیشرفته جنگو
 """
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
@@ -402,19 +183,23 @@ class UserAdmin(ModelAdminJalaliMixin, BaseUserAdmin):
         'full_name', 
         'business_name', 
         'role_badge', 
+        'visitor_status_badge',
         'verification_status', 
         'city', 
         'province', 
         'date_joined_jalali', 
         'is_active'
     )
-    list_filter = ('role', 'is_verified', 'is_active', 'province', 'date_joined')
-    search_fields = ('phone', 'full_name', 'business_name', 'national_id', 'business_license')
+    list_filter = ('is_visitor', 'role', 'is_verified', 'is_active', 'province', 'date_joined')
+    search_fields = ('phone', 'full_name', 'business_name', 'visitor_code', 'national_id', 'business_license')
     ordering = ('-date_joined',)
 
     fieldsets = (
         (_('اطلاعات هویتی و شماره'), {
             'fields': ('phone', 'full_name', 'business_name', 'role')
+        }),
+        (_('دسترسی و امکانات ویزیتور و بازاریاب'), {
+            'fields': ('is_visitor', 'visitor_code', 'commission_rate', 'total_sales_amount', 'total_commission_earned')
         }),
         (_('احراز هویت بنکداری و اسناد رسمی'), {
             'fields': ('is_verified', 'national_id', 'business_license')
@@ -433,11 +218,15 @@ class UserAdmin(ModelAdminJalaliMixin, BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('phone', 'full_name', 'business_name', 'role', 'is_verified', 'is_staff'),
+            'fields': ('phone', 'full_name', 'business_name', 'role', 'is_visitor', 'is_verified', 'is_staff'),
         }),
     )
 
-    actions = ['make_verified_wholesaler', 'deactivate_users', 'export_wholesaler_contacts']
+    actions = ['enable_visitor_access', 'disable_visitor_access', 'make_verified_wholesaler', 'deactivate_users']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.filter(pos_profile__isnull=True)
 
     @admin.display(description=_("نقش کاربر"))
     def role_badge(self, obj):
@@ -454,6 +243,13 @@ class UserAdmin(ModelAdminJalaliMixin, BaseUserAdmin):
             obj.get_role_display()
         )
 
+    @admin.display(description=_("وضعیت ویزیتوری"))
+    def visitor_status_badge(self, obj):
+        if obj.is_visitor:
+            code = obj.visitor_code or 'فعال'
+            return format_html(f'<span style="padding: 3px 8px; border-radius: 6px; font-weight: bold; font-size: 11px; background-color: #059669; color: #fff;">✔ ویزیتور ({code})</span>')
+        return format_html('<span style="color: #9ca3af; font-size: 11px;">مشتری عادی</span>')
+
     @admin.display(description=_("احراز هویت بنکداری"))
     def verification_status(self, obj):
         if obj.is_verified:
@@ -466,6 +262,20 @@ class UserAdmin(ModelAdminJalaliMixin, BaseUserAdmin):
             return datetime2jalali(obj.date_joined).strftime('%Y/%m/%d ساعت %H:%M')
         return "-"
 
+    @admin.action(description=_("✔ فعال‌سازی دسترسی ویزیتور برای کاربران انتخاب‌شده"))
+    def enable_visitor_access(self, request, queryset):
+        count = 0
+        for user in queryset:
+            user.is_visitor = True
+            user.save()
+            count += 1
+        self.message_user(request, f"دسترسی پنل ویزیتوری برای {count} کاربر فعال شد.")
+
+    @admin.action(description=_("⛔ لغو دسترسی ویزیتوری کاربران انتخاب‌شده"))
+    def disable_visitor_access(self, request, queryset):
+        count = queryset.update(is_visitor=False)
+        self.message_user(request, f"دسترسی ویزیتوری {count} کاربر لغو گردید.")
+
     @admin.action(description=_("✔ تأیید رسمی بنکداری و اعطای سقف اعتبار"))
     def make_verified_wholesaler(self, request, queryset):
         count = queryset.update(is_verified=True, role='wholesaler')
@@ -475,38 +285,10 @@ class UserAdmin(ModelAdminJalaliMixin, BaseUserAdmin):
     def deactivate_users(self, request, queryset):
         count = queryset.update(is_active=False)
         self.message_user(request, f"{count} حساب کاربری مسدود شدند.")
-
-
-@admin.register(PhoneOTP)
-class PhoneOTPAdmin(ModelAdminJalaliMixin, admin.ModelAdmin):
-    list_display = ('phone', 'code', 'is_used_display', 'created_at_jalali', 'expires_at_jalali')
-    list_filter = ('is_used', 'created_at')
-    search_fields = ('phone', 'code')
-    readonly_fields = ('created_at',)
-
-    @admin.display(description=_("وضعیت مصرف"))
-    def is_used_display(self, obj):
-        if obj.is_used:
-            return format_html('<span style="color: #ef4444;">مصرف شده</span>')
-        if obj.is_valid():
-            return format_html('<span style="color: #10b981; font-weight: bold;">فعال و معتبر</span>')
-        return format_html('<span style="color: #6b7280;">منقضی شده</span>')
-
-    @admin.display(description=_("زمان ایجاد"), ordering='created_at')
-    def created_at_jalali(self, obj):
-        if obj.created_at:
-            return datetime2jalali(obj.created_at).strftime('%Y/%m/%d ساعت %H:%M')
-        return "-"
-
-    @admin.display(description=_("زمان انقضا"), ordering='expires_at')
-    def expires_at_jalali(self, obj):
-        if obj.expires_at:
-            return datetime2jalali(obj.expires_at).strftime('%Y/%m/%d ساعت %H:%M')
-        return "-"
 `,
     serializers: `"""
 accounts/serializers.py
-سریالایزرهای DRF برای اعتبارسنجی لاگین پیامکی، دریافت پروفایل و توکن JWT با قابلیت انقضای پویا
+سریالایزرهای DRF برای اعتبارسنجی لاگین پیامکی، دریافت پروفایل کامل و توکن JWT
 """
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -546,6 +328,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'business_name',
             'role',
             'role_display',
+            'is_visitor',
+            'visitor_code',
+            'commission_rate',
+            'total_sales_amount',
+            'total_commission_earned',
             'national_id',
             'business_license',
             'is_verified',
@@ -555,7 +342,7 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'postal_code',
             'date_joined',
         ]
-        read_only_fields = ['id', 'phone', 'role', 'is_verified', 'date_joined']
+        read_only_fields = ['id', 'phone', 'role', 'visitor_code', 'is_verified', 'date_joined']
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -565,6 +352,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # افزودن اطلاعات ضروری به توکن JWT جهت استفاده در فرانت‌اند
         token['phone'] = user.phone
         token['role'] = getattr(user, 'role', 'customer')
+        token['is_visitor'] = getattr(user, 'is_visitor', False)
         return token
 
     def validate(self, attrs):
@@ -774,26 +562,22 @@ class UserProfileViewSet(ModelViewSet):
 `,
     urls: `"""
 accounts/urls.py
-مسیرهای URL اپلیکیشن احراز هویت و حساب کاربری
+مسیرهای ورود پیامکی، مدیریت پروفایل و توکن JWT
 """
-from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import SendOTPView, VerifyOTPView, POSLoginAPIView, UserProfileViewSet
 
-urlpatterns = [
-    # ورود پیامکی بنکداران و مشتریان
-    path('send-otp/', SendOTPView.as_view(), name='send_otp'),
-    path('verify-otp/', VerifyOTPView.as_view(), name='verify_otp'),
-    
-    # ورود اختصاصی صندوق POS و مدیران با شماره و رمز عبور
-    path('pos-login/', POSLoginAPIView.as_view(), name='pos_login'),
-    path('pos/login/', POSLoginAPIView.as_view(), name='pos_login_alt'),
+router = DefaultRouter()
+router.register(r'profiles', UserProfileViewSet, basename='user-profile')
 
-    # تازه‌سازی توکن و پروفایل
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('profile/', UserProfileViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update'}), name='user_profile'),
+urlpatterns = [
+    path('otp-request/', SendOTPView.as_view(), name='otp-request'),
+    path('otp-verify/', VerifyOTPView.as_view(), name='otp-verify'),
+    path('pos-login/', POSLoginAPIView.as_view(), name='pos-login'),
+    path('', include(router.urls)),
 ]
-`,
+`
   },
 
   products: {

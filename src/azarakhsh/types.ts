@@ -10,7 +10,6 @@ export type AzarakhshSectionId =
   | 'shipping'
   | 'blog-tinymce'
   | 'tickets-support'
-  | 'visitors'
   | 'slider'
   | 'pos'
   | 'posuser'

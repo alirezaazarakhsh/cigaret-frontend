@@ -481,6 +481,13 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     window.addEventListener('popstate', handleSubPopState);
     return () => window.removeEventListener('popstate', handleSubPopState);
   }, []);
+
+  // Redirect to sandogh if logged in but on /shopmanage/login
+  useEffect(() => {
+    if (isAuthenticated && typeof window !== 'undefined' && (window.location.pathname === '/shopmanage/login' || window.location.pathname === '/shopmanage/login/')) {
+      window.history.replaceState({ subTab: 'pos' }, '', '/shopmanage/sandogh');
+    }
+  }, [isAuthenticated]);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [showMobileMoreMenu, setShowMobileMoreMenu] = useState(false);
   const [showToolsDropdown, setShowToolsDropdown] = useState(false);
@@ -1236,6 +1243,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         setCurrentStaff(res.data.user);
         setLoginError('');
         setSessionExpiredNotice('');
+
+        if (typeof window !== 'undefined' && (window.location.pathname.includes('/login') || window.location.pathname === '/shopmanage')) {
+          window.history.pushState({ subTab: 'pos' }, '', '/shopmanage/sandogh');
+        }
 
         // مقداردهی اولیه زمان اعتبار توکن و آغاز تایمر پایش نشست
         const token = res.data?.tokens?.access;

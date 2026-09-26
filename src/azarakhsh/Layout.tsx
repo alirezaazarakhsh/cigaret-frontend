@@ -197,19 +197,8 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'فروش، مالی و لجستیک'
   },
   {
-    id: 'visitors',
-    title: '۱۴. اپلیکیشن ویزیتوران و بازاریابی',
-    titleEn: 'visitors / Retail Club App',
-    description: 'کدهای ویزیتوری، باشگاه مشتریان مغازه‌داران و کمیسیون ۲.۵٪ سود',
-    badge: 'بازاریابی',
-    iconName: 'Users',
-    appFolder: 'visitors',
-    group: 'commerce',
-    groupTitle: 'فروش، مالی و لجستیک'
-  },
-  {
     id: 'pos',
-    title: '۱۵. اپلیکیشن حسابداری و صندوق فروشگاهی',
+    title: '۱۴. اپلیکیشن حسابداری و صندوق فروشگاهی',
     titleEn: 'pos / Point of Sale App',
     description: 'مدیریت صندوق، چاپ فاکتور حرارتی، ثبت فروش حضوری و تنظیمات صندوق',
     badge: 'POS & Accounting',
@@ -220,7 +209,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'cash-register',
-    title: '۱۶. گزارش و تسویه صندوق روزانه',
+    title: '۱۵. گزارش و تسویه صندوق روزانه',
     titleEn: 'cash_register / Daily Cash Close',
     description: 'مدیریت شیفت صندوق، محاسبه مغایرت نقد و پوز، ذخیره در دیتابیس و گزارش بستن صندوق',
     badge: 'تسویه صندوق',
@@ -231,7 +220,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'currency-rates',
-    title: '۱۷. تنظیمات نرخ ارز و قیمت‌گذاری دلار/تومان',
+    title: '۱۶. تنظیمات نرخ ارز و قیمت‌گذاری دلار/تومان',
     titleEn: 'currency_rates / Exchange Rates & Multi-Currency',
     description: 'مدیریت نرخ ارز (دلار، درهم، یورو)، بروزرسانی هوشمند قیمت محصولات بر اساس نرخ روز و محاسبه قیمت فروش',
     badge: 'نرخ ارز',
@@ -242,7 +231,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'warehouse-stock',
-    title: '۱۸. موجودی انبار و کاردکس',
+    title: '۱۷. موجودی انبار و کاردکس',
     titleEn: 'warehouse_stock / Stock & Kardex',
     description: 'مدیریت موجودی کالا و تاریخچه ورود و خروج',
     badge: 'انبار کالا',
@@ -253,7 +242,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'ledger',
-    title: '۱۹. حساب‌های دفتری (نسیه)',
+    title: '۱۸. حساب‌های دفتری (نسیه)',
     titleEn: 'ledger / Credit Ledger',
     description: 'مدیریت حساب مشتریان اعتباری و تسویه‌ها',
     badge: 'حساب دفتری',
@@ -264,7 +253,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'reports',
-    title: '۲۰. گزارشات فروش و کالا',
+    title: '۱۹. گزارشات فروش و کالا',
     titleEn: 'reports / Analytics',
     description: 'آمار فروش روزانه و تحلیل تک محصول',
     badge: 'گزارش تحلیلی',
@@ -274,10 +263,10 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
     groupTitle: 'فروش، مالی و لجستیک'
   },
 
-  // Group 6: Support & Content (21 to 24)
+  // Group 6: Support & Content (20 to 23)
   {
     id: 'blog-tinymce',
-    title: '۲۱. اپلیکیشن وبلاگ و TinyMCE',
+    title: '۲۰. اپلیکیشن وبلاگ و TinyMCE',
     titleEn: 'blog / SEO Article App',
     description: 'مقالات با HTMLField ادیتور TinyMCE، شمارش بازدید و تصاویر',
     badge: 'TinyMCE',
@@ -288,7 +277,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'warehouse-contact',
-    title: '۲۲. فرم تماس با انبار و استعلام عمده',
+    title: '۲۱. فرم تماس با انبار و استعلام عمده',
     titleEn: 'warehouse_contact / Warehouse Contact App',
     description: 'مدیریت پیام‌های فرم تماس، استعلام نرخ عمده کارتن و پاسخگویی مدیریت انبار جنت‌آباد',
     badge: 'تماس با انبار',
@@ -299,7 +288,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'notifications',
-    title: '۲۳. سیستم نوتیفیکیشن و اطلاعیه‌ها',
+    title: '۲۲. سیستم نوتیفیکیشن و اطلاعیه‌ها',
     titleEn: 'notifications / User Notifications App',
     description: 'ارسال هشدارهای تغییرات نرخ کارتن، وضعیت سفارشات و اخبار انبار به کاربران',
     badge: 'نوتیفیکیشن',
@@ -310,7 +299,7 @@ export const AZARAKHSH_SECTIONS: DocSectionMeta[] = [
   },
   {
     id: 'tickets-support',
-    title: '۲۴. سامانه جامع تیکتینگ و پشتیبانی (مشتریان و ویزیتورها)',
+    title: '۲۳. سامانه جامع تیکتینگ و پشتیبانی (مشتریان و ویزیتورها)',
     titleEn: 'tickets / Integrated Support & Ticket System',
     description: 'مدیریت متمرکز تیکت‌های پشتیبانی، تسویه پورسانت ویزیتور و تایید فیش واریزی مشتریان',
     badge: 'تیکت هوشمند',

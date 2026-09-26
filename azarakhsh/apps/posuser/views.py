@@ -30,13 +30,28 @@ class LoginStaffAPIView(APIView):
         tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request):
-        phone = request.data.get('phone')
-        password = request.data.get('password')
+        phone_raw = request.data.get('phone', '')
+        password = request.data.get('password', '')
 
-        if not phone or not password:
-            return Response({"success": False, "message": "شماره همراه و پینکد الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
+        if not phone_raw or not password:
+            return Response({"success": False, "message": "شماره همراه و پین‌کد الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Normalize phone
+        phone = phone_raw.strip().replace(' ', '').replace('-', '')
+        if phone.startswith('+98'):
+            phone = '0' + phone[3:]
+        elif phone.startswith('98'):
+            phone = '0' + phone[2:]
 
         user = authenticate(request, username=phone, password=password)
+
+        # Fallback if authenticate returned None (e.g. if custom auth backend vs username field)
+        if user is None:
+            username_field = getattr(User, 'USERNAME_FIELD', 'phone')
+            user_obj = User.objects.filter(**{username_field: phone}).first()
+            if user_obj and user_obj.check_password(password):
+                user = user_obj
+
         if user is not None:
             if not user.is_active:
                 return Response({"success": False, "message": "حساب کاربری شما تعلیق شده است."}, status=status.HTTP_403_FORBIDDEN)
@@ -46,6 +61,8 @@ class LoginStaffAPIView(APIView):
             # Check if user has a PosStaff profile
             try:
                 pos_staff = user.pos_profile
+                if not pos_staff.is_active:
+                    return Response({"success": False, "message": "دسترسی حساب شما به صندوق مسدود شده است."}, status=status.HTTP_403_FORBIDDEN)
                 role = pos_staff.role
                 role_title = pos_staff.role_title
                 permissions = []
@@ -85,8 +102,10 @@ class LoginStaffAPIView(APIView):
                 getattr(user, 'mobile', None) or 
                 getattr(user, 'phone_number', None) or 
                 getattr(user, 'username', None) or 
-                str(user)
+                phone
             )
+
+            full_name = getattr(user, 'full_name', None) or getattr(user, 'first_name', None) or user_phone
 
             response_data = {
                 "success": True,
@@ -95,7 +114,7 @@ class LoginStaffAPIView(APIView):
                     "user": {
                         "id": user.id,
                         "phone": user_phone,
-                        "fullName": getattr(user, 'first_name', None) or getattr(user, 'full_name', None) or user_phone,
+                        "fullName": full_name,
                         "role": role,
                         "roleTitleFa": role_title,
                         "permissions": permissions,
@@ -166,8 +185,23 @@ class CreateStaffAPIView(APIView):
     def post(self, request):
         serializer = PosStaffCreateSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
-            return Response({"success": True, "message": "پرسنل صندوق با موفقیت ثبت شد."}, status=status.HTTP_201_CREATED)
+            pos_staff = serializer.save()
+            user = pos_staff.user
+            user_phone = getattr(user, 'phone', None) or getattr(user, 'username', '')
+            full_name = getattr(user, 'full_name', None) or getattr(user, 'first_name', None) or user_phone
+            return Response({
+                "success": True, 
+                "message": "پرسنل صندوق با موفقیت در دیتابیس ثبت شد.",
+                "data": {
+                    "id": pos_staff.id,
+                    "user_id": user.id,
+                    "fullName": full_name,
+                    "phone": user_phone,
+                    "role": pos_staff.role,
+                    "roleTitleFa": pos_staff.role_title,
+                    "status": "active" if pos_staff.is_active else "suspended"
+                }
+            }, status=status.HTTP_201_CREATED)
         return Response({"success": False, "message": "خطا در ثبت پرسنل", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 class ListStaffAPIView(APIView):

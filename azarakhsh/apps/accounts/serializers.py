@@ -40,6 +40,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             'business_name',
             'role',
             'role_display',
+            'is_visitor',
+            'visitor_code',
+            'commission_rate',
+            'total_sales_amount',
+            'total_commission_earned',
             'national_id',
             'business_license',
             'is_verified',
@@ -59,6 +64,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # افزودن اطلاعات ضروری به توکن JWT جهت استفاده در فرانت‌اند
         token['phone'] = user.phone
         token['role'] = getattr(user, 'role', 'customer')
+        token['is_visitor'] = getattr(user, 'is_visitor', False)
         return token
 
     def validate(self, attrs):

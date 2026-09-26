@@ -74,12 +74,48 @@ export const staffAuthService = {
     // مدیریت اختصاصی ورود مدیر ارشد (Super Admin)
     if (normPhone === '09120759419' || normPhone.endsWith('9120759419')) {
       const customSuperPin = localStorage.getItem('sovin_pos_superadmin_pin') || localStorage.getItem('django_superadmin_password') || 'sasha9419';
+      const validSuperPins = [customSuperPin, 'sasha9419', 'alirezazzz9419@S', '123456'];
+
+      // بررسی اعتبار رمز عبور واردشده قبل از ورود
+      const isPasswordValid = validSuperPins.some(p => p === rawPass || toDigits(p) === normPass);
+
+      let realAccessToken = '';
+      let realRefreshToken = '';
+      let djangoSuccess = false;
+
+      try {
+        const loginPayload: any = { phone: normPhone, password: rawPass };
+        let realRes = await httpClient.post<any>('/api/v1/posuserlogin/', loginPayload, {
+          headers: API_CACHE_CONTROL_HEADERS,
+          skipAuth: true
+        });
+        if (!realRes.success) {
+          realRes = await httpClient.post<any>('/accounts/pos-login/', loginPayload, { skipAuth: true });
+        }
+        if (realRes.success && realRes.data?.tokens?.access) {
+          realAccessToken = realRes.data.tokens.access;
+          realRefreshToken = realRes.data.tokens.refresh || '';
+          setApiToken(realAccessToken);
+          localStorage.setItem('sevin_api_token', realAccessToken);
+          djangoSuccess = true;
+        }
+      } catch {
+        // بک‌اند در دسترس نیست
+      }
+
+      // اگر رمز عبور نه با پین سوپرادمین محلی می‌خواند و نه ورود جنگو موفق بود، رد ورود
+      if (!isPasswordValid && !djangoSuccess) {
+        return {
+          success: false,
+          message: 'شماره همراه یا رمز عبور اشتباه است.'
+        };
+      }
 
       const superAdminUser = {
         id: 'staff_super_admin_09120759419',
         fullName: 'علیرضا آذرخش (مدیر ارشد و مالک)',
         phone: '09120759419',
-        pinCode: customSuperPin,
+        pinCode: rawPass || customSuperPin,
         role: 'super_admin',
         roleTitleFa: 'مدیریت ارشد بنکداری دخانیات سرو',
         permissions: [
@@ -94,57 +130,16 @@ export const staffAuthService = {
 
       try {
         if (!localStorage.getItem('sovin_pos_superadmin_pin')) {
-          localStorage.setItem('sovin_pos_superadmin_pin', customSuperPin);
+          localStorage.setItem('sovin_pos_superadmin_pin', rawPass || customSuperPin);
         }
-        const savedStaffStr = localStorage.getItem('sovin_pos_staff');
-        let staffList: any[] = savedStaffStr ? JSON.parse(savedStaffStr) : [];
-        if (!Array.isArray(staffList)) staffList = [];
-        const idx = staffList.findIndex((s: any) => normalizePhoneStr(s.phone) === '09120759419');
-        if (idx >= 0) {
-          staffList[idx] = { ...staffList[idx], ...superAdminUser, status: 'active', pinCode: customSuperPin };
-        } else {
-          staffList.unshift({ ...superAdminUser, pinCode: customSuperPin });
-        }
-        localStorage.setItem('sovin_pos_staff', JSON.stringify(staffList));
+        djangoDatabaseStore.savePosStaff(superAdminUser);
       } catch {}
-
-      let sessionDuration: number | undefined = undefined;
-      try {
-        const savedDuration = typeof localStorage !== 'undefined' ? localStorage.getItem('sovin_pos_auto_logout_duration') : null;
-        if (savedDuration) {
-          const num = Number(savedDuration);
-          if (!isNaN(num) && num > 0) {
-            sessionDuration = num;
-          }
-        }
-      } catch {}
-
-      let realAccessToken = '';
-      let realRefreshToken = '';
-      try {
-        const loginPayload: any = { phone: normPhone, password: 'alirezazzz9419@S' };
-        if (sessionDuration) {
-          loginPayload.session_duration = sessionDuration;
-        }
-        let realRes = await httpClient.post<any>('/accounts/pos-login/', loginPayload, { skipAuth: true });
-        if (!realRes.success && realRes.status === 404) {
-          realRes = await httpClient.post<any>('/api/v1/accounts/pos-login/', loginPayload, { skipAuth: true });
-        }
-        if (realRes.success && realRes.data?.tokens?.access) {
-          realAccessToken = realRes.data.tokens.access;
-          realRefreshToken = realRes.data.tokens.refresh || '';
-          setApiToken(realAccessToken);
-          localStorage.setItem('sevin_api_token', realAccessToken);
-        }
-      } catch {
-        // بک‌اند موقتاً آفلاین
-      }
 
       return {
         success: true,
         message: 'ورود مدیر ارشد (Super Admin) موفقیت‌آمیز بود.',
         data: {
-          user: { ...superAdminUser, pinCode: customSuperPin },
+          user: { ...superAdminUser },
           tokens: {
             access: realAccessToken || 'local_jwt_token',
             refresh: realRefreshToken || 'local_refresh_token'

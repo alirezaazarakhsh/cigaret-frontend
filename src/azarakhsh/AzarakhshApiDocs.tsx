@@ -27,7 +27,6 @@ import { OrdersDocs } from './apps/orders/OrdersDocs';
 import { ShippingDocs } from './apps/shipping/ShippingDocs';
 import { BlogTinyMceDocs } from './apps/blog-tinymce/BlogTinyMceDocs';
 import { TicketsSupportDocs } from './apps/tickets-support/TicketsSupportDocs';
-import { VisitorsDocs } from './apps/visitors/VisitorsDocs';
 import { WarehouseContactDocs } from './apps/warehouse-contact/WarehouseContactDocs';
 import { RegularCustomersDocs } from './apps/regular-customers/RegularCustomersDocs';
 import { FooterDocs } from './apps/footer-settings/FooterDocs';
@@ -107,7 +106,6 @@ const AzarakhshRouterContent: React.FC<{
         <Route path="/shipping" element={<ShippingDocs />} />
         <Route path="/blog-tinymce" element={<BlogTinyMceDocs />} />
         <Route path="/tickets-support" element={<TicketsSupportDocs />} />
-        <Route path="/visitors" element={<VisitorsDocs />} />
         <Route path="/pos" element={<PosDocs />} />
         <Route path="/posuser" element={<PosUserDocs />} />
         <Route path="/cash-register" element={<CashRegisterDocs />} />

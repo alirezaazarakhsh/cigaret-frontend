@@ -18,19 +18,23 @@ class UserAdmin(ModelAdminJalaliMixin, BaseUserAdmin):
         'full_name', 
         'business_name', 
         'role_badge', 
+        'visitor_status_badge',
         'verification_status', 
         'city', 
         'province', 
         'date_joined_jalali', 
         'is_active'
     )
-    list_filter = ('role', 'is_verified', 'is_active', 'province', 'date_joined')
-    search_fields = ('phone', 'full_name', 'business_name', 'national_id', 'business_license')
+    list_filter = ('is_visitor', 'role', 'is_verified', 'is_active', 'province', 'date_joined')
+    search_fields = ('phone', 'full_name', 'business_name', 'visitor_code', 'national_id', 'business_license')
     ordering = ('-date_joined',)
 
     fieldsets = (
         (_('اطلاعات هویتی و شماره'), {
             'fields': ('phone', 'full_name', 'business_name', 'role')
+        }),
+        (_('دسترسی و امکانات ویزیتور و بازاریاب'), {
+            'fields': ('is_visitor', 'visitor_code', 'commission_rate', 'total_sales_amount', 'total_commission_earned')
         }),
         (_('احراز هویت بنکداری و اسناد رسمی'), {
             'fields': ('is_verified', 'national_id', 'business_license')
@@ -49,11 +53,16 @@ class UserAdmin(ModelAdminJalaliMixin, BaseUserAdmin):
     add_fieldsets = (
         (None, {
             'classes': ('wide',),
-            'fields': ('phone', 'full_name', 'business_name', 'role', 'is_verified', 'is_staff'),
+            'fields': ('phone', 'full_name', 'business_name', 'role', 'is_visitor', 'is_verified', 'is_staff'),
         }),
     )
 
-    actions = ['make_verified_wholesaler', 'deactivate_users', 'export_wholesaler_contacts']
+    actions = ['enable_visitor_access', 'disable_visitor_access', 'make_verified_wholesaler', 'deactivate_users']
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        # پرسنل صِرف صندوق‌دار (که فقط در اپلیکیشن posuser تعریف شده‌اند) را از لیست کاربران اصلی و بنکداران فیلتر می‌کند تا لیست شلوغ نشود
+        return qs.filter(pos_profile__isnull=True)
 
     @admin.display(description=_("نقش کاربر"))
     def role_badge(self, obj):
@@ -70,6 +79,13 @@ class UserAdmin(ModelAdminJalaliMixin, BaseUserAdmin):
             obj.get_role_display()
         )
 
+    @admin.display(description=_("وضعیت ویزیتوری"))
+    def visitor_status_badge(self, obj):
+        if obj.is_visitor:
+            code = obj.visitor_code or 'فعال'
+            return format_html(f'<span style="padding: 3px 8px; border-radius: 6px; font-weight: bold; font-size: 11px; background-color: #059669; color: #fff;">✔ ویزیتور ({code})</span>')
+        return format_html('<span style="color: #9ca3af; font-size: 11px;">مشتری عادی</span>')
+
     @admin.display(description=_("احراز هویت بنکداری"))
     def verification_status(self, obj):
         if obj.is_verified:
@@ -81,6 +97,20 @@ class UserAdmin(ModelAdminJalaliMixin, BaseUserAdmin):
         if obj.date_joined:
             return datetime2jalali(obj.date_joined).strftime('%Y/%m/%d ساعت %H:%M')
         return "-"
+
+    @admin.action(description=_("✔ فعال‌سازی دسترسی ویزیتور برای کاربران انتخاب‌شده"))
+    def enable_visitor_access(self, request, queryset):
+        count = 0
+        for user in queryset:
+            user.is_visitor = True
+            user.save()
+            count += 1
+        self.message_user(request, f"دسترسی پنل ویزیتوری برای {count} کاربر فعال شد.")
+
+    @admin.action(description=_("⛔ لغو دسترسی ویزیتوری کاربران انتخاب‌شده"))
+    def disable_visitor_access(self, request, queryset):
+        count = queryset.update(is_visitor=False)
+        self.message_user(request, f"دسترسی ویزیتوری {count} کاربر لغو گردید.")
 
     @admin.action(description=_("✔ تأیید رسمی بنکداری و اعطای سقف اعتبار"))
     def make_verified_wholesaler(self, request, queryset):

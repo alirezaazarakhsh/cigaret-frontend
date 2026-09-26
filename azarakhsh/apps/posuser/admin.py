@@ -36,6 +36,19 @@ class PosStaffAdmin(admin.ModelAdmin):
         }),
     )
 
+    def save_model(self, request, obj, form, change):
+        raw_password = form.cleaned_data.get('password')
+        if raw_password:
+            # اگر متد set_password وجود داشت از آن استفاده شود، در غیر این صورت روی کاربر و فیلد password ست شود
+            if hasattr(obj, 'set_password'):
+                obj.set_password(raw_password)
+            else:
+                if obj.user:
+                    obj.user.set_password(raw_password)
+                    obj.user.save()
+                obj.password = raw_password
+        super().save_model(request, obj, form, change)
+
     def user_name(self, obj):
         if not obj.user:
             return '-'

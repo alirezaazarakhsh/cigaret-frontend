@@ -20,17 +20,24 @@ export const AuthUsersDocs: React.FC = () => {
       description: 'کاربران مغازه‌دار، ویزیتور و مدیران با لاگین بر پایه شماره موبایل ایرانی',
       fields: [
         { name: 'id', type: 'BigAutoField', isPk: true, verbose: 'شناسه یکتا' },
-        { name: 'phone', type: 'CharField(max_length=11)', isUnique: true, verbose: 'شماره موبایل (USERNAME_FIELD)', help: 'مثال: 09120759419' },
+        { name: 'phone', type: 'CharField(max_length=15)', isUnique: true, verbose: 'شماره موبایل (USERNAME_FIELD)', help: 'مثال: 09120759419' },
         { name: 'full_name', type: 'CharField(max_length=150)', verbose: 'نام و نام خانوادگی' },
-        { name: 'role', type: 'CharField(choices)', verbose: 'نقش (admin, visitor, customer)' },
-        { name: 'national_id', type: 'CharField(max_length=10)', verbose: 'کد ملی' },
-        { name: 'national_id_image', type: 'ImageField', verbose: 'تصویر کارت ملی' },
-        { name: 'is_verified', type: 'BooleanField', verbose: 'تایید احراز هویت' },
+        { name: 'business_name', type: 'CharField(max_length=200)', verbose: 'نام فروشگاه / بنکداری' },
+        { name: 'role', type: 'CharField(choices)', verbose: 'نقش (admin, warehouse_manager, sales_agent, wholesaler, guest)' },
+        { name: 'is_visitor', type: 'BooleanField', verbose: 'دسترسی ویزیتور و بازاریاب (تیک فعال‌سازی)' },
+        { name: 'visitor_code', type: 'CharField(max_length=50)', isUnique: true, verbose: 'کد اختصاصی ویزیتور', help: 'تولید خودکار مانند VISITOR-9419' },
+        { name: 'commission_rate', type: 'DecimalField(5,2)', verbose: 'درصد سود/کمیسیون ویزیتور (پیش‌فرض ۲.۵٪)' },
+        { name: 'total_sales_amount', type: 'DecimalField(14,0)', verbose: 'مجموع مبلغ فروش‌های ثبت‌شده ویزیتور' },
+        { name: 'total_commission_earned', type: 'DecimalField(12,0)', verbose: 'مجموع سود و کمیسیون دریافتی' },
+        { name: 'national_id', type: 'CharField(max_length=12)', verbose: 'کد ملی / شناسه ملی' },
+        { name: 'business_license', type: 'CharField(max_length=50)', verbose: 'شماره پروانه کسب / شناسه صنف' },
+        { name: 'is_verified', type: 'BooleanField', verbose: 'احراز هویت شده (بنکدار رسمی)' },
         { name: 'province', type: 'CharField(max_length=60)', verbose: 'استان' },
         { name: 'city', type: 'CharField(max_length=60)', verbose: 'شهر' },
-        { name: 'address', type: 'TextField', verbose: 'آدرس فروشگاه / منزل' },
+        { name: 'address', type: 'TextField', verbose: 'آدرس دقیق انبار / مغازه خریدار' },
+        { name: 'postal_code', type: 'CharField(max_length=10)', verbose: 'کد پستی ۱۰ رقمی' },
         { name: 'is_active', type: 'BooleanField', verbose: 'حساب فعال' },
-        { name: 'is_staff', type: 'BooleanField', verbose: 'دسترسی ادمین' },
+        { name: 'is_staff', type: 'BooleanField', verbose: 'دسترسی ادمین جنگو' },
         { name: 'date_joined', type: 'DateTimeField', verbose: 'تاریخ عضویت' },
       ]
     },
@@ -196,10 +203,10 @@ export const AuthUsersDocs: React.FC = () => {
   return (
     <AppDocTemplate
       appFolder="accounts"
-      title="۵. اپلیکیشن کاربران، احراز هویت و JWT"
-      titleEn="accounts / Custom User App"
-      badge="Custom User • SimpleJWT • OTP"
-      description="مدل کاربری سفارشی Custom User مبتنی بر شماره موبایل به جای نام کاربری، پشتیبانی از ثبت‌نام مغازه‌داران و ویزیتوران، سیستم ورود با رمز عبور و پیامک OTP، صدور توکن‌های JWT نیم‌ساعته و خروج امن با Blacklist."
+      title="۸. اپلیکیشن کاربران، احراز هویت و ویزیتوری"
+      titleEn="accounts / Custom User & Visitors App"
+      badge="Custom User • Visitors • SimpleJWT • OTP"
+      description="مدل کاربری سفارشی Custom User مبتنی بر شماره موبایل به جای نام کاربری، ادغام مستقیم قابلیت‌ها و دسترسی‌های ویزیتور و بازاریاب (کد اختصاصی، درصد کمیسیون و آمار فروش)، لاگین پیامکی OTP، ورود به صندوق POS و توکن‌های JWT."
       icon={<UserCheck className="w-6 h-6" />}
       modelsCode={data.models}
       adminCode={data.admin}

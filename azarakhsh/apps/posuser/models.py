@@ -43,6 +43,12 @@ class PosStaff(models.Model):
         verbose_name = 'پرسنل صندوق و انبار'
         verbose_name_plural = 'لیست پرسنل صندوق و انبار'
 
+    def set_password(self, raw_password):
+        self.password = make_password(raw_password)
+        if self.user_id:
+            self.user.set_password(raw_password)
+            self.user.save(update_fields=['password'])
+
     def save(self, *args, **kwargs):
         # اگر رمز عبور وارد شده و هنوز هش نشده باشد
         if self.password and not (self.password.startswith('pbkdf2_') or self.password.startswith('argon2')):
@@ -57,3 +63,21 @@ class PosStaff(models.Model):
     def __str__(self):
         name = getattr(self.user, 'first_name', None) or getattr(self.user, 'full_name', None) or getattr(self.user, 'username', str(self.user))
         return f"{name} ({self.get_role_display()})"
+
+
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+@receiver(pre_delete, sender=User)
+def cleanup_pos_staff_on_user_delete(sender, instance, **kwargs):
+    """
+    قبل از حذف کاربر، پروفایل صندوق او را پاک می‌کند تا دیتابیس دچار FK Constraint نگردد.
+    """
+    try:
+        PosStaff.objects.filter(user=instance).delete()
+    except Exception:
+        pass
+
