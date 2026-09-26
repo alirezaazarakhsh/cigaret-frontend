@@ -16,6 +16,17 @@ class KavenegarSMSSettingAdmin(admin.ModelAdmin):
     list_display = ('name', 'api_token_preview')
     inlines = [SMSPatternInline]
 
+    def has_add_permission(self, request):
+        # جلوگیری از ایجاد بیش از یک رکورد تنظیمات در پنل ادمین
+        if self.model.objects.exists():
+            return False
+        return super().has_add_permission(request)
+
+    def has_delete_permission(self, request, obj=None):
+        # جلوگیری از حذف تنها رکورد موجود برای پایداری سیستم (اختیاری)
+        # return False
+        return super().has_delete_permission(request, obj)
+
     def api_token_preview(self, obj):
         if obj.api_token:
             return f"{obj.api_token[:30]}..."

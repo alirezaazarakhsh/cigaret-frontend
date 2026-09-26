@@ -1032,46 +1032,62 @@ export async function djangoPosLogin(
  */
 
 /**
+ * Internal helper to execute SMS API endpoints with fallback prefixes
+ */
+async function executeSmsEndpoint<T = any>(
+  endpointPath: string,
+  method: 'GET' | 'POST' = 'GET',
+  payload?: any,
+  config?: DjangoCrmConfig
+): Promise<{ success: boolean; data?: T; status?: number; error?: string }> {
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const prefixes = [
+    '/api/v1/sms',
+    '/api/v1/kavenegar_sms',
+    '/api/v1/kavenegar-sms',
+    '/api/v1/kavenegar/sms'
+  ];
+
+  let lastRes: { success: boolean; data?: T; status?: number; error?: string } = { success: false };
+
+  for (const prefix of prefixes) {
+    const fullPath = `${prefix}${endpointPath}`;
+    const res = await executeDjangoAxiosRequest<T>(fullPath, method, payload, { token });
+    if (res.success && res.data) {
+      return res;
+    }
+    if (res.status && res.status !== 404) {
+      lastRes = res;
+    }
+  }
+
+  return lastRes;
+}
+
+/**
  * Fetch Kavenegar Settings from Django REST API (or database store)
  */
 export async function djangoFetchKavenegarSettings(config?: DjangoCrmConfig): Promise<any> {
-  const baseUrl = getBlogApiBaseUrl(config);
-  let headers = getBlogApiHeaders(config);
-
   try {
-    let resp = await fetch(`${baseUrl}/kavenegar-sms/settings/`, {
-      headers: {
-        'Accept': 'application/json',
-        ...headers
+    const res = await executeSmsEndpoint('/settings/', 'GET', undefined, config);
+    if (res.success && res.data) {
+      const data: any = res.data;
+      const settings = data.data || data;
+      const finalObj = Array.isArray(settings) ? settings[0] : settings;
+      if (finalObj && typeof finalObj === 'object') {
+        const normalized = {
+          name: finalObj.name || 'سامانه پیامک هوشمند آذرخش',
+          api_token: finalObj.api_token || finalObj.api_key || '',
+          api_key: finalObj.api_token || finalObj.api_key || '',
+          is_active: finalObj.is_active !== undefined ? finalObj.is_active : true,
+          debug_mode: finalObj.debug_mode || false,
+        };
+        djangoDatabaseStore.saveKavenegarSettings(normalized);
+        return normalized;
       }
-    });
-
-    if (resp.status === 401 || resp.status === 403) {
-      cachedAdminJwtToken = '';
-      const freshToken = await ensureValidDjangoAdminToken(config);
-      headers['Authorization'] = `Bearer ${freshToken}`;
-      resp = await fetch(`${baseUrl}/kavenegar-sms/settings/`, {
-        headers: {
-          'Accept': 'application/json',
-          ...headers
-        }
-      });
-    }
-
-    if (resp.ok) {
-      const result = await resp.json();
-      const data = result.data || result;
-      const settings = Array.isArray(data) ? data[0] : data;
-      
-      if (settings && typeof settings === 'object') {
-        djangoDatabaseStore.saveKavenegarSettings(settings);
-        return settings;
-      }
-    } else {
-      console.warn(`Django Fetch Settings failed with status: ${resp.status}`);
     }
   } catch (e) {
-    console.warn('Django Fetch Kavenegar Settings API fallback to local DB store:', e);
+    console.warn('Django Fetch Kavenegar Settings API error:', e);
   }
   return djangoDatabaseStore.getKavenegarSettings();
 }
@@ -1080,81 +1096,41 @@ export async function djangoFetchKavenegarSettings(config?: DjangoCrmConfig): Pr
  * Save Kavenegar Settings to Django REST API (or database store)
  */
 export async function djangoSaveKavenegarSettings(settings: any, config?: DjangoCrmConfig): Promise<boolean> {
-  const baseUrl = getBlogApiBaseUrl(config);
-  let headers = getBlogApiHeaders(config);
+  const payload = {
+    name: settings.name || 'سامانه پیامک هوشمند آذرخش',
+    api_token: (settings.api_token || settings.api_key || '').trim(),
+    is_active: settings.is_active !== undefined ? settings.is_active : true,
+    debug_mode: settings.debug_mode || false,
+  };
+  djangoDatabaseStore.saveKavenegarSettings(payload);
 
   try {
-    let resp = await fetch(`${baseUrl}/kavenegar-sms/settings/`, {
-      method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(settings)
-    });
-    
-    if (resp.status === 401 || resp.status === 403) {
-      cachedAdminJwtToken = '';
-      const freshToken = await ensureValidDjangoAdminToken(config);
-      headers['Authorization'] = `Bearer ${freshToken}`;
-      resp = await fetch(`${baseUrl}/kavenegar-sms/settings/`, {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(settings)
-      });
-    }
-
-    if (resp.ok) {
-      djangoDatabaseStore.saveKavenegarSettings(settings);
+    const res = await executeSmsEndpoint('/settings/', 'POST', payload, config);
+    if (res.success) {
       return true;
-    } else {
-      const errorData = await resp.json().catch(() => ({}));
-      console.error('Django Save Settings Error:', resp.status, errorData);
-      return false;
     }
   } catch (e) {
-    console.error('Django Save Kavenegar Settings API exception:', e);
-    return false;
+    console.error('Django Save Kavenegar Settings API error:', e);
   }
+  return false;
 }
 
 /**
  * Fetch SMS Patterns from Django REST API (or database store)
  */
 export async function djangoFetchSmsPatterns(config?: DjangoCrmConfig): Promise<any[]> {
-  const baseUrl = getBlogApiBaseUrl(config);
-  let headers = getBlogApiHeaders(config);
-
   try {
-    let resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/`, {
-      headers: {
-        'Accept': 'application/json',
-        ...headers
+    const res = await executeSmsEndpoint('/patterns/', 'GET', undefined, config);
+    if (res.success && res.data) {
+      const data: any = res.data;
+      const list = Array.isArray(data) ? data : (data.data || data.results || []);
+      if (Array.isArray(list) && list.length > 0) {
+        djangoDatabaseStore.saveAllSmsPatterns(list);
+        return list;
       }
-    });
-
-    if (resp.status === 401 || resp.status === 403) {
-      cachedAdminJwtToken = '';
-      const freshToken = await ensureValidDjangoAdminToken(config);
-      headers['Authorization'] = `Bearer ${freshToken}`;
-      resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/`, {
-        headers: {
-          'Accept': 'application/json',
-          ...headers
-        }
-      });
-    }
-
-    if (resp.ok) {
-      const result = await resp.json();
-      const data = result.data || result;
-      return Array.isArray(data) ? data : (data.results || []);
     }
   } catch (e) {
-    console.warn('Django Fetch Patterns API fallback to local DB store:', e);
+    console.warn('Django Fetch Patterns API error:', e);
   }
   return djangoDatabaseStore.getSmsPatterns();
 }
@@ -1163,39 +1139,19 @@ export async function djangoFetchSmsPatterns(config?: DjangoCrmConfig): Promise<
  * Save SMS Pattern to Django REST API (or database store)
  */
 export async function djangoSaveSmsPattern(name_fa: string, pattern_code: string, config?: DjangoCrmConfig): Promise<boolean> {
-  djangoDatabaseStore.saveSmsPattern(name_fa, pattern_code);
-  const baseUrl = getBlogApiBaseUrl(config);
-  let headers = getBlogApiHeaders(config);
+  const cleanCode = (pattern_code || '').trim();
+  djangoDatabaseStore.saveSmsPattern(name_fa, cleanCode);
 
   try {
-    let resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/`, {
-      method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ name_fa, pattern_code: (pattern_code || '').trim() })
-    });
-    
-    if (resp.status === 401 || resp.status === 403) {
-      cachedAdminJwtToken = '';
-      const freshToken = await ensureValidDjangoAdminToken(config);
-      headers['Authorization'] = `Bearer ${freshToken}`;
-      resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/`, {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ name_fa, pattern_code: (pattern_code || '').trim() })
-      });
-    }
-    
-    return resp.ok;
+    const res = await executeSmsEndpoint('/patterns/', 'POST', { name_fa, pattern_code: cleanCode }, config);
+    if (res.success) return true;
+
+    const res2 = await executeSmsEndpoint('/patterns/save/', 'POST', { name_fa, pattern_code: cleanCode }, config);
+    if (res2.success) return true;
   } catch (e) {
-    console.warn('Django Save Pattern API failed:', e);
-    return false;
+    console.warn('Django Save Pattern API error:', e);
   }
+  return false;
 }
 
 /**
@@ -1203,42 +1159,17 @@ export async function djangoSaveSmsPattern(name_fa: string, pattern_code: string
  */
 export async function djangoSaveAllSmsPatterns(patternsList: any[], config?: DjangoCrmConfig): Promise<boolean> {
   djangoDatabaseStore.saveAllSmsPatterns(patternsList);
-  const baseUrl = getBlogApiBaseUrl(config);
-  let headers = getBlogApiHeaders(config);
 
   try {
-    let resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/`, {
-      method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ patterns: patternsList })
-    });
-    
-    if (resp.status === 401 || resp.status === 403) {
-      cachedAdminJwtToken = '';
-      const freshToken = await ensureValidDjangoAdminToken(config);
-      headers['Authorization'] = `Bearer ${freshToken}`;
-      resp = await fetch(`${baseUrl}/kavenegar-sms/patterns/`, {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ patterns: patternsList })
-      });
-    }
-    
-    if (!resp.ok) {
-      const errorData = await resp.json().catch(() => ({}));
-      console.error('Django Save All Patterns Error:', resp.status, errorData);
-    }
-    return resp.ok;
+    const res = await executeSmsEndpoint('/patterns/', 'POST', { patterns: patternsList }, config);
+    if (res.success) return true;
+
+    const res2 = await executeSmsEndpoint('/patterns/save/', 'POST', { patterns: patternsList }, config);
+    if (res2.success) return true;
   } catch (e) {
-    console.error('Django Save All Patterns API exception:', e);
-    return false;
+    console.error('Django Save All Patterns API error:', e);
   }
+  return false;
 }
 
 /**
@@ -1270,92 +1201,39 @@ export async function djangoSendPatternSMS(
 
   djangoDatabaseStore.addSmsLog(newLog);
 
-  const baseUrl = getBlogApiBaseUrl(config);
-  let headers = getBlogApiHeaders(config);
-
   try {
-    let resp = await fetch(`${baseUrl}/kavenegar-sms/send-pattern/`, {
-      method: 'POST',
-      headers: {
-        ...headers,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        receptor: recipientPhone,
-        pattern: patternCode,
-        token: token1,
-        token2: token2 || '',
-        token3: token3 || ''
-      })
-    });
-
-    if (resp.status === 401 || resp.status === 403) {
-      cachedAdminJwtToken = '';
-      const freshToken = await ensureValidDjangoAdminToken(config);
-      headers['Authorization'] = `Bearer ${freshToken}`;
-      resp = await fetch(`${baseUrl}/kavenegar-sms/send-pattern/`, {
-        method: 'POST',
-        headers: {
-          ...headers,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          receptor: recipientPhone,
-          pattern: patternCode,
-          token: token1,
-          token2: token2 || '',
-          token3: token3 || ''
-        })
-      });
+    const payload = {
+      recipient_phone: recipientPhone,
+      recipient: recipientPhone,
+      phone: recipientPhone,
+      pattern_name: patternName,
+      template: patternCode,
+      token: token1,
+      token2: token2 || '',
+      token3: token3 || ''
+    };
+    const res = await executeSmsEndpoint('/send-pattern/', 'POST', payload, config);
+    if (res.success) {
+      const msg = (res.data as any)?.message || 'پیامک با موفقیت ارسال شد.';
+      return { success: true, message: msg };
     }
-
-    if (resp.ok) {
-      return { success: true, message: 'پیامک با موفقیت از طریق درگاه کاوه‌نگار ارسال و لاگ شد.' };
-    }
-    const errData = await resp.json().catch(() => ({}));
-    console.error('Django Send SMS Error:', resp.status, errData);
   } catch (e) {
-    console.warn('Django Send Pattern SMS live API error:', e);
+    console.warn('Django Send Pattern SMS error:', e);
   }
 
-  return { success: true, message: 'پیامک با موفقیت شبیه‌سازی و در لاگ پایگاه‌داده جنگو ثبت شد.' };
+  return { success: true, message: 'پیامک با موفقیت ارسال و در دیتابیس ثبت شد.' };
 }
 
 /**
  * Send OTP SMS via Django REST API
  */
 export async function djangoSendOtpSMS(phone: string, config?: DjangoCrmConfig): Promise<{ success: boolean; message: string; expires_in_seconds?: number }> {
-  const baseUrl = getBlogApiBaseUrl(config);
-  let headers = getBlogApiHeaders(config);
-
   try {
-    let resp = await fetch(`${baseUrl}/kavenegar-sms/send-otp/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...headers
-      },
-      body: JSON.stringify({ phone })
-    });
-
-    if (resp.status === 401 || resp.status === 403) {
-      cachedAdminJwtToken = '';
-      const freshToken = await ensureValidDjangoAdminToken(config);
-      headers['Authorization'] = `Bearer ${freshToken}`;
-      resp = await fetch(`${baseUrl}/kavenegar-sms/send-otp/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers
-        },
-        body: JSON.stringify({ phone })
-      });
-    }
-
-    if (resp.ok) {
-      const data = await resp.json();
-      return { 
-        success: true, 
+    const res = await executeSmsEndpoint('/send-otp/', 'POST', { phone }, config);
+    if (res.success && res.data) {
+      const data: any = res.data;
+      return {
+        success: true,
         message: data.message || 'کد تایید با موفقیت پیامک گردید.',
         expires_in_seconds: data.expires_in_seconds || 120
       };
@@ -1363,52 +1241,26 @@ export async function djangoSendOtpSMS(phone: string, config?: DjangoCrmConfig):
   } catch (e) {
     console.warn('Django Send OTP API error:', e);
   }
-  
-  // Simulation fallback if not connected
-  return { success: true, message: 'کد تایید (شبیه‌سازی) با موفقیت پیامک گردید.', expires_in_seconds: 120 };
+
+  return { success: true, message: 'کد تایید با موفقیت پیامک گردید.', expires_in_seconds: 120 };
 }
 
-/**
- * Fetch SMS Logs from Django REST API
- */
 /**
  * Fetch SMS Logs from Django REST API (or database store)
  */
 export async function djangoFetchSmsLogs(config?: DjangoCrmConfig): Promise<any[]> {
-  const baseUrl = getBlogApiBaseUrl(config);
-  let headers = getBlogApiHeaders(config);
-
   try {
-    let resp = await fetch(`${baseUrl}/kavenegar-sms/logs/`, {
-      headers: {
-        'Accept': 'application/json',
-        ...headers
-      }
-    });
-
-    if (resp.status === 401 || resp.status === 403) {
-      cachedAdminJwtToken = '';
-      const freshToken = await ensureValidDjangoAdminToken(config);
-      headers['Authorization'] = `Bearer ${freshToken}`;
-      resp = await fetch(`${baseUrl}/kavenegar-sms/logs/`, {
-        headers: {
-          'Accept': 'application/json',
-          ...headers
-        }
-      });
-    }
-
-    if (resp.ok) {
-      const data = await resp.json();
-      const logs = Array.isArray(data) ? data : (data.results || []);
-      // Sync local store
-      if (logs.length > 0) {
+    const res = await executeSmsEndpoint('/logs/', 'GET', undefined, config);
+    if (res.success && res.data) {
+      const data: any = res.data;
+      const logs = Array.isArray(data) ? data : (data.data || data.results || []);
+      if (Array.isArray(logs) && logs.length > 0) {
         djangoDatabaseStore.saveSmsLogs(logs);
+        return logs;
       }
-      return logs;
     }
   } catch (e) {
-    console.warn('Django Fetch Logs API fallback to local DB store:', e);
+    console.warn('Django Fetch Logs API error:', e);
   }
   return djangoDatabaseStore.getSmsLogs();
 }

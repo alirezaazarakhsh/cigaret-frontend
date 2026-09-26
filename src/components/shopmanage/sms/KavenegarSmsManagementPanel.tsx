@@ -1,8 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { StaffPermission } from '../../../types';
+import {
+  djangoSaveKavenegarSettings,
+  djangoSaveSmsPattern,
+  djangoSaveAllSmsPatterns,
+  djangoSendPatternSMS,
+  djangoSendOtpSMS
+} from '../../../services/djangoApi';
 
-interface KavenegarSmsManagementPanelProps {
+export interface KavenegarSmsManagementPanelProps {
   hasStaffPerm: (perm: StaffPermission) => boolean;
   currentStaff: { fullName: string };
   smsSuccessMessage: string;
@@ -10,6 +17,8 @@ interface KavenegarSmsManagementPanelProps {
   smsSubTab: 'settings_patterns' | 'sms_logs';
   setSmsSubTab: (tab: 'settings_patterns' | 'sms_logs') => void;
   smsLogs: any[];
+  smsPatterns: any[];
+  setSmsPatterns: React.Dispatch<React.SetStateAction<any[]>>;
   lastSmsSync: Date | null;
   kavenegarConfig: any;
   setKavenegarConfig: React.Dispatch<React.SetStateAction<any>>;
@@ -27,9 +36,24 @@ interface KavenegarSmsManagementPanelProps {
   setSmsErrorMessage: (msg: string) => void;
 }
 
+const DEFAULT_13_PATTERNS = [
+  { name_fa: 'otp', title_fa: 'کد تایید ورود دو مرحله‌ای (OTP)', tokens_info: 'token: کد تایید ۵ رقمی ورود' },
+  { name_fa: 'welcome', title_fa: 'خوش‌آمدگویی و ورود به سیستم', tokens_info: 'token: نام و نام خانوادگی کاربر' },
+  { name_fa: 'logout', title_fa: 'اطلاع‌رسانی خروج از حساب کاربری', tokens_info: 'token: نام مشتری' },
+  { name_fa: 'app_download_link', title_fa: 'لینک دانلود اپلیکیشن موبایل', tokens_info: 'token: عنوان اپ | token20: لینک دانلود' },
+  { name_fa: 'pos_receipt', title_fa: 'رسید فاکتور خرید حضوری صندوق', tokens_info: 'token: شماره فاکتور | token2: نام مشتری | token3: مبلغ کل' },
+  { name_fa: 'pos_partial_payment', title_fa: 'رسید پرداخت اقساطی / نسیه', tokens_info: 'token: شماره فاکتور | token2: نام مشتری | token3: باقیمانده' },
+  { name_fa: 'pos_refund_receipt', title_fa: 'رسید مرجوعی کالا و فاکتور برگشتی', tokens_info: 'token: شماره مرجع | token2: نام مشتری | token3: مبلغ عودتی' },
+  { name_fa: 'pos_daily_report', title_fa: 'گزارش فروش روزانه به مدیر ارشد', tokens_info: 'token: تاریخ | token2: تعداد فاکتور | token3: جمع کل فروش' },
+  { name_fa: 'order_registered', title_fa: 'ثبت سفارش خرید مشتری آنلاین', tokens_info: 'token: شماره سفارش | token2: مبلغ کل فاکتور' },
+  { name_fa: 'order_shipped', title_fa: 'ارسال سفارش و کد رهگیری باربری', tokens_info: 'token: شماره سفارش | token2: نام باربری | token3: کد رهگیری' },
+  { name_fa: 'cheque_due_reminder', title_fa: 'یادآوری سررسید چک‌های دریافتی', tokens_info: 'token: شماره چک | token2: سررسید | token3: مبلغ چک' },
+  { name_fa: 'debt_overdue_alert', title_fa: 'هشدار سررسید بدهی حساب دفتری', tokens_info: 'token: مبلغ بدهی | token2: تعداد روز تاخیر' },
+  { name_fa: 'account_blocked_alert', title_fa: 'هشدار مسدودی حساب دفتری مشتری', tokens_info: 'token: علت مسدودی حساب دفتری' },
+];
+
 /**
- * پنل اختصاصی مدیریت سامانه پیامکی کاوه‌نگار، پترن‌ها و لاگ‌های دیتابیس جنگو
- * مسیر فایل: /src/components/shopmanage/sms/KavenegarSmsManagementPanel.tsx
+ * پنل متصل به وب‌سرویس و دیتابیس kavenegar_sms
  */
 export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelProps> = ({
   hasStaffPerm,
@@ -39,6 +63,8 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
   smsSubTab,
   setSmsSubTab,
   smsLogs,
+  smsPatterns,
+  setSmsPatterns,
   lastSmsSync,
   kavenegarConfig,
   setKavenegarConfig,
@@ -55,17 +81,61 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
   setSmsSuccessMessage,
   setSmsErrorMessage,
 }) => {
-  const [isSavingKavenegarConfig, setIsSavingKavenegarConfig] = React.useState(false);
-  const [isTestingKavenegar, setIsTestingKavenegar] = React.useState(false);
+  const [isSavingKavenegarConfig, setIsSavingKavenegarConfig] = useState(false);
+  const [isTestingKavenegar, setIsTestingKavenegar] = useState(false);
+  const [savingPatternKey, setSavingPatternKey] = useState<Record<string, boolean>>({});
+  const [savedPatternKey, setSavedPatternKey] = useState<Record<string, boolean>>({});
+  const [isSavingAllPatterns, setIsSavingAllPatterns] = useState(false);
+
+  // Test Modal State
+  const [testModalOpen, setTestModalOpen] = useState(false);
+  const [testPatternName, setTestPatternName] = useState('otp');
+  const [testPhone, setTestPhone] = useState('09120759419');
+  const [testToken1, setTestToken1] = useState('12345');
+  const [testToken2, setTestToken2] = useState('');
+  const [testToken3, setTestToken3] = useState('');
+  const [isSendingTestSms, setIsSendingTestSms] = useState(false);
+
+  // Build merged patterns list from default 13 items + DB patterns
+  const mergedPatterns = DEFAULT_13_PATTERNS.map((def) => {
+    const dbItem = (smsPatterns || []).find(
+      (p: any) => p.name_fa === def.name_fa || p.name === def.name_fa || p.title_fa === def.title_fa
+    );
+    return {
+      id: dbItem?.id || def.name_fa,
+      name_fa: def.name_fa,
+      title_fa: def.title_fa,
+      pattern_code: dbItem?.pattern_code !== undefined ? dbItem.pattern_code : (dbItem?.code || ''),
+      tokens_info: dbItem?.tokens_info || def.tokens_info,
+      is_active: Boolean(dbItem?.pattern_code || dbItem?.code),
+    };
+  });
+
+  const handlePatternCodeChange = (name_fa: string, newCode: string) => {
+    setSmsPatterns((prev) => {
+      const exists = prev.some((p: any) => p.name_fa === name_fa);
+      if (exists) {
+        return prev.map((p: any) =>
+          p.name_fa === name_fa ? { ...p, pattern_code: newCode } : p
+        );
+      }
+      return [...prev, { name_fa, pattern_code: newCode }];
+    });
+  };
 
   const handleSaveKavenegarConfig = async () => {
     setIsSavingKavenegarConfig(true);
     try {
-      localStorage.setItem('kavenegar_settings_config', JSON.stringify(kavenegarConfig));
-      setSmsSuccessMessage('تنظیمات سامانه پیامکی کاوه‌نگار با موفقیت ذخیره شد.');
-      setTimeout(() => setSmsSuccessMessage(''), 3000);
+      const ok = await djangoSaveKavenegarSettings(kavenegarConfig, crmConfig);
+      if (ok) {
+        setSmsSuccessMessage('تنظیمات درگاه کاوه‌نگار با موفقیت در پایگاه‌داده جنگو ثبت گردید.');
+        setTimeout(() => setSmsSuccessMessage(''), 3000);
+      } else {
+        setSmsErrorMessage('خطا در ذخیره‌سازی تنظیمات پیامک در دیتابیس.');
+        setTimeout(() => setSmsErrorMessage(''), 3000);
+      }
     } catch {
-      setSmsErrorMessage('خطا در ذخیره‌سازی تنظیمات پیامک.');
+      setSmsErrorMessage('خطا در ثبت تنظیمات پیامک.');
       setTimeout(() => setSmsErrorMessage(''), 3000);
     } finally {
       setIsSavingKavenegarConfig(false);
@@ -75,9 +145,14 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
   const handleTestKavenegarConnection = async () => {
     setIsTestingKavenegar(true);
     try {
-      await new Promise(r => setTimeout(r, 800));
-      setSmsSuccessMessage('ارتباط با وب‌سرویس پیامک کاوه‌نگار موفق و معتبر است.');
-      setTimeout(() => setSmsSuccessMessage(''), 3000);
+      const res = await djangoSendOtpSMS(kavenegarConfig.sender_number || '09120759419', crmConfig);
+      if (res.success) {
+        setSmsSuccessMessage(`تست درگاه کاوه‌نگار موفقیت‌آمیز بود: ${res.message}`);
+        setTimeout(() => setSmsSuccessMessage(''), 4000);
+      } else {
+        setSmsErrorMessage('خطا در برقراری ارتباط با وب‌سرویس کاوه‌نگار.');
+        setTimeout(() => setSmsErrorMessage(''), 3000);
+      }
     } catch {
       setSmsErrorMessage('خطا در برقراری ارتباط با کاوه‌نگار.');
       setTimeout(() => setSmsErrorMessage(''), 3000);
@@ -85,6 +160,88 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
       setIsTestingKavenegar(false);
     }
   };
+
+  const handleSaveSinglePattern = async (name_fa: string) => {
+    const pat = mergedPatterns.find((p) => p.name_fa === name_fa);
+    const code = pat?.pattern_code || '';
+    setSavingPatternKey((prev) => ({ ...prev, [name_fa]: true }));
+    try {
+      const ok = await djangoSaveSmsPattern(name_fa, code, crmConfig);
+      if (ok) {
+        setSavedPatternKey((prev) => ({ ...prev, [name_fa]: true }));
+        setSmsSuccessMessage(`کد پترن برای بخش «${name_fa}» در دیتابیس جنگو ذخیره شد.`);
+        setTimeout(() => {
+          setSavedPatternKey((prev) => ({ ...prev, [name_fa]: false }));
+          setSmsSuccessMessage('');
+        }, 3000);
+      } else {
+        setSmsErrorMessage(`خطا در ذخیره‌سازی پترن «${name_fa}».`);
+        setTimeout(() => setSmsErrorMessage(''), 3000);
+      }
+    } catch {
+      setSmsErrorMessage('خطا در ذخیره پترن.');
+      setTimeout(() => setSmsErrorMessage(''), 3000);
+    } finally {
+      setSavingPatternKey((prev) => ({ ...prev, [name_fa]: false }));
+    }
+  };
+
+  const handleSaveAllPatterns = async () => {
+    setIsSavingAllPatterns(true);
+    try {
+      const listToSave = mergedPatterns.map((p) => ({
+        name_fa: p.name_fa,
+        pattern_code: (p.pattern_code || '').trim(),
+      }));
+      const ok = await djangoSaveAllSmsPatterns(listToSave, crmConfig);
+      if (ok) {
+        setSmsSuccessMessage('تمامی پترن‌های سامانه با موفقیت در پایگاه‌داده جنگو ثبت گردیدند.');
+        setTimeout(() => setSmsSuccessMessage(''), 3000);
+      } else {
+        setSmsErrorMessage('خطا در ذخیره‌سازی گروهی پترن‌ها.');
+        setTimeout(() => setSmsErrorMessage(''), 3000);
+      }
+    } catch {
+      setSmsErrorMessage('خطا در ارتباط با سرور.');
+      setTimeout(() => setSmsErrorMessage(''), 3000);
+    } finally {
+      setIsSavingAllPatterns(false);
+    }
+  };
+
+  const handleSendManualTestSms = async () => {
+    if (!testPhone || testPhone.length < 11) {
+      setSmsErrorMessage('لطفاً شماره همراه ۱۱ رقمی معتبر وارد کنید.');
+      setTimeout(() => setSmsErrorMessage(''), 3000);
+      return;
+    }
+    setIsSendingTestSms(true);
+    try {
+      const res = await djangoSendPatternSMS(
+        testPhone,
+        testPatternName,
+        testToken1,
+        testToken2,
+        testToken3,
+        crmConfig
+      );
+      if (res.success) {
+        setSmsSuccessMessage(res.message || 'پیامک تست با موفقیت ارسال شد.');
+        setTestModalOpen(false);
+        onRefreshLogs();
+        setTimeout(() => setSmsSuccessMessage(''), 4000);
+      } else {
+        setSmsErrorMessage(res.message || 'خطا در ارسال پیامک تست.');
+        setTimeout(() => setSmsErrorMessage(''), 3000);
+      }
+    } catch {
+      setSmsErrorMessage('خطا در ارسال پیامک.');
+      setTimeout(() => setSmsErrorMessage(''), 3000);
+    } finally {
+      setIsSendingTestSms(false);
+    }
+  };
+
   return (
     <motion.div
       key="sms-management-tab"
@@ -101,7 +258,7 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
           <div>
             <h3 className="text-base font-black text-slate-900">عدم دسترسی به سامانه پیامکی</h3>
             <p className="text-xs text-slate-500 mt-2 leading-relaxed">
-              شمای کاربری فعلی شما ({currentStaff.fullName}) فاقد دسترسی «ارسال و مدیریت پیامک» است. لطفاً از طریق دکمه زیر سطح دسترسی را ارتقا دهید.
+              شمای کاربری فعلی شما ({currentStaff.fullName}) فاقد دسترسی «ارسال و مدیریت پیامک» است. لطفاً سطح دسترسی خود را ارتقا دهید.
             </p>
           </div>
           <div className="pt-2">
@@ -154,7 +311,7 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
                 }`}
               >
                 <span>📜</span>
-                <span>تاریخچه و لاگ‌های دیتابیس پیامک (SMS Database Logs)</span>
+                <span>تاریخچه لاگ‌های دیتابیس پیامک (SMS Logs)</span>
                 <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-bold ${
                   smsSubTab === 'sms_logs' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-700'
                 }`}>
@@ -165,7 +322,7 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
 
             <div className="flex items-center gap-2 text-xs text-slate-500 font-bold px-3 py-1">
               <span className={`w-2 h-2 rounded-full ${lastSmsSync ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
-              <span>سرویس کاوه‌نگار: {lastSmsSync ? `متصل به دیتابیس جنگو (آخرین بروزرسانی: ${lastSmsSync.toLocaleTimeString('fa-IR')})` : 'در حال بررسی اتصال...'}</span>
+              <span>سرویس کاوه‌نگار: {lastSmsSync ? `متصل به kavenegar_sms (آخرین بروزرسانی: ${lastSmsSync.toLocaleTimeString('fa-IR')})` : 'در حال بررسی اتصال...'}</span>
             </div>
           </div>
 
@@ -178,16 +335,22 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
                   <div>
                     <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                       <span>🔑</span>
-                      <span>تنظیمات وب‌سرویس کاوه‌نگار (Kavenegar SMS Gateway)</span>
+                      <span>تنظیمات وب‌سرویس کاوه‌نگار (KavenegarSMSSetting)</span>
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      پیکربندی کلید API در جدول <code className="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600 font-mono text-[11px]">KavenegarSMSSetting</code> در پایگاه‌داده جنگو
+                      پیکربندی کلید API و تنظیمات درگاه در جدول <code className="bg-slate-100 px-1.5 py-0.5 rounded text-indigo-600 font-mono text-[11px]">KavenegarSMSSetting</code> دیتابیس آذرخش
                     </p>
                   </div>
-                  <span className="bg-emerald-50 text-emerald-700 text-[11px] font-bold px-3 py-1 rounded-full border border-emerald-200 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                    <span>درگاه فعال</span>
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[11px] font-bold px-3 py-1 rounded-full border flex items-center gap-1.5 ${
+                      kavenegarConfig.is_active !== false 
+                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                        : 'bg-rose-50 text-rose-700 border-rose-200'
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${kavenegarConfig.is_active !== false ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                      <span>{kavenegarConfig.is_active !== false ? 'درگاه فعال' : 'درگاه غیرفعال'}</span>
+                    </span>
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
@@ -195,10 +358,10 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
                     <label className="text-xs font-black text-slate-700">نام سامانه پیامکی:</label>
                     <input
                       type="text"
-                      value={kavenegarConfig.name}
+                      value={kavenegarConfig.name || ''}
                       onChange={(e) => setKavenegarConfig((prev: any) => ({ ...prev, name: e.target.value }))}
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white"
-                      placeholder="مثال: سامانه پیامک هوشمند دخانیات سرو"
+                      placeholder="مثال: سامانه پیامک هوشمند آذرخش"
                     />
                   </div>
 
@@ -210,39 +373,50 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
                         onClick={() => setShowApiToken(!showApiToken)}
                         className="text-[11px] text-indigo-600 hover:text-indigo-800 font-bold cursor-pointer"
                       >
-                        {showApiToken ? 'مخفی‌سازی کلید' : 'نمایش کلید'}
+                        {showApiToken ? 'مخفی‌سازی' : 'نمایش کلید'}
                       </button>
                     </div>
                     <div className="relative">
                       <input
                         type={showApiToken ? 'text' : 'password'}
-                        value={kavenegarConfig.api_key}
-                        onChange={(e) => setKavenegarConfig((prev: any) => ({ ...prev, api_key: e.target.value }))}
+                        value={kavenegarConfig.api_token || kavenegarConfig.api_key || ''}
+                        onChange={(e) => setKavenegarConfig((prev: any) => ({ ...prev, api_token: e.target.value, api_key: e.target.value }))}
                         className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-left dir-ltr"
                         placeholder="••••••••••••••••••••••••••••••••"
                       />
                     </div>
                   </div>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-black text-slate-700">شماره خط ارسال‌کننده (Sender Line):</label>
-                    <input
-                      type="text"
-                      value={kavenegarConfig.sender_number}
-                      onChange={(e) => setKavenegarConfig((prev: any) => ({ ...prev, sender_number: e.target.value }))}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white text-left dir-ltr"
-                      placeholder="مثال: 9000... یا 1000..."
-                    />
+                  <div className="flex items-center gap-6 pt-2">
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={kavenegarConfig.is_active !== false}
+                        onChange={(e) => setKavenegarConfig((prev: any) => ({ ...prev, is_active: e.target.checked }))}
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                      />
+                      <span>فعال بودن درگاه پیامک</span>
+                    </label>
+
+                    <label className="flex items-center gap-2 cursor-pointer text-xs font-bold text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={Boolean(kavenegarConfig.debug_mode)}
+                        onChange={(e) => setKavenegarConfig((prev: any) => ({ ...prev, debug_mode: e.target.checked }))}
+                        className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                      />
+                      <span>حالت شبیه‌ساز (تست بدون کسر شارژ)</span>
+                    </label>
                   </div>
 
-                  <div className="flex items-end gap-3 pt-2">
+                  <div className="flex items-center gap-3 pt-2">
                     <button
                       onClick={handleSaveKavenegarConfig}
                       disabled={isSavingKavenegarConfig}
                       className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl text-xs font-black transition-all shadow-md shadow-indigo-600/20 active:scale-98 flex items-center justify-center gap-2 cursor-pointer"
                     >
                       <span>💾</span>
-                      <span>{isSavingKavenegarConfig ? 'در حال ذخیره در دیتابیس...' : 'ذخیره تنظیمات در دیتابیس جنگو'}</span>
+                      <span>{isSavingKavenegarConfig ? 'در حال ذخیره...' : 'ذخیره تنظیمات درگاه در دیتابیس'}</span>
                     </button>
                     <button
                       onClick={handleTestKavenegarConnection}
@@ -250,9 +424,107 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
                       className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all border border-slate-200 flex items-center gap-1.5 cursor-pointer"
                     >
                       <span>⚡</span>
-                      <span>{isTestingKavenegar ? 'تست...' : 'تست اتصال به وب‌سرویس'}</span>
+                      <span>{isTestingKavenegar ? 'تست...' : 'تست اتصال درگاه'}</span>
                     </button>
                   </div>
+                </div>
+              </div>
+
+              {/* 13 Patterns Management Section */}
+              <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-sm space-y-5">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+                  <div>
+                    <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                      <span>📋</span>
+                      <span>مدیریت کدهای پترن ۱۳گانه سامانه (SMS Patterns)</span>
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-1">
+                      کدهای الگو (Template Name) دریافتی از پنل کاوه‌نگار را برای هر یک از بخش‌های ۱۳گانه سامانه وارد و ذخیره فرمایید.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setTestModalOpen(true)}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>✉️</span>
+                      <span>ارسال دستی پیامک تست</span>
+                    </button>
+
+                    <button
+                      onClick={handleSaveAllPatterns}
+                      disabled={isSavingAllPatterns}
+                      className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-600/20 active:scale-95 flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <span>💾</span>
+                      <span>{isSavingAllPatterns ? 'در حال ذخیره...' : 'ذخیره گروهی تمامی پترن‌ها'}</span>
+                    </button>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {mergedPatterns.map((pat) => {
+                    const isSaving = savingPatternKey[pat.name_fa];
+                    const isSaved = savedPatternKey[pat.name_fa];
+
+                    return (
+                      <div
+                        key={pat.name_fa}
+                        className="bg-slate-50/80 border border-slate-200/90 hover:border-indigo-300 rounded-2xl p-4 transition-all flex flex-col justify-between space-y-3"
+                      >
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-black text-slate-900">{pat.title_fa}</span>
+                            <span className="font-mono text-[10px] bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-md font-bold">
+                              {pat.name_fa}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-slate-500 leading-relaxed font-sans">
+                            {pat.tokens_info}
+                          </p>
+
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-700 block mb-1">کد پترن انگلیسی:</label>
+                            <input
+                              type="text"
+                              value={pat.pattern_code}
+                              onChange={(e) => handlePatternCodeChange(pat.name_fa, e.target.value)}
+                              placeholder="مثال: otp_verify یا pos_receipt_template"
+                              className="w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-left dir-ltr"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2">
+                          <button
+                            onClick={() => {
+                              setTestPatternName(pat.name_fa);
+                              setTestModalOpen(true);
+                            }}
+                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors flex items-center gap-1 cursor-pointer"
+                          >
+                            <span>⚡</span>
+                            <span>تست این الگو</span>
+                          </button>
+
+                          <button
+                            onClick={() => handleSaveSinglePattern(pat.name_fa)}
+                            disabled={isSaving}
+                            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                              isSaved
+                                ? 'bg-emerald-600 text-white'
+                                : 'bg-slate-800 hover:bg-slate-900 text-white'
+                            }`}
+                          >
+                            <span>{isSaved ? '✓' : '💾'}</span>
+                            <span>{isSaving ? '...' : isSaved ? 'ذخیره شد' : 'ذخیره الگو'}</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -266,10 +538,10 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
                   <div>
                     <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
                       <span>📜</span>
-                      <span>لاگ‌های ثبتی پیامک‌ها در دیتابیس جنگو (KavenegarSMSLog)</span>
+                      <span>لاگ‌های ثبتی پیامک‌ها در دیتابیس آذرخش (SmsLog)</span>
                     </h3>
                     <p className="text-xs text-slate-500 mt-1">
-                      نمایش زنده تمامی پیامک‌های خدماتی و فاکتورهای پیامکی ارسال شده به مشتریان
+                      نمایش زنده تمامی پیامک‌های خدماتی و فاکتورهای پیامکی ارسال شده به همراه وضعیت دلیوری و هزینه
                     </p>
                   </div>
 
@@ -288,7 +560,7 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
                     <select
                       value={smsStatusFilter}
                       onChange={(e: any) => setSmsStatusFilter(e.target.value)}
-                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer"
                     >
                       <option value="all">تمام وضعیت‌ها</option>
                       <option value="delivered">رسیده به گوشی (Delivered)</option>
@@ -324,13 +596,13 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-xs">
                       {smsLogs
-                        .filter(log => {
+                        .filter((log) => {
                           if (smsStatusFilter !== 'all' && log.status !== smsStatusFilter) return false;
                           const q = smsSearch.trim().toLowerCase();
                           if (!q) return true;
                           return (
                             (log.recipient_phone || log.recipient || '').toLowerCase().includes(q) ||
-                            (log.pattern || '').toLowerCase().includes(q) ||
+                            (log.pattern || log.pattern_name || '').toLowerCase().includes(q) ||
                             (log.pattern_code || '').toLowerCase().includes(q) ||
                             (log.kavenegar_message_id || '').toLowerCase().includes(q)
                           );
@@ -349,14 +621,14 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
                                 day: '2-digit',
                                 hour: '2-digit',
                                 minute: '2-digit',
-                                second: '2-digit'
+                                second: '2-digit',
                               }).format(new Date(log.created_at));
                             } catch {
                               shamsiDate = log.created_at;
                             }
                           }
 
-                          const tokens = log.tokens || {};
+                          const tokens = log.tokens_sent || log.tokens || {};
 
                           return (
                             <tr key={log.id || Math.random()} className="hover:bg-slate-50/80 transition-colors">
@@ -366,7 +638,7 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
                                 {log.recipient_phone || log.recipient || '-'}
                               </td>
                               <td className="py-3 px-3">
-                                <div className="font-bold text-slate-900 text-xs">{log.pattern || '-'}</div>
+                                <div className="font-bold text-slate-900 text-xs">{log.pattern || log.pattern_name || '-'}</div>
                                 {log.pattern_code && (
                                   <div className="font-mono text-[10px] text-indigo-600">{log.pattern_code}</div>
                                 )}
@@ -433,6 +705,105 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Manual Test SMS Modal */}
+      {testModalOpen && (
+        <div className="fixed inset-0 z-[250] bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-3xl max-w-lg w-full p-6 space-y-5 shadow-2xl dir-rtl">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <h3 className="text-base font-black text-slate-900 flex items-center gap-2">
+                <span>✉️</span>
+                <span>ارسال پیامک تست پترن کاوه‌نگار</span>
+              </h3>
+              <button
+                onClick={() => setTestModalOpen(false)}
+                className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">انتخاب بخش الگو (Pattern):</label>
+                <select
+                  value={testPatternName}
+                  onChange={(e) => setTestPatternName(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                >
+                  {DEFAULT_13_PATTERNS.map((p) => (
+                    <option key={p.name_fa} value={p.name_fa}>
+                      {p.title_fa} ({p.name_fa})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="font-bold text-slate-700 block mb-1">شماره گیرنده (Mobile):</label>
+                <input
+                  type="text"
+                  value={testPhone}
+                  onChange={(e) => setTestPhone(e.target.value)}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl font-mono text-left dir-ltr text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="09120000000"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">توکن ۱ (token):</label>
+                  <input
+                    type="text"
+                    value={testToken1}
+                    onChange={(e) => setTestToken1(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="مقدار ۱"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">توکن ۲ (token2):</label>
+                  <input
+                    type="text"
+                    value={testToken2}
+                    onChange={(e) => setTestToken2(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="مقدار ۲"
+                  />
+                </div>
+                <div>
+                  <label className="font-bold text-slate-700 block mb-1">توکن ۳ (token3):</label>
+                  <input
+                    type="text"
+                    value={testToken3}
+                    onChange={(e) => setTestToken3(e.target.value)}
+                    className="w-full px-2.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    placeholder="مقدار ۳"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-100">
+              <button
+                onClick={() => setTestModalOpen(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors cursor-pointer"
+              >
+                انصراف
+              </button>
+
+              <button
+                onClick={handleSendManualTestSms}
+                disabled={isSendingTestSms}
+                className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all shadow-md shadow-indigo-600/20 active:scale-95 flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>🚀</span>
+                <span>{isSendingTestSms ? 'در حال ارسال...' : 'ارسال پیامک تست'}</span>
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </motion.div>

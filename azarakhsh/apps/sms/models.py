@@ -21,6 +21,8 @@ PATTERN_SECTIONS = [
 class KavenegarSMSSetting(models.Model):
     name = models.CharField(max_length=100, verbose_name="نام سامانه")
     api_token = models.TextField(max_length=500, verbose_name="API Token")
+    is_active = models.BooleanField(default=True, verbose_name="فعال بودن درگاه")
+    debug_mode = models.BooleanField(default=False, verbose_name="حالت شبیه‌ساز (بدون کسر شارژ)")
 
     class Meta:
         verbose_name = "تنظیمات سامانه پیامکی کاوهنگار"

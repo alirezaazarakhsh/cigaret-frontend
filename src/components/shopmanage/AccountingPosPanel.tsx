@@ -3871,6 +3871,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   setIsSmsLoading(false);
                 }
               }}
+              smsPatterns={smsPatterns}
+              setSmsPatterns={setSmsPatterns}
               onOpenStaffModal={() => setShowStaffModal(true)}
             />
           )}
