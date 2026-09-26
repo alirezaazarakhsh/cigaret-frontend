@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.conf import settings
 from django.contrib.auth import get_user_model, authenticate
-from django.contrib.auth.hashers import check_password
+from django.contrib.auth.hashers import check_password, make_password
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_yasg.utils import swagger_auto_schema
 from .models import PosStaff
@@ -77,29 +77,24 @@ class LoginStaffAPIView(APIView):
         phone_no_zero = clean_phone[1:] if clean_phone.startswith('0') else clean_phone
         phone_with_zero = '0' + phone_no_zero
 
-        # ۱. جستجوی دقیق کاربر با همه‌ی فرمت‌های ممکن شماره تلفن
-        user = (
-            User.objects.filter(phone=phone_with_zero).first() or
-            User.objects.filter(phone=phone_no_zero).first() or
-            User.objects.filter(username=phone_with_zero).first() or
-            User.objects.filter(username=phone_no_zero).first()
+        # ۱. دریافت تمام کاربران تطبیق‌یافته با این شماره همراه
+        candidate_users = list(
+            User.objects.filter(phone__in=[phone_with_zero, phone_no_zero]) |
+            User.objects.filter(username__in=[phone_with_zero, phone_no_zero])
         )
 
-        if user:
+        user = None
+        for candidate in candidate_users:
             # بررسی صحت رمز عبور روی User
-            is_valid_pwd = user.check_password(password)
-            if not is_valid_pwd:
-                # بررسی پین‌کد روی پروفایل pos_profile
-                pos_staff = getattr(user, 'pos_profile', None)
-                if pos_staff and pos_staff.password:
-                    is_valid_pwd = check_password(password, pos_staff.password)
-            
-            if not is_valid_pwd:
-                user = None
-
-        # ۲. در صورت نیافتن، تست متد استاندارد authenticate جنگو
-        if user is None:
-            user = authenticate(request, username=phone_with_zero, password=password) or authenticate(request, username=phone_no_zero, password=password)
+            if candidate.check_password(password):
+                user = candidate
+                break
+            # بررسی پین‌کد روی پروفایل pos_profile
+            pos_staff = getattr(candidate, 'pos_profile', None)
+            if pos_staff and pos_staff.password:
+                if check_password(password, pos_staff.password):
+                    user = candidate
+                    break
 
         if user is not None:
             if not user.is_active:
@@ -269,73 +264,196 @@ class StaffDetailAPIView(APIView):
 
     def put(self, request, pk):
         try:
+            # بسیار مهم:
+            # ابتدا خود PosStaff را دقیقاً با PK موجود در URL پیدا می‌کنیم.
+            # سپس فقط User متصل به همین Staff را ویرایش می‌کنیم.
             staff = PosStaff.objects.select_related('user').get(pk=pk)
             user = staff.user
 
-            # ۱. استخراج و بررسی هوشمند نام و نام خانوادگی
+            # =========================================================
+            # 1. بروزرسانی نام کاربر
+            # =========================================================
             raw_full_name = (
-                request.data.get('full_name') or 
-                request.data.get('fullName') or 
-                request.data.get('name')
+                request.data.get('full_name')
+                or request.data.get('fullName')
+                or request.data.get('name')
             )
-            if raw_full_name and isinstance(raw_full_name, str) and raw_full_name.strip():
+
+            if (
+                raw_full_name
+                and isinstance(raw_full_name, str)
+                and raw_full_name.strip()
+            ):
                 clean_name = raw_full_name.strip()
-                if hasattr(user, 'full_name'): user.full_name = clean_name
-                if hasattr(user, 'first_name'): user.first_name = clean_name
-                user.save()
 
-            # ۲. استخراج و بررسی شماره تلفن
+                user_fields_to_update = []
+
+                if hasattr(user, 'full_name'):
+                    user.full_name = clean_name
+                    user_fields_to_update.append('full_name')
+
+                if hasattr(user, 'first_name'):
+                    user.first_name = clean_name
+                    user_fields_to_update.append('first_name')
+
+                if user_fields_to_update:
+                    user.save(update_fields=user_fields_to_update)
+
+            # =========================================================
+            # 2. بروزرسانی شماره تلفن
+            # =========================================================
             raw_phone = request.data.get('phone')
-            if raw_phone and isinstance(raw_phone, str) and raw_phone.strip():
-                phone_clean = raw_phone.strip().replace(' ', '').replace('-', '')
-                if phone_clean.startswith('+98'): phone_clean = '0' + phone_clean[3:]
-                elif phone_clean.startswith('98'): phone_clean = '0' + phone_clean[2:]
-                
+
+            if (
+                raw_phone
+                and isinstance(raw_phone, str)
+                and raw_phone.strip()
+            ):
+                phone_clean = (
+                    raw_phone
+                    .strip()
+                    .replace(' ', '')
+                    .replace('-', '')
+                )
+
+                if phone_clean.startswith('+98'):
+                    phone_clean = '0' + phone_clean[3:]
+                elif phone_clean.startswith('98'):
+                    phone_clean = '0' + phone_clean[2:]
+
                 if len(phone_clean) >= 10:
-                    if hasattr(user, 'phone'): user.phone = phone_clean
-                    if hasattr(user, 'username'): user.username = phone_clean
-                    if hasattr(user, 'mobile'): user.mobile = phone_clean
-                    user.save()
+                    user_fields_to_update = []
 
-            # ۳. بررسی هوشمند رمز عبور (عدم جایگزینی کاراکترهای ماسک‌شده مانند ••••••••)
+                    if hasattr(user, 'phone'):
+                        user.phone = phone_clean
+                        user_fields_to_update.append('phone')
+
+                    if hasattr(user, 'username'):
+                        user.username = phone_clean
+                        user_fields_to_update.append('username')
+
+                    if hasattr(user, 'mobile'):
+                        user.mobile = phone_clean
+                        user_fields_to_update.append('mobile')
+
+                    if hasattr(user, 'phone_number'):
+                        user.phone_number = phone_clean
+                        user_fields_to_update.append('phone_number')
+
+                    if user_fields_to_update:
+                        user.save(update_fields=user_fields_to_update)
+
+            # =========================================================
+            # 3. بروزرسانی رمز عبور
+            # =========================================================
             raw_password = request.data.get('password')
-            if is_valid_new_password(raw_password):
-                staff.set_password(raw_password.strip())
 
-            # ۴. به‌روزرسانی نقش و عنوان فارسی
+            if is_valid_new_password(raw_password):
+                raw_password = raw_password.strip()
+
+                # فقط User مربوط به همین PosStaff
+                user.set_password(raw_password)
+                user.save(update_fields=['password'])
+
+                # ذخیره Hash روی PosStaff
+                staff.password = make_password(raw_password)
+
+            # =========================================================
+            # 4. بروزرسانی نقش
+            # =========================================================
             role = request.data.get('role')
-            role_title = request.data.get('roleTitleFa') or request.data.get('role_title')
-            
+
+            role_title = (
+                request.data.get('roleTitleFa')
+                or request.data.get('role_title')
+            )
+
             if role:
                 staff.role = role
-                if not role_title:
-                    staff.role_title = ROLE_TITLE_MAP.get(role, staff.role_title or 'صندوق‌دار')
-            
-            if role_title:
-                staff.role_title = role_title
 
-            # ۵. به‌روزرسانی سطوح دسترسی
+                if not role_title:
+                    staff.role_title = ROLE_TITLE_MAP.get(
+                        role,
+                        staff.role_title or 'صندوق‌دار'
+                    )
+
+            if role_title:
+                staff.role_title = role_title.strip()
+
+            # =========================================================
+            # 5. بروزرسانی دسترسی‌ها
+            # =========================================================
             permissions_list = request.data.get('permissions')
-            if permissions_list is not None and isinstance(permissions_list, list):
+
+            if (
+                permissions_list is not None
+                and isinstance(permissions_list, list)
+            ):
                 for name in PERMISSION_FIELDS:
-                    setattr(staff, f'perm_{name}', name in permissions_list)
-            
+                    setattr(
+                        staff,
+                        f'perm_{name}',
+                        name in permissions_list
+                    )
+
+            # =========================================================
+            # 6. ذخیره PosStaff
+            # =========================================================
+            #
+            # چون password را خودمان Hash کرده‌ایم، save مدل نباید
+            # دوباره User دیگری را تغییر دهد.
+            #
             staff.save()
+
+            # =========================================================
+            # 7. خروجی
+            # =========================================================
             out_data = PosStaffOutSerializer(staff).data
-            return Response({"success": True, "message": "اطلاعات پرسنل با موفقیت بروز شد.", "data": out_data}, status=status.HTTP_200_OK)
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "اطلاعات پرسنل با موفقیت بروز شد.",
+                    "data": out_data
+                },
+                status=status.HTTP_200_OK
+            )
+
         except PosStaff.DoesNotExist:
-            return Response({"success": False, "message": "پرسنل یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {
+                    "success": False,
+                    "message": "پرسنل یافت نشد."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
 
     def delete(self, request, pk):
         try:
             staff = PosStaff.objects.select_related('user').get(pk=pk)
             user = staff.user
-            staff.delete()
-            if user: user.delete()
-            return Response({"success": True, "message": "پرسنل حذف شد."}, status=status.HTTP_200_OK)
-        except PosStaff.DoesNotExist:
-            return Response({"success": False, "message": "پرسنل یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
 
+            staff.delete()
+
+            if user:
+                user.delete()
+
+            return Response(
+                {
+                    "success": True,
+                    "message": "پرسنل حذف شد."
+                },
+                status=status.HTTP_200_OK
+            )
+
+        except PosStaff.DoesNotExist:
+            return Response(
+                {
+                    "success": False,
+                    "message": "پرسنل یافت نشد."
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
 
 class ToggleLockStaffAPIView(APIView):
     permission_classes = [AllowAny]
