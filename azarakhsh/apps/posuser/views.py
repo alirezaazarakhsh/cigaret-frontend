@@ -10,13 +10,14 @@ from .serializers import PosStaffCreateSerializer, LoginSerializer
 
 User = get_user_model()
 
-# Helper for setting tokens
+
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
     return {
         'refresh': str(refresh),
         'access': str(refresh.access_token),
     }
+
 
 class LoginStaffAPIView(APIView):
     """
@@ -34,7 +35,7 @@ class LoginStaffAPIView(APIView):
         password = request.data.get('password', '')
 
         if not phone_raw or not password:
-            return Response({"success": False, "message": "شماره همراه و پین‌کد الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"success": False, "message": "شماره همراه و پینکد الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Normalize phone
         phone = phone_raw.strip().replace(' ', '').replace('-', '')
@@ -171,6 +172,7 @@ class ActiveStaffSessionsAPIView(APIView):
             "data": online_sessions
         }, status=status.HTTP_200_OK)
 
+
 class CreateStaffAPIView(APIView):
     """
     اندپوینت ایجاد پرسنل جدید توسط مدیریت
@@ -204,6 +206,7 @@ class CreateStaffAPIView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response({"success": False, "message": "خطا در ثبت پرسنل", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
+
 class ListStaffAPIView(APIView):
     """
     دریافت لیست پرسنل
@@ -232,6 +235,7 @@ class ListStaffAPIView(APIView):
                 "is_active": staff.is_active,
             })
         return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+
 
 class StaffDetailAPIView(APIView):
     """
@@ -273,6 +277,7 @@ class StaffDetailAPIView(APIView):
             return Response({"success": True, "message": "پرسنل حذف شد."}, status=status.HTTP_200_OK)
         except PosStaff.DoesNotExist:
             return Response({"success": False, "message": "پرسنل یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
+
 
 class ToggleLockStaffAPIView(APIView):
     permission_classes = [AllowAny]

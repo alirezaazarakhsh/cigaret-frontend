@@ -62,17 +62,17 @@ class PosStaffCreateSerializer(serializers.Serializer):
                 f'perm_{name}': (name in permissions_list) for name in PERMISSION_FIELDS
             }
 
-            pos_staff, _ = PosStaff.objects.update_or_create(
+            pos_staff, created = PosStaff.objects.update_or_create(
                 user=user,
                 defaults={
                     'role': role,
                     'role_title': role_title,
-                    'password': password,
                     'is_active': True,
                     **perms_dict
                 }
             )
             pos_staff.set_password(password)
+            pos_staff.save()
             return pos_staff
 
 class LoginSerializer(serializers.Serializer):
