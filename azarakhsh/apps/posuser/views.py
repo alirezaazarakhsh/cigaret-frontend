@@ -26,6 +26,21 @@ ROLE_TITLE_MAP = {
 }
 
 
+def is_valid_new_password(pwd) -> bool:
+    """بررسی اینکه آیا رمز عبور جدید وارد شده واقعی است یا کاراکترهای ماسک‌شده مانند گلوله یا ستاره است"""
+    if not pwd or not isinstance(pwd, str):
+        return False
+    pwd = pwd.strip()
+    if not pwd:
+        return False
+    # اگر رمز کاراکترهای ماسک یا ستاره باشد نباید ذخیره شود
+    if set(pwd) <= {'•', '*', '⚫', '▪', '.'} or '•' in pwd or '****' in pwd or pwd == '••••••••':
+        return False
+    if len(pwd) < 3:
+        return False
+    return True
+
+
 def get_tokens_for_user(user):
     refresh = RefreshToken.for_user(user)
     return {
@@ -36,7 +51,7 @@ def get_tokens_for_user(user):
 
 class LoginStaffAPIView(APIView):
     """
-    اندپوینت ورود پرسنل صندوق و انبار با احراز هویت دقیق و خروجی جامع توکن برای جلوگیر از سفید شدن صفحه
+    اندپوینت ورود پرسنل صندوق و انبار با احراز هویت دقیق، بررسی کامل پین و شماره بدون صفر و با صفر
     """
     permission_classes = [AllowAny]
 
@@ -46,38 +61,45 @@ class LoginStaffAPIView(APIView):
         tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request):
-        phone_raw = request.data.get('phone', '')
-        password = request.data.get('password', '')
+        phone_raw = request.data.get('phone', '') or request.data.get('username', '')
+        password = request.data.get('password', '') or request.data.get('pin', '')
 
         if not phone_raw or not password:
             return Response({"success": False, "message": "شماره همراه و پینکد الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
 
-        phone = phone_raw.strip().replace(' ', '').replace('-', '')
-        if phone.startswith('+98'):
-            phone = '0' + phone[3:]
-        elif phone.startswith('98'):
-            phone = '0' + phone[2:]
+        # Normalize phone variations
+        clean_phone = phone_raw.strip().replace(' ', '').replace('-', '')
+        if clean_phone.startswith('+98'):
+            clean_phone = '0' + clean_phone[3:]
+        elif clean_phone.startswith('98'):
+            clean_phone = '0' + clean_phone[2:]
 
-        user = None
-        user_candidate = (
-            User.objects.filter(phone=phone).first() or
-            User.objects.filter(username=phone).first() or
-            User.objects.filter(mobile=phone).first()
+        phone_no_zero = clean_phone[1:] if clean_phone.startswith('0') else clean_phone
+        phone_with_zero = '0' + phone_no_zero
+
+        # ۱. جستجوی دقیق کاربر با همه‌ی فرمت‌های ممکن شماره تلفن
+        user = (
+            User.objects.filter(phone=phone_with_zero).first() or
+            User.objects.filter(phone=phone_no_zero).first() or
+            User.objects.filter(username=phone_with_zero).first() or
+            User.objects.filter(username=phone_no_zero).first()
         )
 
-        if user_candidate:
-            if user_candidate.check_password(password):
-                user = user_candidate
-            else:
-                pos_staff = getattr(user_candidate, 'pos_profile', None)
+        if user:
+            # بررسی صحت رمز عبور روی User
+            is_valid_pwd = user.check_password(password)
+            if not is_valid_pwd:
+                # بررسی پین‌کد روی پروفایل pos_profile
+                pos_staff = getattr(user, 'pos_profile', None)
                 if pos_staff and pos_staff.password:
-                    if check_password(password, pos_staff.password):
-                        user = user_candidate
+                    is_valid_pwd = check_password(password, pos_staff.password)
+            
+            if not is_valid_pwd:
+                user = None
 
+        # ۲. در صورت نیافتن، تست متد استاندارد authenticate جنگو
         if user is None:
-            user = authenticate(request, username=phone, password=password)
-            if user is None:
-                user = authenticate(request, phone=phone, password=password)
+            user = authenticate(request, username=phone_with_zero, password=password) or authenticate(request, username=phone_no_zero, password=password)
 
         if user is not None:
             if not user.is_active:
@@ -103,12 +125,15 @@ class LoginStaffAPIView(APIView):
             user_phone = (
                 getattr(user, 'phone', None) or 
                 getattr(user, 'mobile', None) or 
-                getattr(user, 'phone_number', None) or 
                 getattr(user, 'username', None) or 
-                phone
+                phone_with_zero
             )
 
-            full_name = getattr(user, 'full_name', None) or getattr(user, 'first_name', None) or user_phone
+            full_name = (
+                getattr(user, 'full_name', None) or 
+                getattr(user, 'first_name', None) or 
+                user_phone
+            )
 
             user_dict = {
                 "id": user.id,
@@ -144,7 +169,6 @@ class LoginStaffAPIView(APIView):
             }
 
             response = Response(response_data, status=status.HTTP_200_OK)
-            # Set cookies for cross-domain compatibility (Vercel to Sevinhost)
             try:
                 response.set_cookie('access', tokens['access'], max_age=86400, httponly=False, samesite='None', secure=True)
                 response.set_cookie('refresh', tokens['refresh'], max_age=604800, httponly=False, samesite='None', secure=True)
@@ -189,9 +213,11 @@ class ActiveStaffSessionsAPIView(APIView):
             user = staff.user
             user_phone = getattr(user, 'phone', None) or getattr(user, 'username', None) or str(user)
             permissions = [name for name in PERMISSION_FIELDS if getattr(staff, f'perm_{name}', False)]
+            full_name = getattr(user, 'full_name', None) or getattr(user, 'first_name', None) or user_phone
             online_sessions.append({
                 "id": user.id,
-                "fullName": getattr(user, 'first_name', None) or getattr(user, 'full_name', None) or user_phone,
+                "fullName": full_name,
+                "full_name": full_name,
                 "phone": user_phone,
                 "role": staff.role,
                 "roleTitleFa": staff.role_title or ROLE_TITLE_MAP.get(staff.role, 'صندوق‌دار'),
@@ -245,32 +271,41 @@ class StaffDetailAPIView(APIView):
         try:
             staff = PosStaff.objects.select_related('user').get(pk=pk)
             user = staff.user
-            
-            full_name = request.data.get('full_name') or request.data.get('fullName')
-            phone = request.data.get('phone')
-            password = request.data.get('password')
-            role = request.data.get('role')
-            role_title = request.data.get('roleTitleFa') or request.data.get('role_title')
-            permissions_list = request.data.get('permissions')
-            
-            if phone:
-                phone_clean = phone.strip().replace(' ', '').replace('-', '')
+
+            # ۱. استخراج و بررسی هوشمند نام و نام خانوادگی
+            raw_full_name = (
+                request.data.get('full_name') or 
+                request.data.get('fullName') or 
+                request.data.get('name')
+            )
+            if raw_full_name and isinstance(raw_full_name, str) and raw_full_name.strip():
+                clean_name = raw_full_name.strip()
+                if hasattr(user, 'full_name'): user.full_name = clean_name
+                if hasattr(user, 'first_name'): user.first_name = clean_name
+                user.save()
+
+            # ۲. استخراج و بررسی شماره تلفن
+            raw_phone = request.data.get('phone')
+            if raw_phone and isinstance(raw_phone, str) and raw_phone.strip():
+                phone_clean = raw_phone.strip().replace(' ', '').replace('-', '')
                 if phone_clean.startswith('+98'): phone_clean = '0' + phone_clean[3:]
                 elif phone_clean.startswith('98'): phone_clean = '0' + phone_clean[2:]
                 
-                if hasattr(user, 'phone'): user.phone = phone_clean
-                if hasattr(user, 'username'): user.username = phone_clean
-                if hasattr(user, 'mobile'): user.mobile = phone_clean
+                if len(phone_clean) >= 10:
+                    if hasattr(user, 'phone'): user.phone = phone_clean
+                    if hasattr(user, 'username'): user.username = phone_clean
+                    if hasattr(user, 'mobile'): user.mobile = phone_clean
+                    user.save()
 
-            if full_name:
-                if hasattr(user, 'full_name'): user.full_name = full_name
-                if hasattr(user, 'first_name'): user.first_name = full_name
+            # ۳. بررسی هوشمند رمز عبور (عدم جایگزینی کاراکترهای ماسک‌شده مانند ••••••••)
+            raw_password = request.data.get('password')
+            if is_valid_new_password(raw_password):
+                staff.set_password(raw_password.strip())
 
-            user.save()
-
-            if password and password.strip():
-                staff.set_password(password.strip())
-
+            # ۴. به‌روزرسانی نقش و عنوان فارسی
+            role = request.data.get('role')
+            role_title = request.data.get('roleTitleFa') or request.data.get('role_title')
+            
             if role:
                 staff.role = role
                 if not role_title:
@@ -279,13 +314,15 @@ class StaffDetailAPIView(APIView):
             if role_title:
                 staff.role_title = role_title
 
+            # ۵. به‌روزرسانی سطوح دسترسی
+            permissions_list = request.data.get('permissions')
             if permissions_list is not None and isinstance(permissions_list, list):
                 for name in PERMISSION_FIELDS:
                     setattr(staff, f'perm_{name}', name in permissions_list)
             
             staff.save()
             out_data = PosStaffOutSerializer(staff).data
-            return Response({"success": True, "message": "اطلاعات با موفقیت بروز شد.", "data": out_data}, status=status.HTTP_200_OK)
+            return Response({"success": True, "message": "اطلاعات پرسنل با موفقیت بروز شد.", "data": out_data}, status=status.HTTP_200_OK)
         except PosStaff.DoesNotExist:
             return Response({"success": False, "message": "پرسنل یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
 

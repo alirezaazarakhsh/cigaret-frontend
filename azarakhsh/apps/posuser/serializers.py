@@ -13,12 +13,23 @@ PERMISSION_FIELDS = [
     'manage_footer_settings', 'delete_receipts',
 ]
 
+ROLE_TITLE_MAP = {
+    'warehouse_manager': 'مدیر انبار و بنکداری',
+    'cashier': 'صندوق‌دار فروشگاه',
+    'accountant': 'حسابدار و بازرس مالی',
+    'super_admin': 'مدیر ارشد سامانه',
+}
+
 
 class PosStaffOutSerializer(serializers.ModelSerializer):
-    """خروجی کامل و جدید یک پرسنل شامل تمامی دسترسی‌ها، تاریخ ثبت و وضعیت فعالیت"""
+    """خروجی جامع و دوگانه برای پشتیبانی کامل از تمامی نام‌های فیلد در فرانت‌اند"""
     fullName = serializers.SerializerMethodField()
+    full_name = serializers.SerializerMethodField()
+    name = serializers.SerializerMethodField()
     phone = serializers.SerializerMethodField()
-    roleTitleFa = serializers.CharField(source='role_title', read_only=True)
+    user_id = serializers.SerializerMethodField()
+    roleTitleFa = serializers.SerializerMethodField()
+    role_title = serializers.SerializerMethodField()
     permissions = serializers.SerializerMethodField()
     status = serializers.SerializerMethodField()
     created_at = serializers.DateTimeField(format='%Y/%m/%d', read_only=True)
@@ -26,21 +37,49 @@ class PosStaffOutSerializer(serializers.ModelSerializer):
     class Meta:
         model = PosStaff
         fields = [
-            'id', 'fullName', 'phone', 'role', 'roleTitleFa',
-            'is_active', 'status', 'permissions', 'created_at',
+            'id', 'user_id', 'fullName', 'full_name', 'name', 'phone', 'role',
+            'roleTitleFa', 'role_title', 'is_active', 'status', 'permissions', 'created_at',
         ]
 
+    def get_user_id(self, obj):
+        return obj.user_id if obj.user_id else obj.id
+
     def get_fullName(self, obj):
+        if not obj.user:
+            return 'پرسنل بدون نام'
         user = obj.user
-        return (
-            getattr(user, 'full_name', None)
-            or getattr(user, 'first_name', None)
-            or self.get_phone(obj)
+        val = (
+            getattr(user, 'full_name', None) or
+            getattr(user, 'first_name', None) or
+            getattr(user, 'username', None) or
+            getattr(user, 'phone', None)
         )
+        return str(val).strip() if val else 'پرسنل'
+
+    def get_full_name(self, obj):
+        return self.get_fullName(obj)
+
+    def get_name(self, obj):
+        return self.get_fullName(obj)
 
     def get_phone(self, obj):
+        if not obj.user:
+            return ''
         user = obj.user
-        return getattr(user, 'phone', None) or getattr(user, 'mobile', None) or getattr(user, 'username', '')
+        return str(
+            getattr(user, 'phone', None) or
+            getattr(user, 'mobile', None) or
+            getattr(user, 'phone_number', None) or
+            getattr(user, 'username', '')
+        ).strip()
+
+    def get_roleTitleFa(self, obj):
+        if obj.role_title and obj.role_title.strip():
+            return obj.role_title.strip()
+        return ROLE_TITLE_MAP.get(obj.role, 'صندوق‌دار فروشگاه')
+
+    def get_role_title(self, obj):
+        return self.get_roleTitleFa(obj)
 
     def get_permissions(self, obj):
         perms = []
@@ -55,10 +94,12 @@ class PosStaffOutSerializer(serializers.ModelSerializer):
 
 class PosStaffCreateSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
-    full_name = serializers.CharField(max_length=100)
+    full_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    fullName = serializers.CharField(max_length=100, required=False, allow_blank=True)
     password = serializers.CharField(max_length=50)
     role = serializers.CharField(max_length=30, default='cashier')
-    roleTitleFa = serializers.CharField(max_length=100, default='صندوق‌دار', required=False)
+    roleTitleFa = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    role_title = serializers.CharField(max_length=100, required=False, allow_blank=True)
     permissions = serializers.ListField(child=serializers.CharField(max_length=50), required=False, default=list)
 
     def create(self, validated_data):
@@ -70,9 +111,17 @@ class PosStaffCreateSerializer(serializers.Serializer):
             phone = '0' + phone[2:]
 
         password = validated_data['password'].strip()
-        full_name = validated_data['full_name'].strip()
+        full_name = (
+            validated_data.get('full_name') or 
+            validated_data.get('fullName') or 
+            phone
+        ).strip()
         role = validated_data.get('role', 'cashier')
-        role_title = validated_data.get('roleTitleFa') or 'صندوق‌دار'
+        role_title = (
+            validated_data.get('roleTitleFa') or 
+            validated_data.get('role_title') or 
+            ROLE_TITLE_MAP.get(role, 'صندوق‌دار فروشگاه')
+        ).strip()
         permissions_list = validated_data.get('permissions', [])
 
         username_field = getattr(User, 'USERNAME_FIELD', 'phone')
@@ -114,11 +163,13 @@ class PosStaffCreateSerializer(serializers.Serializer):
 
 
 class PosStaffUpdateSerializer(serializers.Serializer):
-    full_name = serializers.CharField(max_length=100, required=False)
-    phone = serializers.CharField(max_length=15, required=False)
-    password = serializers.CharField(max_length=50, required=False)
-    role = serializers.CharField(max_length=30, required=False)
-    roleTitleFa = serializers.CharField(max_length=100, required=False)
+    full_name = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    fullName = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    phone = serializers.CharField(max_length=15, required=False, allow_blank=True)
+    password = serializers.CharField(max_length=50, required=False, allow_blank=True)
+    role = serializers.CharField(max_length=30, required=False, allow_blank=True)
+    roleTitleFa = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    role_title = serializers.CharField(max_length=100, required=False, allow_blank=True)
     permissions = serializers.ListField(child=serializers.CharField(max_length=50), required=False)
 
 
