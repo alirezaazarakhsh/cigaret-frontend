@@ -2,13 +2,28 @@ from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
+from django.conf import settings
 from django.contrib.auth import get_user_model, authenticate
+from django.contrib.auth.hashers import check_password
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_yasg.utils import swagger_auto_schema
 from .models import PosStaff
-from .serializers import PosStaffCreateSerializer, LoginSerializer
+from .serializers import (
+    PosStaffCreateSerializer, 
+    PosStaffUpdateSerializer, 
+    PosStaffOutSerializer, 
+    LoginSerializer,
+    PERMISSION_FIELDS
+)
 
 User = get_user_model()
+
+ROLE_TITLE_MAP = {
+    'warehouse_manager': 'مدیر انبار و بنکداری',
+    'cashier': 'صندوق‌دار فروشگاه',
+    'accountant': 'حسابدار و بازرس مالی',
+    'super_admin': 'مدیر ارشد سامانه',
+}
 
 
 def get_tokens_for_user(user):
@@ -21,7 +36,7 @@ def get_tokens_for_user(user):
 
 class LoginStaffAPIView(APIView):
     """
-    اندپوینت ورود پرسنل صندوق و انبار
+    اندپوینت ورود پرسنل صندوق و انبار با احراز هویت دقیق و خروجی جامع توکن برای جلوگیر از سفید شدن صفحه
     """
     permission_classes = [AllowAny]
 
@@ -37,21 +52,32 @@ class LoginStaffAPIView(APIView):
         if not phone_raw or not password:
             return Response({"success": False, "message": "شماره همراه و پینکد الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Normalize phone
         phone = phone_raw.strip().replace(' ', '').replace('-', '')
         if phone.startswith('+98'):
             phone = '0' + phone[3:]
         elif phone.startswith('98'):
             phone = '0' + phone[2:]
 
-        user = authenticate(request, username=phone, password=password)
+        user = None
+        user_candidate = (
+            User.objects.filter(phone=phone).first() or
+            User.objects.filter(username=phone).first() or
+            User.objects.filter(mobile=phone).first()
+        )
 
-        # Fallback if authenticate returned None (e.g. if custom auth backend vs username field)
+        if user_candidate:
+            if user_candidate.check_password(password):
+                user = user_candidate
+            else:
+                pos_staff = getattr(user_candidate, 'pos_profile', None)
+                if pos_staff and pos_staff.password:
+                    if check_password(password, pos_staff.password):
+                        user = user_candidate
+
         if user is None:
-            username_field = getattr(User, 'USERNAME_FIELD', 'phone')
-            user_obj = User.objects.filter(**{username_field: phone}).first()
-            if user_obj and user_obj.check_password(password):
-                user = user_obj
+            user = authenticate(request, username=phone, password=password)
+            if user is None:
+                user = authenticate(request, phone=phone, password=password)
 
         if user is not None:
             if not user.is_active:
@@ -59,42 +85,18 @@ class LoginStaffAPIView(APIView):
             
             tokens = get_tokens_for_user(user)
             
-            # Check if user has a PosStaff profile
             try:
                 pos_staff = user.pos_profile
                 if not pos_staff.is_active:
                     return Response({"success": False, "message": "دسترسی حساب شما به صندوق مسدود شده است."}, status=status.HTTP_403_FORBIDDEN)
                 role = pos_staff.role
-                role_title = pos_staff.role_title
-                permissions = []
-                # Extract active permissions
-                if pos_staff.perm_manage_pos: permissions.append('manage_pos')
-                if pos_staff.perm_manage_inventory: permissions.append('manage_inventory')
-                if pos_staff.perm_quick_add_product: permissions.append('quick_add_product')
-                if pos_staff.perm_manage_ledger: permissions.append('manage_ledger')
-                if pos_staff.perm_view_reports: permissions.append('view_reports')
-                if pos_staff.perm_monthly_comparison: permissions.append('monthly_comparison')
-                if pos_staff.perm_customer_app_connect: permissions.append('customer_app_connect')
-                if pos_staff.perm_manage_staff: permissions.append('manage_staff')
-                if pos_staff.perm_send_sms: permissions.append('send_sms')
-                if pos_staff.perm_manage_tickets: permissions.append('manage_tickets')
-                if pos_staff.perm_manage_notifications: permissions.append('manage_notifications')
-                if pos_staff.perm_manage_warehouse_messages: permissions.append('manage_warehouse_messages')
-                if pos_staff.perm_manage_site_settings: permissions.append('manage_site_settings')
-                if pos_staff.perm_manage_sliders: permissions.append('manage_sliders')
-                if pos_staff.perm_manage_footer_settings: permissions.append('manage_footer_settings')
-                if pos_staff.perm_delete_receipts: permissions.append('delete_receipts')
+                role_title = pos_staff.role_title or ROLE_TITLE_MAP.get(role, 'صندوق‌دار فروشگاه')
+                permissions = [name for name in PERMISSION_FIELDS if getattr(pos_staff, f'perm_{name}', False)]
             except PosStaff.DoesNotExist:
                 if user.is_superuser:
                     role = 'super_admin'
                     role_title = 'مدیر ارشد سیستم'
-                    permissions = [
-                        'manage_pos', 'manage_inventory', 'quick_add_product', 'manage_ledger',
-                        'view_reports', 'monthly_comparison', 'customer_app_connect',
-                        'manage_staff', 'send_sms', 'manage_tickets', 'manage_notifications',
-                        'manage_warehouse_messages', 'manage_site_settings', 'manage_sliders',
-                        'manage_footer_settings', 'delete_receipts'
-                    ]
+                    permissions = list(PERMISSION_FIELDS)
                 else:
                     return Response({"success": False, "message": "شما دسترسی به صندوق فروشگاهی را ندارید."}, status=status.HTTP_403_FORBIDDEN)
 
@@ -108,31 +110,54 @@ class LoginStaffAPIView(APIView):
 
             full_name = getattr(user, 'full_name', None) or getattr(user, 'first_name', None) or user_phone
 
+            user_dict = {
+                "id": user.id,
+                "phone": user_phone,
+                "fullName": full_name,
+                "full_name": full_name,
+                "first_name": full_name,
+                "role": role,
+                "roleTitleFa": role_title,
+                "role_title": role_title,
+                "permissions": permissions,
+                "status": "active",
+                "is_active": True,
+                "is_staff": True,
+                "is_superuser": user.is_superuser
+            }
+
             response_data = {
                 "success": True,
                 "message": "ورود موفقیت‌آمیز بود.",
+                "token": tokens['access'],
+                "access": tokens['access'],
+                "access_token": tokens['access'],
+                "refresh": tokens['refresh'],
+                "user": user_dict,
                 "data": {
-                    "user": {
-                        "id": user.id,
-                        "phone": user_phone,
-                        "fullName": full_name,
-                        "role": role,
-                        "roleTitleFa": role_title,
-                        "permissions": permissions,
-                        "status": "active"
-                    },
-                    "tokens": tokens 
+                    "user": user_dict,
+                    "tokens": tokens,
+                    "access": tokens['access'],
+                    "refresh": tokens['refresh'],
+                    "token": tokens['access']
                 }
             }
-            return Response(response_data, status=status.HTTP_200_OK)
+
+            response = Response(response_data, status=status.HTTP_200_OK)
+            # Set cookies for cross-domain compatibility (Vercel to Sevinhost)
+            try:
+                response.set_cookie('access', tokens['access'], max_age=86400, httponly=False, samesite='None', secure=True)
+                response.set_cookie('refresh', tokens['refresh'], max_age=604800, httponly=False, samesite='None', secure=True)
+                response.set_cookie('token', tokens['access'], max_age=86400, httponly=False, samesite='None', secure=True)
+            except Exception:
+                pass
+
+            return response
         else:
             return Response({"success": False, "message": "شماره همراه یا رمز عبور اشتباه است."}, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class LogoutStaffAPIView(APIView):
-    """
-    اندپوینت خروج پرسنل صندوق
-    """
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
@@ -140,13 +165,17 @@ class LogoutStaffAPIView(APIView):
         tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request):
-        return Response({"success": True, "message": "خروج موفقیت‌آمیز بود."}, status=status.HTTP_200_OK)
+        response = Response({"success": True, "message": "خروج موفقیت‌آمیز بود."}, status=status.HTTP_200_OK)
+        try:
+            response.delete_cookie('access', samesite='None', secure=True)
+            response.delete_cookie('refresh', samesite='None', secure=True)
+            response.delete_cookie('token', samesite='None', secure=True)
+        except Exception:
+            pass
+        return response
 
 
 class ActiveStaffSessionsAPIView(APIView):
-    """
-    اندپوینت دریافت لیست پرسنل و صندوقدارهای آنلاین و فعال
-    """
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
@@ -159,12 +188,14 @@ class ActiveStaffSessionsAPIView(APIView):
         for staff in active_staff:
             user = staff.user
             user_phone = getattr(user, 'phone', None) or getattr(user, 'username', None) or str(user)
+            permissions = [name for name in PERMISSION_FIELDS if getattr(staff, f'perm_{name}', False)]
             online_sessions.append({
                 "id": user.id,
                 "fullName": getattr(user, 'first_name', None) or getattr(user, 'full_name', None) or user_phone,
                 "phone": user_phone,
                 "role": staff.role,
-                "roleTitleFa": staff.role_title,
+                "roleTitleFa": staff.role_title or ROLE_TITLE_MAP.get(staff.role, 'صندوق‌دار'),
+                "permissions": permissions,
                 "status": "online"
             })
         return Response({
@@ -174,9 +205,6 @@ class ActiveStaffSessionsAPIView(APIView):
 
 
 class CreateStaffAPIView(APIView):
-    """
-    اندپوینت ایجاد پرسنل جدید توسط مدیریت
-    """
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
@@ -188,29 +216,16 @@ class CreateStaffAPIView(APIView):
         serializer = PosStaffCreateSerializer(data=request.data)
         if serializer.is_valid():
             pos_staff = serializer.save()
-            user = pos_staff.user
-            user_phone = getattr(user, 'phone', None) or getattr(user, 'username', '')
-            full_name = getattr(user, 'full_name', None) or getattr(user, 'first_name', None) or user_phone
+            out_data = PosStaffOutSerializer(pos_staff).data
             return Response({
                 "success": True, 
                 "message": "پرسنل صندوق با موفقیت در دیتابیس ثبت شد.",
-                "data": {
-                    "id": pos_staff.id,
-                    "user_id": user.id,
-                    "fullName": full_name,
-                    "phone": user_phone,
-                    "role": pos_staff.role,
-                    "roleTitleFa": pos_staff.role_title,
-                    "status": "active" if pos_staff.is_active else "suspended"
-                }
+                "data": out_data
             }, status=status.HTTP_201_CREATED)
         return Response({"success": False, "message": "خطا در ثبت پرسنل", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class ListStaffAPIView(APIView):
-    """
-    دریافت لیست پرسنل
-    """
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
@@ -218,59 +233,65 @@ class ListStaffAPIView(APIView):
         tags=['مدیریت پرسنل صندوق']
     )
     def get(self, request):
-        staff_qs = PosStaff.objects.select_related('user').all()
-        data = []
-        for staff in staff_qs:
-            user = staff.user
-            user_phone = getattr(user, 'phone', None) or getattr(user, 'username', '')
-            full_name = getattr(user, 'first_name', None) or getattr(user, 'full_name', None) or user_phone
-            
-            data.append({
-                "id": staff.id,
-                "user_id": user.id,
-                "phone": user_phone,
-                "fullName": full_name,
-                "role": staff.role,
-                "roleTitleFa": staff.role_title,
-                "is_active": staff.is_active,
-            })
-        return Response({"success": True, "data": data}, status=status.HTTP_200_OK)
+        staff_qs = PosStaff.objects.select_related('user').all().order_by('-created_at')
+        serializer = PosStaffOutSerializer(staff_qs, many=True)
+        return Response({"success": True, "data": serializer.data}, status=status.HTTP_200_OK)
 
 
 class StaffDetailAPIView(APIView):
-    """
-    ویرایش و حذف پرسنل
-    """
     permission_classes = [AllowAny]
 
     def put(self, request, pk):
         try:
-            staff = PosStaff.objects.get(pk=pk)
+            staff = PosStaff.objects.select_related('user').get(pk=pk)
             user = staff.user
             
-            # ویرایش اطلاعات
-            full_name = request.data.get('full_name')
+            full_name = request.data.get('full_name') or request.data.get('fullName')
+            phone = request.data.get('phone')
             password = request.data.get('password')
             role = request.data.get('role')
-            role_title = request.data.get('roleTitleFa')
+            role_title = request.data.get('roleTitleFa') or request.data.get('role_title')
+            permissions_list = request.data.get('permissions')
             
+            if phone:
+                phone_clean = phone.strip().replace(' ', '').replace('-', '')
+                if phone_clean.startswith('+98'): phone_clean = '0' + phone_clean[3:]
+                elif phone_clean.startswith('98'): phone_clean = '0' + phone_clean[2:]
+                
+                if hasattr(user, 'phone'): user.phone = phone_clean
+                if hasattr(user, 'username'): user.username = phone_clean
+                if hasattr(user, 'mobile'): user.mobile = phone_clean
+
             if full_name:
-                user.first_name = full_name
-                user.save()
-            if password:
-                user.set_password(password)
-                user.save()
-            if role: staff.role = role
-            if role_title: staff.role_title = role_title
+                if hasattr(user, 'full_name'): user.full_name = full_name
+                if hasattr(user, 'first_name'): user.first_name = full_name
+
+            user.save()
+
+            if password and password.strip():
+                staff.set_password(password.strip())
+
+            if role:
+                staff.role = role
+                if not role_title:
+                    staff.role_title = ROLE_TITLE_MAP.get(role, staff.role_title or 'صندوق‌دار')
+            
+            if role_title:
+                staff.role_title = role_title
+
+            if permissions_list is not None and isinstance(permissions_list, list):
+                for name in PERMISSION_FIELDS:
+                    setattr(staff, f'perm_{name}', name in permissions_list)
             
             staff.save()
-            return Response({"success": True, "message": "اطلاعات با موفقیت بروز شد."}, status=status.HTTP_200_OK)
+            out_data = PosStaffOutSerializer(staff).data
+            return Response({"success": True, "message": "اطلاعات با موفقیت بروز شد.", "data": out_data}, status=status.HTTP_200_OK)
         except PosStaff.DoesNotExist:
             return Response({"success": False, "message": "پرسنل یافت نشد."}, status=status.HTTP_404_NOT_FOUND)
 
     def delete(self, request, pk):
         try:
-            staff = PosStaff.objects.get(pk=pk)
+            staff = PosStaff.objects.select_related('user').get(pk=pk)
             user = staff.user
             staff.delete()
             if user: user.delete()
@@ -284,12 +305,13 @@ class ToggleLockStaffAPIView(APIView):
 
     def post(self, request, pk):
         try:
-            staff = PosStaff.objects.get(pk=pk)
+            staff = PosStaff.objects.select_related('user').get(pk=pk)
             staff.is_active = not staff.is_active
             staff.save()
             if staff.user:
                 staff.user.is_active = staff.is_active
                 staff.user.save()
-            return Response({"success": True, "message": "وضعیت تغییر کرد."}, status=status.HTTP_200_OK)
+            out_data = PosStaffOutSerializer(staff).data
+            return Response({"success": True, "message": "وضعیت با موفقیت تغییر کرد.", "data": out_data}, status=status.HTTP_200_OK)
         except PosStaff.DoesNotExist:
             return Response({"success": False, "message": "پرسنل یافت نشد."}, status=status.HTTP_404_NOT_FOUND)

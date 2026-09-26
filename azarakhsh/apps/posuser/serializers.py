@@ -13,6 +13,46 @@ PERMISSION_FIELDS = [
     'manage_footer_settings', 'delete_receipts',
 ]
 
+
+class PosStaffOutSerializer(serializers.ModelSerializer):
+    """خروجی کامل و جدید یک پرسنل شامل تمامی دسترسی‌ها، تاریخ ثبت و وضعیت فعالیت"""
+    fullName = serializers.SerializerMethodField()
+    phone = serializers.SerializerMethodField()
+    roleTitleFa = serializers.CharField(source='role_title', read_only=True)
+    permissions = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
+    created_at = serializers.DateTimeField(format='%Y/%m/%d', read_only=True)
+
+    class Meta:
+        model = PosStaff
+        fields = [
+            'id', 'fullName', 'phone', 'role', 'roleTitleFa',
+            'is_active', 'status', 'permissions', 'created_at',
+        ]
+
+    def get_fullName(self, obj):
+        user = obj.user
+        return (
+            getattr(user, 'full_name', None)
+            or getattr(user, 'first_name', None)
+            or self.get_phone(obj)
+        )
+
+    def get_phone(self, obj):
+        user = obj.user
+        return getattr(user, 'phone', None) or getattr(user, 'mobile', None) or getattr(user, 'username', '')
+
+    def get_permissions(self, obj):
+        perms = []
+        for name in PERMISSION_FIELDS:
+            if getattr(obj, f'perm_{name}', False):
+                perms.append(name)
+        return perms
+
+    def get_status(self, obj):
+        return 'active' if obj.is_active else 'suspended'
+
+
 class PosStaffCreateSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
     full_name = serializers.CharField(max_length=100)
@@ -23,7 +63,6 @@ class PosStaffCreateSerializer(serializers.Serializer):
 
     def create(self, validated_data):
         raw_phone = validated_data['phone'].strip()
-        # Normalize phone
         phone = raw_phone.replace(' ', '').replace('-', '')
         if phone.startswith('+98'):
             phone = '0' + phone[3:]
@@ -39,7 +78,6 @@ class PosStaffCreateSerializer(serializers.Serializer):
         username_field = getattr(User, 'USERNAME_FIELD', 'phone')
 
         with transaction.atomic():
-            # Check existing user
             filter_kwargs = {username_field: phone}
             user = User.objects.filter(**filter_kwargs).first()
             if not user:
@@ -57,7 +95,6 @@ class PosStaffCreateSerializer(serializers.Serializer):
                 user.is_superuser = True
             user.save()
 
-            # Create or update PosStaff profile
             perms_dict = {
                 f'perm_{name}': (name in permissions_list) for name in PERMISSION_FIELDS
             }
@@ -75,7 +112,16 @@ class PosStaffCreateSerializer(serializers.Serializer):
             pos_staff.save()
             return pos_staff
 
+
+class PosStaffUpdateSerializer(serializers.Serializer):
+    full_name = serializers.CharField(max_length=100, required=False)
+    phone = serializers.CharField(max_length=15, required=False)
+    password = serializers.CharField(max_length=50, required=False)
+    role = serializers.CharField(max_length=30, required=False)
+    roleTitleFa = serializers.CharField(max_length=100, required=False)
+    permissions = serializers.ListField(child=serializers.CharField(max_length=50), required=False)
+
+
 class LoginSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
     password = serializers.CharField(max_length=50)
-
