@@ -97,9 +97,15 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
   const [isSendingTestSms, setIsSendingTestSms] = useState(false);
 
   // Build merged patterns list from default 13 items + DB patterns
+  const safePatternsList = Array.isArray(smsPatterns)
+    ? smsPatterns
+    : (smsPatterns && typeof smsPatterns === 'object' && Array.isArray((smsPatterns as any).data)
+        ? (smsPatterns as any).data
+        : []);
+
   const mergedPatterns = DEFAULT_13_PATTERNS.map((def) => {
-    const dbItem = (smsPatterns || []).find(
-      (p: any) => p.name_fa === def.name_fa || p.name === def.name_fa || p.title_fa === def.title_fa
+    const dbItem = safePatternsList.find(
+      (p: any) => p && (p.name_fa === def.name_fa || p.name === def.name_fa || p.title_fa === def.title_fa)
     );
     return {
       id: dbItem?.id || def.name_fa,
@@ -113,13 +119,14 @@ export const KavenegarSmsManagementPanel: React.FC<KavenegarSmsManagementPanelPr
 
   const handlePatternCodeChange = (name_fa: string, newCode: string) => {
     setSmsPatterns((prev) => {
-      const exists = prev.some((p: any) => p.name_fa === name_fa);
+      const prevList = Array.isArray(prev) ? prev : [];
+      const exists = prevList.some((p: any) => p && p.name_fa === name_fa);
       if (exists) {
-        return prev.map((p: any) =>
-          p.name_fa === name_fa ? { ...p, pattern_code: newCode } : p
+        return prevList.map((p: any) =>
+          p && p.name_fa === name_fa ? { ...p, pattern_code: newCode } : p
         );
       }
-      return [...prev, { name_fa, pattern_code: newCode }];
+      return [...prevList, { name_fa, pattern_code: newCode }];
     });
   };
 

@@ -76,7 +76,7 @@ class KavenegarSMSSettingAPIView(APIView):
     """
     دریافت و ذخیره‌سازی تنظیمات درگاه کاوه‌نگار در دیتابیس آذرخش
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @extend_schema(
         tags=['پنل پیامک کاوه‌نگار'],
@@ -132,7 +132,7 @@ class SMSPatternListSaveAPIView(APIView):
     """
     دریافت لیست الگوها و ثبت کد پترن انگلیسی برای هر بخش از سامانه
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @extend_schema(
         tags=['پنل پیامک کاوه‌نگار'],
@@ -231,7 +231,7 @@ class SMSLogsAPIView(APIView):
     """
     دریافت لاگ و تاریخچه پیامک‌های ثبت‌شده در دیتابیس برای پنل پایش پیامک آذرخش
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @extend_schema(
         tags=['پنل پیامک کاوه‌نگار'],
@@ -249,7 +249,7 @@ class SendPatternSMSAPIView(APIView):
     """
     ارسال پیامک پترن داینامیک از سمت فرانت‌اند یا ماژول‌های فروش و انبار
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @extend_schema(
         tags=['پنل پیامک کاوه‌نگار'],
