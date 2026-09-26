@@ -5,7 +5,8 @@ from rest_framework.permissions import AllowAny
 from django.conf import settings
 from django.contrib.auth import get_user_model, authenticate
 from django.contrib.auth.hashers import check_password, make_password
-from rest_framework_simplejwt.tokens import RefreshToken
+from django.utils import timezone
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from drf_yasg.utils import swagger_auto_schema
 from .models import PosStaff
 from .serializers import (
@@ -33,7 +34,6 @@ def is_valid_new_password(pwd) -> bool:
     pwd = pwd.strip()
     if not pwd:
         return False
-    # اگر رمز کاراکترهای ماسک یا ستاره باشد نباید ذخیره شود
     if set(pwd) <= {'•', '*', '⚫', '▪', '.'} or '•' in pwd or '****' in pwd or pwd == '••••••••':
         return False
     if len(pwd) < 3:
@@ -49,9 +49,55 @@ def get_tokens_for_user(user):
     }
 
 
+def get_current_user_id_from_request(request):
+    """استخراج شناسه کاربر جاری از توکن، کوکی یا درخواست"""
+    if hasattr(request, 'user') and request.user and request.user.is_authenticated:
+        return request.user.id
+    
+    auth_header = request.headers.get('Authorization') or request.META.get('HTTP_AUTHORIZATION', '')
+    if auth_header and 'Bearer ' in auth_header:
+        token_str = auth_header.split('Bearer ')[1].strip()
+        try:
+            token = AccessToken(token_str)
+            return token.get('user_id') or token.get('id')
+        except Exception:
+            pass
+
+    for c_key in ['access', 'token', 'access_token']:
+        token_str = request.COOKIES.get(c_key)
+        if token_str:
+            try:
+                token = AccessToken(token_str)
+                return token.get('user_id') or token.get('id')
+            except Exception:
+                pass
+
+    uid = request.GET.get('user_id') or request.GET.get('current_user_id')
+    if uid and str(uid).isdigit():
+        return int(uid)
+
+    return None
+
+
+def format_user_login_time(user):
+    """فرمت‌دهی زمان آخرین ورود کاربر"""
+    last_login = getattr(user, 'last_login', None) or timezone.now()
+    if timezone.is_aware(last_login):
+        last_login = timezone.localtime(last_login)
+    time_str = last_login.strftime('%H:%M')
+    return {
+        "last_login": last_login.isoformat(),
+        "login_time": time_str,
+        "loginTime": time_str,
+        "online_time": time_str,
+        "last_seen": time_str,
+        "time": time_str,
+    }
+
+
 class LoginStaffAPIView(APIView):
     """
-    اندپوینت ورود پرسنل صندوق و انبار با احراز هویت دقیق، بررسی کامل پین و شماره بدون صفر و با صفر
+    اندپوینت ورود پرسنل صندوق و انبار با احراز هویت دقیق و ثبت آخرین زمان ورود
     """
     permission_classes = [AllowAny]
 
@@ -67,7 +113,6 @@ class LoginStaffAPIView(APIView):
         if not phone_raw or not password:
             return Response({"success": False, "message": "شماره همراه و پینکد الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Normalize phone variations
         clean_phone = phone_raw.strip().replace(' ', '').replace('-', '')
         if clean_phone.startswith('+98'):
             clean_phone = '0' + clean_phone[3:]
@@ -77,7 +122,6 @@ class LoginStaffAPIView(APIView):
         phone_no_zero = clean_phone[1:] if clean_phone.startswith('0') else clean_phone
         phone_with_zero = '0' + phone_no_zero
 
-        # ۱. دریافت تمام کاربران تطبیق‌یافته با این شماره همراه
         candidate_users = list(
             User.objects.filter(phone__in=[phone_with_zero, phone_no_zero]) |
             User.objects.filter(username__in=[phone_with_zero, phone_no_zero])
@@ -85,11 +129,9 @@ class LoginStaffAPIView(APIView):
 
         user = None
         for candidate in candidate_users:
-            # بررسی صحت رمز عبور روی User
             if candidate.check_password(password):
                 user = candidate
                 break
-            # بررسی پین‌کد روی پروفایل pos_profile
             pos_staff = getattr(candidate, 'pos_profile', None)
             if pos_staff and pos_staff.password:
                 if check_password(password, pos_staff.password):
@@ -100,6 +142,13 @@ class LoginStaffAPIView(APIView):
             if not user.is_active:
                 return Response({"success": False, "message": "حساب کاربری شما تعلیق شده است."}, status=status.HTTP_403_FORBIDDEN)
             
+            # ثبت زمان آخرین ورود
+            try:
+                user.last_login = timezone.now()
+                user.save(update_fields=['last_login'])
+            except Exception:
+                pass
+
             tokens = get_tokens_for_user(user)
             
             try:
@@ -198,30 +247,122 @@ class ActiveStaffSessionsAPIView(APIView):
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
-        operation_summary="لیست صندوقدارهای آنلاین",
+        operation_summary="لیست صندوقدارهای آنلاین و پرسنل فعال",
         tags=['مدیریت پرسنل صندوق']
     )
     def get(self, request):
-        active_staff = PosStaff.objects.filter(is_active=True).select_related('user')
+        current_user_id = get_current_user_id_from_request(request)
+        seen_user_ids = set()
         online_sessions = []
+
+        # ۱. کلیه پرسنل فعال ثبت‌شده در PosStaff
+        active_staff = PosStaff.objects.filter(is_active=True).select_related('user')
         for staff in active_staff:
             user = staff.user
-            user_phone = getattr(user, 'phone', None) or getattr(user, 'username', None) or str(user)
+            if not user or not user.is_active:
+                continue
+            seen_user_ids.add(user.id)
+            is_self = bool(current_user_id and user.id == current_user_id)
+            
+            user_phone = (
+                getattr(user, 'phone', None) or 
+                getattr(user, 'mobile', None) or 
+                getattr(user, 'username', None) or 
+                ''
+            )
             permissions = [name for name in PERMISSION_FIELDS if getattr(staff, f'perm_{name}', False)]
-            full_name = getattr(user, 'full_name', None) or getattr(user, 'first_name', None) or user_phone
+            full_name = (
+                getattr(user, 'full_name', None) or 
+                getattr(user, 'first_name', None) or 
+                user_phone or 
+                'پرسنل'
+            )
+            role_title = staff.role_title or ROLE_TITLE_MAP.get(staff.role, 'صندوق‌دار فروشگاه')
+            time_info = format_user_login_time(user)
+
             online_sessions.append({
                 "id": user.id,
+                "user_id": user.id,
+                "userId": user.id,
                 "fullName": full_name,
                 "full_name": full_name,
+                "name": full_name,
                 "phone": user_phone,
+                "mobile": user_phone,
+                "username": user_phone,
                 "role": staff.role,
-                "roleTitleFa": staff.role_title or ROLE_TITLE_MAP.get(staff.role, 'صندوق‌دار'),
+                "roleTitleFa": role_title,
+                "role_title": role_title,
+                "role_display": role_title,
                 "permissions": permissions,
-                "status": "online"
+                "status": "online",
+                "is_online": True,
+                "online": True,
+                "is_active": True,
+                "is_current_user": is_self,
+                "isCurrentUser": is_self,
+                "is_self": is_self,
+                "isSelf": is_self,
+                "is_me": is_self,
+                **time_info
             })
+
+        # ۲. کلیه سایر کاربران فعال سامانه (مدیران ارشد، پرسنل دارای ورود)
+        other_users = User.objects.filter(is_active=True).exclude(id__in=seen_user_ids)
+        for u in other_users:
+            if not (u.is_staff or u.is_superuser or getattr(u, 'last_login', None)):
+                continue
+            seen_user_ids.add(u.id)
+            is_self = bool(current_user_id and u.id == current_user_id)
+            
+            u_phone = (
+                getattr(u, 'phone', None) or 
+                getattr(u, 'mobile', None) or 
+                getattr(u, 'username', None) or 
+                ''
+            )
+            f_name = (
+                getattr(u, 'full_name', None) or 
+                getattr(u, 'first_name', None) or 
+                u_phone or 
+                'مدیر ارشد'
+            )
+            r_title = "مدیر ارشد سامانه" if u.is_superuser else "صندوق‌دار فروشگاه"
+            time_info = format_user_login_time(u)
+
+            online_sessions.append({
+                "id": u.id,
+                "user_id": u.id,
+                "userId": u.id,
+                "fullName": f_name,
+                "full_name": f_name,
+                "name": f_name,
+                "phone": u_phone,
+                "mobile": u_phone,
+                "username": u_phone,
+                "role": "super_admin" if u.is_superuser else "cashier",
+                "roleTitleFa": r_title,
+                "role_title": r_title,
+                "role_display": r_title,
+                "permissions": list(PERMISSION_FIELDS),
+                "status": "online",
+                "is_online": True,
+                "online": True,
+                "is_active": True,
+                "is_current_user": is_self,
+                "isCurrentUser": is_self,
+                "is_self": is_self,
+                "isSelf": is_self,
+                "is_me": is_self,
+                **time_info
+            })
+
         return Response({
             "success": True,
-            "data": online_sessions
+            "data": online_sessions,
+            "sessions": online_sessions,
+            "staff": online_sessions,
+            "active_staff": online_sessions
         }, status=status.HTTP_200_OK)
 
 

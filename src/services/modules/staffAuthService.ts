@@ -24,6 +24,7 @@ import {
   djangoPosLoginApi, 
   djangoPosLogoutApi, 
   djangoFetchPosStaffList, 
+  djangoFetchActiveSessions,
   djangoCreatePosStaff, 
   djangoUpdatePosStaff, 
   djangoDeletePosStaff, 
@@ -395,5 +396,29 @@ export const staffAuthService = {
       status: localToggled?.status || 'active',
       message: 'وضعیت قفل/فعالیت کاربر در دیتابیس محلی به‌روزرسانی شد.',
     };
+  },
+
+  /**
+   * دریافت لیست جلسات و پرسنل آنلاین از دیتابیس جنگو
+   * GET /api/v1/posuser/active-sessions/
+   */
+  async getActiveSessions(): Promise<{ success: boolean; data?: any[] }> {
+    try {
+      const activeList = await djangoFetchActiveSessions();
+      if (Array.isArray(activeList) && activeList.length > 0) {
+        return { success: true, data: activeList };
+      }
+    } catch {}
+
+    const res = await httpClient.get<any>('/api/v1/posuser/active-sessions/', {
+      headers: API_CACHE_CONTROL_HEADERS
+    }).catch(() => null);
+
+    if (res && res.success) {
+      const list = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.sessions || []);
+      return { success: true, data: list };
+    }
+
+    return { success: false, data: [] };
   }
 };

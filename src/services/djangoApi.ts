@@ -3870,7 +3870,10 @@ export async function deleteShop(id: string | number): Promise<any> {
 
 export async function djangoFetchPosStaffList(config?: DjangoCrmConfig): Promise<any[]> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
-  const res = await executeDjangoAxiosRequest('/api/v1/posuserstaff-list/', 'GET', undefined, { token });
+  let res = await executeDjangoAxiosRequest('/api/v1/posuser/staff-list/', 'GET', undefined, { token });
+  if (!res.success) {
+    res = await executeDjangoAxiosRequest('/api/v1/posuserstaff-list/', 'GET', undefined, { token });
+  }
   if (res.success && res.data) {
     const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.results || []);
     if (list.length > 0) {
@@ -3881,9 +3884,27 @@ export async function djangoFetchPosStaffList(config?: DjangoCrmConfig): Promise
   return djangoDatabaseStore.getPosStaff();
 }
 
+export async function djangoFetchActiveSessions(config?: DjangoCrmConfig): Promise<any[]> {
+  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  let res = await executeDjangoAxiosRequest('/api/v1/posuser/active-sessions/', 'GET', undefined, { token });
+  if (!res.success) {
+    res = await executeDjangoAxiosRequest('/api/v1/posuser/active-staff/', 'GET', undefined, { token });
+  }
+  if (res.success && res.data) {
+    const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.sessions || res.data.results || []);
+    if (Array.isArray(list) && list.length > 0) {
+      return list;
+    }
+  }
+  return [];
+}
+
 export async function djangoCreatePosStaff(payload: any, config?: DjangoCrmConfig): Promise<any> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
-  const res = await executeDjangoAxiosRequest('/api/v1/posusercreate-staff/', 'POST', payload, { token });
+  let res = await executeDjangoAxiosRequest('/api/v1/posuser/create-staff/', 'POST', payload, { token });
+  if (!res.success) {
+    res = await executeDjangoAxiosRequest('/api/v1/posusercreate-staff/', 'POST', payload, { token });
+  }
   const saved = djangoDatabaseStore.savePosStaff(payload);
   if (res.success && res.data) {
     const finalObj = res.data.data || res.data;
@@ -3898,7 +3919,10 @@ export async function djangoCreatePosStaff(payload: any, config?: DjangoCrmConfi
 
 export async function djangoUpdatePosStaff(id: string | number, payload: any, config?: DjangoCrmConfig): Promise<any> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
-  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/`, 'PUT', payload, { token });
+  let res = await executeDjangoAxiosRequest(`/api/v1/posuser/staff/${id}/`, 'PUT', payload, { token });
+  if (!res.success) {
+    res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/`, 'PUT', payload, { token });
+  }
   const saved = djangoDatabaseStore.savePosStaff({ ...payload, id });
   if (res.success) {
     const finalObj = res.data?.data || res.data || saved;
@@ -3913,7 +3937,10 @@ export async function djangoUpdatePosStaff(id: string | number, payload: any, co
 
 export async function djangoDeletePosStaff(id: string | number, config?: DjangoCrmConfig): Promise<any> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
-  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/`, 'DELETE', undefined, { token });
+  let res = await executeDjangoAxiosRequest(`/api/v1/posuser/staff/${id}/`, 'DELETE', undefined, { token });
+  if (!res.success) {
+    res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/`, 'DELETE', undefined, { token });
+  }
   djangoDatabaseStore.deletePosStaff(id);
   if (res.success) {
     return { success: true, message: 'پرسنل با موفقیت از دیتابیس حذف شد.' };
@@ -3926,7 +3953,10 @@ export async function djangoDeletePosStaff(id: string | number, config?: DjangoC
 
 export async function djangoTogglePosStaffLock(id: string | number, config?: DjangoCrmConfig): Promise<any> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
-  const res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/toggle-lock/`, 'POST', {}, { token });
+  let res = await executeDjangoAxiosRequest(`/api/v1/posuser/staff/${id}/toggle-lock/`, 'POST', {}, { token });
+  if (!res.success) {
+    res = await executeDjangoAxiosRequest(`/api/v1/posuserstaff/${id}/toggle-lock/`, 'POST', {}, { token });
+  }
   const localToggled = djangoDatabaseStore.togglePosStaffLock(id);
   if (res.success && res.data) {
     return {
@@ -3945,12 +3975,18 @@ export async function djangoTogglePosStaffLock(id: string | number, config?: Dja
 }
 
 export async function djangoPosLoginApi(payload: any, config?: DjangoCrmConfig): Promise<any> {
-  const res = await executeDjangoAxiosRequest('/api/v1/posuserlogin/', 'POST', payload);
+  let res = await executeDjangoAxiosRequest('/api/v1/posuser/login/', 'POST', payload);
+  if (!res.success) {
+    res = await executeDjangoAxiosRequest('/api/v1/posuserlogin/', 'POST', payload);
+  }
   return res;
 }
 
 export async function djangoPosLogoutApi(config?: DjangoCrmConfig): Promise<any> {
-  const res = await executeDjangoAxiosRequest('/api/v1/posuserlogout/', 'POST', {}, { token: getApiToken() });
+  let res = await executeDjangoAxiosRequest('/api/v1/posuser/logout/', 'POST', {}, { token: getApiToken() });
+  if (!res.success) {
+    res = await executeDjangoAxiosRequest('/api/v1/posuserlogout/', 'POST', {}, { token: getApiToken() });
+  }
   return res;
 }
 

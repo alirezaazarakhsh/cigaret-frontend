@@ -87,6 +87,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { staffAuthService } from '../../services/modules/staffAuthService';
 import { currencyRatesApi } from '../../services/currencyApi';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Cell,
@@ -950,24 +951,49 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   }, [onlineSessions]);
 
   useEffect(() => {
-    if (!isAuthenticated || !currentStaff || !currentStaff.phone) return;
-    setOnlineSessions(prev => {
-      const cleanCurrentPhone = String(currentStaff.phone).replace(/\D/g, '');
-      const filteredPrev = prev.filter(s => String(s.phone).replace(/\D/g, '') !== cleanCurrentPhone);
-      
-      const mySession = {
-        id: currentStaff.id || `staff_${cleanCurrentPhone}`,
-        fullName: currentStaff.fullName,
-        phone: currentStaff.phone,
-        roleTitleFa: currentStaff.roleTitleFa || 'مدیریت / صندوق',
-        role: currentStaff.role || 'staff',
-        loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-        avatarColor: currentStaff.avatarColor || 'bg-indigo-600'
-      };
+    let isMounted = true;
+    const loadActiveSessions = async () => {
+      try {
+        const res = await staffAuthService.getActiveSessions();
+        if (res && res.success && Array.isArray(res.data) && res.data.length > 0 && isMounted) {
+          const mapped = res.data.map((s: any) => ({
+            id: String(s.id || s.userId || s.user_id || s.phone),
+            fullName: s.fullName || s.full_name || s.name || 'کاربر سیستم',
+            phone: s.phone || s.mobile || s.username || '',
+            roleTitleFa: s.roleTitleFa || s.role_title || s.role_display || 'صندوق‌دار فروشگاه',
+            role: s.role || 'staff',
+            loginTime: s.loginTime || s.online_time || s.login_time || s.time || new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+            avatarColor: s.avatarColor || 'bg-indigo-600',
+            isCurrentUser: Boolean(s.isCurrentUser || s.is_current_user || s.is_self)
+          }));
+          setOnlineSessions(mapped);
+          return;
+        }
+      } catch {}
 
-      return [mySession, ...filteredPrev];
-    });
-  }, [isAuthenticated, currentStaff?.phone, currentStaff?.fullName]);
+      if (isAuthenticated && currentStaff && currentStaff.phone && isMounted) {
+        const cleanCurrentPhone = String(currentStaff.phone).replace(/\D/g, '');
+        const mySession = {
+          id: String(currentStaff.id || `staff_${cleanCurrentPhone}`),
+          fullName: currentStaff.fullName,
+          phone: currentStaff.phone,
+          roleTitleFa: currentStaff.roleTitleFa || 'مدیریت / صندوق',
+          role: currentStaff.role || 'staff',
+          loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+          avatarColor: currentStaff.avatarColor || 'bg-indigo-600',
+          isCurrentUser: true
+        };
+        setOnlineSessions([mySession]);
+      }
+    };
+
+    loadActiveSessions();
+    const timer = setInterval(loadActiveSessions, 8000);
+    return () => {
+      isMounted = false;
+      clearInterval(timer);
+    };
+  }, [isAuthenticated, currentStaff?.phone, currentStaff?.id]);
 
   const [showQuickAddProductModal, setShowQuickAddProductModal] = useState<boolean>(false);
   const [pendingBarcode, setPendingBarcode] = useState<string>('');
@@ -5176,7 +5202,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
                     لیست حساب‌های فعال همزمان در سیستم حسابداری دخانیات سرو ({
-                      Array.from(new Map(onlineSessions.map(s => [String(s.phone || s.id).replace(/\D/g, ''), s])).values()).length
+                      Array.from(new Map(onlineSessions.map(s => [String(s.id || s.phone || s.fullName), s])).values()).length
                     } کاربر آنلاین)
                   </p>
                 </div>
@@ -5197,10 +5223,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-[420px] overflow-y-auto pr-1">
-              {Array.from(new Map(onlineSessions.map(s => [String(s.phone || s.id).replace(/\D/g, ''), s])).values()).map((session) => {
+              {Array.from(new Map(onlineSessions.map(s => [String(s.id || s.phone || s.fullName), s])).values()).map((session) => {
                 const sessionCleanPhone = String(session.phone || '').replace(/\D/g, '');
                 const currentStaffCleanPhone = String(currentStaff.phone || '').replace(/\D/g, '');
-                const isMe = sessionCleanPhone === currentStaffCleanPhone || session.phone === currentStaff.phone;
+                const isMe = session.isCurrentUser || String(session.id) === String(currentStaff.id) || (Boolean(sessionCleanPhone) && sessionCleanPhone === currentStaffCleanPhone);
 
                 return (
                   <div 

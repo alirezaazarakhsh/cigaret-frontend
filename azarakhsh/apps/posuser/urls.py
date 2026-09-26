@@ -20,6 +20,10 @@ urlpatterns = [
     
     # ۳. لیست جلسات آنلاین
     path('active-sessions/', ActiveStaffSessionsAPIView.as_view(), name='active-sessions'),
+    path('active_sessions/', ActiveStaffSessionsAPIView.as_view()),
+    path('active-staff/', ActiveStaffSessionsAPIView.as_view()),
+    path('active_staff/', ActiveStaffSessionsAPIView.as_view()),
+    path('staff/active/', ActiveStaffSessionsAPIView.as_view()),
     
     # ۴. ایجاد پرسنل جدید
     path('create-staff/', CreateStaffAPIView.as_view(), name='create-staff'),
