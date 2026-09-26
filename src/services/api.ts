@@ -1414,8 +1414,9 @@ export const accountsApi = {
 
     // Super Admin special bypass for 09120759419
     if (normPhone === '09120759419' || normPhone.endsWith('9120759419')) {
-      const validSuperCodes = ['1', 'sasha9419', '1111', '1234', '09120759419', 'admin1234', 'alirezazzz9419@S'];
-      const isValid = validSuperCodes.includes(normCode) || validSuperCodes.includes(rawCode) || rawCode.length >= 1;
+      const customPin = typeof localStorage !== 'undefined' ? (localStorage.getItem('sovin_pos_superadmin_pin') || localStorage.getItem('django_superadmin_password')) : null;
+      const validSuperCodes = [customPin, 'sasha9419', 'alirezazzz9419@S', '123456'].filter(Boolean) as string[];
+      const isValid = validSuperCodes.some(c => c === rawCode || toDigits(c) === normCode);
 
       if (isValid) {
         const superUser = {

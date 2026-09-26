@@ -3840,10 +3840,11 @@ export async function djangoPosLoginApi(payload: any, config?: DjangoCrmConfig):
   return res;
 }
 
-export async function djangoPosLogoutApi(config?: DjangoCrmConfig): Promise<any> {
-  let res = await executeDjangoAxiosRequest('/api/v1/posuser/logout/', 'POST', {}, { token: getApiToken() });
+export async function djangoPosLogoutApi(phone?: string, config?: DjangoCrmConfig): Promise<any> {
+  const payload = phone ? { phone } : {};
+  let res = await executeDjangoAxiosRequest('/api/v1/posuser/logout/', 'POST', payload, { token: getApiToken() });
   if (!res.success) {
-    res = await executeDjangoAxiosRequest('/api/v1/posuserlogout/', 'POST', {}, { token: getApiToken() });
+    res = await executeDjangoAxiosRequest('/api/v1/posuserlogout/', 'POST', payload, { token: getApiToken() });
   }
   return res;
 }

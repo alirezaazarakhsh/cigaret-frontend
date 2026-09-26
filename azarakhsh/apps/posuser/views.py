@@ -233,6 +233,35 @@ class LogoutStaffAPIView(APIView):
         tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request):
+        user_id = get_current_user_id_from_request(request)
+        phone = request.data.get('phone') or request.data.get('username') or request.data.get('mobile')
+
+        if user_id:
+            try:
+                user = User.objects.get(id=user_id)
+                user.last_login = None
+                user.save(update_fields=['last_login'])
+            except Exception:
+                pass
+
+        if phone:
+            clean_phone = str(phone).strip().replace(' ', '').replace('-', '')
+            if clean_phone.startswith('+98'):
+                clean_phone = '0' + clean_phone[3:]
+            elif clean_phone.startswith('98'):
+                clean_phone = '0' + clean_phone[2:]
+            
+            p_no_zero = clean_phone[1:] if clean_phone.startswith('0') else clean_phone
+            p_with_zero = '0' + p_no_zero
+            
+            try:
+                matched_users = User.objects.filter(Q(phone__in=[p_with_zero, p_no_zero]) | Q(username__in=[p_with_zero, p_no_zero]))
+                for u in matched_users:
+                    u.last_login = None
+                    u.save(update_fields=['last_login'])
+            except Exception:
+                pass
+
         response = Response({"success": True, "message": "خروج موفقیت‌آمیز بود."}, status=status.HTTP_200_OK)
         try:
             response.delete_cookie('access', samesite='None', secure=True)
@@ -255,12 +284,17 @@ class ActiveStaffSessionsAPIView(APIView):
         seen_user_ids = set()
         online_sessions = []
 
-        # ۱. کلیه پرسنل فعال ثبت‌شده در PosStaff
+        # ۱. کلیه پرسنل فعال که حداقل یکبار لاگین کرده‌اند و خروج نزده‌اند
         active_staff = PosStaff.objects.filter(is_active=True).select_related('user')
         for staff in active_staff:
             user = staff.user
             if not user or not user.is_active:
                 continue
+            
+            # اگر last_login خالی باشد به این معنی است که کاربر خروج زده یا هنوز وارد نشده
+            if not getattr(user, 'last_login', None):
+                continue
+
             seen_user_ids.add(user.id)
             is_self = bool(current_user_id and user.id == current_user_id)
             
@@ -307,10 +341,10 @@ class ActiveStaffSessionsAPIView(APIView):
                 **time_info
             })
 
-        # ۲. کلیه سایر کاربران فعال سامانه (مدیران ارشد، پرسنل دارای ورود)
-        other_users = User.objects.filter(is_active=True).exclude(id__in=seen_user_ids)
+        # ۲. سایر کاربران سیستم با last_login فعال
+        other_users = User.objects.filter(is_active=True, last_login__isnull=False).exclude(id__in=seen_user_ids)
         for u in other_users:
-            if not (u.is_staff or u.is_superuser or getattr(u, 'last_login', None)):
+            if not (u.is_staff or u.is_superuser):
                 continue
             seen_user_ids.add(u.id)
             is_self = bool(current_user_id and u.id == current_user_id)
@@ -321,30 +355,29 @@ class ActiveStaffSessionsAPIView(APIView):
                 getattr(u, 'username', None) or 
                 ''
             )
-            f_name = (
+            full_name = (
                 getattr(u, 'full_name', None) or 
                 getattr(u, 'first_name', None) or 
                 u_phone or 
-                'مدیر ارشد'
+                'مدیر سیستم'
             )
-            r_title = "مدیر ارشد سامانه" if u.is_superuser else "صندوق‌دار فروشگاه"
             time_info = format_user_login_time(u)
 
             online_sessions.append({
                 "id": u.id,
                 "user_id": u.id,
                 "userId": u.id,
-                "fullName": f_name,
-                "full_name": f_name,
-                "name": f_name,
+                "fullName": full_name,
+                "full_name": full_name,
+                "name": full_name,
                 "phone": u_phone,
                 "mobile": u_phone,
                 "username": u_phone,
-                "role": "super_admin" if u.is_superuser else "cashier",
-                "roleTitleFa": r_title,
-                "role_title": r_title,
-                "role_display": r_title,
-                "permissions": list(PERMISSION_FIELDS),
+                "role": "super_admin" if u.is_superuser else "staff",
+                "roleTitleFa": "مدیر ارشد سامانه" if u.is_superuser else "کاربر ادمین",
+                "role_title": "مدیر ارشد سامانه" if u.is_superuser else "کاربر ادمین",
+                "role_display": "مدیر ارشد سامانه" if u.is_superuser else "کاربر ادمین",
+                "permissions": list(PERMISSION_FIELDS) if u.is_superuser else [],
                 "status": "online",
                 "is_online": True,
                 "online": True,
@@ -359,7 +392,9 @@ class ActiveStaffSessionsAPIView(APIView):
 
         return Response({
             "success": True,
+            "count": len(online_sessions),
             "data": online_sessions,
+            "results": online_sessions,
             "sessions": online_sessions,
             "staff": online_sessions,
             "active_staff": online_sessions

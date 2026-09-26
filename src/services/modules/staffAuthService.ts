@@ -74,10 +74,19 @@ export const staffAuthService = {
 
     // مدیریت اختصاصی ورود مدیر ارشد (Super Admin)
     if (normPhone === '09120759419' || normPhone.endsWith('9120759419')) {
-      const customSuperPin = localStorage.getItem('sovin_pos_superadmin_pin') || localStorage.getItem('django_superadmin_password') || 'sasha9419';
-      const validSuperPins = [customSuperPin, 'sasha9419', 'alirezazzz9419@S', '123456'];
+      const storedPin = localStorage.getItem('sovin_pos_superadmin_pin') || '';
+      const cleanStoredPin = (storedPin && storedPin !== '1' && storedPin !== '1234' && storedPin !== '123456') ? storedPin : '';
+      const validSuperPins = ['sasha9419', 'alirezazzz9419@S', cleanStoredPin].filter(Boolean);
 
-      // بررسی اعتبار رمز عبور واردشده قبل از ورود
+      // جلوگیری صریح از ورود با رمز عبورهای ضعیف یا اشتباه مانند 1 یا 123456
+      if (rawPass === '1' || rawPass === '1234' || rawPass === '123456') {
+        return {
+          success: false,
+          message: 'رمز عبور وارد شده برای مدیر ارشد اشتباه است.'
+        };
+      }
+
+      // بررسی اعتبار رمز عبور با پین‌های معتبر تعریف‌شده
       const isPasswordValid = validSuperPins.some(p => p === rawPass || toDigits(p) === normPass);
 
       let realAccessToken = '';
@@ -104,7 +113,7 @@ export const staffAuthService = {
         // بک‌اند در دسترس نیست
       }
 
-      // اگر رمز عبور نه با پین سوپرادمین محلی می‌خواند و نه ورود جنگو موفق بود، رد ورود
+      // اگر رمز عبور معتبر نیست و در بک‌اند هم لاگین نشد، رد صریح
       if (!isPasswordValid && !djangoSuccess) {
         return {
           success: false,
@@ -116,7 +125,7 @@ export const staffAuthService = {
         id: 'staff_super_admin_09120759419',
         fullName: 'علیرضا آذرخش (مدیر ارشد و مالک)',
         phone: '09120759419',
-        pinCode: rawPass || customSuperPin,
+        pinCode: rawPass || 'sasha9419',
         role: 'super_admin',
         roleTitleFa: 'مدیریت ارشد بنکداری دخانیات سرو',
         permissions: [
@@ -130,8 +139,8 @@ export const staffAuthService = {
       };
 
       try {
-        if (!localStorage.getItem('sovin_pos_superadmin_pin')) {
-          localStorage.setItem('sovin_pos_superadmin_pin', rawPass || customSuperPin);
+        if (rawPass && rawPass.length >= 4 && rawPass !== '1234' && rawPass !== '123456') {
+          localStorage.setItem('sovin_pos_superadmin_pin', rawPass);
         }
         djangoDatabaseStore.savePosStaff(superAdminUser);
       } catch {}
@@ -248,19 +257,19 @@ export const staffAuthService = {
   /**
    * خروج پرسنل از صندوق و ابطال توکن نشست
    */
-  async posLogout(): Promise<any> {
+  async posLogout(phone?: string): Promise<any> {
     try {
-      const res = await djangoPosLogoutApi();
+      const res = await djangoPosLogoutApi(phone);
       if (res && res.success) {
         invalidatePosTokenAndSession('manual_logout');
         return res;
       }
     } catch {}
-    const res = await httpClient.post<any>('/api/v1/posuserlogout/', {}, {
+    const res = await httpClient.post<any>('/api/v1/posuserlogout/', { phone }, {
       headers: API_CACHE_CONTROL_HEADERS
     });
     if (!res.success) {
-      await httpClient.post<any>('/posuserlogout/', {}, { headers: API_CACHE_CONTROL_HEADERS }).catch(() => {});
+      await httpClient.post<any>('/posuserlogout/', { phone }, { headers: API_CACHE_CONTROL_HEADERS }).catch(() => {});
     }
     invalidatePosTokenAndSession('manual_logout');
     return { success: true, message: 'خروج پرسنل و حذف نشست با موفقیت انجام شد.' };

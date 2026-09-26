@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { UserPlus, Edit2, X, RefreshCw } from 'lucide-react';
 import { WarehouseStaffUser, StaffPermission, StaffRole } from '../../../types';
 import { accountsApi } from '../../../services/api';
@@ -24,15 +24,47 @@ export const StaffFormModal: React.FC<StaffFormModalProps> = ({
   onClose,
   onSaved,
 }) => {
-  const [fullName, setFullName] = useState(editingStaff ? editingStaff.fullName : '');
-  const [phone, setPhone] = useState(editingStaff ? editingStaff.phone : '');
-  const [pinCode, setPinCode] = useState(editingStaff ? editingStaff.pinCode : '');
-  const [role, setRole] = useState<StaffRole>(editingStaff ? editingStaff.role : 'cashier');
-  const [roleTitleFa, setRoleTitleFa] = useState(editingStaff ? editingStaff.roleTitleFa : 'صندوق‌دار فروشگاه');
-  const [selectedPerms, setSelectedPerms] = useState<StaffPermission[]>(
-    editingStaff ? [...editingStaff.permissions] : ['manage_pos', 'quick_add_product', 'customer_app_connect']
-  );
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [pinCode, setPinCode] = useState('');
+  const [role, setRole] = useState<StaffRole>('cashier');
+  const [roleTitleFa, setRoleTitleFa] = useState('صندوق‌دار فروشگاه');
+  const [selectedPerms, setSelectedPerms] = useState<StaffPermission[]>([
+    'manage_pos', 'quick_add_product', 'customer_app_connect'
+  ]);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (editingStaff) {
+        const name = editingStaff.fullName || (editingStaff as any).full_name || (editingStaff as any).name || (editingStaff as any).first_name || '';
+        const ph = editingStaff.phone || (editingStaff as any).mobile || (editingStaff as any).username || '';
+        const pin = editingStaff.pinCode || (editingStaff as any).pin_code || (editingStaff as any).password || '';
+        const r = editingStaff.role || 'cashier';
+        const title = editingStaff.roleTitleFa || (editingStaff as any).role_title || (editingStaff as any).role_display || 'صندوق‌دار فروشگاه';
+        
+        const rawPerms = editingStaff.permissions || (editingStaff as any).perms || (editingStaff as any).user_permissions || [];
+        let mappedPerms: StaffPermission[] = [];
+        if (Array.isArray(rawPerms)) {
+          mappedPerms = rawPerms.map((p: any) => String(p).replace(/^perm_/, '') as StaffPermission);
+        }
+
+        setFullName(name);
+        setPhone(ph);
+        setPinCode(pin);
+        setRole(r as StaffRole);
+        setRoleTitleFa(title);
+        setSelectedPerms(mappedPerms.length > 0 ? mappedPerms : ['manage_pos', 'quick_add_product', 'customer_app_connect']);
+      } else {
+        setFullName('');
+        setPhone('');
+        setPinCode('');
+        setRole('cashier');
+        setRoleTitleFa('صندوق‌دار فروشگاه');
+        setSelectedPerms(['manage_pos', 'quick_add_product', 'customer_app_connect']);
+      }
+    }
+  }, [editingStaff, isOpen]);
 
   if (!isOpen) return null;
 
