@@ -3890,8 +3890,14 @@ export async function djangoFetchActiveSessions(config?: DjangoCrmConfig): Promi
   if (!res.success) {
     res = await executeDjangoAxiosRequest('/api/v1/posuser/active-staff/', 'GET', undefined, { token });
   }
+  if (!res.success) {
+    res = await executeDjangoAxiosRequest('/api/v1/posuserstaff-list/', 'GET', undefined, { token });
+  }
+  if (!res.success) {
+    res = await executeDjangoAxiosRequest('/api/v1/posuser/staff-list/', 'GET', undefined, { token });
+  }
   if (res.success && res.data) {
-    const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.sessions || res.data.results || []);
+    const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.sessions || res.data.results || res.data.staff || []);
     if (Array.isArray(list) && list.length > 0) {
       return list;
     }

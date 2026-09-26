@@ -416,8 +416,33 @@ export const staffAuthService = {
 
     if (res && res.success) {
       const list = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.sessions || []);
-      return { success: true, data: list };
+      if (Array.isArray(list) && list.length > 0) {
+        return { success: true, data: list };
+      }
     }
+
+    // Fallback: fetch staff list from Django DB
+    try {
+      const staffList = await djangoFetchPosStaffList();
+      if (Array.isArray(staffList) && staffList.length > 0) {
+        const activeStaffList = staffList
+          .filter((s: any) => s.is_active !== false)
+          .map((s: any) => ({
+            id: s.id || s.user_id,
+            fullName: s.fullName || s.full_name || s.name || 'صندوق‌دار',
+            phone: s.phone || s.username || '',
+            roleTitleFa: s.roleTitleFa || s.role_title || 'صندوق‌دار فروشگاه',
+            role: s.role || 'cashier',
+            status: 'online',
+            is_online: true,
+            is_active: true,
+            loginTime: 'آنلاین',
+          }));
+        if (activeStaffList.length > 0) {
+          return { success: true, data: activeStaffList };
+        }
+      }
+    } catch {}
 
     return { success: false, data: [] };
   }

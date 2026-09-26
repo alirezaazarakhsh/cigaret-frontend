@@ -956,16 +956,45 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       try {
         const res = await staffAuthService.getActiveSessions();
         if (res && res.success && Array.isArray(res.data) && res.data.length > 0 && isMounted) {
-          const mapped = res.data.map((s: any) => ({
-            id: String(s.id || s.userId || s.user_id || s.phone),
-            fullName: s.fullName || s.full_name || s.name || 'کاربر سیستم',
-            phone: s.phone || s.mobile || s.username || '',
-            roleTitleFa: s.roleTitleFa || s.role_title || s.role_display || 'صندوق‌دار فروشگاه',
-            role: s.role || 'staff',
-            loginTime: s.loginTime || s.online_time || s.login_time || s.time || new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-            avatarColor: s.avatarColor || 'bg-indigo-600',
-            isCurrentUser: Boolean(s.isCurrentUser || s.is_current_user || s.is_self)
-          }));
+          const currentPhoneClean = currentStaff?.phone ? String(currentStaff.phone).replace(/\D/g, '') : '';
+          const currentIdStr = currentStaff?.id ? String(currentStaff.id) : '';
+
+          const mapped = res.data.map((s: any) => {
+            const sPhoneClean = s.phone ? String(s.phone).replace(/\D/g, '') : '';
+            const sIdStr = String(s.id || s.user_id || s.userId || '');
+            const isMe = Boolean(
+              s.isCurrentUser || s.is_current_user || s.is_self ||
+              (currentIdStr && sIdStr === currentIdStr) ||
+              (currentPhoneClean && sPhoneClean && sPhoneClean === currentPhoneClean)
+            );
+
+            return {
+              id: sIdStr || sPhoneClean || s.fullName || s.full_name,
+              fullName: s.fullName || s.full_name || s.name || 'کاربر سیستم',
+              phone: s.phone || s.mobile || s.username || '',
+              roleTitleFa: s.roleTitleFa || s.role_title || s.role_display || 'صندوق‌دار فروشگاه',
+              role: s.role || 'staff',
+              loginTime: s.loginTime || s.online_time || s.login_time || s.time || new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+              avatarColor: s.avatarColor || 'bg-indigo-600',
+              isCurrentUser: isMe
+            };
+          });
+
+          // Ensure current user session is present in list
+          const hasCurrent = mapped.some((s: any) => s.isCurrentUser);
+          if (!hasCurrent && currentStaff && currentStaff.phone) {
+            mapped.unshift({
+              id: String(currentStaff.id || 'current_user_session'),
+              fullName: currentStaff.fullName,
+              phone: currentStaff.phone,
+              roleTitleFa: currentStaff.roleTitleFa || 'مدیریت / صندوق',
+              role: currentStaff.role || 'staff',
+              loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+              avatarColor: currentStaff.avatarColor || 'bg-indigo-600',
+              isCurrentUser: true
+            });
+          }
+
           setOnlineSessions(mapped);
           return;
         }
@@ -988,12 +1017,12 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     };
 
     loadActiveSessions();
-    const timer = setInterval(loadActiveSessions, 8000);
+    const timer = setInterval(loadActiveSessions, 5000);
     return () => {
       isMounted = false;
       clearInterval(timer);
     };
-  }, [isAuthenticated, currentStaff?.phone, currentStaff?.id]);
+  }, [isAuthenticated, currentStaff?.phone, currentStaff?.id, currentStaff?.fullName]);
 
   const [showQuickAddProductModal, setShowQuickAddProductModal] = useState<boolean>(false);
   const [pendingBarcode, setPendingBarcode] = useState<string>('');
