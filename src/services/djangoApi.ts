@@ -1533,8 +1533,17 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
       ? Boolean(sanitizedProduct.isFeatured) 
       : Boolean(sanitizedProduct.badge === 'پیشنهاد ویژه' || sanitizedProduct.badge === 'special');
 
-    const rawImage = sanitizedProduct.image || '';
-    const safeImages = (sanitizedProduct.images || []).filter(Boolean);
+    const rawImage = (sanitizedProduct.image && !sanitizedProduct.image.startsWith('data:')) ? sanitizedProduct.image : '';
+    const safeImages = (sanitizedProduct.images || []).filter((img: string) => img && !img.startsWith('data:'));
+
+    saveProductRichOverride(sanitizedProduct.id || sanitizedProduct.djangoId || '', {
+      excerpt: sanitizedProduct.excerpt ?? '',
+      description: sanitizedProduct.description ?? '',
+      metaDescription: sanitizedProduct.metaDescription ?? '',
+      metaTitle: sanitizedProduct.metaTitle ?? '',
+      focusKeyword: sanitizedProduct.focusKeyword ?? '',
+      keyTakeaways: sanitizedProduct.keyTakeaways,
+    });
 
     // Smart PK Resolution for Category / Brand / Hologram
     let categoryPk: number | null = null;
@@ -1645,17 +1654,14 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
       cigarette_size: sanitizedProduct.cigaretteSize || sanitizedProduct.packSize || 'king_size',
       filter_type: sanitizedProduct.filterType || 'white',
       badge: normalizedBadge,
-      image: rawImage,
       image_url: rawImage,
-      main_image_url: rawImage,
       images: safeImages,
       gallery_images: safeImages,
-      gallery: safeImages.map((url, idx) => ({ image: url, image_url: url, order: idx })),
-      full_description: sanitizedProduct.description || '',
-      description: sanitizedProduct.description || '',
-      excerpt: sanitizedProduct.excerpt || '',
+      full_description: sanitizedProduct.description ?? '',
+      description: sanitizedProduct.description ?? '',
+      excerpt: sanitizedProduct.excerpt ?? '',
       meta_title: sanitizedProduct.metaTitle || sanitizedProduct.nameFa || '',
-      meta_description: sanitizedProduct.metaDescription || sanitizedProduct.excerpt || sanitizedProduct.description || '',
+      meta_description: sanitizedProduct.metaDescription || sanitizedProduct.excerpt || '',
       focus_keyword: sanitizedProduct.focusKeyword || sanitizedProduct.nameFa || '',
       seo_keywords: Array.isArray(sanitizedProduct.keywords) ? sanitizedProduct.keywords.join(', ') : (sanitizedProduct.keywords || sanitizedProduct.focusKeyword || sanitizedProduct.nameFa || ''),
       canonical_url: sanitizedProduct.canonicalUrl || '',
@@ -1947,9 +1953,37 @@ export async function syncWithDjangoApi(
               sampleRawItem: results[0] || null
             });
 
-            const fetched = results
-              .filter((item: any) => !isMockProductRecord(item))
-              .map((item: DjangoProductItem, idx: number) => mapDjangoItemToProduct(item, idx));
+            const nonMockResults = results.filter((item: any) => !isMockProductRecord(item));
+
+            // Enrich items with full_description, excerpt, and category_detail from detail endpoint if omitted by list serializer
+            const enrichedResults = await Promise.all(
+              nonMockResults.map(async (item: any) => {
+                if (item && item.id && (item.full_description === undefined || item.excerpt === undefined || item.category_detail === undefined)) {
+                  try {
+                    const detailUrl = `${apiPrefix}/products/items/${item.id}/?_t=${Date.now()}`;
+                    const detailHeaders = { ...headers };
+                    delete detailHeaders['Authorization'];
+                    const detailRes = await fetch(detailUrl, {
+                      method: 'GET',
+                      headers: detailHeaders,
+                      cache: 'no-store',
+                    });
+                    if (detailRes.ok) {
+                      const detailJson = await detailRes.json();
+                      const detailObj = detailJson?.data || detailJson;
+                      if (detailObj && typeof detailObj === 'object' && !Array.isArray(detailObj)) {
+                        return { ...item, ...detailObj };
+                      }
+                    }
+                  } catch (detailErr) {
+                    console.warn(`[djangoApi.syncWithDjangoApi] Could not enrich detail for product ${item.id}:`, detailErr);
+                  }
+                }
+                return item;
+              })
+            );
+
+            const fetched = enrichedResults.map((item: DjangoProductItem, idx: number) => mapDjangoItemToProduct(item, idx));
 
             console.log(`[djangoApi.syncWithDjangoApi] Mapped ${fetched.length} products to CigaretteProduct model. Sample product[0]:`, fetched[0]);
             
@@ -2045,9 +2079,29 @@ export async function fetchAllProducts(config?: DjangoCrmConfig): Promise<Cigare
           itemsLength: items.length,
         });
 
-        const fetched = items
-          .filter((item: any) => !isMockProductRecord(item))
-          .map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
+        const realItems = items.filter((item: any) => !isMockProductRecord(item));
+        const enrichedItems = await Promise.all(
+          realItems.map(async (item: any) => {
+            if (item && item.id && (item.full_description === undefined || item.excerpt === undefined || item.category_detail === undefined)) {
+              try {
+                const detailRes = await executeDjangoAxiosRequest<DjangoProductItem>(
+                  `/api/v1/products/items/${item.id}/`,
+                  'GET',
+                  undefined,
+                  { apiUrl: baseUrl }
+                );
+                if (detailRes.success && detailRes.data) {
+                  const detailObj = (detailRes.data as any).data || detailRes.data;
+                  if (detailObj && typeof detailObj === 'object' && !Array.isArray(detailObj)) {
+                    return { ...item, ...detailObj };
+                  }
+                }
+              } catch {}
+            }
+            return item;
+          })
+        );
+        const fetched = enrichedItems.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
 
         if (fetched.length > 0 || path.includes('/items/')) {
           djangoDatabaseStore.setProducts(fetched);
@@ -2286,6 +2340,48 @@ export function extractImageUrl(val: any, fallback: string = ''): string {
   return url || fallback;
 }
 
+const PRODUCT_RICH_OVERRIDES_KEY = 'sevin_product_rich_overrides';
+
+export interface ProductRichOverride {
+  excerpt?: string;
+  description?: string;
+  metaDescription?: string;
+  metaTitle?: string;
+  focusKeyword?: string;
+  keyTakeaways?: string[];
+  updatedAt?: number;
+}
+
+export function saveProductRichOverride(id: string | number, data: ProductRichOverride): void {
+  const cleanId = String(id).replace(/^django-/, '').trim();
+  if (!cleanId) return;
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(PRODUCT_RICH_OVERRIDES_KEY) : null;
+    const store: Record<string, ProductRichOverride> = raw ? JSON.parse(raw) : {};
+    store[cleanId] = {
+      ...(store[cleanId] || {}),
+      ...data,
+      updatedAt: Date.now(),
+    };
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(PRODUCT_RICH_OVERRIDES_KEY, JSON.stringify(store));
+    }
+  } catch {}
+}
+
+export function getProductRichOverride(id: string | number): ProductRichOverride | null {
+  const cleanId = String(id).replace(/^django-/, '').trim();
+  if (!cleanId) return null;
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(PRODUCT_RICH_OVERRIDES_KEY) : null;
+    if (!raw) return null;
+    const store: Record<string, ProductRichOverride> = JSON.parse(raw);
+    return store[cleanId] || null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Robustly validates and maps any raw API item or product object into the canonical CigaretteProduct interface.
  * Strictly maps from Django database response without any fallback to fake CIGARETTE_PRODUCTS data.
@@ -2297,6 +2393,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
   const rawId = item.id ?? item.pk ?? item.djangoId ?? item.django_id ?? item.code;
   const djangoId = (rawId !== undefined && rawId !== null) ? rawId : (index + 1);
   const finalId = String(djangoId).replace(/^django-/, '');
+  const richOverride = getProductRichOverride(finalId);
 
   // Names
   const nameFa = extractStringFromField(
@@ -2313,6 +2410,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     item.brand_name || item.brand_detail?.name || item.brand || item.brand_title,
     'عمومی'
   );
+  const brandId = typeof item.brand === 'number' ? item.brand : (typeof item.brand_detail?.id === 'number' ? item.brand_detail.id : (typeof item.brand_id === 'number' ? item.brand_id : undefined));
 
   const categorySlug = extractStringFromField(
     item.category_slug || item.category_detail?.slug || (typeof item.category === 'object' ? item.category?.slug : ''),
@@ -2322,6 +2420,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     item.category_name || item.category_detail?.name || (typeof item.category === 'object' ? item.category?.name : ''),
     ''
   );
+  const categoryId = typeof item.category === 'number' ? item.category : (typeof item.category_detail?.id === 'number' ? item.category_detail.id : (typeof item.category_id === 'number' ? item.category_id : undefined));
   const category = extractCategory(
     categorySlug || categoryName || item.category || item.group,
     'cigarettes'
@@ -2335,6 +2434,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     item.hologram_name || item.hologram_detail?.title || item.hologram || item.hologram_type || item.hologram_title,
     ''
   );
+  const hologramId = typeof item.hologram === 'number' ? item.hologram : (typeof item.hologram_detail?.id === 'number' ? item.hologram_detail.id : (typeof item.hologram_id === 'number' ? item.hologram_id : undefined));
 
   // Tar & Nicotine
   const tar = extractStringFromField(item.tar, '');
@@ -2431,27 +2531,41 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
   const hasBox = item.has_box !== undefined ? Boolean(item.has_box) : item.hasBox !== false;
   const hasPack = item.has_pack !== undefined ? Boolean(item.has_pack) : Boolean(item.hasPack);
 
-  // Descriptions & SEO
-  const description = extractStringFromField(
-    item.full_description || item.description || item.content,
+  // Descriptions & SEO (Strictly separate Excerpt vs Full TinyMCE Description)
+  const rawFullDescription = extractStringFromField(
+    item.full_description ?? item.fullDescription ?? item.description ?? item.content ?? item.body ?? item.about,
     ''
   );
-  const excerpt = extractStringFromField(
-    item.excerpt || item.summary || item.short_description,
+  const rawExcerpt = extractStringFromField(
+    item.excerpt ?? item.short_description ?? item.shortDescription ?? item.summary ?? item.intro ?? item.short_desc,
     ''
   );
+  const rawMetaDescription = extractStringFromField(
+    item.meta_description ?? item.metaDescription,
+    ''
+  );
+
+  const stripHtmlTags = (html: string): string =>
+    html ? html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() : '';
+
+  const excerpt =
+    rawExcerpt ||
+    (richOverride?.excerpt !== undefined ? richOverride.excerpt : '') ||
+    rawMetaDescription;
+
+  const description =
+    rawFullDescription ||
+    (richOverride?.description !== undefined ? richOverride.description : '');
+
   const focusKeyword = extractStringFromField(
-    item.focus_keyword || item.focusKeyword || item.seo_keywords,
+    item.focus_keyword || item.focusKeyword || item.seo_keywords || richOverride?.focusKeyword,
     nameFa
   );
   const metaTitle = extractStringFromField(
-    item.meta_title || item.metaTitle,
+    item.meta_title || item.metaTitle || richOverride?.metaTitle,
     nameFa
   );
-  const metaDescription = extractStringFromField(
-    item.meta_description || item.metaDescription,
-    excerpt || description
-  );
+  const metaDescription = rawMetaDescription || richOverride?.metaDescription || excerpt || stripHtmlTags(description);
   const canonicalUrl = extractStringFromField(
     item.canonical_url || item.canonicalUrl,
     ''
@@ -2488,6 +2602,8 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     keyTakeawaysList = item.key_features.map((kf: any) => typeof kf === 'string' ? kf : extractStringFromField(kf, '')).filter(Boolean);
   } else if (Array.isArray(item.key_takeaways || item.keyTakeaways)) {
     keyTakeawaysList = (item.key_takeaways || item.keyTakeaways).map((k: any) => extractStringFromField(k, '')).filter(Boolean);
+  } else if (richOverride?.keyTakeaways && richOverride.keyTakeaways.length > 0) {
+    keyTakeawaysList = richOverride.keyTakeaways;
   }
 
   const rawAttrs = item.attributes_values || item.applied_features || item.product_attributes || item.attributes || item.appliedFeatures;
@@ -2517,6 +2633,13 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     mapped_category: category,
     mapped_category_slug: categorySlug,
   });
+  console.log('Transform [descriptions]:', {
+    raw_full_description: item.full_description,
+    raw_excerpt: item.excerpt,
+    raw_meta_description: item.meta_description,
+    mapped_description: description,
+    mapped_excerpt: excerpt,
+  });
   console.log('Transform [attributes]:', {
     raw_attributes_values: item.attributes_values,
     raw_attributes: item.attributes,
@@ -2530,10 +2653,11 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     nameFa,
     nameEn,
     brand,
+    brand_id: brandId,
     category,
     category_slug: categorySlug || String(category),
     category_name: categoryName || String(category),
-    category_id: typeof item.category === 'number' ? item.category : undefined,
+    category_id: categoryId,
     origin,
     tar,
     nicotine,
@@ -2554,9 +2678,14 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     priceTrend,
     lastPriceUpdate: `امروز (${new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })})`,
     hologram,
+    hologram_id: hologramId,
     tierDiscounts,
     description,
+    full_description: description,
+    fullDescription: description,
     excerpt,
+    short_description: excerpt,
+    shortDescription: excerpt,
     focusKeyword,
     metaTitle,
     metaDescription,

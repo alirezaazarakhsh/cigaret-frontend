@@ -587,27 +587,27 @@ class ProductDetailAPIView(APIView):
             Product.objects.select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'attributes_values__attribute'), 
             pk=pk
         )
-        serializer = ProductDetailSerializer(product)
+        serializer = ProductDetailSerializer(product, context={'request': request})
         return Response({'status': 'success', 'data': serializer.data})
 
 
 class ProductUpdateAPIView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         operation_summary="ویرایش اطلاعات محصول (مدیریت)",
         request_body=ProductCreateUpdateSerializer,
-        responses={200: ProductSerializer}
+        responses={200: ProductDetailSerializer}
     )
     def put(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
-        serializer = ProductCreateUpdateSerializer(product, data=request.data, partial=True)
+        serializer = ProductCreateUpdateSerializer(product, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             updated = serializer.save()
             return Response({
                 'status': 'success',
                 'message': 'اطلاعات کالا با موفقیت بروزرسانی گردید.',
-                'data': ProductSerializer(updated).data
+                'data': ProductDetailSerializer(updated, context={'request': request}).data
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

@@ -576,6 +576,11 @@ export const ProductList: React.FC<ProductListProps> = ({
                                   </span>
                                 )}
                               </div>
+                              {(product.excerpt || product.description || product.metaDescription) && (
+                                <p className="text-[11px] text-slate-500 line-clamp-1 mt-1 max-w-md">
+                                  {(product.excerpt || product.description || product.metaDescription || '').replace(/<[^>]*>/g, ' ').trim()}
+                                </p>
+                              )}
                             </div>
                           </div>
                         </td>

@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { CigaretteProduct } from '../types';
 import { formatToman, formatNumberFa, getApplicableDiscount, getProductStockInfo } from '../utils/formatters';
+import { getProductRichOverride } from '../services/djangoApi';
 
 interface ProductCardProps {
   product: CigaretteProduct;
@@ -189,15 +190,31 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </p>
         </div>
 
-        {/* Product Description */}
-        <div 
-          onClick={() => onOpenDetails(product)}
-          className="mb-3 cursor-pointer group/desc"
-        >
-          <p className="text-xs text-slate-600 leading-relaxed group-hover/desc:text-slate-900 transition-colors line-clamp-3 bg-slate-50/80 hover:bg-slate-100/80 p-2 rounded-xl border border-slate-100">
-            {product.description}
-          </p>
-        </div>
+        {/* Product Short Description / Excerpt (خلاصه و معرفی کوتاه محصول) */}
+        {(() => {
+          const stripHtml = (str?: string) =>
+            str ? str.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() : '';
+          const richOverride = getProductRichOverride(product.id);
+          const shortDesc =
+            stripHtml(product.excerpt) ||
+            stripHtml((product as any).short_description) ||
+            stripHtml(richOverride?.excerpt) ||
+            stripHtml(product.metaDescription) ||
+            stripHtml(richOverride?.metaDescription);
+
+          if (!shortDesc) return null;
+
+          return (
+            <div 
+              onClick={() => onOpenDetails(product)}
+              className="mb-3 cursor-pointer group/desc"
+            >
+              <p className="text-[11px] sm:text-xs text-slate-600 leading-relaxed group-hover/desc:text-slate-900 transition-colors line-clamp-3 bg-slate-50/90 hover:bg-blue-50/50 px-3 py-2 rounded-xl border border-slate-200/80 text-justify font-medium">
+                {shortDesc}
+              </p>
+            </div>
+          );
+        })()}
 
         {/* Dual Unit Stock Display Card (Wholesale B2B: Carton & Box) */}
         <div className="mb-3 bg-slate-50 border border-slate-200 rounded-2xl p-2 sm:p-2.5 text-xs">

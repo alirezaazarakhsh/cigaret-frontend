@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ShieldCheck, 
@@ -16,10 +16,13 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  AlertCircle
+  AlertCircle,
+  FileText
 } from 'lucide-react';
 import { CigaretteProduct } from '../types';
 import { formatToman, formatNumberFa, getApplicableDiscount } from '../utils/formatters';
+import { productsApi } from '../services/api';
+import { getProductRichOverride } from '../services/djangoApi';
 
 interface ProductModalProps {
   product: CigaretteProduct | null;
@@ -28,10 +31,29 @@ interface ProductModalProps {
 }
 
 export const ProductModal: React.FC<ProductModalProps> = ({
-  product,
+  product: initialProduct,
   onClose,
   onAddToCart,
 }) => {
+  const [detailedProduct, setDetailedProduct] = useState<CigaretteProduct | null>(initialProduct);
+
+  useEffect(() => {
+    setDetailedProduct(initialProduct);
+    if (initialProduct?.id) {
+      let isMounted = true;
+      productsApi.getById(initialProduct.id).then((fresh) => {
+        if (isMounted && fresh) {
+          setDetailedProduct((prev) => prev ? { ...prev, ...fresh } : fresh);
+        }
+      }).catch(() => {});
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [initialProduct]);
+
+  const product = detailedProduct || initialProduct;
+
   const moqCarton = (product?.moq !== undefined && product?.moq !== null) ? Number(product.moq) : 0;
   const moqBox = (product?.moqBox !== undefined && product?.moqBox !== null) ? Number(product.moqBox) : 0;
 
@@ -48,9 +70,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [isImageExpanded, setIsImageExpanded] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const images = product.images && product.images.length > 0 ? product.images : [product.image];
-
   if (!product) return null;
+
+  const images = product.images && product.images.length > 0 ? product.images : [product.image];
 
   const cartonTotalRaw = product.cartonPrice * cartonQty;
   const cartonDiscountPercent = getApplicableDiscount('carton', cartonQty, product.tierDiscounts);
@@ -154,16 +176,76 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         </div>
 
-        {/* Full Rich Description */}
-        <div className="mb-5 space-y-2 mt-4">
-          <div className="flex items-center gap-1.5 text-sm font-bold text-slate-800 ">
-            <Sparkles className="w-5 h-5 text-blue-600 " />
-            معرفی و مشخصات تخصصی کالا:
-          </div>
-          <p className="text-sm text-slate-700 leading-relaxed bg-slate-50 p-4 rounded-xl border border-slate-200 text-justify font-normal">
-            {product.description}
-          </p>
-        </div>
+        {/* Full Rich Description (نقد و بررسی و توضیحات جامع محصول - TinyMCE) */}
+        {(() => {
+          const richOverride = getProductRichOverride(product.id);
+          const rawFullDesc = (
+            product.description ||
+            (product as any).full_description ||
+            richOverride?.description ||
+            ''
+          ).trim();
+          const rawExcerpt = (
+            product.excerpt ||
+            (product as any).short_description ||
+            richOverride?.excerpt ||
+            ''
+          ).trim();
+
+          const fullText = rawFullDesc || rawExcerpt;
+          const hasHtmlTags = /<[a-z][\s\S]*>/i.test(fullText);
+
+          if (!fullText && (!product.keyTakeaways || product.keyTakeaways.length === 0)) {
+            return null;
+          }
+
+          return (
+            <div className="mb-5 space-y-3 mt-4">
+              {/* Full Introduction & Review (TinyMCE) in Scrollable Box */}
+              {fullText && (
+                <div className="bg-slate-50/90 border border-slate-200 rounded-xl p-3.5 sm:p-4 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs sm:text-sm font-black text-slate-800 border-b border-slate-200/80 pb-2">
+                    <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
+                    <span>نقد و بررسی و توضیحات جامع محصول:</span>
+                  </div>
+                  <div
+                    className="max-h-36 sm:max-h-44 overflow-y-auto overscroll-contain pl-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify font-normal"
+                    style={{ overscrollBehavior: 'contain' }}
+                  >
+                    {hasHtmlTags ? (
+                      <div
+                        className="prose prose-sm max-w-none text-slate-700 leading-relaxed"
+                        dangerouslySetInnerHTML={{ __html: fullText }}
+                      />
+                    ) : (
+                      <p className="whitespace-pre-line leading-relaxed">
+                        {fullText}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Key Takeaways / Highlights */}
+              {product.keyTakeaways && product.keyTakeaways.length > 0 && (
+                <div className="bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-3.5 space-y-2">
+                  <div className="flex items-center gap-1.5 text-xs font-black text-emerald-900">
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>نکات کلیدی و ویژگی‌های برجسته کالا:</span>
+                  </div>
+                  <ul className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-slate-700">
+                    {product.keyTakeaways.map((kt, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <span>{kt}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Additional Features */}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5 text-xs">

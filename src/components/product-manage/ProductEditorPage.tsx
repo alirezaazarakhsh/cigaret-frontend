@@ -36,7 +36,7 @@ import { TinyMceEditor } from '../common/TinyMceEditor';
 import { calculateProductYoastSeo, ProductYoastSeoReport } from './seoUtils';
 import { formatNumberFa } from '../../utils/formatters';
 import { getFrontendDomain } from '../../services/apiConfig';
-import { attributesApi, tierDiscountTemplatesApi } from '../../services/api';
+import { attributesApi, tierDiscountTemplatesApi, productsApi } from '../../services/api';
 import { sanitizeSlug } from '../../services/djangoApi';
 
 interface ProductEditorPageProps {
@@ -138,7 +138,8 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         focusKeyword: product.focusKeyword || `${product.nameFa || ''}`.trim(),
         metaTitle: product.metaTitle || product.nameFa || '',
         metaDescription: product.metaDescription || product.excerpt || '',
-        excerpt: product.excerpt || '',
+        excerpt: product.excerpt || (product as any).short_description || '',
+        description: product.description || (product as any).full_description || '',
         cigaretteSize: product.cigaretteSize || product.packSize || (product as any).cigarette_size || 'king_size',
         packSize: product.packSize || product.cigaretteSize || (product as any).cigarette_size || 'king_size',
         filterType: product.filterType || (product as any).filter_type || 'white',
@@ -296,6 +297,27 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       }));
     }
   }, [initialBarcode, product]);
+
+  // Fetch full product details (full_description, excerpt, category_detail) from /products/items/:id/ when editing
+  React.useEffect(() => {
+    if (product?.id) {
+      let isMounted = true;
+      productsApi.getById(product.id).then((fresh) => {
+        if (isMounted && fresh) {
+          setFormData((prev: any) => ({
+            ...prev,
+            description: prev.description || fresh.description || (fresh as any).full_description || '',
+            excerpt: prev.excerpt || fresh.excerpt || (fresh as any).short_description || '',
+            metaDescription: prev.metaDescription || fresh.metaDescription || fresh.excerpt || '',
+            keyTakeaways: (prev.keyTakeaways && prev.keyTakeaways.length > 0) ? prev.keyTakeaways : (fresh.keyTakeaways || []),
+          }));
+        }
+      }).catch(() => {});
+      return () => {
+        isMounted = false;
+      };
+    }
+  }, [product?.id]);
 
   // Tier Discounts UI State (Carton & Box)
   const [newTierUnit, setNewTierUnit] = useState<'carton' | 'box'>('carton');
@@ -703,8 +725,12 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
     setIsSaving(true);
 
     try {
-      const completeProduct: CigaretteProduct = {
+      const completeProduct: CigaretteProduct & Record<string, any> = {
         id: formData.id || `prod_${Date.now()}`,
+        djangoId: (product as any)?.djangoId || formData.djangoId,
+        brand_id: (product as any)?.brand_id ?? formData.brand_id,
+        category_id: (product as any)?.category_id ?? formData.category_id,
+        hologram_id: (product as any)?.hologram_id ?? formData.hologram_id,
         nameFa: formData.nameFa.trim(),
         nameEn: formData.nameEn?.trim() || '',
         brand: formData.brand?.trim() || 'وینستون',
@@ -726,6 +752,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         moq: typeof formData.moq === 'number' ? formData.moq : (Number(formData.moq) || 0),
         moqBox: typeof formData.moqBox === 'number' ? formData.moqBox : (Number(formData.moqBox) || 0),
         image: formData.image || '',
+        images: Array.isArray(formData.images) ? formData.images : (product?.images || []),
         barcode: formData.barcode?.trim() || '',
         flavor: formData.flavor?.trim() || 'ساده',
         badge: formData.badge || 'بار تازه',

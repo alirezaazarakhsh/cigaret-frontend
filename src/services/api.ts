@@ -69,7 +69,9 @@ import {
   djangoFetchFooterSettings,
   mapDjangoItemToProduct,
   normalizeBadgeForDjango,
-  isMockProductRecord
+  isMockProductRecord,
+  ensureValidDjangoAdminToken,
+  saveProductRichOverride
 } from './djangoApi';
 
 // Local storage keys for resilient offline-first fallback
@@ -638,7 +640,26 @@ export const productsApi = {
           : (response.data.results || response.data.data || response.data.items || []);
 
         const realRawItems = items.filter((item: any) => !isMockProduct(item));
-        const mappedProducts: CigaretteProduct[] = realRawItems.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
+
+        // Enrich items with full_description, excerpt, and category_detail from /products/items/:id/ if omitted by list serializer
+        const enrichedRawItems = await Promise.all(
+          realRawItems.map(async (item: any) => {
+            if (item && item.id && (item.full_description === undefined || item.excerpt === undefined || item.category_detail === undefined)) {
+              try {
+                const detailRes = await httpClient.get<any>(`/products/items/${item.id}/`, { skipAuth: true });
+                if (detailRes.success && detailRes.data) {
+                  const detailObj = detailRes.data.data || detailRes.data;
+                  if (detailObj && typeof detailObj === 'object' && !Array.isArray(detailObj)) {
+                    return { ...item, ...detailObj };
+                  }
+                }
+              } catch {}
+            }
+            return item;
+          })
+        );
+
+        const mappedProducts: CigaretteProduct[] = enrichedRawItems.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
 
         if (mappedProducts.length > 0 || endpoint.includes('/items/')) {
           console.log(`[productsApi.getAll] Loaded ${mappedProducts.length} real products from ${endpoint}`);
@@ -658,6 +679,37 @@ export const productsApi = {
 
     // Fallback: local storage (strictly real products only, never fake ones)
     return getLocalProducts();
+  },
+
+  /**
+   * Fetches full details of a single product (including full_description, excerpt, category_detail) from /products/items/:id/
+   */
+  async getById(id: string | number): Promise<CigaretteProduct | null> {
+    const cleanId = String(id).replace(/^django-/, '');
+    if (!cleanId) return null;
+
+    const candidateDetailEndpoints = [
+      `/products/items/${cleanId}/`,
+      `/products/${cleanId}/`,
+    ];
+
+    for (const ep of candidateDetailEndpoints) {
+      let response = await httpClient.get<any>(ep);
+      if (!response.success && (response.status === 401 || response.status === 403)) {
+        response = await httpClient.get<any>(ep, { skipAuth: true });
+      }
+      if (response.success && response.data) {
+        const detailObj = response.data.data || response.data;
+        if (detailObj && typeof detailObj === 'object' && !Array.isArray(detailObj) && (detailObj.id || detailObj.name)) {
+          const mapped = mapDjangoItemToProduct(detailObj, 0);
+          updateLocalProductList(mapped, 'update');
+          return mapped;
+        }
+      }
+    }
+
+    const local = getLocalProducts();
+    return local.find(p => String(p.id) === String(id) || String(p.id) === cleanId || String(p.djangoId) === cleanId) || null;
   },
 
   /**
@@ -803,15 +855,17 @@ export const productsApi = {
       };
     });
 
-    const payload = {
+    await ensureValidDjangoAdminToken().catch(() => '');
+
+    const payload: Record<string, any> = {
       name: product.nameFa || 'کالای جدید',
       name_fa: product.nameFa || 'کالای جدید',
       name_en: product.nameEn || '',
       slug: product.slug || `prod-${Date.now()}`,
       barcode: product.barcode || '',
-      category: resolvedCategoryPk !== null ? resolvedCategoryPk : (product.category || null),
-      brand: resolvedBrandPk !== null ? resolvedBrandPk : (product.brand || null),
-      hologram: resolvedHologramPk !== null ? resolvedHologramPk : (product.hologram || null),
+      category: resolvedCategoryPk !== null ? resolvedCategoryPk : (typeof product.category === 'number' ? product.category : null),
+      brand: resolvedBrandPk !== null ? resolvedBrandPk : (typeof product.brand === 'number' ? product.brand : null),
+      hologram: resolvedHologramPk !== null ? resolvedHologramPk : (typeof product.hologram === 'number' ? product.hologram : null),
       carton_price: Number(product.cartonPrice) || 0,
       box_price: Number(product.boxPrice) || 0,
       pack_price: Number(product.packPrice) || 0,
@@ -824,15 +878,13 @@ export const productsApi = {
       min_order_box: Number(product.moqBox) || 1,
       badge: normalizedBadge,
       image_url: safeImage,
-      ...(safeImage ? { image: safeImage } : {}),
       images: safeImages,
       gallery_images: safeImages,
-      gallery: safeImages.map(url => ({ image_url: url })),
       full_description: product.description || '',
       description: product.description || '',
       excerpt: product.excerpt || '',
       meta_title: product.metaTitle || product.nameFa || '',
-      meta_description: product.metaDescription || product.excerpt || product.description || '',
+      meta_description: product.metaDescription || product.excerpt || '',
       focus_keyword: product.focusKeyword || product.nameFa || '',
       seo_keywords: Array.isArray(product.keywords) ? product.keywords.join(', ') : (product.keywords || product.focusKeyword || product.nameFa || ''),
       canonical_url: product.canonicalUrl || '',
@@ -915,13 +967,14 @@ export const productsApi = {
     for (const ep of candidateEndpoints) {
       response = await httpClient.post(ep, payload, { timeoutMs: 8000 });
       if (response.success) break;
-      // If server returned 400 with string/fk error, retry with sanitized integer keys or null
-      if (response.status === 400 && (payload.brand || payload.hologram || typeof payload.category === 'string')) {
+      // If server returned 400 with string/fk/slug error, retry with sanitized keys
+      if (response.status === 400) {
         const sanitizedPayload = {
           ...payload,
+          slug: `prod-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           brand: typeof payload.brand === 'number' ? payload.brand : null,
           hologram: typeof payload.hologram === 'number' ? payload.hologram : null,
-          category: typeof payload.category === 'number' ? payload.category : null,
+          category: typeof payload.category === 'number' ? payload.category : 1,
         };
         const retryRes = await httpClient.post(ep, sanitizedPayload, { timeoutMs: 8000 });
         if (retryRes.success) {
@@ -930,16 +983,24 @@ export const productsApi = {
         }
       }
       if (response.status !== 404 && response.status !== 405 && response.status !== 0) {
-        // If server actively answered with another status (e.g. 500 or 401), continue trying other endpoints
         continue;
       }
     }
 
     if (response.success && response.data) {
       const respData = response.data.data || response.data;
+      const finalCreatedId = String(respData.id || newProdId);
+      saveProductRichOverride(finalCreatedId, {
+        excerpt: product.excerpt || '',
+        description: product.description || '',
+        metaDescription: product.metaDescription || '',
+        metaTitle: product.metaTitle || '',
+        focusKeyword: product.focusKeyword || '',
+        keyTakeaways: product.keyTakeaways || [],
+      });
       const created = {
         ...newProductFull,
-        id: String(respData.id || newProdId),
+        id: finalCreatedId,
       };
       updateLocalProductList(created, 'add');
       return created;
@@ -952,6 +1013,20 @@ export const productsApi = {
    * Updates an existing product on PATCH /products/items/:id/update/
    */
   async update(id: string, productData: Partial<CigaretteProduct>): Promise<CigaretteProduct> {
+    const cleanId = String(id).replace(/^django-/, '');
+
+    // Immediately persist rich fields (excerpt, TinyMCE description, SEO) so they are never lost
+    saveProductRichOverride(cleanId, {
+      excerpt: productData.excerpt ?? '',
+      description: productData.description ?? '',
+      metaDescription: productData.metaDescription ?? '',
+      metaTitle: productData.metaTitle ?? '',
+      focusKeyword: productData.focusKeyword ?? '',
+      keyTakeaways: productData.keyTakeaways,
+    });
+
+    await ensureValidDjangoAdminToken().catch(() => '');
+
     const keyFeatures = (productData.keyTakeaways || []).map((t, idx) => ({
       title: t,
       display_order: idx + 1
@@ -968,6 +1043,84 @@ export const productsApi = {
     const safeImages = (productData.images || [])
       .map(img => (img && img.startsWith('data:')) ? '' : img)
       .filter(Boolean);
+
+    // Smart PK Resolution for Category
+    let resolvedCategoryPk: number | undefined = typeof (productData as any).category_id === 'number'
+      ? (productData as any).category_id
+      : undefined;
+    if (resolvedCategoryPk === undefined) {
+      if (productData.category !== undefined && productData.category !== null && !isNaN(Number(productData.category))) {
+        resolvedCategoryPk = Number(productData.category);
+      } else if (productData.category && typeof productData.category === 'string') {
+        try {
+          const cats = await categoriesApi.getAll();
+          const catTarget = productData.category.trim().toLowerCase();
+          const matched = cats.find(c =>
+            String(c.id) === catTarget ||
+            (c.slug && c.slug.toLowerCase() === catTarget) ||
+            (c.name && c.name.trim().toLowerCase() === catTarget) ||
+            (c.nameEn && c.nameEn.trim().toLowerCase() === catTarget)
+          );
+          if (matched && !isNaN(Number(matched.id))) {
+            resolvedCategoryPk = Number(matched.id);
+          } else if (cats.length > 0 && !isNaN(Number(cats[0].id))) {
+            resolvedCategoryPk = Number(cats[0].id);
+          }
+        } catch {}
+      }
+    }
+
+    // Smart PK Resolution for Brand
+    let resolvedBrandPk: number | null | undefined = typeof (productData as any).brand_id === 'number'
+      ? (productData as any).brand_id
+      : undefined;
+    if (resolvedBrandPk === undefined) {
+      if (productData.brand !== undefined && productData.brand !== null && !isNaN(Number(productData.brand))) {
+        resolvedBrandPk = Number(productData.brand);
+      } else if (productData.brand && typeof productData.brand === 'string' && productData.brand.trim()) {
+        try {
+          const brands = await brandsApi.getAll();
+          const brandTarget = productData.brand.trim().toLowerCase();
+          const matched = brands.find(b =>
+            String(b.id) === brandTarget ||
+            (b.slug && b.slug.toLowerCase() === brandTarget) ||
+            (b.name && b.name.trim().toLowerCase() === brandTarget) ||
+            (b.nameEn && b.nameEn.trim().toLowerCase() === brandTarget)
+          );
+          if (matched && !isNaN(Number(matched.id))) {
+            resolvedBrandPk = Number(matched.id);
+          }
+        } catch {}
+      }
+    }
+
+    // Smart PK Resolution for Hologram
+    let resolvedHologramPk: number | null | undefined = typeof (productData as any).hologram_id === 'number'
+      ? (productData as any).hologram_id
+      : undefined;
+    if (resolvedHologramPk === undefined) {
+      if (!productData.hologram || productData.hologram === 'بدون هولوگرام' || productData.hologram === 'ندارد') {
+        resolvedHologramPk = null;
+      } else if (!isNaN(Number(productData.hologram))) {
+        resolvedHologramPk = Number(productData.hologram);
+      } else if (typeof productData.hologram === 'string' && productData.hologram.trim()) {
+        try {
+          const holos = await hologramsApi.getAll();
+          const holoTarget = productData.hologram.trim().toLowerCase();
+          const matched = holos.find(h =>
+            String(h.id) === holoTarget ||
+            (h.title && h.title.trim().toLowerCase() === holoTarget)
+          );
+          if (matched && !isNaN(Number(matched.id))) {
+            resolvedHologramPk = Number(matched.id);
+          } else {
+            resolvedHologramPk = null;
+          }
+        } catch {
+          resolvedHologramPk = null;
+        }
+      }
+    }
 
     const mappedAttributes = (productData.appliedFeatures || []).map(af => {
       const valStr = String(af.value || '').trim();
@@ -1012,9 +1165,9 @@ export const productsApi = {
       name: productData.nameFa,
       name_fa: productData.nameFa,
       name_en: productData.nameEn || '',
-      brand: !isNaN(Number(productData.brand)) ? Number(productData.brand) : productData.brand,
-      category: !isNaN(Number(productData.category)) ? Number(productData.category) : productData.category,
-      hologram: !isNaN(Number(productData.hologram)) ? Number(productData.hologram) : productData.hologram,
+      ...(resolvedBrandPk !== undefined ? { brand: resolvedBrandPk } : {}),
+      ...(resolvedCategoryPk !== undefined ? { category: resolvedCategoryPk } : {}),
+      ...(resolvedHologramPk !== undefined ? { hologram: resolvedHologramPk } : {}),
       carton_price: Number(productData.cartonPrice) || 0,
       box_price: Number(productData.boxPrice) || 0,
       pack_price: Number(productData.packPrice) || 0,
@@ -1041,18 +1194,16 @@ export const productsApi = {
       is_approved: true,
       status: 'active',
       is_featured: isFeaturedVal,
-      barcode: productData.barcode || '',
-      slug: productData.slug || '',
+      ...(productData.barcode ? { barcode: productData.barcode } : {}),
+      ...(productData.slug ? { slug: productData.slug } : {}),
       image_url: safeImage,
-      ...(safeImage ? { image: safeImage } : {}),
       images: safeImages,
       gallery_images: safeImages,
-      gallery: safeImages.map(url => ({ image_url: url })),
-      full_description: productData.description || '',
-      description: productData.description || '',
-      excerpt: productData.excerpt || '',
+      full_description: productData.description ?? '',
+      description: productData.description ?? '',
+      excerpt: productData.excerpt ?? '',
       meta_title: productData.metaTitle || productData.nameFa || '',
-      meta_description: productData.metaDescription || productData.excerpt || productData.description || '',
+      meta_description: productData.metaDescription || productData.excerpt || '',
       focus_keyword: productData.focusKeyword || productData.nameFa || '',
       seo_keywords: Array.isArray(productData.keywords) ? productData.keywords.join(', ') : (productData.keywords || productData.focusKeyword || productData.nameFa || ''),
       canonical_url: productData.canonicalUrl || '',
@@ -1064,24 +1215,39 @@ export const productsApi = {
       product_attributes: mappedAttributes,
     };
 
-    const cleanId = String(id).replace(/^django-/, '');
-
-    // Attempt remote PUT / PATCH
-    let response = await httpClient.put(`/products/items/${cleanId}/update/`, payload);
+    // Attempt remote PATCH / PUT
+    let response = await httpClient.patch(`/products/items/${cleanId}/update/`, payload);
     if (!response.success) {
-      response = await httpClient.patch(`/products/items/${cleanId}/update/`, payload);
+      response = await httpClient.put(`/products/items/${cleanId}/update/`, payload);
+    }
+    // If 400 validation error (e.g. slug/barcode/FK conflict), retry without slug/barcode/FKs so descriptions & prices always save
+    if (!response.success && response.status === 400) {
+      const safeFallbackPayload = { ...payload };
+      delete safeFallbackPayload.slug;
+      delete safeFallbackPayload.barcode;
+      if (typeof safeFallbackPayload.brand !== 'number') delete safeFallbackPayload.brand;
+      if (typeof safeFallbackPayload.category !== 'number') delete safeFallbackPayload.category;
+      if (typeof safeFallbackPayload.hologram !== 'number' && safeFallbackPayload.hologram !== null) delete safeFallbackPayload.hologram;
+      response = await httpClient.patch(`/products/items/${cleanId}/update/`, safeFallbackPayload);
     }
     if (!response.success && response.status === 404) {
-      response = await httpClient.put(`/products/${cleanId}/update/`, payload);
+      response = await httpClient.patch(`/products/${cleanId}/update/`, payload);
     }
     if (!response.success && response.status === 404) {
-      response = await httpClient.put(`/products/${cleanId}/`, payload);
+      response = await httpClient.patch(`/products/${cleanId}/`, payload);
     }
 
     if (response.success && response.data) {
       const respObj = response.data.data || response.data;
       if (respObj && typeof respObj === 'object') {
-        const updatedFromBackend = mapDjangoItemToProduct({ ...productData, ...respObj }, 0);
+        const mergedRaw = {
+          ...productData,
+          ...respObj,
+          excerpt: respObj.excerpt || productData.excerpt || '',
+          full_description: respObj.full_description || productData.description || '',
+          description: respObj.full_description || respObj.description || productData.description || '',
+        };
+        const updatedFromBackend = mapDjangoItemToProduct(mergedRaw, 0);
         const currentProducts = getLocalProducts();
         const updated = currentProducts.map(p => (String(p.id) === String(id) || String(p.id) === cleanId) ? updatedFromBackend : p);
         saveLocalProducts(updated);
