@@ -68,7 +68,8 @@ import {
   djangoFetchSliders,
   djangoFetchFooterSettings,
   mapDjangoItemToProduct,
-  normalizeBadgeForDjango
+  normalizeBadgeForDjango,
+  isMockProductRecord
 } from './djangoApi';
 
 // Local storage keys for resilient offline-first fallback
@@ -599,45 +600,63 @@ export const productsApi = {
     if (params?.category && params.category !== 'all') query.append('category', params.category);
     if (params?.brand && params.brand !== 'all') query.append('brand', params.brand);
     if (params?.search) query.append('search', params.search);
-    if (params?.all) query.append('all', params.all);
+    query.append('all', params?.all || 'true');
     query.append('page_size', '1000');
     query.append('limit', '1000');
 
     const queryString = query.toString() ? `?${query.toString()}` : '';
-    
-    // Primary: DRF Product List View (/products/ and /products/items/)
-    let response = await httpClient.get<any>(`/products/${queryString}`);
-    if (!response.success && response.status === 404) {
-      response = await httpClient.get<any>(`/products/items/${queryString}`);
+
+    const isValidProductPayload = (data: any): boolean => {
+      if (!data) return false;
+      return (
+        Array.isArray(data) ||
+        Array.isArray(data.results) ||
+        Array.isArray(data.data) ||
+        Array.isArray(data.items)
+      );
+    };
+
+    // Prioritize /products/items/ first so DefaultRouter APIRootView at /products/ is bypassed
+    const candidateEndpoints = [
+      `/products/items/${queryString}`,
+      `/products/products/${queryString}`,
+      `/products/${queryString}`,
+      `/products/items/pos-catalog/${queryString}`,
+      `/api/v1/products/items/${queryString}`,
+      `/api/v1/products/${queryString}`,
+    ];
+
+    for (const endpoint of candidateEndpoints) {
+      let response = await httpClient.get<any>(endpoint);
+      if (!response.success && (response.status === 401 || response.status === 403)) {
+        response = await httpClient.get<any>(endpoint, { skipAuth: true });
+      }
+
+      if (response.success && isValidProductPayload(response.data)) {
+        const items = Array.isArray(response.data) 
+          ? response.data 
+          : (response.data.results || response.data.data || response.data.items || []);
+
+        const realRawItems = items.filter((item: any) => !isMockProduct(item));
+        const mappedProducts: CigaretteProduct[] = realRawItems.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
+
+        if (mappedProducts.length > 0 || endpoint.includes('/items/')) {
+          console.log(`[productsApi.getAll] Loaded ${mappedProducts.length} real products from ${endpoint}`);
+          debugProductStructure(mappedProducts);
+
+          // Update in-memory store and localStorage with real database products only
+          djangoDatabaseStore.setProducts(mappedProducts);
+          try {
+            localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(mappedProducts));
+            localStorage.setItem('sovin_django_products', JSON.stringify(mappedProducts));
+          } catch {}
+
+          return mappedProducts;
+        }
+      }
     }
-    if (!response.success && response.status === 404) {
-      response = await httpClient.get<any>(`/api/v1/products/${queryString}`);
-    }
-    if (!response.success && response.status === 404) {
-      response = await httpClient.get<any>(`/api/v1/products/items/${queryString}`);
-    }
 
-    if (response.success && response.data) {
-      const items = Array.isArray(response.data) 
-        ? response.data 
-        : (response.data.results || response.data.data || response.data.items || []);
-      
-      const mappedProducts: CigaretteProduct[] = items.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
-
-      const isProd = typeof window !== 'undefined' && 
-                     process.env.NODE_ENV === 'production' && 
-                     !window.location.hostname.includes('dev') && 
-                     !window.location.hostname.includes('europe-west2');
-
-      // Cache real products in localStorage
-      try {
-        localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(mappedProducts));
-      } catch {}
-
-      return mappedProducts;
-    }
-
-    // Fallback: local storage (only real products, never fake ones)
+    // Fallback: local storage (strictly real products only, never fake ones)
     return getLocalProducts();
   },
 
@@ -1045,79 +1064,61 @@ export const productsApi = {
       product_attributes: mappedAttributes,
     };
 
+    const cleanId = String(id).replace(/^django-/, '');
+
     // Attempt remote PUT / PATCH
-    let response = await httpClient.put(`/products/${id}/update/`, payload);
+    let response = await httpClient.put(`/products/items/${cleanId}/update/`, payload);
     if (!response.success) {
-      response = await httpClient.patch(`/products/${id}/update/`, payload);
+      response = await httpClient.patch(`/products/items/${cleanId}/update/`, payload);
     }
     if (!response.success && response.status === 404) {
-      response = await httpClient.put(`/products/items/${id}/update/`, payload);
+      response = await httpClient.put(`/products/${cleanId}/update/`, payload);
     }
     if (!response.success && response.status === 404) {
-      response = await httpClient.put(`/products/${id}/`, payload);
+      response = await httpClient.put(`/products/${cleanId}/`, payload);
     }
 
     if (response.success && response.data) {
       const respObj = response.data.data || response.data;
       if (respObj && typeof respObj === 'object') {
-        const updatedFromBackend: CigaretteProduct = {
-          nameEn: productData.nameEn || '',
-          brand: productData.brand || '',
-          category: productData.category || 'cigarettes',
-          origin: productData.origin || '',
-          tar: productData.tar || '',
-          nicotine: productData.nicotine || '',
-          boxesPerCarton: productData.boxesPerCarton || 50,
-          moq: productData.moq || 0,
-          image: productData.image || '',
-          barcode: productData.barcode || '',
-          tierDiscounts: productData.tierDiscounts || [],
-          description: productData.description || '',
-          isAvailable: productData.isAvailable !== false,
-          lastPriceUpdate: productData.lastPriceUpdate || new Date().toLocaleDateString('fa-IR'),
-          ...productData,
-          id: String(respObj.id || id),
-          djangoId: respObj.id || id,
-          nameFa: respObj.name || respObj.name_fa || productData.nameFa,
-          purchasePrice: Number(respObj.purchase_price ?? productData.purchasePrice ?? 0),
-          stockBoxes: Number(respObj.stock_boxes ?? productData.stockBoxes ?? 0),
-          stockCartons: Number(respObj.stock_cartons ?? productData.stockCartons ?? 0),
-          cartonPrice: Number(respObj.carton_price ?? productData.cartonPrice ?? 0),
-          boxPrice: Number(respObj.box_price ?? productData.boxPrice ?? 0),
-        };
+        const updatedFromBackend = mapDjangoItemToProduct({ ...productData, ...respObj }, 0);
         const currentProducts = getLocalProducts();
-        const updated = currentProducts.map(p => p.id === id ? updatedFromBackend : p);
+        const updated = currentProducts.map(p => (String(p.id) === String(id) || String(p.id) === cleanId) ? updatedFromBackend : p);
         saveLocalProducts(updated);
+        djangoDatabaseStore.setProducts(updated);
         return updatedFromBackend;
       }
     }
 
     // Update locally
     const currentProducts = getLocalProducts();
-    const updated = currentProducts.map(p => p.id === id ? { ...p, ...productData } : p);
+    const updated = currentProducts.map(p => (String(p.id) === String(id) || String(p.id) === cleanId) ? { ...p, ...productData } : p);
     saveLocalProducts(updated);
+    djangoDatabaseStore.setProducts(updated);
 
-    return updated.find(p => p.id === id) || (productData as CigaretteProduct);
+    return updated.find(p => String(p.id) === String(id) || String(p.id) === cleanId) || (productData as CigaretteProduct);
   },
 
   /**
    * Deletes a product on DELETE /products/:id/delete/
    */
   async delete(id: string): Promise<boolean> {
-    let response = await httpClient.delete(`/products/${id}/delete/`);
+    const cleanId = String(id).replace(/^django-/, '');
+    let response = await httpClient.delete(`/products/items/${cleanId}/delete/`);
     if (!response.success && response.status === 404) {
-      response = await httpClient.delete(`/products/items/${id}/delete/`);
+      response = await httpClient.delete(`/products/${cleanId}/delete/`);
     }
     if (!response.success && response.status === 404) {
-      response = await httpClient.delete(`/products/${id}/`);
+      response = await httpClient.delete(`/products/${cleanId}/`);
     }
     if (!response.success && response.status === 404) {
-      response = await httpClient.delete(`/products/items/${id}/`);
+      response = await httpClient.delete(`/products/items/${cleanId}/`);
     }
 
     const currentProducts = getLocalProducts();
-    const updated = currentProducts.filter(p => p.id !== id);
+    const updated = currentProducts.filter(p => String(p.id) !== String(id) && String(p.id) !== cleanId);
     saveLocalProducts(updated);
+    djangoDatabaseStore.setProducts(updated);
     return true;
   },
 
@@ -1125,8 +1126,9 @@ export const productsApi = {
    * Deducts or increases stock on PATCH /products/:id/sync-pos-stock/
    */
   async updateStock(id: string, newStockCartons: number): Promise<boolean> {
-    await httpClient.patch(`/products/${id}/sync-pos-stock/`, { stock_cartons: newStockCartons })
-      .catch(() => httpClient.patch(`/products/items/${id}/pos-sync-stock/`, { stock_cartons: newStockCartons }))
+    const cleanId = String(id).replace(/^django-/, '');
+    await httpClient.patch(`/products/items/${cleanId}/pos-sync-stock/`, { stock_cartons_delta: 0, stock_cartons: newStockCartons })
+      .catch(() => httpClient.patch(`/products/${cleanId}/sync-pos-stock/`, { stock_cartons: newStockCartons }))
       .catch(() => {});
     const currentProducts = getLocalProducts();
     const updated = currentProducts.map(p => p.id === id ? { ...p, stockCartons: newStockCartons, isAvailable: newStockCartons > 0 } : p);
@@ -1826,51 +1828,43 @@ export const footerApi = {
 // ==========================================
 // HELPER FUNCTIONS FOR LOCAL DATA
 // ==========================================
-const MOCK_PRODUCT_IDS = new Set(CIGARETTE_PRODUCTS.map(m => m.id));
-const MOCK_PRODUCT_NAMES = new Set(CIGARETTE_PRODUCTS.map(m => m.nameFa));
-
 export function isMockProduct(p: any): boolean {
-  if (!p) return false;
-  if (p.id && MOCK_PRODUCT_IDS.has(p.id)) return true;
-  if (p.nameFa && MOCK_PRODUCT_NAMES.has(p.nameFa) && typeof p.id === 'string' && (
-    p.id.startsWith('prod_winston') || 
-    p.id.startsWith('prod_marlboro') || 
-    p.id.startsWith('prod_kent') || 
-    p.id.startsWith('prod_esse') || 
-    p.id.startsWith('prod_bahman') ||
-    p.id.startsWith('prod_sobranie') ||
-    p.id.startsWith('prod_cavallo')
-  )) {
-    return true;
-  }
-  return false;
+  return isMockProductRecord(p);
 }
 
+/**
+ * Retrieves locally stored products strictly from real Django database syncs.
+ * Mock data (CIGARETTE_PRODUCTS) is completely eliminated from the app lifecycle.
+ */
 export function getLocalProducts(): CigaretteProduct[] {
-  const isProd = typeof window !== 'undefined' && 
-                 process.env.NODE_ENV === 'production' && 
-                 !window.location.hostname.includes('dev') && 
-                 !window.location.hostname.includes('europe-west2');
-
   try {
-    const keysToCheck = [STORAGE_KEYS.PRODUCTS, 'wholesale_products', 'sevin_local_products'];
+    const storeProds = djangoDatabaseStore.getProducts();
+    if (Array.isArray(storeProds) && storeProds.length > 0) {
+      return storeProds.filter(p => !isMockProduct(p));
+    }
+
+    const keysToCheck = [STORAGE_KEYS.PRODUCTS, 'sovin_django_products', 'wholesale_products', 'sevin_local_products'];
     for (const key of keysToCheck) {
       const saved = localStorage.getItem(key);
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const realProducts = parsed.filter(p => !isMockProduct(p));
+        if (Array.isArray(parsed)) {
+          const realProducts = parsed
+            .filter(p => !isMockProduct(p))
+            .map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
+          if (realProducts.length !== parsed.length) {
+            try {
+              localStorage.setItem(key, JSON.stringify(realProducts));
+            } catch {}
+          }
           if (realProducts.length > 0) {
-            return isProd ? realProducts : parsed;
+            return realProducts;
           }
         }
       }
     }
   } catch {}
 
-  if (!isProd) {
-    return CIGARETTE_PRODUCTS; // Show mock products in preview/dev mode
-  }
   return [];
 }
 

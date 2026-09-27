@@ -165,13 +165,26 @@ class ProductAttributeValueSerializer(serializers.ModelSerializer):
 
 
 class ProductImageSerializer(serializers.ModelSerializer):
+    image_url = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = ProductImage
-        fields = ['id', 'image', 'order']
+        fields = ['id', 'image', 'image_url', 'order']
         extra_kwargs = {
             'image': {'required': False, 'allow_null': True},
             'order': {'required': False, 'default': 0}
         }
+
+    def get_image_url(self, obj):
+        if not obj.image:
+            return None
+        request = self.context.get('request')
+        if hasattr(obj.image, 'url'):
+            url = obj.image.url
+            if request is not None:
+                return request.build_absolute_uri(url)
+            return url
+        return str(obj.image)
 
 
 class ProductKeyFeatureSerializer(serializers.ModelSerializer):
@@ -197,11 +210,14 @@ class ProductTierDiscountSerializer(serializers.ModelSerializer):
 
 class ProductSerializer(serializers.ModelSerializer):
     category_name = serializers.CharField(source='category.name', read_only=True)
+    category_slug = serializers.CharField(source='category.slug', read_only=True)
     category_color = serializers.CharField(source='category.color', read_only=True)
     brand_detail = ProductBrandSerializer(source='brand', read_only=True)
     brand_name = serializers.CharField(source='brand.name', read_only=True, default='')
     brand_logo = serializers.SerializerMethodField(read_only=True)
     hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
+    hologram_name = serializers.CharField(source='hologram.title', read_only=True, default='')
+    image_url = serializers.SerializerMethodField(read_only=True)
     gallery = ProductImageSerializer(many=True, read_only=True)
     key_features = ProductKeyFeatureSerializer(many=True, read_only=True)
     tier_discounts = ProductTierDiscountSerializer(many=True, read_only=True)
@@ -221,9 +237,11 @@ class ProductSerializer(serializers.ModelSerializer):
             'barcode',
             'category',
             'category_name',
+            'category_slug',
             'category_color',
             'hologram',
             'hologram_detail',
+            'hologram_name',
             'box_price',
             'boxes_per_carton',
             'carton_price',
@@ -232,76 +250,28 @@ class ProductSerializer(serializers.ModelSerializer):
             'purchase_price',
             'stock_cartons',
             'stock_boxes',
+            'min_order_carton',
+            'min_order_box',
+            'tar',
+            'nicotine',
+            'carbon_monoxide',
+            'cigarette_size',
+            'filter_type',
+            'country_origin',
+            'badge',
+            'main_image',
             'image',
-            'gallery',
-            'key_features',
-            'tier_discounts',
-            'attributes_values',
-            'is_pos_only',
-            'is_box_only',
-            'has_carton',
-            'has_box',
-            'has_pack',
-            'is_active',
-            'is_featured',
-            'created_at',
-            'updated_at'
-        ]
-
-    def get_brand_logo(self, obj):
-        if obj.brand and obj.brand.logo:
-            request = self.context.get('request')
-            if hasattr(obj.brand.logo, 'url'):
-                url = obj.brand.logo.url
-                if request is not None:
-                    return request.build_absolute_uri(url)
-                return url
-            return str(obj.brand.logo)
-        return None
-
-
-class ProductDetailSerializer(serializers.ModelSerializer):
-    category_detail = CategorySerializer(source='category', read_only=True)
-    brand_detail = ProductBrandSerializer(source='brand', read_only=True)
-    brand_name = serializers.CharField(source='brand.name', read_only=True, default='')
-    brand_logo = serializers.SerializerMethodField(read_only=True)
-    hologram_detail = ProductHologramSerializer(source='hologram', read_only=True)
-    gallery = ProductImageSerializer(many=True, read_only=True)
-    key_features = ProductKeyFeatureSerializer(many=True, read_only=True)
-    tier_discounts = ProductTierDiscountSerializer(many=True, read_only=True)
-    attributes_values = ProductAttributeValueSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = Product
-        fields = [
-            'id',
-            'name',
-            'name_en',
-            'slug',
-            'brand',
-            'brand_detail',
-            'brand_name',
-            'brand_logo',
-            'barcode',
-            'category',
-            'category_detail',
-            'hologram',
-            'hologram_detail',
-            'box_price',
-            'boxes_per_carton',
-            'carton_price',
-            'pack_price',
-            'packs_per_box',
-            'purchase_price',
-            'stock_cartons',
-            'stock_boxes',
-            'image',
+            'image_url',
             'gallery',
             'key_features',
             'tier_discounts',
             'attributes_values',
             'full_description',
             'excerpt',
+            'focus_keyword',
+            'meta_title',
+            'meta_description',
+            'canonical_url',
             'is_pos_only',
             'is_box_only',
             'has_carton',
@@ -313,6 +283,28 @@ class ProductDetailSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
+    def get_image_url(self, obj):
+        request = self.context.get('request')
+        if obj.main_image and hasattr(obj.main_image, 'url'):
+            url = obj.main_image.url
+            return request.build_absolute_uri(url) if request is not None else url
+        if obj.image:
+            if obj.image.startswith('/') and request is not None:
+                return request.build_absolute_uri(obj.image)
+            return obj.image
+        first_gallery = obj.gallery.first() if hasattr(obj, 'gallery') else None
+        if first_gallery and first_gallery.image and hasattr(first_gallery.image, 'url'):
+            url = first_gallery.image.url
+            return request.build_absolute_uri(url) if request is not None else url
+        return None
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        resolved_img = self.get_image_url(instance)
+        if resolved_img and not data.get('image'):
+            data['image'] = resolved_img
+        return data
+
     def get_brand_logo(self, obj):
         if obj.brand and obj.brand.logo:
             request = self.context.get('request')
@@ -323,6 +315,13 @@ class ProductDetailSerializer(serializers.ModelSerializer):
                 return url
             return str(obj.brand.logo)
         return None
+
+
+class ProductDetailSerializer(ProductSerializer):
+    category_detail = CategorySerializer(source='category', read_only=True)
+
+    class Meta(ProductSerializer.Meta):
+        fields = ProductSerializer.Meta.fields + ['category_detail']
 
 
 class ProductCreateUpdateSerializer(serializers.ModelSerializer):

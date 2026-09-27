@@ -590,9 +590,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       setProductsList(initialProducts);
     } else {
       const stored = djangoDatabaseStore.getProducts();
-      if (stored && stored.length > 0) {
-        setProductsList(stored);
-      }
+      setProductsList(stored);
     }
 
     const handleProductsChanged = (e: any) => {
@@ -600,9 +598,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         setProductsList(e.detail.products);
       } else {
         const stored = djangoDatabaseStore.getProducts();
-        if (stored && stored.length > 0) {
-          setProductsList(stored);
-        }
+        setProductsList(stored);
       }
     };
 

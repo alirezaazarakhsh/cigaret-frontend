@@ -154,6 +154,38 @@ export interface DjangoHologramItem {
   created_at?: string;
 }
 
+const MOCK_IDS_SET = new Set([
+  ...CIGARETTE_PRODUCTS.map(m => String(m.id)),
+  ...CIGARETTE_PRODUCTS.map(m => `django-${m.id}`),
+  ...CIGARETTE_PRODUCTS.filter(m => m.djangoId !== undefined).map(m => String(m.djangoId)),
+  ...CIGARETTE_PRODUCTS.filter(m => m.djangoId !== undefined).map(m => `django-${m.djangoId}`),
+]);
+const MOCK_BARCODES_SET = new Set(CIGARETTE_PRODUCTS.map(m => String(m.barcode || '').trim()).filter(Boolean));
+const MOCK_NAMES_SET = new Set(CIGARETTE_PRODUCTS.map(m => String(m.nameFa || '').trim()).filter(Boolean));
+
+export function isMockProductRecord(p: any): boolean {
+  if (!p || typeof p !== 'object') return false;
+  const idStr = String(p.id || '').trim();
+  const barcodeStr = String(p.barcode || '').trim();
+  const nameFaStr = String(p.nameFa || p.name_fa || p.name || '').trim();
+
+  if (idStr && MOCK_IDS_SET.has(idStr)) return true;
+  if (barcodeStr && MOCK_BARCODES_SET.has(barcodeStr) && MOCK_NAMES_SET.has(nameFaStr)) return true;
+  if (nameFaStr && MOCK_NAMES_SET.has(nameFaStr)) return true;
+  if (
+    idStr.startsWith('prod_winston') ||
+    idStr.startsWith('prod_marlboro') ||
+    idStr.startsWith('prod_kent') ||
+    idStr.startsWith('prod_esse') ||
+    idStr.startsWith('prod_bahman') ||
+    idStr.startsWith('prod_sobranie') ||
+    idStr.startsWith('prod_cavallo')
+  ) {
+    return true;
+  }
+  return false;
+}
+
 // Global In-Memory Django Database Persistence Store
 class DjangoDatabaseStore {
   private categories: { key: CigaretteCategory; label: string }[] = [
@@ -180,7 +212,8 @@ class DjangoDatabaseStore {
     'بدون هولوگرام',
   ];
 
-  private products: CigaretteProduct[] = [...CIGARETTE_PRODUCTS];
+  // Strictly empty initial store — never pre-populate with fake CIGARETTE_PRODUCTS
+  private products: CigaretteProduct[] = [];
 
   private salesAnalytics: any[] = [];
 
@@ -212,28 +245,48 @@ class DjangoDatabaseStore {
       const saved = localStorage.getItem('wholesale_products') || localStorage.getItem('sovin_django_products');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
+        if (Array.isArray(parsed)) {
+          const realOnly = parsed.filter((item: any) => !isMockProductRecord(item));
+          if (realOnly.length !== parsed.length) {
+            try {
+              localStorage.setItem('wholesale_products', JSON.stringify(realOnly));
+              localStorage.setItem('sovin_django_products', JSON.stringify(realOnly));
+            } catch {}
+          }
+          this.products = realOnly.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
+          return [...this.products];
         }
       }
     } catch {}
-    return [...this.products].map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
+    this.products = this.products.filter(item => !isMockProductRecord(item));
+    return [...this.products];
+  }
+
+  setProducts(newProducts: CigaretteProduct[]): CigaretteProduct[] {
+    const realOnly = (Array.isArray(newProducts) ? newProducts : [])
+      .filter(item => !isMockProductRecord(item))
+      .map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
+    this.products = realOnly;
+    try {
+      localStorage.setItem('wholesale_products', JSON.stringify(realOnly));
+      localStorage.setItem('sovin_django_products', JSON.stringify(realOnly));
+    } catch (e) {
+      console.warn('[DjangoDatabaseStore.setProducts] LocalStorage save warning:', e);
+    }
+    return [...this.products];
   }
 
   addProduct(product: CigaretteProduct): CigaretteProduct {
     const sanitizedInput = mapDjangoItemToProduct(product, 0);
     const current = this.getProducts();
-    const existingIndex = current.findIndex(p => p.id === sanitizedInput.id || (sanitizedInput.barcode && p.barcode === sanitizedInput.barcode));
+    const existingIndex = current.findIndex(p => String(p.id) === String(sanitizedInput.id) || (sanitizedInput.barcode && p.barcode === sanitizedInput.barcode));
     let resultProduct: CigaretteProduct;
 
     if (existingIndex >= 0) {
       const prev = current[existingIndex];
-      console.log(`[DjangoDatabaseStore.addProduct] Merging into existing product at index ${existingIndex} (id=${prev.id}, barcode=${prev.barcode}):`);
       resultProduct = mapDjangoItemToProduct({ ...prev, ...sanitizedInput }, existingIndex);
       current[existingIndex] = resultProduct;
-      console.log('[DjangoDatabaseStore.addProduct] -> Merged result:', resultProduct);
     } else {
-      console.log(`[DjangoDatabaseStore.addProduct] Inserting new product (id=${sanitizedInput.id}, barcode=${sanitizedInput.barcode}):`, sanitizedInput);
       resultProduct = sanitizedInput;
       current.unshift(resultProduct);
     }
@@ -245,7 +298,6 @@ class DjangoDatabaseStore {
       console.warn('[DjangoDatabaseStore.addProduct] LocalStorage save warning:', e);
     }
     this.products = current;
-    console.log(`[DjangoDatabaseStore.addProduct] Store now contains ${current.length} total products.`);
     return resultProduct;
   }
 
@@ -1790,27 +1842,35 @@ export async function syncWithDjangoApi(
         'Pragma': 'no-cache',
         'Expires': '0',
       };
-      if (config.apiToken && config.apiToken.trim() !== '') {
-        const tokenVal = config.apiToken.trim();
+      let tokenVal = (config.apiToken || '').trim();
+      if (!tokenVal) {
+        tokenVal = await ensureValidDjangoAdminToken(config).catch(() => '');
+      }
+      if (tokenVal) {
         headers['Authorization'] = tokenVal.startsWith('Token ') || tokenVal.startsWith('Bearer ')
           ? tokenVal
-          : `Token ${tokenVal}`;
+          : `Bearer ${tokenVal}`;
       }
 
-      // Build candidate endpoint URLs to attempt fetching products
+      // Build candidate endpoint URLs to attempt fetching products (prioritizing /products/items/ to bypass DefaultRouter root)
       const candidateEndpoints: string[] = [];
-      if (cleanBaseUrl.includes('/products')) {
-        candidateEndpoints.push(cleanBaseUrl);
+      if (cleanBaseUrl.includes('/products/items')) {
+        candidateEndpoints.push(`${cleanBaseUrl}?all=true&page_size=1000`);
+      } else if (cleanBaseUrl.includes('/products')) {
+        candidateEndpoints.push(`${cleanBaseUrl}/items/?all=true&page_size=1000`);
+        candidateEndpoints.push(`${cleanBaseUrl}/products/?all=true&page_size=1000`);
+        candidateEndpoints.push(`${cleanBaseUrl}?all=true&page_size=1000`);
       } else {
-        candidateEndpoints.push(`${cleanBaseUrl}/products/`);
-        candidateEndpoints.push(`${cleanBaseUrl}/products/items/`);
-        candidateEndpoints.push(`${cleanBaseUrl}/items/`);
-        candidateEndpoints.push(cleanBaseUrl);
+        candidateEndpoints.push(`${cleanBaseUrl}/products/items/?all=true&page_size=1000`);
+        candidateEndpoints.push(`${cleanBaseUrl}/products/products/?all=true&page_size=1000`);
+        candidateEndpoints.push(`${cleanBaseUrl}/products/items/pos-catalog/`);
+        candidateEndpoints.push(`${cleanBaseUrl}/products/?all=true&page_size=1000`);
+        candidateEndpoints.push(`${cleanBaseUrl}/items/?all=true&page_size=1000`);
       }
 
       for (const targetUrl of candidateEndpoints) {
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 8000);
+        const timeoutId = setTimeout(() => controller.abort(), 10000);
 
         const separator = targetUrl.includes('?') ? '&' : '?';
         const noCacheUrl = `${targetUrl}${separator}_nocache=${Date.now()}`;
@@ -1823,7 +1883,7 @@ export async function syncWithDjangoApi(
         });
 
         const startTime = Date.now();
-        const response = await fetch(noCacheUrl, {
+        let response = await fetch(noCacheUrl, {
           method: 'GET',
           headers,
           cache: 'no-store',
@@ -1833,6 +1893,17 @@ export async function syncWithDjangoApi(
           emitLog('WARNING', 'REQUEST', 'خطای شبکه‌ای در درخواست HTTP', `عدم امکان برقراری ارتباط با اندپوینت ${noCacheUrl}: ${e.message || String(e)}`, { error: String(e) });
           return null;
         });
+
+        // If 401 or 403 due to expired/invalid Authorization header on AllowAny endpoint, retry without Authorization
+        if (response && (response.status === 401 || response.status === 403) && headers['Authorization']) {
+          const publicHeaders = { ...headers };
+          delete publicHeaders['Authorization'];
+          response = await fetch(noCacheUrl, {
+            method: 'GET',
+            headers: publicHeaders,
+            cache: 'no-store',
+          }).catch(() => response);
+        }
 
         clearTimeout(timeoutId);
         const latencyMs = Date.now() - startTime;
@@ -1857,8 +1928,17 @@ export async function syncWithDjangoApi(
 
           console.log(`[djangoApi.syncWithDjangoApi] API raw response payload from ${noCacheUrl}:`, data);
 
-          if (data) {
-            const results = Array.isArray(data) ? data : (data.results || data.data || []);
+          const isValidProductPayload = Boolean(
+            data && (
+              Array.isArray(data) ||
+              Array.isArray(data.results) ||
+              Array.isArray(data.data) ||
+              Array.isArray(data.items)
+            )
+          );
+
+          if (data && isValidProductPayload) {
+            const results = Array.isArray(data) ? data : (data.results || data.data || data.items || []);
             console.log(`[djangoApi.syncWithDjangoApi] Extracted ${results.length} raw product items from API response.`);
             emitLog('INFO', 'PARSING', 'استخراج آرایه کالاهای خام', `تعداد ${results.length} قلم کالا از باریاب JSON استخراج گردید.`, {
               rawItemsCount: results.length,
@@ -1867,37 +1947,25 @@ export async function syncWithDjangoApi(
               sampleRawItem: results[0] || null
             });
 
-            if (results.length > 0) {
-              const fetched = results.map((item: DjangoProductItem, idx: number) => mapDjangoItemToProduct(item, idx));
-              console.log(`[djangoApi.syncWithDjangoApi] Mapped ${fetched.length} products to CigaretteProduct model. Sample product[0]:`, fetched[0]);
-              
-              emitLog('SUCCESS', 'PARSING', 'تبدیل و نگاشت موفق به مدل UI', `تعداد ${fetched.length} کالا به ساختار CigaretteProduct نگاشت شدند.`, {
-                mappedCount: fetched.length,
-                sampleMappedProduct: fetched[0]
-              });
+            const fetched = results
+              .filter((item: any) => !isMockProductRecord(item))
+              .map((item: DjangoProductItem, idx: number) => mapDjangoItemToProduct(item, idx));
 
-              // Update local in-memory store and localStorage immediately
-              let mergedCount = 0;
-              fetched.forEach(p => {
-                djangoDatabaseStore.addProduct(p);
-                mergedCount++;
-              });
+            console.log(`[djangoApi.syncWithDjangoApi] Mapped ${fetched.length} products to CigaretteProduct model. Sample product[0]:`, fetched[0]);
+            
+            emitLog('SUCCESS', 'PARSING', 'تبدیل و نگاشت موفق به مدل UI', `تعداد ${fetched.length} کالا به ساختار CigaretteProduct نگاشت شدند.`, {
+              mappedCount: fetched.length,
+              sampleMappedProduct: fetched[0] || null
+            });
 
-              emitLog('SUCCESS', 'MERGING', 'ثبت در دیتابیس درون‌حافظه‌ای', `تعداد ${mergedCount} محصول در DjangoDatabaseStore به‌روزرسانی و ترکیب شدند.`, {
+            if (fetched.length > 0 || targetUrl.includes('/items/')) {
+              // Replace local in-memory store and localStorage with exact database products
+              djangoDatabaseStore.setProducts(fetched);
+
+              emitLog('SUCCESS', 'MERGING', 'ثبت در دیتابیس درون‌حافظه‌ای', `تعداد ${fetched.length} محصول واقعی دیتابیس در DjangoDatabaseStore جایگزین شدند.`, {
                 totalProductsInStore: djangoDatabaseStore.getProducts().length
               });
 
-              try {
-                localStorage.setItem('wholesale_products', JSON.stringify(fetched));
-                localStorage.setItem('sovin_django_products', JSON.stringify(fetched));
-                console.log(`[djangoApi.syncWithDjangoApi] Successfully saved ${fetched.length} products to localStorage.`);
-                emitLog('SUCCESS', 'CACHE', 'ذخیره‌سازی پایداری در LocalStorage', `کلیدهای wholesale_products و sovin_django_products با ${fetched.length} کالا به‌روز شدند.`);
-              } catch (e) {
-                console.warn('[djangoApi.syncWithDjangoApi] LocalStorage save warning:', e);
-                emitLog('WARNING', 'CACHE', 'هشدار ذخیره در LocalStorage', `امکان ذخیره در حافظه مرورگر وجود ندارد: ${String(e)}`);
-              }
-
-              // Broadcast global custom event to trigger instant UI re-renders across all tabs and panels
               if (typeof window !== 'undefined') {
                 window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: fetched } }));
                 console.log('[djangoApi.syncWithDjangoApi] Dispatched "sevin-products-changed" event to window.');
@@ -1906,112 +1974,92 @@ export async function syncWithDjangoApi(
 
               console.log(`[djangoApi.syncWithDjangoApi] Live product sync complete. Returning ${fetched.length} products.`);
               return fetched;
-            } else {
-              console.log(`[djangoApi.syncWithDjangoApi] Endpoint ${noCacheUrl} returned 0 items. Trying next candidate if available.`);
-              emitLog('WARNING', 'PARSING', 'آرایه کالای خالی', `اندپویینت ${noCacheUrl} تعداد ۰ کالا برگرداند.`);
             }
+          } else {
+            console.log(`[djangoApi.syncWithDjangoApi] Endpoint ${noCacheUrl} returned non-product payload (e.g. router root). Trying next candidate.`);
           }
         }
       }
     } catch (err) {
-      console.warn('[djangoApi.syncWithDjangoApi] Live fetch exception encountered, falling back to dataset sync:', err);
-      emitLog('WARNING', 'REQUEST', 'استثنا در ارتباط زنده', `انتقال به همگام‌سازی دیتابیس محلی به دلیل استثنا: ${String(err)}`);
+      console.warn('[djangoApi.syncWithDjangoApi] Live fetch exception encountered:', err);
+      emitLog('WARNING', 'REQUEST', 'استثنا در ارتباط زنده', `خطا در ارتباط زنده: ${String(err)}`);
     }
   }
 
-  // Fallback simulation / local dataset sync
-  console.log('[djangoApi.syncWithDjangoApi] Fallback: Executing dataset price sync / simulation.');
-  emitLog('INFO', 'MERGING', 'اجرای همگام‌سازی دیتابیس محلی/شبیه‌سازی', 'ارتباط زنده مستقیم در دسترس نبود، همگام‌سازی از روی دیتابیس محلی اجرا گردید.');
-  
-  await new Promise(resolve => setTimeout(resolve, 400));
-
-  const now = new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' });
-  const allProds = djangoDatabaseStore.getProducts();
-
-  const syncedProds = allProds.map((prod, index) => {
-    const changeFactor = index % 3 === 0 ? 1.01 : index % 3 === 1 ? 0.99 : 1;
-    const newCartonPrice = Math.round((prod.cartonPrice * changeFactor) / 10000) * 10000;
-    const newBoxPrice = Math.round(newCartonPrice / (prod.boxesPerCarton || 50));
-
-    const trend: 'stable' | 'up' | 'down' = changeFactor > 1 ? 'up' : changeFactor < 1 ? 'down' : 'stable';
-
-    return {
-      ...prod,
-      cartonPrice: newCartonPrice,
-      boxPrice: newBoxPrice,
-      lastPriceUpdate: `امروز ${now}`,
-      priceTrend: trend,
-    };
-  });
-
-  syncedProds.forEach(p => djangoDatabaseStore.addProduct(p));
-  try {
-    localStorage.setItem('wholesale_products', JSON.stringify(syncedProds));
-    localStorage.setItem('sovin_django_products', JSON.stringify(syncedProds));
-    console.log(`[djangoApi.syncWithDjangoApi] Local dataset sync saved ${syncedProds.length} updated products to localStorage.`);
-    emitLog('SUCCESS', 'CACHE', 'ذخیره‌سازی پایداری دیتابیس محلی', `تعداد ${syncedProds.length} کالا در LocalStorage قرار گرفت.`);
-  } catch (e) {
-    console.warn('[djangoApi.syncWithDjangoApi] LocalStorage save warning:', e);
-    emitLog('WARNING', 'CACHE', 'هشدار ذخیره‌سازی محلی', String(e));
-  }
-
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: syncedProds } }));
-    console.log('[djangoApi.syncWithDjangoApi] Dispatched "sevin-products-changed" event to window.');
-    emitLog('SUCCESS', 'STATE_COMMIT', 'انتشار رویداد تغییر کالاهای محلی', 'سیگنال sevin-products-changed ارسال شد.');
-  }
-
-  console.log(`[djangoApi.syncWithDjangoApi] Fallback dataset sync finished. Returning ${syncedProds.length} products. Sample product[0]:`, syncedProds[0]);
-  return syncedProds;
+  const storedRealProducts = djangoDatabaseStore.getProducts();
+  console.log(`[djangoApi.syncWithDjangoApi] Returning ${storedRealProducts.length} real products from store.`);
+  return storedRealProducts;
 }
 
 /**
- * Fetches all products directly from Django REST API (/products/)
+ * Fetches all products directly from Django REST API (/products/items/)
  * This ensures the product catalog is synchronized with the Django database.
  */
 export async function fetchAllProducts(config?: DjangoCrmConfig): Promise<CigaretteProduct[]> {
   const baseUrl = config?.apiUrl || getBlogApiBaseUrl(config);
   console.log('[djangoApi.fetchAllProducts] Fetching products from baseUrl:', baseUrl);
   
-  // Attempt to fetch from real API if URL is provided
   if (baseUrl && baseUrl.startsWith('http')) {
-    const res = await executeDjangoAxiosRequest<DjangoProductItem[]>(
-      '/api/v1/products/',
-      'GET',
-      undefined,
-      { token: config?.apiToken, apiUrl: baseUrl }
-    );
+    const token = config?.apiToken || (await ensureValidDjangoAdminToken(config).catch(() => ''));
+    const candidatePaths = [
+      '/api/v1/products/items/?all=true&page_size=1000',
+      '/api/v1/products/products/?all=true&page_size=1000',
+      '/api/v1/products/?all=true&page_size=1000',
+    ];
 
-    const rawData = res.data;
-    const items = Array.isArray(rawData) 
-      ? rawData 
-      : (Array.isArray((rawData as any)?.results) 
-          ? (rawData as any).results 
-          : (Array.isArray((rawData as any)?.data) ? (rawData as any).data : []));
+    for (const path of candidatePaths) {
+      let res = await executeDjangoAxiosRequest<DjangoProductItem[]>(
+        path,
+        'GET',
+        undefined,
+        { token, apiUrl: baseUrl }
+      );
 
-    console.log('[djangoApi.fetchAllProducts] executeDjangoAxiosRequest result:', {
-      success: res.success,
-      status: res.status,
-      itemsLength: items.length,
-      error: res.error
-    });
+      if (!res.success && (res.status === 401 || res.status === 403) && token) {
+        res = await executeDjangoAxiosRequest<DjangoProductItem[]>(
+          path,
+          'GET',
+          undefined,
+          { apiUrl: baseUrl }
+        );
+      }
 
-    if (res.success && items.length > 0) {
-      const fetched = items.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
-      console.log(`[djangoApi.fetchAllProducts] Mapped ${fetched.length} products from API response. Sample:`, fetched[0]);
-      // Sync local store
-      fetched.forEach(p => djangoDatabaseStore.addProduct(p));
-      try {
-        localStorage.setItem('wholesale_products', JSON.stringify(fetched));
-        localStorage.setItem('sovin_django_products', JSON.stringify(fetched));
-      } catch {}
-      return fetched;
+      const rawData = res.data;
+      const isValidList = Boolean(
+        rawData && (
+          Array.isArray(rawData) ||
+          Array.isArray((rawData as any)?.results) ||
+          Array.isArray((rawData as any)?.data) ||
+          Array.isArray((rawData as any)?.items)
+        )
+      );
+
+      if (res.success && isValidList) {
+        const items = Array.isArray(rawData) 
+          ? rawData 
+          : ((rawData as any).results || (rawData as any).data || (rawData as any).items || []);
+
+        console.log(`[djangoApi.fetchAllProducts] Response from ${path}:`, {
+          success: res.success,
+          status: res.status,
+          itemsLength: items.length,
+        });
+
+        const fetched = items
+          .filter((item: any) => !isMockProductRecord(item))
+          .map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
+
+        if (fetched.length > 0 || path.includes('/items/')) {
+          djangoDatabaseStore.setProducts(fetched);
+          return fetched;
+        }
+      }
     }
   }
   
-  // Fallback to local store
+  // Fallback to local store (only real products, never mock)
   const localProds = djangoDatabaseStore.getProducts();
-  console.log(`[djangoApi.fetchAllProducts] Fallback returning ${localProds.length} products from local store.`);
+  console.log(`[djangoApi.fetchAllProducts] Returning ${localProds.length} real products from local store.`);
   return localProds;
 }
 
@@ -2020,23 +2068,25 @@ export async function fetchAllProducts(config?: DjangoCrmConfig): Promise<Cigare
  */
 export async function fetchProductDetail(id: string | number, config?: DjangoCrmConfig): Promise<CigaretteProduct | null> {
   const baseUrl = config?.apiUrl || getBlogApiBaseUrl(config);
+  const cleanId = String(id).replace(/^django-/, '');
   
   if (baseUrl && baseUrl.startsWith('http')) {
     const res = await executeDjangoAxiosRequest<DjangoProductItem>(
-      `/api/v1/products/${id}/`,
+      `/api/v1/products/items/${cleanId}/`,
       'GET',
       undefined,
       { token: config?.apiToken, apiUrl: baseUrl }
     );
 
     if (res.success && res.data) {
-      const product = mapDjangoItemToProduct(res.data, 0);
+      const resultObj = (res.data as any).data || res.data;
+      const product = mapDjangoItemToProduct(resultObj, 0);
       djangoDatabaseStore.addProduct(product);
       return product;
     }
   }
   
-  return djangoDatabaseStore.getProducts().find(p => String(p.id) === String(id) || String(p.djangoId) === String(id)) || null;
+  return djangoDatabaseStore.getProducts().find(p => String(p.id) === String(id) || String(p.id) === String(cleanId) || String(p.djangoId) === String(cleanId)) || null;
 }
 
 /**
@@ -2044,19 +2094,19 @@ export async function fetchProductDetail(id: string | number, config?: DjangoCrm
  */
 export async function updateProductStock(id: string | number, newStock: number, config?: DjangoCrmConfig): Promise<boolean> {
   const baseUrl = config?.apiUrl || getBlogApiBaseUrl(config);
+  const cleanId = String(id).replace(/^django-/, '');
   
   if (baseUrl && baseUrl.startsWith('http')) {
     const res = await executeDjangoAxiosRequest(
-      `/api/v1/products/${id}/update-stock/`,
+      `/api/v1/products/items/${cleanId}/pos-sync-stock/`,
       'PATCH',
       { stock_cartons: newStock },
       { token: config?.apiToken, apiUrl: baseUrl }
     );
 
     if (res.success) {
-      // Update local store as well
       const products = djangoDatabaseStore.getProducts();
-      const product = products.find(p => String(p.id) === String(id) || String(p.djangoId) === String(id));
+      const product = products.find(p => String(p.id) === String(id) || String(p.id) === String(cleanId) || String(p.djangoId) === String(cleanId));
       if (product) {
         djangoDatabaseStore.addProduct({ ...product, stockCartons: newStock, isAvailable: newStock > 0 });
       }
@@ -2065,9 +2115,8 @@ export async function updateProductStock(id: string | number, newStock: number, 
     return false;
   }
   
-  // Local simulation
   const products = djangoDatabaseStore.getProducts();
-  const product = products.find(p => String(p.id) === String(id) || String(p.djangoId) === String(id));
+  const product = products.find(p => String(p.id) === String(id) || String(p.id) === String(cleanId) || String(p.djangoId) === String(cleanId));
   if (product) {
     djangoDatabaseStore.addProduct({ ...product, stockCartons: newStock, isAvailable: newStock > 0 });
     return true;
@@ -2094,6 +2143,8 @@ export interface DjangoProductItem {
   stock_boxes?: number;
   moq?: number;
   image?: string;
+  main_image?: string;
+  image_url?: string;
   barcode?: string;
   price_trend?: 'up' | 'down' | 'stable';
   hologram?: string;
@@ -2188,7 +2239,7 @@ export function extractCategory(val: any, fallback: CigaretteCategory = 'cigaret
   let raw = '';
   if (typeof val === 'string') raw = val;
   else if (typeof val === 'object') {
-    raw = val.slug || val.id || val.name_fa || val.name_en || val.name || val.title || '';
+    raw = val.slug || val.name || val.name_fa || val.name_en || val.title || String(val.id || '');
   } else if (typeof val === 'number') {
     raw = String(val);
   }
@@ -2201,170 +2252,168 @@ export function extractCategory(val: any, fallback: CigaretteCategory = 'cigaret
 
 /**
  * Safely extracts image URL from string, file object, or media path.
+ * Resolves relative Django media URLs (/media/..., products/..., media/...) to full backend URLs.
  */
 export function extractImageUrl(val: any, fallback: string = ''): string {
   if (!val) return fallback;
   let url = '';
-  if (typeof val === 'string') url = val;
-  else if (typeof val === 'object') {
-    url = val.url || val.image || val.file || val.src || val.path || '';
+  if (typeof val === 'string') {
+    url = val.trim();
+  } else if (typeof val === 'object') {
+    url = (val.image_url || val.url || val.image || val.main_image || val.file || val.src || val.path || '').trim();
   }
 
-  if (!url) return fallback;
+  if (!url || url === 'null' || url === 'undefined') return fallback;
 
-  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://')) {
+  if (url.startsWith('data:') || url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')) {
     return url;
   }
 
-  if (url.startsWith('/')) {
-    try {
-      const base = getBlogApiBaseUrl();
-      if (base && base.startsWith('http')) {
-        const origin = new URL(base).origin;
-        return `${origin}${url}`;
-      }
-    } catch {}
-  }
+  try {
+    const base = getBlogApiBaseUrl();
+    const origin = base && base.startsWith('http') ? new URL(base).origin : 'https://cigar.sevinhost.ir';
+    if (url.startsWith('/')) {
+      return `${origin}${url}`;
+    }
+    if (url.startsWith('media/')) {
+      return `${origin}/${url}`;
+    }
+    if (url.startsWith('products/') || url.includes('/')) {
+      return `${origin}/media/${url.replace(/^\/+/, '')}`;
+    }
+  } catch {}
 
   return url || fallback;
 }
 
 /**
  * Robustly validates and maps any raw API item or product object into the canonical CigaretteProduct interface.
- * Enforces primitive string types for text fields and clean numbers for prices and quantities.
+ * Strictly maps from Django database response without any fallback to fake CIGARETTE_PRODUCTS data.
  */
 export function mapDjangoItemToProduct(rawItem: any, index: number = 0): CigaretteProduct {
   const item: DjangoProductItem = (rawItem && typeof rawItem === 'object') ? rawItem : {};
-  
-  // Debugging: Explicit logging for property mapping
-  if (index < 3) {
-    console.group(`[Debug Mapping] Product ID: ${item.id || 'N/A'}`);
-    console.log('Raw Data Keys:', Object.keys(item));
-    console.log('Images Mapping Check:', {
-      raw_images: item.images,
-      raw_gallery: item.gallery,
-      raw_gallery_images: item.gallery_images,
-      mapped_images: (item.gallery || item.gallery_images || []).map((img: any) => img.image || img)
-    });
-    console.log('Attributes Mapping Check:', {
-      raw_attributes: item.attributes,
-      raw_applied_features: item.applied_features,
-      raw_product_attributes: item.product_attributes
-    });
-    console.groupEnd();
-  }
-  
-  const defaultBase = CIGARETTE_PRODUCTS[index % CIGARETTE_PRODUCTS.length];
 
-  // Resolve ID & djangoId
-  const rawId = item.id ?? item.pk ?? item.code ?? item.django_id ?? item.djangoId;
+  // Resolve ID & djangoId cleanly
+  const rawId = item.id ?? item.pk ?? item.djangoId ?? item.django_id ?? item.code;
   const djangoId = (rawId !== undefined && rawId !== null) ? rawId : (index + 1);
-  const idStr = String(djangoId);
-  const finalId = idStr.startsWith('django-') ? idStr : `django-${idStr}`;
+  const finalId = String(djangoId).replace(/^django-/, '');
 
   // Names
   const nameFa = extractStringFromField(
-    item.name_fa || item.nameFa || item.name || item.title || item.product_name || item.fa_name,
-    defaultBase.nameFa
+    item.name || item.name_fa || item.nameFa || item.title || item.product_name || item.fa_name,
+    'بدون نام'
   );
   const nameEn = extractStringFromField(
     item.name_en || item.nameEn || item.title_en || item.en_name || item.slug,
-    defaultBase.nameEn
+    ''
   );
 
   // Brand, Category, Origin, Hologram
   const brand = extractStringFromField(
-    item.brand_name || item.brand || item.brand_title,
-    defaultBase.brand
+    item.brand_name || item.brand_detail?.name || item.brand || item.brand_title,
+    'عمومی'
+  );
+
+  const categorySlug = extractStringFromField(
+    item.category_slug || item.category_detail?.slug || (typeof item.category === 'object' ? item.category?.slug : ''),
+    ''
+  );
+  const categoryName = extractStringFromField(
+    item.category_name || item.category_detail?.name || (typeof item.category === 'object' ? item.category?.name : ''),
+    ''
   );
   const category = extractCategory(
-    item.category_name || item.category || item.category_slug || item.group,
-    defaultBase.category
+    categorySlug || categoryName || item.category || item.group,
+    'cigarettes'
   );
+
   const origin = extractStringFromField(
-    item.country_origin || item.origin || item.country,
-    defaultBase.origin
+    item.country_origin || item.origin || item.country || item.brand_detail?.country || item.hologram_detail?.country_origin,
+    ''
   );
   const hologram = extractStringFromField(
-    item.hologram_name || item.hologram || item.hologram_type || item.hologram_title,
-    defaultBase.hologram || 'اورجینال'
+    item.hologram_name || item.hologram_detail?.title || item.hologram || item.hologram_type || item.hologram_title,
+    ''
   );
 
   // Tar & Nicotine
-  const tar = extractStringFromField(item.tar, defaultBase.tar);
-  const nicotine = extractStringFromField(item.nicotine, defaultBase.nicotine);
+  const tar = extractStringFromField(item.tar, '');
+  const nicotine = extractStringFromField(item.nicotine, '');
 
   // Quantities & Ratios
-  const boxesPerCarton = parseNumeric(item.boxes_per_carton ?? item.boxesPerCarton, defaultBase.boxesPerCarton || 50);
+  const boxesPerCarton = parseNumeric(item.boxes_per_carton ?? item.boxesPerCarton, 50);
   const safeBoxesPerCarton = boxesPerCarton > 0 ? boxesPerCarton : 50;
 
-  const packsPerBox = parseNumeric(item.packs_per_box ?? item.packsPerBox, defaultBase.packsPerBox || 10);
+  const packsPerBox = parseNumeric(item.packs_per_box ?? item.packsPerBox, 10);
   const safePacksPerBox = packsPerBox > 0 ? packsPerBox : 10;
 
   // Prices
   const cartonPrice = parseNumeric(
     item.carton_price ?? item.cartonPrice ?? item.wholesale_price ?? item.price_carton ?? item.price,
-    defaultBase.cartonPrice
+    0
   );
   const boxPrice = parseNumeric(
     item.box_price ?? item.boxPrice ?? item.price_box,
-    cartonPrice > 0 ? Math.round(cartonPrice / safeBoxesPerCarton) : defaultBase.boxPrice
+    cartonPrice > 0 ? Math.round(cartonPrice / safeBoxesPerCarton) : 0
   );
   const packPrice = parseNumeric(
     item.pack_price ?? item.packPrice ?? item.price_pack,
-    boxPrice > 0 ? Math.round(boxPrice / safePacksPerBox) : (defaultBase.packPrice || 0)
+    boxPrice > 0 ? Math.round(boxPrice / safePacksPerBox) : 0
   );
   const purchasePrice = parseNumeric(
     item.purchase_price ?? item.purchasePrice ?? item.price_purchase,
-    defaultBase.purchasePrice || Math.round(cartonPrice * 0.95)
+    0
   );
 
   // Stock
   const stockCartons = parseNumeric(
     item.stock_cartons ?? item.stockCartons ?? item.stock_carton ?? item.stock ?? item.inventory,
-    defaultBase.stockCartons
+    0
   );
   const stockBoxes = parseNumeric(
     item.stock_boxes ?? item.stockBoxes ?? item.stock_box,
-    defaultBase.stockBoxes || 0
+    0
   );
 
   // Minimum Order Quantities
   const moq = parseNumeric(
-    item.moq ?? item.min_order_carton ?? item.min_order_quantity ?? item.moqCarton,
-    defaultBase.moq || 1
+    item.min_order_carton ?? item.moq ?? item.min_order_quantity ?? item.moqCarton,
+    1
   );
   const moqBox = parseNumeric(
-    item.moq_box ?? item.min_order_box ?? item.moqBox,
-    defaultBase.moqBox || 1
+    item.min_order_box ?? item.moq_box ?? item.moqBox,
+    1
   );
 
-  // Images
-  const mainImg = extractImageUrl(
-    item.image_url || item.image || item.photo || item.main_image || item.picture || item.image_url,
-    defaultBase.image
-  );
-  
+  // Images (check main_image, image_url, image, gallery, gallery_images, images)
   let imagesArr: string[] = [];
-  if (Array.isArray(item.gallery)) {
+  if (Array.isArray(item.gallery) && item.gallery.length > 0) {
     imagesArr = item.gallery.map((g: any) => extractImageUrl(g?.image_url || g?.image || g, '')).filter(Boolean);
-  } else if (Array.isArray(item.gallery_images)) {
+  } else if (Array.isArray(item.gallery_images) && item.gallery_images.length > 0) {
     imagesArr = item.gallery_images.map((img: any) => extractImageUrl(img?.image_url || img?.image || img, '')).filter(Boolean);
-  } else if (Array.isArray(item.images)) {
+  } else if (Array.isArray(item.product_images) && item.product_images.length > 0) {
+    imagesArr = item.product_images.map((img: any) => extractImageUrl(img?.image_url || img?.image || img, '')).filter(Boolean);
+  } else if (Array.isArray(item.images) && item.images.length > 0) {
     imagesArr = item.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
   }
-  if (imagesArr.length === 0 && mainImg) {
-    imagesArr = [mainImg];
+
+  const mainImg = extractImageUrl(
+    item.main_image || item.image_url || item.image || item.photo || item.picture || imagesArr[0] || '',
+    ''
+  );
+
+  if (mainImg && !imagesArr.includes(mainImg)) {
+    imagesArr = [mainImg, ...imagesArr];
   }
 
   // Barcode & Badge
   const barcode = extractStringFromField(
     item.barcode || item.upc || item.gtin || item.code,
-    defaultBase.barcode
+    ''
   );
   const rawBadge = extractStringFromField(
     item.badge || item.badge_text,
-    defaultBase.badge || ''
+    ''
   );
   const badge = mapBadgeFromDjango(rawBadge);
 
@@ -2384,12 +2433,12 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
 
   // Descriptions & SEO
   const description = extractStringFromField(
-    item.description || item.full_description || item.content,
-    defaultBase.description
+    item.full_description || item.description || item.content,
+    ''
   );
   const excerpt = extractStringFromField(
     item.excerpt || item.summary || item.short_description,
-    defaultBase.excerpt || ''
+    ''
   );
   const focusKeyword = extractStringFromField(
     item.focus_keyword || item.focusKeyword || item.seo_keywords,
@@ -2411,24 +2460,24 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
   // Sizes & Filters
   const cigaretteSize = extractStringFromField(
     item.cigarette_size || item.cigaretteSize || item.packSize,
-    defaultBase.packSize || 'king_size'
+    'king_size'
   );
   const filterType = extractStringFromField(
     item.filter_type || item.filterType,
-    defaultBase.filterType || 'white'
+    'white'
   );
 
   // Tier Discounts & Features
   const rawTierDiscounts = Array.isArray(item.tier_discounts || item.tierDiscounts)
     ? (item.tier_discounts || item.tierDiscounts)
-    : defaultBase.tierDiscounts || [];
+    : [];
   
   const tierDiscounts = rawTierDiscounts.map((td: any) => ({
     minQuantity: parseNumeric(td.min_quantity ?? td.quantity ?? td.minCartons ?? td.minQuantity, 1),
     minCartons: parseNumeric(td.min_cartons ?? td.min_quantity ?? td.minCartons, 1),
     discountPercent: parseNumeric(td.discount_percent ?? td.discount_percentage ?? td.discountPercent, 0),
     discountPercentage: parseNumeric(td.discount_percentage ?? td.discount_percent ?? td.discountPercentage, 0),
-    discountPrice: parseNumeric(td.discount_price ?? td.unit_discount_price ?? td.discountPrice, 0),
+    discountPrice: parseNumeric(td.discount_price_per_unit ?? td.discount_price ?? td.unit_discount_price ?? td.discountPrice, 0),
     unit: td.unit_type || td.unit || 'carton',
     unitType: td.unit_type || td.unitType || 'carton',
     label: td.target_label || td.label || `خرید بالای ${td.min_quantity || td.minQuantity || 1} (${td.discount_percent || td.discountPercent || 0}٪ تخفیف)`
@@ -2439,8 +2488,6 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     keyTakeawaysList = item.key_features.map((kf: any) => typeof kf === 'string' ? kf : extractStringFromField(kf, '')).filter(Boolean);
   } else if (Array.isArray(item.key_takeaways || item.keyTakeaways)) {
     keyTakeawaysList = (item.key_takeaways || item.keyTakeaways).map((k: any) => extractStringFromField(k, '')).filter(Boolean);
-  } else {
-    keyTakeawaysList = defaultBase.keyTakeaways || [];
   }
 
   const rawAttrs = item.attributes_values || item.applied_features || item.product_attributes || item.attributes || item.appliedFeatures;
@@ -2450,15 +2497,43 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     nameFa: extractStringFromField(a.attribute_name || a.nameFa || a.name, ''),
     value: extractStringFromField(a.text_value || a.value, a.value_number !== null && a.value_number !== undefined ? String(a.value_number) : (a.value_boolean !== null && a.value_boolean !== undefined ? (a.value_boolean ? 'بله' : 'خیر') : '')),
     unit: extractStringFromField(a.attribute_unit || a.unit, ''),
-  })).filter((f: any) => f.nameFa) : (defaultBase.appliedFeatures || []);
+  })).filter((f: any) => f.nameFa) : [];
 
-  const mapped: CigaretteProduct = {
+  // Explicit property transformation logging for debugging
+  console.groupCollapsed(`[djangoCigaretteProduct Mapping] ID=${finalId} | Name="${nameFa}"`);
+  console.log('Raw Data Keys:', Object.keys(item));
+  console.log('Transform [images]:', {
+    raw_main_image: item.main_image,
+    raw_image_url: item.image_url,
+    raw_image: item.image,
+    raw_gallery: item.gallery,
+    mapped_image: mainImg,
+    mapped_images: imagesArr,
+  });
+  console.log('Transform [category]:', {
+    raw_category: item.category,
+    raw_category_name: item.category_name,
+    raw_category_slug: item.category_slug,
+    mapped_category: category,
+    mapped_category_slug: categorySlug,
+  });
+  console.log('Transform [attributes]:', {
+    raw_attributes_values: item.attributes_values,
+    raw_attributes: item.attributes,
+    mapped_appliedFeatures: appliedFeatures,
+  });
+  console.groupEnd();
+
+  const mapped: CigaretteProduct & Record<string, any> = {
     id: finalId,
     djangoId,
     nameFa,
     nameEn,
     brand,
     category,
+    category_slug: categorySlug || String(category),
+    category_name: categoryName || String(category),
+    category_id: typeof item.category === 'number' ? item.category : undefined,
     origin,
     tar,
     nicotine,
@@ -2499,6 +2574,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     slug: extractStringFromField(item.slug, `prod-${finalId}`),
     keyTakeaways: keyTakeawaysList,
     appliedFeatures,
+    attributes: appliedFeatures,
   };
 
   return mapped;

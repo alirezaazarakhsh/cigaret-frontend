@@ -4,7 +4,7 @@ products/urls.py
 """
 
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
+from rest_framework.routers import SimpleRouter
 from .views import (
     BrandViewSet,
     ProductBrandListCreateAPIView,
@@ -27,13 +27,10 @@ from .views import (
     TierDiscountTemplateListAPIView,
 )
 
-router = DefaultRouter()
+router = SimpleRouter()
 router.register(r'brands-router', BrandViewSet, basename='brand-viewset')
 
 urlpatterns = [
-    # روتر اختیاری ویوست برند
-    path('', include(router.urls)),
-
     # برندها (APIView)
     path('brands/', ProductBrandListCreateAPIView.as_view(), name='product-brand-list-create'),
     path('brands/<int:pk>/', ProductBrandDetailUpdateDeleteAPIView.as_view(), name='product-brand-detail'),
@@ -75,4 +72,5 @@ urlpatterns = [
     path('<int:pk>/update/', ProductUpdateAPIView.as_view(), name='product-update-short'),
     path('<int:pk>/delete/', ProductDeleteAPIView.as_view(), name='product-delete-short'),
     path('', ProductListAPIView.as_view(), name='product-list-root'),
+    path('', include(router.urls)),
 ]

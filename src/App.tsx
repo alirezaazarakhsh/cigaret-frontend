@@ -590,7 +590,7 @@ export default function App() {
       syncIntervalMinutes: 10,
       lastSyncTime: new Date().toLocaleTimeString('fa-IR'),
       status: 'idle',
-      totalSyncedProducts: CIGARETTE_PRODUCTS.length,
+      totalSyncedProducts: 0,
       companyName: 'دخانیات سرو',
       bankCard1: '۶۰3۷-۹۹۷۹-۷۵۳۱-۱۹۸۲',
       bankShiba1: 'IR۷۲۰۱۷۰۰۰۰۰۰۰۱۲۳۴۵۶۷۸۹۰۱۲',
@@ -664,17 +664,7 @@ export default function App() {
     setCurrentPage(1);
   }, [selectedCategory, selectedBrand, priceRange, searchQuery, sortBy]);
   
-  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
-    const isProd = typeof window !== 'undefined' && 
-                   process.env.NODE_ENV === 'production' && 
-                   !window.location.hostname.includes('dev') && 
-                   !window.location.hostname.includes('europe-west2');
-    if (isProd) return [];
-    return [
-      { product: CIGARETTE_PRODUCTS[0], unit: 'carton', quantity: 3 },
-      { product: CIGARETTE_PRODUCTS[2], unit: 'carton', quantity: 5 },
-    ];
-  });
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
 
   const [activeProductModal, setActiveProductModal] = useState<CigaretteProduct | null>(null);
   const [activeInvoice, setActiveInvoice] = useState<OrderInvoice | null>(null);
@@ -738,6 +728,30 @@ export default function App() {
   const [sliders, setSliders] = useState<BannerSlide[]>([]);
   const [wholesaleBenefits, setWholesaleBenefits] = useState<WholesaleBenefitCard[]>(() => getLocalWholesaleBenefits());
 
+  const debugProductSync = useCallback((productsList: CigaretteProduct[]) => {
+    console.group(`--- Debugging Product Sync (${productsList.length} products) ---`);
+    productsList.forEach((product: any, index) => {
+      const issues: string[] = [];
+      if (!product.image && (!product.images || !Array.isArray(product.images) || product.images.length === 0)) {
+        issues.push('missing or empty images');
+      }
+      if (!product.appliedFeatures && !product.attributes) {
+        issues.push('missing attributes/appliedFeatures');
+      }
+      if (!product.category) {
+        issues.push('missing category');
+      }
+
+      if (issues.length > 0) {
+        console.warn(`Product [${index}] ID: ${product.id} (${product.nameFa || product.name}) has issues:`, issues);
+        console.log('Full Product Object:', product);
+      } else {
+        console.log(`Product [${index}] ID: ${product.id} (${product.nameFa}) mapped cleanly:`, product);
+      }
+    });
+    console.groupEnd();
+  }, []);
+
   // Auto-fetch products, site settings and footer settings from unified API layer on mount or cache reset
   useEffect(() => {
     let isMounted = true;
@@ -758,8 +772,9 @@ export default function App() {
       }).catch(() => {});
       // 1. Fetch Products with zero cache
       setIsProductsLoading(true);
-      api.products.getAll().then((loadedProducts) => {
+      api.products.getAll({ all: 'true' }).then((loadedProducts) => {
         if (isMounted && Array.isArray(loadedProducts)) {
+          debugProductSync(loadedProducts);
           setProducts(loadedProducts);
         }
       }).catch(() => {})
@@ -1002,22 +1017,6 @@ export default function App() {
     setIsSyncingDjango(true);
     const runLogs: SyncLogEntry[] = [];
 
-    const debugProductSync = (productsList: CigaretteProduct[]) => {
-      console.group('--- Debugging Product Sync ---');
-      productsList.forEach((product, index) => {
-        const issues = [];
-        if (!product.images || !Array.isArray(product.images) || product.images.length === 0) issues.push('missing or empty images');
-        if (!product.attributes) issues.push('missing attributes');
-        if (!product.category) issues.push('missing category');
-        
-        if (issues.length > 0) {
-          console.warn(`Product [${index}] ID: ${product.id} (${product.name}) has issues:`, issues);
-          console.log('Full Product Object:', product);
-        }
-      });
-      console.groupEnd();
-    };
-
     const addLog = (
       level: SyncLogEntry['level'],
       category: SyncLogEntry['category'],
@@ -1048,7 +1047,7 @@ export default function App() {
     });
     
     // Fetch products and debug
-    const fetchedProducts = await api.products.getAll();
+    const fetchedProducts = await api.products.getAll({ all: 'true' });
     if (fetchedProducts) {
       debugProductSync(fetchedProducts);
       setProducts(fetchedProducts);

@@ -116,9 +116,9 @@ async function request<T = any>(
       };
     } else {
       // If token expired or invalid, try to refresh it silently using the refresh token first!
-      if (response.status === 401 && responseData?.code === 'token_not_valid' && !options._isRetry) {
+      if ((response.status === 401 || (response.status === 403 && method === 'GET')) && !options._isRetry) {
         const storedRefreshToken = typeof localStorage !== 'undefined' ? localStorage.getItem('sevin_refresh_token') : null;
-        if (storedRefreshToken) {
+        if (storedRefreshToken && response.status === 401) {
           try {
             const baseUrl = getApiBaseUrl();
             const rootBase = baseUrl.replace(/\/api\/v1\/?$/, '');
@@ -155,20 +155,26 @@ async function request<T = any>(
           }
         }
 
-        try {
-          invalidatePosTokenAndSession('token_invalid_or_expired');
-        } catch {}
-        try {
-          const fallbackHeaders = { ...headers };
-          delete fallbackHeaders['Authorization'];
-          const fallbackInit: RequestInit = {
-            ...reqInit,
-            headers: fallbackHeaders,
-          };
-          const fallbackRes = await fetchWithTimeout(fullUrl, fallbackInit, options.timeoutMs || 60000);
-          return await parseResponse(fallbackRes);
-        } catch {
-          // Fall through
+        if (response.status === 401 && responseData?.code === 'token_not_valid') {
+          try {
+            invalidatePosTokenAndSession('token_invalid_or_expired');
+          } catch {}
+        }
+
+        if (headers['Authorization']) {
+          try {
+            const fallbackHeaders = { ...headers };
+            delete fallbackHeaders['Authorization'];
+            const fallbackInit: RequestInit = {
+              ...reqInit,
+              headers: fallbackHeaders,
+            };
+            options._isRetry = true;
+            const fallbackRes = await fetchWithTimeout(fullUrl, fallbackInit, options.timeoutMs || 60000);
+            return await parseResponse(fallbackRes);
+          } catch {
+            // Fall through
+          }
         }
       }
 

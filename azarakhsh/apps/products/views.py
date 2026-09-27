@@ -418,14 +418,14 @@ class ProductListAPIView(APIView):
         responses={200: ProductSerializer(many=True)}
     )
     def get(self, request):
-        show_all = request.query_params.get('all') == 'true' or (request.user and request.user.is_staff)
-        if show_all:
-            queryset = Product.objects.all().select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'attributes_values__attribute')
-        else:
+        only_online = request.query_params.get('online_only') == 'true'
+        if only_online:
             queryset = Product.objects.filter(
                 is_active=True, 
                 is_pos_only=False
-            ).select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'attributes_values__attribute')
+            ).select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'key_features', 'tier_discounts', 'attributes_values__attribute')
+        else:
+            queryset = Product.objects.all().select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'key_features', 'tier_discounts', 'attributes_values__attribute')
 
         brand = request.query_params.get('brand')
         if brand:
@@ -440,7 +440,13 @@ class ProductListAPIView(APIView):
 
         category_id = request.query_params.get('category')
         if category_id:
-            queryset = queryset.filter(category_id=category_id)
+            if str(category_id).isdigit():
+                queryset = queryset.filter(category_id=int(category_id))
+            else:
+                queryset = queryset.filter(
+                    Q(category__slug__iexact=category_id) |
+                    Q(category__name__icontains=category_id)
+                )
 
         min_price = request.query_params.get('min_price')
         max_price = request.query_params.get('max_price')
@@ -457,7 +463,7 @@ class ProductListAPIView(APIView):
                 Q(barcode__icontains=search)
             )
 
-        serializer = ProductSerializer(queryset, many=True)
+        serializer = ProductSerializer(queryset, many=True, context={'request': request})
         return Response({
             'status': 'success',
             'count': queryset.count(),
@@ -469,14 +475,14 @@ class ProductListAPIView(APIView):
 
 
 class PosCatalogAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         operation_summary="دریافت کاتالوگ کامل صندوق حضوری شامل بارکد و کلیه اقلام",
         responses={200: ProductSerializer(many=True)}
     )
     def get(self, request):
-        queryset = Product.objects.filter(is_active=True).select_related('category', 'brand', 'hologram')
+        queryset = Product.objects.all().select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'key_features', 'tier_discounts', 'attributes_values__attribute')
 
         barcode = request.query_params.get('barcode')
         if barcode:
@@ -490,7 +496,7 @@ class PosCatalogAPIView(APIView):
                 Q(barcode__icontains=search)
             )
 
-        serializer = ProductSerializer(queryset, many=True)
+        serializer = ProductSerializer(queryset, many=True, context={'request': request})
         return Response({
             'status': 'success',
             'count': queryset.count(),
@@ -506,8 +512,8 @@ class ProductFeaturedAPIView(APIView):
         responses={200: ProductSerializer(many=True)}
     )
     def get(self, request):
-        queryset = Product.objects.filter(is_active=True, is_featured=True, is_pos_only=False).select_related('category', 'brand', 'hologram')
-        serializer = ProductSerializer(queryset, many=True)
+        queryset = Product.objects.filter(is_active=True, is_featured=True, is_pos_only=False).select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'key_features', 'tier_discounts', 'attributes_values__attribute')
+        serializer = ProductSerializer(queryset, many=True, context={'request': request})
         return Response({'status': 'success', 'count': queryset.count(), 'results': serializer.data})
 
 
