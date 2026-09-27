@@ -229,7 +229,7 @@ function getTabFromPath(pathname: string): NavigationTab {
   }
 
   if (p.includes('/product/category/') || p.includes('/products/category/')) return 'catalog';
-  if (p.includes('/azarakhsh') || p.includes('/api-docs') || p.includes('/django-docs')) return 'django-docs';
+  if (p.includes('/sasha') || p.includes('/azarakhsh') || p.includes('/api-docs') || p.includes('/django-docs')) return 'django-docs';
   if (p.includes('/contact-us') || p.includes('/contact') || p.includes('/tamas')) return 'contact';
   if (p.includes('/login') || p.includes('/user-panel') || p.includes('/profile') || p.includes('/hesab')) return 'user-panel';
   if (p.includes('/invoice') || p.includes('/pishfactor')) return 'invoice';
@@ -256,7 +256,7 @@ function getPathForTab(tab: NavigationTab, selectedCat?: string): string {
     case 'user-panel': return '/login';
     case 'live-prices': return '/live-prices';
     case 'django-crm': return '/django-crm';
-    case 'django-docs': return '/azarakhsh';
+    case 'django-docs': return '/sasha';
     case 'accounting-pos': {
       // If user isn't logged in, redirect them to /shopmanage/login cleanly
       if (typeof window !== 'undefined') {

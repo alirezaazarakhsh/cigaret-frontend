@@ -61,7 +61,8 @@ const AzarakhshRouterContent: React.FC<{
   const handleSelectSection = (id: AzarakhshSectionId) => {
     navigate(`/${id}`);
     if (typeof window !== 'undefined') {
-      window.history.pushState({ tab: 'django-docs', section: id }, '', `/azarakhsh/apps/${id}/`);
+      const basePrefix = window.location.pathname.startsWith('/azarakhsh') ? '/azarakhsh' : '/sasha';
+      window.history.pushState({ tab: 'django-docs', section: id }, '', `${basePrefix}/apps/${id}/`);
     }
   };
 
@@ -71,7 +72,7 @@ const AzarakhshRouterContent: React.FC<{
       if (typeof window !== 'undefined') {
         const path = window.location.pathname;
         const parts = path.split('/').filter(Boolean);
-        const idx = parts.indexOf('azarakhsh');
+        const idx = parts.findIndex(p => p === 'sasha' || p === 'azarakhsh');
         if (idx !== -1 && parts.length > idx + 1) {
           let candidate = parts[idx + 1];
           if (candidate === 'apps' && parts.length > idx + 2) {
@@ -243,7 +244,7 @@ export const AzarakhshApiDocs: React.FC<AzarakhshApiDocsProps> = ({ onReturnToAp
     if (typeof window !== 'undefined') {
       const path = window.location.pathname;
       const parts = path.split('/').filter(Boolean);
-      const idx = parts.indexOf('azarakhsh');
+      const idx = parts.findIndex(p => p === 'sasha' || p === 'azarakhsh');
       if (idx !== -1 && parts.length > idx + 1) {
         let candidate = parts[idx + 1];
         if (candidate === 'apps' && parts.length > idx + 2) {
