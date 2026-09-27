@@ -3823,16 +3823,11 @@ export async function djangoFetchActiveSessions(config?: DjangoCrmConfig): Promi
   if (!res.success) {
     res = await executeDjangoAxiosRequest('/api/v1/posuser/active-staff/', 'GET', undefined, { token });
   }
-  if (!res.success) {
-    res = await executeDjangoAxiosRequest('/api/v1/posuserstaff-list/', 'GET', undefined, { token });
-  }
-  if (!res.success) {
-    res = await executeDjangoAxiosRequest('/api/v1/posuser/staff-list/', 'GET', undefined, { token });
-  }
   if (res.success && res.data) {
-    const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.sessions || res.data.results || res.data.staff || []);
+    const list = Array.isArray(res.data) ? res.data : (res.data.data || res.data.sessions || res.data.results || []);
     if (Array.isArray(list) && list.length > 0) {
-      return list;
+      // Return ONLY staff sessions that are explicitly marked as online / active_session
+      return list.filter((item: any) => item && (item.is_online === true || item.status === 'online' || item.is_active_session === true));
     }
   }
   return [];

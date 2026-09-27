@@ -952,32 +952,25 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     isCurrentUser?: boolean;
   }[]>(() => {
     try {
-      const saved = localStorage.getItem('sovin_pos_online_sessions');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          // Unique map by clean phone
-          const sessionMap = new Map();
-          parsed.forEach((s: any) => {
-            if (s && s.phone) {
-              const cleanPhone = String(s.phone).replace(/\D/g, '');
-              if (!sessionMap.has(cleanPhone)) {
-                sessionMap.set(cleanPhone, s);
-              }
-            }
-          });
-          return Array.from(sessionMap.values());
-        }
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('sovin_pos_online_sessions');
       }
     } catch {}
+
+    if (isAuthenticated && currentStaff && currentStaff.phone) {
+      return [{
+        id: String(currentStaff.id || 'current_user_session'),
+        fullName: currentStaff.fullName || 'کاربر سیستم',
+        phone: currentStaff.phone,
+        roleTitleFa: currentStaff.roleTitleFa || 'مدیریت / صندوق',
+        role: currentStaff.role || 'staff',
+        loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+        avatarColor: currentStaff.avatarColor || 'bg-indigo-600',
+        isCurrentUser: true
+      }];
+    }
     return [];
   });
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('sovin_pos_online_sessions', JSON.stringify(onlineSessions));
-    } catch {}
-  }, [onlineSessions]);
 
   useEffect(() => {
     let isMounted = true;

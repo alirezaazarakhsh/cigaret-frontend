@@ -415,7 +415,7 @@ export const staffAuthService = {
     try {
       const activeList = await djangoFetchActiveSessions();
       if (Array.isArray(activeList) && activeList.length > 0) {
-        const filtered = activeList.filter((s: any) => s && s.is_online !== false && s.status !== 'offline');
+        const filtered = activeList.filter((s: any) => s && (s.is_online === true || s.status === 'online' || s.is_active_session === true));
         if (filtered.length > 0) {
           return { success: true, data: filtered };
         }
@@ -429,7 +429,7 @@ export const staffAuthService = {
     if (res && res.success) {
       const list = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.sessions || []);
       if (Array.isArray(list) && list.length > 0) {
-        const filtered = list.filter((s: any) => s && s.is_online !== false && s.status !== 'offline');
+        const filtered = list.filter((s: any) => s && (s.is_online === true || s.status === 'online' || s.is_active_session === true));
         if (filtered.length > 0) {
           return { success: true, data: filtered };
         }
