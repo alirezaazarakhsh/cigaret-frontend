@@ -116,122 +116,92 @@ class LoginStaffAPIView(APIView):
         tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request):
-        phone_raw = request.data.get('phone', '') or request.data.get('username', '')
-        password = request.data.get('password', '') or request.data.get('pin', '')
+        serializer = LoginSerializer(data=request.data)
+        
+        if not serializer.is_valid():
+            return Response({"success": False, "message": "اطلاعات ورود نامعتبر است.", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not phone_raw or not password:
-            return Response({"success": False, "message": "شماره همراه و پینکد الزامی است."}, status=status.HTTP_400_BAD_REQUEST)
+        user = serializer.validated_data['user']
+            
+        # ثبت زمان آخرین ورود
+        try:
+            user.last_login = timezone.now()
+            user.save(update_fields=['last_login'])
+        except Exception:
+            pass
 
-        clean_phone = phone_raw.strip().replace(' ', '').replace('-', '')
-        if clean_phone.startswith('+98'):
-            clean_phone = '0' + clean_phone[3:]
-        elif clean_phone.startswith('98'):
-            clean_phone = '0' + clean_phone[2:]
+        tokens = get_tokens_for_user(user)
+        
+        try:
+            pos_staff = user.pos_profile
+            if not pos_staff.is_active:
+                return Response({"success": False, "message": "دسترسی حساب شما به صندوق مسدود شده است."}, status=status.HTTP_403_FORBIDDEN)
+            role = pos_staff.role
+            role_title = pos_staff.role_title or ROLE_TITLE_MAP.get(role, 'صندوقدار فروشگاه')
+            permissions = [name for name in PERMISSION_FIELDS if getattr(pos_staff, f'perm_{name}', False)]
+        except PosStaff.DoesNotExist:
+            if user.is_superuser:
+                role = 'super_admin'
+                role_title = 'مدیر ارشد سیستم'
+                permissions = list(PERMISSION_FIELDS)
+            else:
+                return Response({"success": False, "message": "شما دسترسی به صندوق فروشگاهی را ندارید."}, status=status.HTTP_403_FORBIDDEN)
 
-        phone_no_zero = clean_phone[1:] if clean_phone.startswith('0') else clean_phone
-        phone_with_zero = '0' + phone_no_zero
-
-        candidate_users = list(
-            User.objects.filter(phone__in=[phone_with_zero, phone_no_zero]) |
-            User.objects.filter(username__in=[phone_with_zero, phone_no_zero])
+        user_phone = (
+            getattr(user, 'phone', None) or 
+            getattr(user, 'mobile', None) or 
+            getattr(user, 'username', None) or 
+            ''
         )
 
-        user = None
-        for candidate in candidate_users:
-            if candidate.check_password(password):
-                user = candidate
-                break
-            pos_staff = getattr(candidate, 'pos_profile', None)
-            if pos_staff and pos_staff.password:
-                if check_password(password, pos_staff.password):
-                    user = candidate
-                    break
+        full_name = (
+            getattr(user, 'full_name', None) or 
+            getattr(user, 'first_name', None) or 
+            user_phone
+        )
 
-        if user is not None:
-            if not user.is_active:
-                return Response({"success": False, "message": "حساب کاربری شما تعلیق شده است."}, status=status.HTTP_403_FORBIDDEN)
-            
-            # ثبت زمان آخرین ورود
-            try:
-                user.last_login = timezone.now()
-                user.save(update_fields=['last_login'])
-            except Exception:
-                pass
+        user_dict = {
+            "id": user.id,
+            "phone": user_phone,
+            "fullName": full_name,
+            "full_name": full_name,
+            "first_name": full_name,
+            "role": role,
+            "roleTitleFa": role_title,
+            "role_title": role_title,
+            "permissions": permissions,
+            "status": "active",
+            "is_active": True,
+            "is_staff": True,
+            "is_superuser": user.is_superuser
+        }
 
-            tokens = get_tokens_for_user(user)
-            
-            try:
-                pos_staff = user.pos_profile
-                if not pos_staff.is_active:
-                    return Response({"success": False, "message": "دسترسی حساب شما به صندوق مسدود شده است."}, status=status.HTTP_403_FORBIDDEN)
-                role = pos_staff.role
-                role_title = pos_staff.role_title or ROLE_TITLE_MAP.get(role, 'صندوق‌دار فروشگاه')
-                permissions = [name for name in PERMISSION_FIELDS if getattr(pos_staff, f'perm_{name}', False)]
-            except PosStaff.DoesNotExist:
-                if user.is_superuser:
-                    role = 'super_admin'
-                    role_title = 'مدیر ارشد سیستم'
-                    permissions = list(PERMISSION_FIELDS)
-                else:
-                    return Response({"success": False, "message": "شما دسترسی به صندوق فروشگاهی را ندارید."}, status=status.HTTP_403_FORBIDDEN)
-
-            user_phone = (
-                getattr(user, 'phone', None) or 
-                getattr(user, 'mobile', None) or 
-                getattr(user, 'username', None) or 
-                phone_with_zero
-            )
-
-            full_name = (
-                getattr(user, 'full_name', None) or 
-                getattr(user, 'first_name', None) or 
-                user_phone
-            )
-
-            user_dict = {
-                "id": user.id,
-                "phone": user_phone,
-                "fullName": full_name,
-                "full_name": full_name,
-                "first_name": full_name,
-                "role": role,
-                "roleTitleFa": role_title,
-                "role_title": role_title,
-                "permissions": permissions,
-                "status": "active",
-                "is_active": True,
-                "is_staff": True,
-                "is_superuser": user.is_superuser
-            }
-
-            response_data = {
-                "success": True,
-                "message": "ورود موفقیت‌آمیز بود.",
-                "token": tokens['access'],
-                "access": tokens['access'],
-                "access_token": tokens['access'],
-                "refresh": tokens['refresh'],
+        response_data = {
+            "success": True,
+            "message": "ورود موفقیت‌آمیز بود.",
+            "token": tokens['access'],
+            "access": tokens['access'],
+            "access_token": tokens['access'],
+            "refresh": tokens['refresh'],
+            "user": user_dict,
+            "data": {
                 "user": user_dict,
-                "data": {
-                    "user": user_dict,
-                    "tokens": tokens,
-                    "access": tokens['access'],
-                    "refresh": tokens['refresh'],
-                    "token": tokens['access']
-                }
+                "tokens": tokens,
+                "access": tokens['access'],
+                "refresh": tokens['refresh'],
+                "token": tokens['access']
             }
+        }
 
-            response = Response(response_data, status=status.HTTP_200_OK)
-            try:
-                response.set_cookie('access', tokens['access'], max_age=86400, httponly=False, samesite='None', secure=True)
-                response.set_cookie('refresh', tokens['refresh'], max_age=604800, httponly=False, samesite='None', secure=True)
-                response.set_cookie('token', tokens['access'], max_age=86400, httponly=False, samesite='None', secure=True)
-            except Exception:
-                pass
+        response = Response(response_data, status=status.HTTP_200_OK)
+        try:
+            response.set_cookie('access', tokens['access'], max_age=86400, httponly=False, samesite='None', secure=True)
+            response.set_cookie('refresh', tokens['refresh'], max_age=604800, httponly=False, samesite='None', secure=True)
+            response.set_cookie('token', tokens['access'], max_age=86400, httponly=False, samesite='None', secure=True)
+        except Exception:
+            pass
 
-            return response
-        else:
-            return Response({"success": False, "message": "شماره همراه یا رمز عبور اشتباه است."}, status=status.HTTP_401_UNAUTHORIZED)
+        return response
 
 
 class LogoutStaffAPIView(APIView):

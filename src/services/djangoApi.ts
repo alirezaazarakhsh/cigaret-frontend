@@ -397,6 +397,36 @@ class DjangoDatabaseStore {
       );
     }
 
+    // Sort posts newest first (higher Jalali date / created timestamp / numeric ID first)
+    posts.sort((a, b) => {
+      const parseDateScore = (post: BlogPost): number => {
+        if (!post) return 0;
+        const rawDate = (post as any).created_at || (post as any).createdAt || post.publishedDate || '';
+        const faToEn = (str: string) => String(str).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+        const cleanDate = faToEn(String(rawDate));
+        const match = cleanDate.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+        if (match) {
+          const y = match[1];
+          const m = match[2].padStart(2, '0');
+          const d = match[3].padStart(2, '0');
+          const timeMatch = cleanDate.match(/(\d{1,2}):(\d{1,2})/);
+          const hh = timeMatch ? timeMatch[1].padStart(2, '0') : '00';
+          const mm = timeMatch ? timeMatch[2].padStart(2, '0') : '00';
+          const val = parseInt(`${y}${m}${d}${hh}${mm}`, 10);
+          if (!isNaN(val) && val > 0) return val;
+        }
+        const numericId = parseInt(String(post.id).replace(/\D/g, ''), 10);
+        return (!isNaN(numericId) && numericId > 0) ? numericId : 0;
+      };
+
+      const scoreA = parseDateScore(a);
+      const scoreB = parseDateScore(b);
+      if (scoreA !== scoreB) {
+        return scoreB - scoreA;
+      }
+      return String(b.id).localeCompare(String(a.id));
+    });
+
     return posts;
   }
 

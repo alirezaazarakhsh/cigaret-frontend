@@ -15,6 +15,7 @@ import {
   Package,
   Layers,
   ChevronRight,
+  ChevronLeft,
   Eye,
   Truck,
   Zap,
@@ -52,6 +53,57 @@ interface BlogSectionProps {
 }
 
 // ...
+
+/**
+ * Helper to convert Jalali / ISO dates into sortable numeric score (YYYYMMDDHHMM)
+ * Higher number = Newer date
+ */
+export function parseDateNumberForSorting(post: BlogPost): number {
+  if (!post) return 0;
+  const rawDate = (post as any).created_at || (post as any).createdAt || post.publishedDate || '';
+
+  // Convert Persian numbers to English digits
+  const faToEn = (str: string) => String(str).replace(/[۰-۹]/g, d => '۰۱۲۳۴۵۶۷۸۹'.indexOf(d).toString());
+  const cleanDate = faToEn(String(rawDate));
+
+  // Match YYYY/MM/DD or YYYY-MM-DD
+  const match = cleanDate.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
+  if (match) {
+    const y = match[1];
+    const m = match[2].padStart(2, '0');
+    const d = match[3].padStart(2, '0');
+    const timeMatch = cleanDate.match(/(\d{1,2}):(\d{1,2})/);
+    const hh = timeMatch ? timeMatch[1].padStart(2, '0') : '00';
+    const mm = timeMatch ? timeMatch[2].padStart(2, '0') : '00';
+    const val = parseInt(`${y}${m}${d}${hh}${mm}`, 10);
+    if (!isNaN(val) && val > 0) return val;
+  }
+
+  // Fallback: Check numeric ID or timestamp
+  const numericId = parseInt(String(post.id).replace(/\D/g, ''), 10);
+  if (!isNaN(numericId) && numericId > 0) {
+    return numericId;
+  }
+
+  return 0;
+}
+
+export function sortPostsNewestFirst(postsList: BlogPost[]): BlogPost[] {
+  if (!Array.isArray(postsList)) return [];
+  return [...postsList].sort((a, b) => {
+    const scoreA = parseDateNumberForSorting(a);
+    const scoreB = parseDateNumberForSorting(b);
+    if (scoreA !== scoreB) {
+      return scoreB - scoreA; // Descending: newer date comes first
+    }
+    const numA = parseInt(String(a.id).replace(/\D/g, ''), 10) || 0;
+    const numB = parseInt(String(b.id).replace(/\D/g, ''), 10) || 0;
+    if (numA !== numB) {
+      return numB - numA;
+    }
+    return String(b.id).localeCompare(String(a.id));
+  });
+}
 
 export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag, initialCategory = 'all' }) => {
   // Helper to load initial selected post from localStorage or local store instantly on refresh
@@ -132,6 +184,23 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag, in
   const [isLoading, setIsLoading] = useState(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [isUrlInitialized] = useState(true);
+
+  // Pagination states & logic (Newest articles first)
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const ITEMS_PER_PAGE = 6;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [selectedCategory, searchQuery]);
+
+  const sortedPosts = useMemo(() => sortPostsNewestFirst(posts), [posts]);
+  const totalPages = useMemo(() => Math.max(1, Math.ceil(sortedPosts.length / ITEMS_PER_PAGE)), [sortedPosts.length]);
+  const validCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const paginatedPosts = useMemo(() => {
+    const start = (validCurrentPage - 1) * ITEMS_PER_PAGE;
+    return sortedPosts.slice(start, start + ITEMS_PER_PAGE);
+  }, [sortedPosts, validCurrentPage]);
 
   // Cache selected post when it changes
   useEffect(() => {
@@ -877,77 +946,151 @@ export const BlogSection: React.FC<BlogSectionProps> = ({ onSelectProductTag, in
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
-              {posts.map((post) => {
-                const th = post.isReportage ? getReportageTheme(post.reportageBgColor, post.reportageBgColor, post.reportageRingColor) : null;
-                return (
-                  <div
-                    key={post.id}
-                    onClick={() => {
-                      openPost(post);
-                      window.scrollTo({ top: 0, behavior: 'smooth' });
-                    }}
-                    className={`bg-white rounded-3xl overflow-hidden shadow-xs hover:shadow-lg transition-all cursor-pointer flex flex-col group ${
-                      post.isReportage && th
-                        ? `border-2 ${th.borderColor} hover:border-opacity-100 hover:ring-2` 
-                        : 'border border-slate-200 hover:border-blue-400'
-                    }`}
-                  >
-                    {/* Cover Image */}
-                    <div className="relative h-48 overflow-hidden bg-slate-100">
-                      <img
-                        src={post.image}
-                        alt={post.title}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute top-3 right-3 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-700/50">
-                        {post.category}
+            <div className="space-y-8" id="blog-posts-grid">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+                {paginatedPosts.map((post) => {
+                  const th = post.isReportage ? getReportageTheme(post.reportageBgColor, post.reportageBgColor, post.reportageRingColor) : null;
+                  return (
+                    <div
+                      key={post.id}
+                      onClick={() => {
+                        openPost(post);
+                        window.scrollTo({ top: 0, behavior: 'smooth' });
+                      }}
+                      className={`bg-white rounded-3xl overflow-hidden shadow-xs hover:shadow-lg transition-all cursor-pointer flex flex-col group ${
+                        post.isReportage && th
+                          ? `border-2 ${th.borderColor} hover:border-opacity-100 hover:ring-2` 
+                          : 'border border-slate-200 hover:border-blue-400'
+                      }`}
+                    >
+                      {/* Cover Image */}
+                      <div className="relative h-48 overflow-hidden bg-slate-100">
+                        <img
+                          src={post.image}
+                          alt={post.title}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute top-3 right-3 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-lg border border-slate-700/50">
+                          {post.category}
+                        </div>
+                        {post.isReportage && th && (
+                          <div className={`absolute top-3 left-3 ${th.badgeBg} ${th.badgeText} text-[10px] font-black px-2.5 py-1 rounded-lg border border-white/40 flex items-center gap-1.5 shadow-md animate-pulse`}>
+                            <Sparkles className="w-3 h-3 text-amber-300" />
+                            <span>ریپورتاژ آگهی</span>
+                            {post.reportageSponsor && <span className="opacity-90">| {post.reportageSponsor}</span>}
+                          </div>
+                        )}
                       </div>
-                      {post.isReportage && th && (
-                        <div className={`absolute top-3 left-3 ${th.badgeBg} ${th.badgeText} text-[10px] font-black px-2.5 py-1 rounded-lg border border-white/40 flex items-center gap-1.5 shadow-md animate-pulse`}>
-                          <Sparkles className="w-3 h-3 text-amber-300" />
-                          <span>ریپورتاژ آگهی</span>
-                          {post.reportageSponsor && <span className="opacity-90">| {post.reportageSponsor}</span>}
-                        </div>
-                      )}
-                    </div>
 
-                    {/* Card Body */}
-                    <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-3 text-[11px] text-slate-400">
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {post.publishedDate}
-                          </span>
-                          <span>•</span>
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {formatNumberFa(post.readTimeMinutes)} دقیقه
-                          </span>
+                      {/* Card Body */}
+                      <div className="p-5 flex-1 flex flex-col justify-between space-y-3">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-3 text-[11px] text-slate-400">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {post.publishedDate}
+                            </span>
+                            <span>•</span>
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {formatNumberFa(post.readTimeMinutes)} دقیقه
+                            </span>
+                          </div>
+
+                          <h3 className={`text-xs sm:text-sm font-black transition-colors line-clamp-2 leading-snug ${
+                            post.isReportage && th ? th.titleColor : 'text-slate-900 group-hover:text-blue-700'
+                          }`}>
+                            {post.title}
+                          </h3>
+
+                          <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed font-medium">
+                            {post.excerpt}
+                          </p>
                         </div>
 
-                        <h3 className={`text-xs sm:text-sm font-black transition-colors line-clamp-2 leading-snug ${
-                          post.isReportage && th ? th.titleColor : 'text-slate-900 group-hover:text-blue-700'
+                        <div className={`pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-black ${
+                          post.isReportage && th ? th.accentIconColor : 'text-blue-600'
                         }`}>
-                          {post.title}
-                        </h3>
-
-                        <p className="text-xs text-slate-500 line-clamp-3 leading-relaxed font-medium">
-                          {post.excerpt}
-                        </p>
-                      </div>
-
-                      <div className={`pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-black ${
-                        post.isReportage && th ? th.accentIconColor : 'text-blue-600'
-                      }`}>
-                        <span>{post.isReportage ? 'مشاهده ریپورتاژ و آگهی حامی' : 'مطالعه کامل مقاله'}</span>
-                        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                          <span>{post.isReportage ? 'مشاهده ریپورتاژ و آگهی حامی' : 'مطالعه کامل مقاله'}</span>
+                          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                        </div>
                       </div>
                     </div>
+                  );
+                })}
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="pt-6 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/70 p-4 rounded-2xl border border-slate-200/80">
+                  <div className="text-xs font-bold text-slate-600">
+                    نمایش {formatNumberFa((validCurrentPage - 1) * ITEMS_PER_PAGE + 1)} تا {formatNumberFa(Math.min(validCurrentPage * ITEMS_PER_PAGE, sortedPosts.length))} از {formatNumberFa(sortedPosts.length)} مقاله (صفحه {formatNumberFa(validCurrentPage)} از {formatNumberFa(totalPages)})
                   </div>
-                );
-              })}
+
+                  <div className="flex items-center gap-2 dir-rtl">
+                    {/* Previous Page (Goes to newer articles page) */}
+                    <button
+                      onClick={() => {
+                        if (validCurrentPage > 1) {
+                          setCurrentPage(prev => prev - 1);
+                          document.getElementById('blog-posts-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                      }}
+                      disabled={validCurrentPage === 1}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all ${
+                        validCurrentPage === 1
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                          : 'bg-white text-slate-800 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 hover:border-blue-300 shadow-xs'
+                      }`}
+                    >
+                      <ChevronRight className="w-4 h-4" />
+                      <span>صفحه قبل (جدیدتر)</span>
+                    </button>
+
+                    {/* Page Numbers */}
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => {
+                        const isActive = pageNum === validCurrentPage;
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => {
+                              setCurrentPage(pageNum);
+                              document.getElementById('blog-posts-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                            }}
+                            className={`w-9 h-9 rounded-xl text-xs font-black transition-all flex items-center justify-center ${
+                              isActive
+                                ? 'bg-blue-600 text-white shadow-xs scale-105'
+                                : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-200'
+                            }`}
+                          >
+                            {formatNumberFa(pageNum)}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Next Page (Goes to older articles page) */}
+                    <button
+                      onClick={() => {
+                        if (validCurrentPage < totalPages) {
+                          setCurrentPage(prev => prev + 1);
+                          document.getElementById('blog-posts-grid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                        }
+                      }}
+                      disabled={validCurrentPage === totalPages}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-black flex items-center gap-1.5 transition-all ${
+                        validCurrentPage === totalPages
+                          ? 'bg-slate-100 text-slate-400 cursor-not-allowed border border-slate-200'
+                          : 'bg-white text-slate-800 hover:bg-blue-50 hover:text-blue-600 border border-slate-200 hover:border-blue-300 shadow-xs'
+                      }`}
+                    >
+                      <span>صفحه بعد (قدیمی‌تر)</span>
+                      <ChevronLeft className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

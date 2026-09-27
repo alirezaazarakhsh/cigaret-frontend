@@ -173,6 +173,28 @@ class PosStaffUpdateSerializer(serializers.Serializer):
     permissions = serializers.ListField(child=serializers.CharField(max_length=50), required=False)
 
 
+from django.contrib.auth import authenticate
+
+# ... (keep existing imports and classes above)
+
 class LoginSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
     password = serializers.CharField(max_length=50)
+
+    def validate(self, attrs):
+        phone = attrs.get('phone')
+        password = attrs.get('password')
+
+        if phone and password:
+            user = authenticate(username=phone, password=password)
+            
+            if user:
+                if not user.is_active:
+                    raise serializers.ValidationError("حساب کاربری شما غیرفعال است.")
+                attrs['user'] = user
+            else:
+                raise serializers.ValidationError("شماره تلفن یا رمز عبور اشتباه است.")
+        else:
+            raise serializers.ValidationError("شماره تلفن و رمز عبور الزامی است.")
+        
+        return attrs
