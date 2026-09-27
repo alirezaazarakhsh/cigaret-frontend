@@ -649,6 +649,12 @@ export default function App() {
 
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000000]);
+
+  const dynamicMaxPrice = useMemo(() => {
+    if (!products || products.length === 0) return 500000000;
+    const max = Math.max(...products.map(p => Number(p.cartonPrice) || 0), 100000000);
+    return max;
+  }, [products]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'stock'>('featured');
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -1607,7 +1613,7 @@ export default function App() {
                 <span className="text-xs text-slate-500 font-bold block mb-2">محدوده قیمت کارتن:</span>
                 <PriceRangeSlider
                   min={0}
-                  max={200000000}
+                  max={dynamicMaxPrice}
                   currentMin={priceRange[0]}
                   currentMax={priceRange[1]}
                   onChange={(min, max) => setPriceRange([min, max])}

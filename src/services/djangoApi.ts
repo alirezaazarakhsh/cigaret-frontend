@@ -2154,21 +2154,17 @@ export function mapBadgeFromDjango(badgeCode?: string): string {
  * Normalizes raw category value (string, object, or ID) into a clean valid CigaretteCategory slug or string.
  */
 export function extractCategory(val: any, fallback: CigaretteCategory = 'cigarettes'): CigaretteCategory {
-  if (!val) return fallback;
+  if (!val && val !== 0) return fallback;
   let raw = '';
   if (typeof val === 'string') raw = val;
   else if (typeof val === 'object') {
-    raw = val.slug || val.id || val.name_en || val.name || val.title || '';
+    raw = val.slug || val.id || val.name_fa || val.name_en || val.name || val.title || '';
   } else if (typeof val === 'number') {
     raw = String(val);
   }
 
-  const catStr = raw.toLowerCase().trim();
+  const catStr = raw.trim();
   if (!catStr) return fallback;
-
-  if (catStr === '1' || catStr === 'cigarettes') return 'cigarettes';
-  if (catStr === '2' || catStr === 'iqos_devices') return 'iqos_devices';
-  if (catStr === '3' || catStr === 'iqos_heets') return 'iqos_heets';
 
   return catStr as CigaretteCategory;
 }

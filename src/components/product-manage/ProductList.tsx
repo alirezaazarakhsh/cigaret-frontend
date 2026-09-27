@@ -84,8 +84,15 @@ export const ProductList: React.FC<ProductListProps> = ({
       // Products belonging to this category
       const catProducts = products.filter((p) => {
         const matched = findCategory(p.category);
-        if (matched) return String(matched.id) === String(cat.id);
-        return String(p.category) === String(cat.id) || String(p.category) === String(cat.slug);
+        if (matched) {
+          return String(matched.id) === String(cat.id) || 
+                 (matched.slug && cat.slug && String(matched.slug).toLowerCase() === String(cat.slug).toLowerCase()) ||
+                 matched.name.trim().toLowerCase() === cat.name.trim().toLowerCase();
+        }
+        const pCatStr = String(p.category).trim().toLowerCase();
+        return pCatStr === String(cat.id).toLowerCase() || 
+               pCatStr === String(cat.slug || '').toLowerCase() ||
+               pCatStr === cat.name.trim().toLowerCase();
       });
 
       const totalCount = catProducts.length;

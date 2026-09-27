@@ -1043,6 +1043,23 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     // 1. Initial REST API Load
     loadActiveSessions();
 
+    const handleSessionsChanged = (e: any) => {
+      if (e?.detail?.sessions) {
+        setOnlineSessions(e.detail.sessions);
+      } else {
+        loadActiveSessions();
+      }
+    };
+
+    const handleSessionExpired = () => {
+      setOnlineSessions([]);
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('sevin-pos-online-sessions-changed', handleSessionsChanged);
+      window.addEventListener('sevin-pos-session-expired', handleSessionExpired);
+    }
+
     // 2. Real-time WebSocket Connection
     const connectWebSocket = () => {
       try {
@@ -1093,6 +1110,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
     return () => {
       isMounted = false;
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('sevin-pos-online-sessions-changed', handleSessionsChanged);
+        window.removeEventListener('sevin-pos-session-expired', handleSessionExpired);
+      }
       if (ws) {
         ws.onclose = null;
         ws.close();

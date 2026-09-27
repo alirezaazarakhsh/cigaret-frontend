@@ -240,10 +240,15 @@ export function invalidatePosTokenAndSession(reason: string = 'token_expired'): 
       localStorage.removeItem(POS_SESSION_STORAGE_KEYS.AUTH_FLAG);
       localStorage.removeItem(POS_SESSION_STORAGE_KEYS.CURRENT_STAFF);
       localStorage.removeItem(POS_SESSION_STORAGE_KEYS.SESSION_EXPIRES_AT);
+      localStorage.removeItem('sovin_pos_online_sessions');
       localStorage.setItem(POS_SESSION_STORAGE_KEYS.LAST_LOGOUT_REASON, reason);
     }
 
     if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sevin-pos-online-sessions-changed', {
+        detail: { sessions: [] }
+      }));
+
       if (reason !== 'manual_logout') {
         window.dispatchEvent(new CustomEvent('sevin-pos-session-expired', {
           detail: {

@@ -16,14 +16,14 @@ export const PriceRangeSlider: React.FC<PriceRangeSliderProps> = ({
   currentMax,
   onChange,
 }) => {
-  const step = 1000000;
+  const step = Math.max(100000, Math.min(5000000, Math.floor((max - min) / 100)));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
     onChange(0, value);
   };
 
-  const percent = Math.max(0, Math.min(100, ((currentMax - min) / (max - min)) * 100));
+  const percent = max > min ? Math.max(0, Math.min(100, ((currentMax - min) / (max - min)) * 100)) : 100;
 
   return (
     <div className="space-y-4 bg-slate-50/90 p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -67,48 +67,54 @@ export const PriceRangeSlider: React.FC<PriceRangeSliderProps> = ({
       <div className="flex items-center gap-1.5 overflow-x-auto pt-1 no-scrollbar text-[11px]">
         <button
           type="button"
-          onClick={() => onChange(0, 200000000)}
+          onClick={() => onChange(0, max)}
           className={`px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap cursor-pointer shadow-xs font-bold ${
-            currentMax >= 200000000
+            currentMax >= max
               ? 'bg-blue-600 text-white font-black'
               : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
           }`}
         >
           همه قیمت‌ها
         </button>
-        <button
-          type="button"
-          onClick={() => onChange(0, 30000000)}
-          className={`px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap cursor-pointer shadow-xs font-bold ${
-            currentMax === 30000000
-              ? 'bg-blue-600 text-white font-black'
-              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-          }`}
-        >
-          تا ۳۰ میلیون
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(0, 50000000)}
-          className={`px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap cursor-pointer shadow-xs font-bold ${
-            currentMax === 50000000
-              ? 'bg-blue-600 text-white font-black'
-              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-          }`}
-        >
-          تا ۵۰ میلیون
-        </button>
-        <button
-          type="button"
-          onClick={() => onChange(0, 100000000)}
-          className={`px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap cursor-pointer shadow-xs font-bold ${
-            currentMax === 100000000
-              ? 'bg-blue-600 text-white font-black'
-              : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-          }`}
-        >
-          تا ۱۰۰ میلیون
-        </button>
+        {max >= 50000000 && (
+          <button
+            type="button"
+            onClick={() => onChange(0, 50000000)}
+            className={`px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap cursor-pointer shadow-xs font-bold ${
+              currentMax === 50000000
+                ? 'bg-blue-600 text-white font-black'
+                : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+            }`}
+          >
+            تا ۵۰ میلیون
+          </button>
+        )}
+        {max >= 100000000 && (
+          <button
+            type="button"
+            onClick={() => onChange(0, 100000000)}
+            className={`px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap cursor-pointer shadow-xs font-bold ${
+              currentMax === 100000000
+                ? 'bg-blue-600 text-white font-black'
+                : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+            }`}
+          >
+            تا ۱۰۰ میلیون
+          </button>
+        )}
+        {max >= 300000000 && (
+          <button
+            type="button"
+            onClick={() => onChange(0, 300000000)}
+            className={`px-3 py-1.5 rounded-xl transition-colors whitespace-nowrap cursor-pointer shadow-xs font-bold ${
+              currentMax === 300000000
+                ? 'bg-blue-600 text-white font-black'
+                : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
+            }`}
+          >
+            تا ۳۰۰ میلیون
+          </button>
+        )}
       </div>
     </div>
   );

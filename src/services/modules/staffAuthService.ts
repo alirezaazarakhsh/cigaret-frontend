@@ -415,7 +415,10 @@ export const staffAuthService = {
     try {
       const activeList = await djangoFetchActiveSessions();
       if (Array.isArray(activeList) && activeList.length > 0) {
-        return { success: true, data: activeList };
+        const filtered = activeList.filter((s: any) => s && s.is_online !== false && s.status !== 'offline');
+        if (filtered.length > 0) {
+          return { success: true, data: filtered };
+        }
       }
     } catch {}
 
@@ -426,33 +429,41 @@ export const staffAuthService = {
     if (res && res.success) {
       const list = Array.isArray(res.data) ? res.data : (res.data?.data || res.data?.sessions || []);
       if (Array.isArray(list) && list.length > 0) {
-        return { success: true, data: list };
+        const filtered = list.filter((s: any) => s && s.is_online !== false && s.status !== 'offline');
+        if (filtered.length > 0) {
+          return { success: true, data: filtered };
+        }
       }
     }
 
-    // Fallback: fetch staff list from Django DB
+    // Fallback: Check if current staff is logged in and authenticated on this device
     try {
-      const staffList = await djangoFetchPosStaffList();
-      if (Array.isArray(staffList) && staffList.length > 0) {
-        const activeStaffList = staffList
-          .filter((s: any) => s.is_active !== false)
-          .map((s: any) => ({
-            id: s.id || s.user_id,
-            fullName: s.fullName || s.full_name || s.name || 'صندوق‌دار',
-            phone: s.phone || s.username || '',
-            roleTitleFa: s.roleTitleFa || s.role_title || 'صندوق‌دار فروشگاه',
-            role: s.role || 'cashier',
-            status: 'online',
-            is_online: true,
-            is_active: true,
-            loginTime: 'آنلاین',
-          }));
-        if (activeStaffList.length > 0) {
-          return { success: true, data: activeStaffList };
+      if (typeof localStorage !== 'undefined') {
+        const isAuth = localStorage.getItem('sovin_pos_auth') === 'true';
+        const rawStaff = localStorage.getItem('sovin_current_pos_staff');
+        if (isAuth && rawStaff) {
+          const staffObj = JSON.parse(rawStaff);
+          if (staffObj && staffObj.phone) {
+            return {
+              success: true,
+              data: [{
+                id: staffObj.id || 'current_user_session',
+                fullName: staffObj.fullName || staffObj.full_name || 'کاربر سیستم',
+                phone: staffObj.phone,
+                roleTitleFa: staffObj.roleTitleFa || staffObj.role_title || 'مدیریت / صندوق',
+                role: staffObj.role || 'staff',
+                status: 'online',
+                is_online: true,
+                isCurrentUser: true,
+                loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+                avatarColor: staffObj.avatarColor || 'bg-indigo-600'
+              }]
+            };
+          }
         }
       }
     } catch {}
 
-    return { success: false, data: [] };
+    return { success: true, data: [] };
   }
 };
