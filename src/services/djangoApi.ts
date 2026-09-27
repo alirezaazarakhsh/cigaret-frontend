@@ -1387,20 +1387,52 @@ export async function saveHologramToDjango(title: string, config?: DjangoCrmConf
 }
 
 /**
+ * Sanitizes raw string into a Django DRF valid SlugField value (allow_unicode=True).
+ * Strips out spaces, parentheses, slashes, and special symbols, leaving only letters, numbers, hyphens, and underscores.
+ */
+export function sanitizeSlug(rawSlug?: string, fallbackBase?: string): string {
+  let clean = (rawSlug || '').trim();
+
+  if (!clean) {
+    clean = (fallbackBase || '').trim();
+  }
+
+  clean = clean
+    .toLowerCase()
+    // Replace spaces, ZWNJ, slashes, backslashes, underscores, and commas with hyphens (-)
+    .replace(/[\s\u200c\u200b\/\\_,]+/g, '-')
+    // Remove all characters except Unicode letters (Arabic/Persian/Latin), digits, and hyphens (-)
+    .replace(/[^\w\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF-]/g, '')
+    // Collapse consecutive hyphens
+    .replace(/-+/g, '-')
+    // Trim leading and trailing hyphens
+    .replace(/^-+|-+$/g, '');
+
+  if (!clean) {
+    clean = `prod-${Date.now()}`;
+  }
+
+  return clean;
+}
+
+/**
  * Save newly defined Product directly to Django REST API DB
  */
 export async function saveProductToDjango(product: CigaretteProduct, config?: DjangoCrmConfig): Promise<CigaretteProduct> {
-  const added = djangoDatabaseStore.addProduct(product);
+  const cleanSlug = sanitizeSlug(product.slug, product.nameEn || product.nameFa);
+  const sanitizedProduct = { ...product, slug: cleanSlug };
+
+  const added = djangoDatabaseStore.addProduct(sanitizedProduct);
 
   // Sync to wholesale_products storage for complete client catalog cohesion
   try {
     const raw = localStorage.getItem('wholesale_products');
     const list: CigaretteProduct[] = raw ? JSON.parse(raw) : [];
-    const idx = list.findIndex(p => p.id === product.id || (product.barcode && p.barcode === product.barcode));
+    const idx = list.findIndex(p => p.id === sanitizedProduct.id || (sanitizedProduct.barcode && p.barcode === sanitizedProduct.barcode));
     if (idx >= 0) {
-      list[idx] = { ...list[idx], ...product };
+      list[idx] = { ...list[idx], ...sanitizedProduct };
     } else {
-      list.unshift(product);
+      list.unshift(sanitizedProduct);
     }
     localStorage.setItem('wholesale_products', JSON.stringify(list));
   } catch {}
@@ -1415,45 +1447,69 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
     const baseUrl = getBlogApiBaseUrl(config);
     const adminToken = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
 
-    const isFeaturedVal = product.isFeatured !== undefined 
-      ? Boolean(product.isFeatured) 
-      : Boolean(product.badge === 'پیشنهاد ویژه' || product.badge === 'special');
+    const isFeaturedVal = sanitizedProduct.isFeatured !== undefined 
+      ? Boolean(sanitizedProduct.isFeatured) 
+      : Boolean(sanitizedProduct.badge === 'پیشنهاد ویژه' || sanitizedProduct.badge === 'special');
 
-    const safeImage = (product.image && product.image.startsWith('data:')) ? '' : (product.image || '');
+    const rawImage = sanitizedProduct.image || '';
+    const safeImages = (sanitizedProduct.images || []).filter(Boolean);
 
     // Smart PK Resolution for Category / Brand / Hologram
     let categoryPk: number | null = null;
-    if (product.category !== undefined && product.category !== null && !isNaN(Number(product.category))) {
-      categoryPk = Number(product.category);
+    if (sanitizedProduct.category !== undefined && sanitizedProduct.category !== null && !isNaN(Number(sanitizedProduct.category))) {
+      categoryPk = Number(sanitizedProduct.category);
     }
 
     let brandPk: number | null = null;
-    if (product.brand !== undefined && product.brand !== null && !isNaN(Number(product.brand))) {
-      brandPk = Number(product.brand);
+    if (sanitizedProduct.brand !== undefined && sanitizedProduct.brand !== null && !isNaN(Number(sanitizedProduct.brand))) {
+      brandPk = Number(sanitizedProduct.brand);
     }
 
     let hologramPk: number | null = null;
-    if (product.hologram !== undefined && product.hologram !== null && !isNaN(Number(product.hologram))) {
-      hologramPk = Number(product.hologram);
+    if (sanitizedProduct.hologram !== undefined && sanitizedProduct.hologram !== null && !isNaN(Number(sanitizedProduct.hologram))) {
+      hologramPk = Number(sanitizedProduct.hologram);
     }
 
-    const normalizedBadge = normalizeBadgeForDjango(product.badge);
+    const normalizedBadge = normalizeBadgeForDjango(sanitizedProduct.badge);
 
-    const safeImages = (product.images || [])
-      .map(img => (img && img.startsWith('data:')) ? '' : img)
-      .filter(Boolean);
+    const rawFeatures = [...(sanitizedProduct.appliedFeatures || [])];
 
-    const mappedAttributes = (product.appliedFeatures || []).map(af => {
+    // Auto-map standard features if missing from appliedFeatures array
+    const hasAttr = (keyStr: string) => rawFeatures.some(f => (f.nameFa || (f as any).name || '').includes(keyStr));
+    if (sanitizedProduct.tar && !hasAttr('قطران')) {
+      rawFeatures.push({ id: 'attr_tar', nameFa: 'قطران (Tar)', value: sanitizedProduct.tar });
+    }
+    if (sanitizedProduct.nicotine && !hasAttr('نیکوتین')) {
+      rawFeatures.push({ id: 'attr_nicotine', nameFa: 'نیکوتین (Nicotine)', value: sanitizedProduct.nicotine });
+    }
+    if (sanitizedProduct.origin && !hasAttr('کشور')) {
+      rawFeatures.push({ id: 'attr_origin', nameFa: 'کشور سازنده و مبدأ', value: sanitizedProduct.origin });
+    }
+    if ((sanitizedProduct.cigaretteSize || sanitizedProduct.packSize) && !hasAttr('سایز')) {
+      rawFeatures.push({ id: 'attr_size', nameFa: 'سایز و اندازه پاکت', value: sanitizedProduct.cigaretteSize || sanitizedProduct.packSize || '' });
+    }
+    if (sanitizedProduct.filterType && !hasAttr('فیلتر')) {
+      rawFeatures.push({ id: 'attr_filter', nameFa: 'نوع فیلتر', value: sanitizedProduct.filterType });
+    }
+    if (sanitizedProduct.flavor && !hasAttr('طعم')) {
+      rawFeatures.push({ id: 'attr_flavor', nameFa: 'طعم و اسانس', value: sanitizedProduct.flavor });
+    }
+
+    const mappedAttributes = rawFeatures.map(af => {
       const valStr = String(af.value || '').trim();
       const numVal = !isNaN(Number(valStr)) && valStr !== '' ? Number(valStr) : null;
       const boolVal = valStr === 'بله' || valStr === 'true' ? true : (valStr === 'خیر' || valStr === 'false' ? false : null);
       const attrPk = af.featureId && !isNaN(Number(af.featureId)) ? Number(af.featureId) : (af.id && !isNaN(Number(af.id)) ? Number(af.id) : null);
 
+      const featureName = af.nameFa || (af as any).name || '';
+
       return {
-        attribute: attrPk,
+        id: attrPk,
         attribute_id: attrPk,
-        attribute_name: af.nameFa || '',
-        name: af.nameFa || '',
+        attribute: attrPk,
+        attribute_name: featureName,
+        name: featureName,
+        title: featureName,
         value: valStr,
         text_value: valStr,
         numeric_value: numVal,
@@ -1464,7 +1520,7 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
       };
     });
 
-    const mappedTierDiscounts = (product.tierDiscounts || []).map(td => {
+    const mappedTierDiscounts = (sanitizedProduct.tierDiscounts || []).map(td => {
       const minQty = Number(td.minQuantity) || Number((td as any).min_quantity) || Number((td as any).min_cartons) || 1;
       const discPercent = Number(td.discountPercent) || Number((td as any).discount_percent) || Number((td as any).discount_percentage) || 0;
       const unitPrice = Number((td as any).discountPrice) || Number((td as any).discount_price) || Number((td as any).unit_discount_price) || 0;
@@ -1483,55 +1539,58 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
     });
 
     const payload = {
-      name: product.nameFa,
-      name_fa: product.nameFa,
-      name_en: product.nameEn || '',
-      slug: product.slug || `prod-${Date.now()}`,
-      barcode: product.barcode || '',
+      name: sanitizedProduct.nameFa,
+      name_fa: sanitizedProduct.nameFa,
+      name_en: sanitizedProduct.nameEn || '',
+      slug: cleanSlug,
+      barcode: sanitizedProduct.barcode || '',
       brand: brandPk,
       category: categoryPk,
       hologram: hologramPk,
-      country_origin: product.origin || '',
-      carton_price: Number(product.cartonPrice) || 0,
-      box_price: Number(product.boxPrice) || 0,
-      pack_price: Number(product.packPrice) || 0,
-      purchase_price: Number(product.purchasePrice) || 0,
-      boxes_per_carton: Number(product.boxesPerCarton) || 50,
-      packs_per_box: Number(product.packsPerBox) || 10,
-      stock_cartons: Number(product.stockCartons) || 0,
-      stock_boxes: Number(product.stockBoxes) || 0,
-      min_order_carton: Number(product.moq) || 1,
-      min_order_box: Number(product.moqBox) || 1,
-      tar: product.tar || '',
-      nicotine: product.nicotine || '',
-      cigarette_size: product.cigaretteSize || product.packSize || 'king_size',
-      filter_type: product.filterType || 'white',
+      country_origin: sanitizedProduct.origin || '',
+      carton_price: Number(sanitizedProduct.cartonPrice) || 0,
+      box_price: Number(sanitizedProduct.boxPrice) || 0,
+      pack_price: Number(sanitizedProduct.packPrice) || 0,
+      purchase_price: Number(sanitizedProduct.purchasePrice) || 0,
+      boxes_per_carton: Number(sanitizedProduct.boxesPerCarton) || 50,
+      packs_per_box: Number(sanitizedProduct.packsPerBox) || 10,
+      stock_cartons: Number(sanitizedProduct.stockCartons) || 0,
+      stock_boxes: Number(sanitizedProduct.stockBoxes) || 0,
+      min_order_carton: Number(sanitizedProduct.moq) || 1,
+      min_order_box: Number(sanitizedProduct.moqBox) || 1,
+      tar: sanitizedProduct.tar || '',
+      nicotine: sanitizedProduct.nicotine || '',
+      cigarette_size: sanitizedProduct.cigaretteSize || sanitizedProduct.packSize || 'king_size',
+      filter_type: sanitizedProduct.filterType || 'white',
       badge: normalizedBadge,
-      image_url: safeImage,
-      ...(safeImage ? { image: safeImage } : {}),
+      image: rawImage,
+      image_url: rawImage,
+      main_image_url: rawImage,
       images: safeImages,
       gallery_images: safeImages,
-      gallery: safeImages.map(url => ({ image_url: url })),
-      full_description: product.description || '',
-      description: product.description || '',
-      excerpt: product.excerpt || '',
-      meta_title: product.metaTitle || product.nameFa || '',
-      meta_description: product.metaDescription || product.excerpt || product.description || '',
-      focus_keyword: product.focusKeyword || product.nameFa || '',
-      seo_keywords: Array.isArray(product.keywords) ? product.keywords.join(', ') : (product.keywords || product.focusKeyword || product.nameFa || ''),
-      canonical_url: product.canonicalUrl || '',
-      is_pos_only: Boolean(product.isPosOnly),
-      is_box_only: Boolean(product.isBoxOnly),
-      has_carton: product.hasCarton !== false,
-      has_box: product.hasBox !== false,
-      has_pack: Boolean(product.hasPack),
-      is_active: product.isAvailable !== false,
+      gallery: safeImages.map((url, idx) => ({ image: url, image_url: url, order: idx })),
+      full_description: sanitizedProduct.description || '',
+      description: sanitizedProduct.description || '',
+      excerpt: sanitizedProduct.excerpt || '',
+      meta_title: sanitizedProduct.metaTitle || sanitizedProduct.nameFa || '',
+      meta_description: sanitizedProduct.metaDescription || sanitizedProduct.excerpt || sanitizedProduct.description || '',
+      focus_keyword: sanitizedProduct.focusKeyword || sanitizedProduct.nameFa || '',
+      seo_keywords: Array.isArray(sanitizedProduct.keywords) ? sanitizedProduct.keywords.join(', ') : (sanitizedProduct.keywords || sanitizedProduct.focusKeyword || sanitizedProduct.nameFa || ''),
+      canonical_url: sanitizedProduct.canonicalUrl || '',
+      is_pos_only: Boolean(sanitizedProduct.isPosOnly),
+      is_box_only: Boolean(sanitizedProduct.isBoxOnly),
+      has_carton: sanitizedProduct.hasCarton !== false,
+      has_box: sanitizedProduct.hasBox !== false,
+      has_pack: Boolean(sanitizedProduct.hasPack),
+      is_active: sanitizedProduct.isAvailable !== false,
       is_published: true,
       is_approved: true,
       status: 'active',
       is_featured: isFeaturedVal,
-      key_takeaways: product.keyTakeaways || [],
+      key_takeaways: sanitizedProduct.keyTakeaways || [],
       tier_discounts: mappedTierDiscounts,
+      attributes: mappedAttributes,
+      custom_features: mappedAttributes,
       attributes_values: mappedAttributes,
       applied_features: mappedAttributes,
       product_attributes: mappedAttributes,
@@ -1543,8 +1602,8 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
       ...(adminToken ? { 'Authorization': `Bearer ${adminToken}` } : {})
     };
 
-    const isNumericId = !isNaN(Number(product.id)) && Number(product.id) < 1000000000;
-    const remoteId = product.djangoId || (isNumericId ? product.id : null);
+    const isNumericId = !isNaN(Number(sanitizedProduct.id)) && Number(sanitizedProduct.id) < 1000000000;
+    const remoteId = sanitizedProduct.djangoId || (isNumericId ? sanitizedProduct.id : null);
 
     if (remoteId) {
       // Try updating existing remote item
@@ -1581,11 +1640,24 @@ export async function saveProductToDjango(product: CigaretteProduct, config?: Dj
     ];
 
     for (const ep of candidateEndpoints) {
-      const postRes = await fetch(ep, {
+      let postRes = await fetch(ep, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload)
       }).catch(() => null);
+
+      // Auto fallback if Django throws a 400 validation error specifically on slug
+      if (postRes && !postRes.ok && postRes.status === 400) {
+        const errJson = await postRes.clone().json().catch(() => null);
+        if (errJson?.errors?.slug || errJson?.slug) {
+          payload.slug = `prod-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          postRes = await fetch(ep, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(payload)
+          }).catch(() => null);
+        }
+      }
 
       if (postRes && postRes.ok) {
         const postData = await postRes.json().catch(() => null);
@@ -1880,15 +1952,22 @@ export async function fetchAllProducts(config?: DjangoCrmConfig): Promise<Cigare
       { token: config?.apiToken, apiUrl: baseUrl }
     );
 
+    const rawData = res.data;
+    const items = Array.isArray(rawData) 
+      ? rawData 
+      : (Array.isArray((rawData as any)?.results) 
+          ? (rawData as any).results 
+          : (Array.isArray((rawData as any)?.data) ? (rawData as any).data : []));
+
     console.log('[djangoApi.fetchAllProducts] executeDjangoAxiosRequest result:', {
       success: res.success,
       status: res.status,
-      dataLength: Array.isArray(res.data) ? res.data.length : 'non-array',
+      itemsLength: items.length,
       error: res.error
     });
 
-    if (res.success && Array.isArray(res.data)) {
-      const fetched = res.data.map((item, idx) => mapDjangoItemToProduct(item, idx));
+    if (res.success && items.length > 0) {
+      const fetched = items.map((item: any, idx: number) => mapDjangoItemToProduct(item, idx));
       console.log(`[djangoApi.fetchAllProducts] Mapped ${fetched.length} products from API response. Sample:`, fetched[0]);
       // Sync local store
       fetched.forEach(p => djangoDatabaseStore.addProduct(p));
@@ -2079,7 +2158,7 @@ export function extractCategory(val: any, fallback: CigaretteCategory = 'cigaret
   let raw = '';
   if (typeof val === 'string') raw = val;
   else if (typeof val === 'object') {
-    raw = val.slug || val.name_en || val.id || val.name || val.title || '';
+    raw = val.slug || val.id || val.name_en || val.name || val.title || '';
   } else if (typeof val === 'number') {
     raw = String(val);
   }
@@ -2087,15 +2166,9 @@ export function extractCategory(val: any, fallback: CigaretteCategory = 'cigaret
   const catStr = raw.toLowerCase().trim();
   if (!catStr) return fallback;
 
-  if (catStr.includes('cigar') || catStr.includes('سیگار') || catStr === '1') return 'cigarettes';
-  if (catStr.includes('device') || catStr.includes('دستگاه') || catStr.includes('ایکاس')) return 'iqos_devices';
-  if (catStr.includes('heet') || catStr.includes('تیریا') || catStr.includes('هیتس')) return 'iqos_heets';
-  if (catStr.includes('pod') || catStr.includes('vape') || catStr.includes('پاد') || catStr.includes('ویپ')) return 'pods_vapes';
-  if (catStr.includes('tobacco') || catStr.includes('تنباکو') || catStr.includes('توتون')) return 'tobacco';
-  if (catStr.includes('accessory') || catStr.includes('جانبی') || catStr.includes('لوازم')) return 'accessories';
-  if (catStr.includes('drink') || catStr.includes('coffee') || catStr.includes('نوشیدنی') || catStr.includes('قهوه')) return 'drinks_coffee';
-  if (catStr.includes('charcoal') || catStr.includes('زغال')) return 'charcoal';
-  if (catStr.includes('hookah') || catStr.includes('قلیان')) return 'hookah';
+  if (catStr === '1' || catStr === 'cigarettes') return 'cigarettes';
+  if (catStr === '2' || catStr === 'iqos_devices') return 'iqos_devices';
+  if (catStr === '3' || catStr === 'iqos_heets') return 'iqos_heets';
 
   return catStr as CigaretteCategory;
 }

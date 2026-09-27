@@ -41,7 +41,9 @@ import { formatToman } from '../../utils/formatters';
 import { 
   fetchDjangoCategories, 
   fetchDjangoHolograms, 
+  fetchAllProducts,
   saveProductToDjango,
+  sanitizeSlug,
   djangoDatabaseStore
 } from '../../services/djangoApi';
 
@@ -83,6 +85,20 @@ export const ProductManagerPanel: React.FC<ProductManagerPanelProps> = ({
   useEffect(() => {
     fetchDjangoCategories().then(cats => setCategories(cats));
     fetchDjangoHolograms().then(hols => setHolograms(hols));
+    fetchAllProducts().then(prods => {
+      if (Array.isArray(prods) && prods.length > 0) {
+        setProducts(prods);
+      }
+    });
+
+    const handleProductsChange = () => {
+      setProducts(djangoDatabaseStore.getProducts());
+    };
+
+    window.addEventListener('sevin-products-changed', handleProductsChange);
+    return () => {
+      window.removeEventListener('sevin-products-changed', handleProductsChange);
+    };
   }, []);
 
   // Form Fields State
@@ -142,7 +158,7 @@ export const ProductManagerPanel: React.FC<ProductManagerPanelProps> = ({
   const handleNameFaChange = (val: string) => {
     setNameFa(val);
     if (!slug) {
-      setSlug(val.trim().toLowerCase().replace(/\s+/g, '-'));
+      setSlug(sanitizeSlug('', val));
     }
   };
 
@@ -306,7 +322,7 @@ export const ProductManagerPanel: React.FC<ProductManagerPanelProps> = ({
       djangoId: editingProductId ? editingProductId : undefined,
       nameFa,
       nameEn,
-      slug: slug || nameFa.trim().toLowerCase().replace(/\s+/g, '-'),
+      slug: sanitizeSlug(slug, nameEn || nameFa),
       barcode: barcode || Math.floor(100000000000 + Math.random() * 900000000000).toString(),
       brand,
       category,

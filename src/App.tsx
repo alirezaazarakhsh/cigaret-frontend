@@ -648,7 +648,7 @@ export default function App() {
   };
 
   const [selectedBrand, setSelectedBrand] = useState<string>('all');
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 200000000]);
+  const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000000000]);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'stock'>('featured');
   const [currentPage, setCurrentPage] = useState<number>(1);

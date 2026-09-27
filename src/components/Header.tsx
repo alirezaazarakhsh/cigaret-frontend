@@ -55,7 +55,6 @@ interface HeaderProps {
 
 const ALL_NAV_TABS: { id: NavigationTab; label: string; icon: React.ComponentType<{ className?: string }>; color?: string; requiresAuth?: boolean; requiresAdmin?: boolean }[] = [
   { id: 'catalog', label: 'کاتالوگ کالاها', icon: Layers },
-  { id: 'accounting-pos', label: 'صندوق و انبار (POS)', icon: Barcode, color: 'text-indigo-600' },
   { id: 'live-prices', label: 'لیست قیمت لحظه‌ای', icon: TrendingUp, color: 'text-amber-500' },
   { id: 'invoice', label: 'فاکتور رسمی', icon: FileText, color: 'text-blue-500', requiresAuth: true },
   { id: 'tracking', label: 'رهگیری بارنامه', icon: Truck, color: 'text-blue-500' },
@@ -426,19 +425,6 @@ export const Header: React.FC<HeaderProps> = ({
               {/* Action Buttons Group (Flexbox) */}
               <div className="flex items-center gap-1 shrink-0">
                 
-                {/* Direct POS Access Button for Mobile / Tablet */}
-                <button
-                  onClick={() => {
-                    handleSelectTab('accounting-pos');
-                    try { localStorage.setItem('sevin_prefer_pos_view', 'true'); } catch {}
-                  }}
-                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-indigo-600 text-white text-[10px] sm:text-[11px] font-black shrink-0 shadow-xs active:scale-95 whitespace-nowrap"
-                  title="ورود به صندوق و مدیریت انبار"
-                >
-                  <Barcode className="w-3.5 h-3.5 text-amber-300 shrink-0" />
-                  <span>صندوق سرو</span>
-                </button>
-
                 {/* User Profile / Login */}
                 {currentUser ? (
                   <button

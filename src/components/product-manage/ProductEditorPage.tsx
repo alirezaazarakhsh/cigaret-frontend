@@ -37,6 +37,7 @@ import { calculateProductYoastSeo, ProductYoastSeoReport } from './seoUtils';
 import { formatNumberFa } from '../../utils/formatters';
 import { getFrontendDomain } from '../../services/apiConfig';
 import { attributesApi, tierDiscountTemplatesApi } from '../../services/api';
+import { sanitizeSlug } from '../../services/djangoApi';
 
 interface ProductEditorPageProps {
   product: CigaretteProduct | null;
@@ -696,13 +697,8 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       return;
     }
 
-    if (!formData.slug || !formData.slug.trim()) {
-      const fallbackSlug = (formData.nameEn || formData.nameFa || 'product')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/(^-|-$)/g, '');
-      formData.slug = fallbackSlug || `product-${Date.now()}`;
-    }
+    const cleanSlug = sanitizeSlug(formData.slug, formData.nameEn || formData.nameFa);
+    formData.slug = cleanSlug;
 
     setIsSaving(true);
 
