@@ -136,7 +136,8 @@ import {
   djangoSaveAllSmsPatterns,
   djangoFetchSmsPatterns,
   djangoFetchKavenegarSettings,
-  djangoSaveKavenegarSettings
+  djangoSaveKavenegarSettings,
+  djangoDatabaseStore
 } from '../../services/djangoApi';
 
 interface AccountingPosPanelProps {
@@ -585,7 +586,34 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const [productsList, setProductsList] = useState<CigaretteProduct[]>(initialProducts);
 
   useEffect(() => {
-    setProductsList(initialProducts);
+    if (Array.isArray(initialProducts) && initialProducts.length > 0) {
+      setProductsList(initialProducts);
+    } else {
+      const stored = djangoDatabaseStore.getProducts();
+      if (stored && stored.length > 0) {
+        setProductsList(stored);
+      }
+    }
+
+    const handleProductsChanged = (e: any) => {
+      if (e?.detail?.products && Array.isArray(e.detail.products)) {
+        setProductsList(e.detail.products);
+      } else {
+        const stored = djangoDatabaseStore.getProducts();
+        if (stored && stored.length > 0) {
+          setProductsList(stored);
+        }
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('sevin-products-changed', handleProductsChanged);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('sevin-products-changed', handleProductsChanged);
+      }
+    };
   }, [initialProducts]);
 
   // Sound feedback toggle
