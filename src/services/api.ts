@@ -634,10 +634,7 @@ export const productsApi = {
         localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(mappedProducts));
       } catch {}
 
-      if (!isProd && mappedProducts.length === 0) {
-        return CIGARETTE_PRODUCTS;
-      }
-      return isProd ? mappedProducts.filter(p => !isMockProduct(p)) : mappedProducts;
+      return mappedProducts;
     }
 
     // Fallback: local storage (only real products, never fake ones)
@@ -1894,6 +1891,39 @@ function updateLocalProductList(product: CigaretteProduct, action: 'add' | 'upda
     updated = current.filter(p => p.id !== product.id);
   }
   saveLocalProducts(updated);
+}
+
+/**
+ * Debugs product structure and reports missing fields compared to expected CigaretteProduct schema
+ */
+export function debugProductStructure(products: any[]) {
+  console.log('--- Debugging Product Structure ---');
+  if (!Array.isArray(products) || products.length === 0) {
+    console.log('No products to debug.');
+    return;
+  }
+
+  const requiredFields = [
+    'id', 'nameFa', 'brand', 'category', 'cartonPrice', 
+    'stockCartons', 'appliedFeatures', 'image'
+  ];
+
+  products.forEach((p, index) => {
+    console.log(`Checking product[${index}]: ${p.nameFa || 'Unknown'}`);
+    const missing = requiredFields.filter(field => !(field in p));
+    if (missing.length > 0) {
+      console.warn(`  [!] Missing fields: ${missing.join(', ')}`);
+    }
+    
+    // Specifically check for images/gallery and features
+    if (!p.appliedFeatures || p.appliedFeatures.length === 0) {
+      console.warn(`  [!] No appliedFeatures found.`);
+    }
+    if (!p.image && (!p.images || p.images.length === 0)) {
+      console.warn(`  [!] No images or gallery found.`);
+    }
+  });
+  console.log('--- Debugging Finished ---');
 }
 
 // ==========================================

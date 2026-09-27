@@ -1002,6 +1002,22 @@ export default function App() {
     setIsSyncingDjango(true);
     const runLogs: SyncLogEntry[] = [];
 
+    const debugProductSync = (productsList: CigaretteProduct[]) => {
+      console.group('--- Debugging Product Sync ---');
+      productsList.forEach((product, index) => {
+        const issues = [];
+        if (!product.images || !Array.isArray(product.images) || product.images.length === 0) issues.push('missing or empty images');
+        if (!product.attributes) issues.push('missing attributes');
+        if (!product.category) issues.push('missing category');
+        
+        if (issues.length > 0) {
+          console.warn(`Product [${index}] ID: ${product.id} (${product.name}) has issues:`, issues);
+          console.log('Full Product Object:', product);
+        }
+      });
+      console.groupEnd();
+    };
+
     const addLog = (
       level: SyncLogEntry['level'],
       category: SyncLogEntry['category'],
@@ -1030,6 +1046,13 @@ export default function App() {
       syncIntervalMinutes: djangoConfig.syncIntervalMinutes,
       status: djangoConfig.status
     });
+    
+    // Fetch products and debug
+    const fetchedProducts = await api.products.getAll();
+    if (fetchedProducts) {
+      debugProductSync(fetchedProducts);
+      setProducts(fetchedProducts);
+    }
 
     addLog('INFO', 'REQUEST', 'اجرای handleSyncDjango در App.tsx', `آغاز همگام‌سازی کالاهای Django. تعداد کالاهای فعلی در React UI State: ${products.length} کالا.`, {
       apiUrl: djangoConfig.apiUrl,

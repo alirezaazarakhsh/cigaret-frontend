@@ -182,8 +182,15 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(max_length=50)
 
     def validate(self, attrs):
-        phone = attrs.get('phone')
+        raw_phone = attrs.get('phone', '').strip()
         password = attrs.get('password')
+
+        # نرمال‌سازی شماره تلفن
+        phone = raw_phone.replace(' ', '').replace('-', '')
+        if phone.startswith('+98'):
+            phone = '0' + phone[3:]
+        elif phone.startswith('98'):
+            phone = '0' + phone[2:]
 
         if phone and password:
             user = authenticate(username=phone, password=password)
@@ -193,7 +200,15 @@ class LoginSerializer(serializers.Serializer):
                     raise serializers.ValidationError("حساب کاربری شما غیرفعال است.")
                 attrs['user'] = user
             else:
-                raise serializers.ValidationError("شماره تلفن یا رمز عبور اشتباه است.")
+                # تلاش دوم با فرمت بدون صفر اول اگر فرمت اول پیدا نشد
+                phone_no_zero = phone[1:] if phone.startswith('0') else phone
+                user = authenticate(username=phone_no_zero, password=password)
+                if user:
+                    if not user.is_active:
+                        raise serializers.ValidationError("حساب کاربری شما غیرفعال است.")
+                    attrs['user'] = user
+                else:
+                    raise serializers.ValidationError("شماره تلفن یا رمز عبور اشتباه است.")
         else:
             raise serializers.ValidationError("شماره تلفن و رمز عبور الزامی است.")
         
