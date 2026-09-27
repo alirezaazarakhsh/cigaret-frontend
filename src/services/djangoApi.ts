@@ -1253,10 +1253,22 @@ export async function djangoFetchSmsLogs(config?: DjangoCrmConfig): Promise<any[
     const res = await executeSmsEndpoint('/logs/', 'GET', undefined, config);
     if (res.success && res.data) {
       const data: any = res.data;
-      const logs = Array.isArray(data) ? data : (data.data || data.results || []);
-      if (Array.isArray(logs) && logs.length > 0) {
-        djangoDatabaseStore.saveSmsLogs(logs);
-        return logs;
+      const rawLogs = Array.isArray(data) ? data : (data.data || data.results || []);
+      if (Array.isArray(rawLogs)) {
+        const mappedLogs = rawLogs.map((log: any) => ({
+          id: log.id,
+          recipient_phone: log.recipient_phone || log.recipient || log.phone || '',
+          pattern: log.pattern_name || log.pattern_key || (typeof log.pattern === 'string' ? log.pattern : '') || 'پیامک عمومی',
+          pattern_name: log.pattern_name || log.pattern_key || 'پیامک عمومی',
+          pattern_code: log.pattern_code || (log.pattern && typeof log.pattern === 'object' ? log.pattern.pattern_code : '') || '',
+          tokens_sent: log.tokens_sent || log.tokens || {},
+          kavenegar_message_id: log.kavenegar_message_id || '',
+          status: log.status || 'delivered',
+          cost_rial: log.cost_rial || 240,
+          created_at: log.created_at || new Date().toISOString()
+        }));
+        djangoDatabaseStore.saveSmsLogs(mappedLogs);
+        return mappedLogs;
       }
     }
   } catch (e) {

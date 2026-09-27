@@ -265,6 +265,7 @@ export interface UserProfile {
   province: string;
   city: string;
   address: string;
+  isVisitor?: boolean;
   
   // اطلاعات وسیله نقلیه ویزیتور
   vehicleType?: 'motorcycle' | 'car' | 'van' | 'truck';

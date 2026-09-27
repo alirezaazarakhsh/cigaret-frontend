@@ -921,6 +921,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     role: string;
     loginTime: string;
     avatarColor?: string;
+    isCurrentUser?: boolean;
   }[]>(() => {
     try {
       const saved = localStorage.getItem('sovin_pos_online_sessions');
@@ -952,50 +953,73 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   useEffect(() => {
     let isMounted = true;
+    let ws: WebSocket | null = null;
+    let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+
+    const processSessionsList = (rawSessions: any[]) => {
+      if (!isMounted || !Array.isArray(rawSessions)) return;
+
+      const currentPhoneClean = currentStaff?.phone ? String(currentStaff.phone).replace(/\D/g, '') : '';
+      const currentIdStr = currentStaff?.id ? String(currentStaff.id) : '';
+
+      const mapped = rawSessions.map((s: any) => {
+        const sPhoneClean = s.phone ? String(s.phone).replace(/\D/g, '') : '';
+        const sIdStr = String(s.id || s.user_id || s.userId || '');
+        const isMe = Boolean(
+          s.isCurrentUser || s.is_current_user || s.is_self ||
+          (currentIdStr && sIdStr === currentIdStr) ||
+          (currentPhoneClean && sPhoneClean && sPhoneClean === currentPhoneClean)
+        );
+
+        let formattedTime = s.loginTime || s.login_time || s.online_time || s.time || '';
+        if (s.last_login && (!formattedTime || formattedTime === 'ورود جدید')) {
+          try {
+            formattedTime = new Intl.DateTimeFormat('fa-IR', {
+              hour: '2-digit',
+              minute: '2-digit'
+            }).format(new Date(s.last_login));
+          } catch {}
+        }
+        if (!formattedTime) {
+          formattedTime = 'ورود جدید';
+        }
+
+        return {
+          id: sIdStr || sPhoneClean || s.fullName || s.full_name,
+          fullName: s.fullName || s.full_name || s.name || 'کاربر سیستم',
+          phone: s.phone || s.mobile || s.username || '',
+          roleTitleFa: s.roleTitleFa || s.role_title || s.role_display || 'صندوق‌دار فروشگاه',
+          role: s.role || 'staff',
+          loginTime: formattedTime,
+          avatarColor: s.avatarColor || 'bg-indigo-600',
+          isCurrentUser: isMe
+        };
+      });
+
+      // Ensure current user session is present in list
+      const hasCurrent = mapped.some((s: any) => s.isCurrentUser);
+      if (!hasCurrent && currentStaff && currentStaff.phone) {
+        mapped.unshift({
+          id: String(currentStaff.id || 'current_user_session'),
+          fullName: currentStaff.fullName,
+          phone: currentStaff.phone,
+          roleTitleFa: currentStaff.roleTitleFa || 'مدیریت / صندوق',
+          role: currentStaff.role || 'staff',
+          loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
+          avatarColor: currentStaff.avatarColor || 'bg-indigo-600',
+          isCurrentUser: true
+        });
+      }
+
+      setOnlineSessions(mapped);
+    };
+
     const loadActiveSessions = async () => {
       try {
         const res = await staffAuthService.getActiveSessions();
-        if (res && res.success && Array.isArray(res.data) && res.data.length > 0 && isMounted) {
-          const currentPhoneClean = currentStaff?.phone ? String(currentStaff.phone).replace(/\D/g, '') : '';
-          const currentIdStr = currentStaff?.id ? String(currentStaff.id) : '';
-
-          const mapped = res.data.map((s: any) => {
-            const sPhoneClean = s.phone ? String(s.phone).replace(/\D/g, '') : '';
-            const sIdStr = String(s.id || s.user_id || s.userId || '');
-            const isMe = Boolean(
-              s.isCurrentUser || s.is_current_user || s.is_self ||
-              (currentIdStr && sIdStr === currentIdStr) ||
-              (currentPhoneClean && sPhoneClean && sPhoneClean === currentPhoneClean)
-            );
-
-            return {
-              id: sIdStr || sPhoneClean || s.fullName || s.full_name,
-              fullName: s.fullName || s.full_name || s.name || 'کاربر سیستم',
-              phone: s.phone || s.mobile || s.username || '',
-              roleTitleFa: s.roleTitleFa || s.role_title || s.role_display || 'صندوق‌دار فروشگاه',
-              role: s.role || 'staff',
-              loginTime: s.loginTime || s.online_time || s.login_time || s.time || new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-              avatarColor: s.avatarColor || 'bg-indigo-600',
-              isCurrentUser: isMe
-            };
-          });
-
-          // Ensure current user session is present in list
-          const hasCurrent = mapped.some((s: any) => s.isCurrentUser);
-          if (!hasCurrent && currentStaff && currentStaff.phone) {
-            mapped.unshift({
-              id: String(currentStaff.id || 'current_user_session'),
-              fullName: currentStaff.fullName,
-              phone: currentStaff.phone,
-              roleTitleFa: currentStaff.roleTitleFa || 'مدیریت / صندوق',
-              role: currentStaff.role || 'staff',
-              loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-              avatarColor: currentStaff.avatarColor || 'bg-indigo-600',
-              isCurrentUser: true
-            });
-          }
-
-          setOnlineSessions(mapped);
+        if (res && res.success && Array.isArray(res.data) && isMounted) {
+          processSessionsList(res.data);
           return;
         }
       } catch {}
@@ -1016,11 +1040,65 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       }
     };
 
+    // 1. Initial REST API Load
     loadActiveSessions();
-    const timer = setInterval(loadActiveSessions, 5000);
+
+    // 2. Real-time WebSocket Connection
+    const connectWebSocket = () => {
+      try {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        let host = window.location.host;
+        if (!host || host.includes('localhost') || host.includes('127.0.0.1')) {
+          host = 'cigar.sevinhost.ir';
+        }
+        
+        const wsUrl = `${protocol}//${host}/ws/sessions/`;
+        ws = new WebSocket(wsUrl);
+
+        ws.onopen = () => {
+          // Send join / authenticate payload if needed
+          ws?.send(JSON.stringify({ action: 'subscribe_sessions', phone: currentStaff?.phone }));
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            const sessionsPayload = data.sessions || data.data || data;
+            if (Array.isArray(sessionsPayload)) {
+              processSessionsList(sessionsPayload);
+            }
+          } catch {}
+        };
+
+        ws.onerror = () => {
+          if (ws) ws.close();
+        };
+
+        ws.onclose = () => {
+          if (!isMounted) return;
+          // Retry connection after 10s if closed
+          reconnectTimeout = setTimeout(connectWebSocket, 10000);
+        };
+      } catch {
+        if (isMounted) {
+          reconnectTimeout = setTimeout(connectWebSocket, 15000);
+        }
+      }
+    };
+
+    connectWebSocket();
+
+    // 3. Low-frequency fallback polling (every 60s instead of 5s) only as safety net
+    fallbackInterval = setInterval(loadActiveSessions, 60000);
+
     return () => {
       isMounted = false;
-      clearInterval(timer);
+      if (ws) {
+        ws.onclose = null;
+        ws.close();
+      }
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
+      if (fallbackInterval) clearInterval(fallbackInterval);
     };
   }, [isAuthenticated, currentStaff?.phone, currentStaff?.id, currentStaff?.fullName]);
 

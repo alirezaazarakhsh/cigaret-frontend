@@ -81,7 +81,16 @@ def get_current_user_id_from_request(request):
 
 def format_user_login_time(user):
     """فرمت‌دهی زمان آخرین ورود کاربر"""
-    last_login = getattr(user, 'last_login', None) or timezone.now()
+    last_login = getattr(user, 'last_login', None)
+    if not last_login:
+        return {
+            "last_login": None,
+            "login_time": "",
+            "loginTime": "",
+            "online_time": "",
+            "last_seen": "",
+            "time": "",
+        }
     if timezone.is_aware(last_login):
         last_login = timezone.localtime(last_login)
     time_str = last_login.strftime('%H:%M')

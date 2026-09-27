@@ -203,12 +203,32 @@ function getTabFromPath(pathname: string): NavigationTab {
   if (isPosOnlyMode()) {
     return 'accounting-pos';
   }
-  // Normalize path by checking both the pathname and the hash (for legacy or fallback support)
+  // Normalize path by checking pathname, hash, and search params
   const hash = typeof window !== 'undefined' ? window.location.hash : '';
-  const p = (pathname + hash).toLowerCase();
+  const search = typeof window !== 'undefined' ? window.location.search : '';
+  const p = (pathname + hash + search).toLowerCase();
   
+  if (
+    p.includes('/shopmanage') || 
+    p.includes('/pos') || 
+    p.includes('/sandogh') || 
+    p.includes('/sandoogh') || 
+    p.includes('/cashier') || 
+    p.includes('app_mode=pos_only')
+  ) {
+    return 'accounting-pos';
+  }
+
+  // Check if accessing from installed PWA or if user explicitly prefers POS view
+  if (typeof window !== 'undefined') {
+    const isPreferPos = localStorage.getItem('sevin_prefer_pos_view') === 'true';
+    const isPosPwa = window.matchMedia('(display-mode: standalone)').matches && (
+      window.location.pathname.startsWith('/shopmanage') || isPreferPos
+    );
+    if (isPosPwa || (isPreferPos && p === '/')) return 'accounting-pos';
+  }
+
   if (p.includes('/product/category/') || p.includes('/products/category/')) return 'catalog';
-  if (p.includes('/shopmanage')) return 'accounting-pos';
   if (p.includes('/azarakhsh') || p.includes('/api-docs') || p.includes('/django-docs')) return 'django-docs';
   if (p.includes('/contact-us') || p.includes('/contact') || p.includes('/tamas')) return 'contact';
   if (p.includes('/login') || p.includes('/user-panel') || p.includes('/profile') || p.includes('/hesab')) return 'user-panel';
