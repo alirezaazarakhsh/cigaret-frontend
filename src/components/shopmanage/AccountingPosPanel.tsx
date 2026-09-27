@@ -974,19 +974,30 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     let fallbackInterval: ReturnType<typeof setInterval> | null = null;
 
+    const normalizePhoneKey = (val: any): string => {
+      const digits = String(val || '')
+        .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+        .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+        .replace(/\D/g, '');
+      return digits.length >= 10 ? digits.slice(-10) : digits;
+    };
+
     const processSessionsList = (rawSessions: any[]) => {
       if (!isMounted || !Array.isArray(rawSessions)) return;
 
-      const currentPhoneClean = currentStaff?.phone ? String(currentStaff.phone).replace(/\D/g, '') : '';
+      const currentPhoneKey = normalizePhoneKey(currentStaff?.phone);
       const currentIdStr = currentStaff?.id ? String(currentStaff.id) : '';
+      const dedupedMap = new Map<string, any>();
 
-      const mapped = rawSessions.map((s: any) => {
-        const sPhoneClean = s.phone ? String(s.phone).replace(/\D/g, '') : '';
+      rawSessions.forEach((s: any) => {
+        if (!s) return;
+        const sPhoneRaw = s.phone || s.mobile || s.username || '';
+        const sPhoneKey = normalizePhoneKey(sPhoneRaw);
         const sIdStr = String(s.id || s.user_id || s.userId || '');
         const isMe = Boolean(
           s.isCurrentUser || s.is_current_user || s.is_self ||
           (currentIdStr && sIdStr === currentIdStr) ||
-          (currentPhoneClean && sPhoneClean && sPhoneClean === currentPhoneClean)
+          (currentPhoneKey && sPhoneKey && sPhoneKey === currentPhoneKey)
         );
 
         let formattedTime = s.loginTime || s.login_time || s.online_time || s.time || '';
@@ -1002,21 +1013,31 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           formattedTime = 'ورود جدید';
         }
 
-        return {
-          id: sIdStr || sPhoneClean || s.fullName || s.full_name,
+        const sessionItem = {
+          id: sIdStr || sPhoneKey || s.fullName || s.full_name,
           fullName: s.fullName || s.full_name || s.name || 'کاربر سیستم',
-          phone: s.phone || s.mobile || s.username || '',
+          phone: sPhoneRaw,
           roleTitleFa: s.roleTitleFa || s.role_title || s.role_display || 'صندوق‌دار فروشگاه',
           role: s.role || 'staff',
           loginTime: formattedTime,
-          avatarColor: s.avatarColor || 'bg-indigo-600',
+          avatarColor: s.avatarColor || (s.role === 'super_admin' ? 'bg-indigo-600' : 'bg-emerald-600'),
           isCurrentUser: isMe
         };
+
+        const uniqueKey = sPhoneKey || sIdStr || sessionItem.fullName;
+        if (uniqueKey) {
+          const existing = dedupedMap.get(uniqueKey);
+          if (!existing || isMe) {
+            dedupedMap.set(uniqueKey, sessionItem);
+          }
+        }
       });
 
-      // Ensure current user session is present in list
-      const hasCurrent = mapped.some((s: any) => s.isCurrentUser);
-      if (!hasCurrent && currentStaff && currentStaff.phone) {
+      const mapped = Array.from(dedupedMap.values());
+
+      // Ensure current user session is present in list if authenticated
+      const hasCurrent = mapped.some((s: any) => s.isCurrentUser || (currentPhoneKey && normalizePhoneKey(s.phone) === currentPhoneKey));
+      if (isAuthenticated && !hasCurrent && currentStaff && currentStaff.phone) {
         mapped.unshift({
           id: String(currentStaff.id || 'current_user_session'),
           fullName: currentStaff.fullName,
@@ -1053,12 +1074,21 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           avatarColor: currentStaff.avatarColor || 'bg-indigo-600',
           isCurrentUser: true
         };
-        setOnlineSessions([mySession]);
+        setOnlineSessions(prev => {
+          const others = prev.filter(p => normalizePhoneKey(p.phone) !== normalizePhoneKey(mySession.phone));
+          return [mySession, ...others];
+        });
       }
     };
 
-    // 1. Initial REST API Load
-    loadActiveSessions();
+    // 1. Sync current device's staff presence to Django DB and fetch all active sessions
+    if (isAuthenticated && currentStaff?.phone) {
+      staffAuthService.syncStaffPresence(currentStaff).finally(() => {
+        if (isMounted) loadActiveSessions();
+      });
+    } else {
+      loadActiveSessions();
+    }
 
     const handleSessionsChanged = (e: any) => {
       if (e?.detail?.sessions) {
@@ -1122,8 +1152,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
     connectWebSocket();
 
-    // 3. Low-frequency fallback polling (every 60s instead of 5s) only as safety net
-    fallbackInterval = setInterval(loadActiveSessions, 60000);
+    // 3. Poll active sessions every 10s so concurrent logins/logouts across devices stay in sync
+    fallbackInterval = setInterval(loadActiveSessions, 10000);
 
     return () => {
       isMounted = false;
@@ -1138,7 +1168,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (fallbackInterval) clearInterval(fallbackInterval);
     };
-  }, [isAuthenticated, currentStaff?.phone, currentStaff?.id, currentStaff?.fullName]);
+  }, [isAuthenticated, currentStaff?.phone, currentStaff?.id, currentStaff?.fullName, showOnlineStaffModal, showStaffModal]);
 
   const [showQuickAddProductModal, setShowQuickAddProductModal] = useState<boolean>(false);
   const [pendingBarcode, setPendingBarcode] = useState<string>('');
@@ -1439,7 +1469,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             localStorage.setItem('sovin_pos_staff', JSON.stringify(updatedStaffList));
           }
 
-          // Register in concurrent online sessions
+          // Register in concurrent online sessions and fetch all active sessions from Django DB
           setOnlineSessions(prev => {
             if (prev.some(s => s.phone === res.data.user.phone)) return prev;
             return [
@@ -1450,11 +1480,17 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 roleTitleFa: res.data.user.roleTitleFa,
                 role: res.data.user.role,
                 loginTime: new Date().toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }),
-                avatarColor: res.data.user.avatarColor || 'bg-indigo-600'
+                avatarColor: res.data.user.avatarColor || 'bg-indigo-600',
+                isCurrentUser: true
               },
               ...prev
             ];
           });
+          staffAuthService.getActiveSessions().then(activeRes => {
+            if (activeRes && activeRes.success && Array.isArray(activeRes.data) && activeRes.data.length > 0) {
+              window.dispatchEvent(new CustomEvent('sevin-pos-online-sessions-changed'));
+            }
+          }).catch(() => {});
         } catch {}
         
         // Refresh live SMS logs list since a "welcome" SMS was just logged on login
@@ -1476,16 +1512,21 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   const handleLogout = async () => {
     setIsLoggingOut(true);
-    
-    // ۱. پاکسازی نشست در حافظه کلاینت بلافاصله
+    const logoutPhone = currentStaff?.phone;
+    const logoutUserId = (currentStaff as any)?.user_id || currentStaff?.id;
+
+    // ۱. فراخوانی بک‌اند با ارسال شماره همراه و شناسه کاربر جهت پاکسازی نشست از لیست آنلاین
+    try {
+      await api.accounts.posLogout(logoutPhone, logoutUserId);
+    } catch (err) {
+      console.error('Logout API error:', err);
+    }
+
+    // ۲. پاکسازی نشست در حافظه کلاینت
     invalidatePosTokenAndSession('manual_logout');
-    
-    // ۲. فراخوانی بک‌اند در پس‌زمینه بدون مسدودسازی رابط کاربری
-    // از try-catch برای اطمینان از عدم توقف در صورت خطای بک‌اند استفاده شد
-    api.accounts.posLogout().catch(err => console.error('Logout background API error:', err));
-    
-    if (currentStaff?.phone) {
-      setOnlineSessions(prev => prev.filter(s => s.phone !== currentStaff.phone));
+
+    if (logoutPhone) {
+      setOnlineSessions(prev => prev.filter(s => s.phone !== logoutPhone));
     }
 
     // هدایت سریع به صفحه لاگین بدون وقفه طولانی
@@ -4054,6 +4095,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 onUpdateStaffList={setStaffList}
                 onSwitchCurrentStaff={setCurrentStaff}
                 onClose={() => setActiveSubTab('pos')}
+                onlineSessions={onlineSessions}
               />
             </motion.div>
           )}
@@ -5349,7 +5391,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                   </div>
                   <p className="text-xs text-slate-500 mt-0.5">
                     لیست حساب‌های فعال همزمان در سیستم حسابداری دخانیات سرو ({
-                      Array.from(new Map(onlineSessions.map(s => [String(s.id || s.phone || s.fullName), s])).values()).length
+                      Array.from(new Map(onlineSessions.map(s => [String(s.phone || '').replace(/\D/g, '').slice(-10) || String(s.id || s.fullName), s])).values()).length
                     } کاربر آنلاین)
                   </p>
                 </div>
@@ -5370,9 +5412,9 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5 max-h-[420px] overflow-y-auto pr-1">
-              {Array.from(new Map(onlineSessions.map(s => [String(s.id || s.phone || s.fullName), s])).values()).map((session) => {
-                const sessionCleanPhone = String(session.phone || '').replace(/\D/g, '');
-                const currentStaffCleanPhone = String(currentStaff.phone || '').replace(/\D/g, '');
+              {Array.from(new Map(onlineSessions.map(s => [String(s.phone || '').replace(/\D/g, '').slice(-10) || String(s.id || s.fullName), s])).values()).map((session) => {
+                const sessionCleanPhone = String(session.phone || '').replace(/\D/g, '').slice(-10);
+                const currentStaffCleanPhone = String(currentStaff.phone || '').replace(/\D/g, '').slice(-10);
                 const isMe = session.isCurrentUser || String(session.id) === String(currentStaff.id) || (Boolean(sessionCleanPhone) && sessionCleanPhone === currentStaffCleanPhone);
 
                 return (

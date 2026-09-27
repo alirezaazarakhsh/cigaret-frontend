@@ -1728,6 +1728,11 @@ export const accountsApi = {
    * Toggle staff lock / active status in Django DB via POST /api/v1/posuserstaff/{id}/toggle-lock/
    */
   toggleStaffLock: staffAuthService.toggleStaffLock,
+
+  /**
+   * Get all concurrent active POS staff sessions across devices from GET /api/v1/posuseractive-sessions/
+   */
+  getActiveSessions: staffAuthService.getActiveSessions,
 };
 
 // ==========================================

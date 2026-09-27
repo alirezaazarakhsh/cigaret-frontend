@@ -3,6 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny
 from django.conf import settings
+from django.db.models import Q
 from django.contrib.auth import get_user_model, authenticate
 from django.contrib.auth.hashers import check_password, make_password
 from django.utils import timezone
@@ -212,7 +213,7 @@ class LogoutStaffAPIView(APIView):
         tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request):
-        user_id = get_current_user_id_from_request(request)
+        user_id = get_current_user_id_from_request(request) or request.data.get('user_id')
         phone = request.data.get('phone') or request.data.get('username') or request.data.get('mobile')
 
         if user_id:

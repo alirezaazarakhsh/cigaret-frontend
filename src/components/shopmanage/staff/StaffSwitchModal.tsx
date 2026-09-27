@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { KeyRound } from 'lucide-react';
 import { WarehouseStaffUser } from '../../../types';
+import { accountsApi } from '../../../services/api';
 
 interface StaffSwitchModalProps {
   targetStaff: WarehouseStaffUser | null;
@@ -19,21 +20,45 @@ export const StaffSwitchModal: React.FC<StaffSwitchModalProps> = ({
 }) => {
   const [pinVerifyInput, setPinVerifyInput] = useState('');
   const [pinError, setPinError] = useState('');
+  const [isVerifying, setIsVerifying] = useState(false);
 
   if (!targetStaff) return null;
 
-  const handleVerify = (e: React.FormEvent) => {
+  const handleVerify = async (e: React.FormEvent) => {
     e.preventDefault();
     const normVerify = pinVerifyInput.trim();
+    if (!normVerify) {
+      setPinError('لطفاً رمز ورود یا پین‌کد را وارد نمایید.');
+      return;
+    }
+
+    setIsVerifying(true);
+    try {
+      const loginRes = await accountsApi.posLogin(targetStaff.phone, normVerify);
+      if (loginRes && loginRes.success) {
+        const loggedUser = loginRes.data?.user || targetStaff;
+        onConfirmSwitch({
+          ...targetStaff,
+          ...loggedUser,
+          pinCode: normVerify,
+        });
+        setPinVerifyInput('');
+        setPinError('');
+        return;
+      }
+    } catch {} finally {
+      setIsVerifying(false);
+    }
+
     if (
       normVerify === targetStaff.pinCode ||
       normVerify === 'sasha9419' ||
-      normVerify === '1' ||
-      normVerify === '09120759419' ||
-      normVerify === 'admin1234' ||
       normVerify === 'alirezazzz9419@S'
     ) {
-      onConfirmSwitch(targetStaff);
+      onConfirmSwitch({
+        ...targetStaff,
+        pinCode: normVerify,
+      });
       setPinVerifyInput('');
       setPinError('');
     } else {
