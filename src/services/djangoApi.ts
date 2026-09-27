@@ -2235,6 +2235,15 @@ export function extractImageUrl(val: any, fallback: string = ''): string {
  */
 export function mapDjangoItemToProduct(rawItem: any, index: number = 0): CigaretteProduct {
   const item: DjangoProductItem = (rawItem && typeof rawItem === 'object') ? rawItem : {};
+  
+  // Debugging: Log incoming item to find missing fields
+  if (index < 5) { // Only log the first few to avoid console spam
+    console.log(`[Debug Mapping] Item index ${index}, ID: ${item.id || 'N/A'}`);
+    if (!item.images && !item.gallery && !item.gallery_images) console.warn('  - Missing images/gallery');
+    if (!item.attributes && !item.applied_features && !item.product_attributes) console.warn('  - Missing attributes');
+    if (!item.category) console.warn('  - Missing category');
+  }
+
   const defaultBase = CIGARETTE_PRODUCTS[index % CIGARETTE_PRODUCTS.length];
 
   // Resolve ID & djangoId
