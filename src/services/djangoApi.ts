@@ -2374,6 +2374,10 @@ export function extractImageUrl(val: any, fallback: string = ''): string {
 const PRODUCT_RICH_OVERRIDES_KEY = 'sevin_product_rich_overrides';
 
 export interface ProductRichOverride {
+  category?: string;
+  category_id?: number;
+  category_name?: string;
+  category_slug?: string;
   excerpt?: string;
   description?: string;
   metaDescription?: string;
@@ -2469,16 +2473,18 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
   const brandId = typeof item.brand === 'number' ? item.brand : (typeof item.brand_detail?.id === 'number' ? item.brand_detail.id : (typeof item.brand_id === 'number' ? item.brand_id : undefined));
 
   const categorySlug = extractStringFromField(
-    item.category_slug || item.category_detail?.slug || (typeof item.category === 'object' ? item.category?.slug : ''),
+    richOverride?.category_slug || item.category_slug || item.category_detail?.slug || (typeof item.category === 'object' ? item.category?.slug : ''),
     ''
   );
   const categoryName = extractStringFromField(
-    item.category_name || item.category_detail?.name || (typeof item.category === 'object' ? item.category?.name : ''),
+    richOverride?.category_name || item.category_name || item.category_detail?.name || (typeof item.category === 'object' ? item.category?.name : ''),
     ''
   );
-  const categoryId = typeof item.category === 'number' ? item.category : (typeof item.category_detail?.id === 'number' ? item.category_detail.id : (typeof item.category_id === 'number' ? item.category_id : undefined));
+  const categoryId = typeof richOverride?.category_id === 'number'
+    ? richOverride.category_id
+    : (typeof item.category === 'number' ? item.category : (typeof item.category_detail?.id === 'number' ? item.category_detail.id : (typeof item.category_id === 'number' ? item.category_id : undefined)));
   const category = extractCategory(
-    categorySlug || categoryName || item.category || item.group,
+    richOverride?.category || categorySlug || categoryName || item.category || item.group,
     'cigarettes'
   );
 
@@ -4187,24 +4193,31 @@ export async function djangoFetchPosStaffList(config?: DjangoCrmConfig): Promise
   return djangoDatabaseStore.getPosStaff();
 }
 
+let cachedWorkingActiveSessionsPath: string | null = null;
+
 export async function djangoFetchActiveSessions(config?: DjangoCrmConfig): Promise<any[]> {
   const ts = Date.now();
-  const candidateUrls = [
-    `/api/v1/posuseractive-sessions/?_t=${ts}`,
-    `/api/v1/posuser/active-sessions/?_t=${ts}`,
-    `/api/v1/posuseractive-staff/?_t=${ts}`,
-    `/api/v1/posuser/active-staff/?_t=${ts}`,
+  const allPaths = [
+    '/api/v1/posuser/active-sessions/',
+    '/api/v1/posuseractive-sessions/',
+    '/api/v1/posuser/active-staff/',
+    '/api/v1/posuseractive-staff/',
   ];
+  const candidatePaths = cachedWorkingActiveSessionsPath
+    ? [cachedWorkingActiveSessionsPath, ...allPaths.filter(p => p !== cachedWorkingActiveSessionsPath)]
+    : allPaths;
 
-  for (const url of candidateUrls) {
-    const res = await executeDjangoAxiosRequest(url, 'GET', undefined, {
+  for (const path of candidatePaths) {
+    const res = await executeDjangoAxiosRequest(`${path}?_t=${ts}`, 'GET', undefined, {
       apiUrl: config?.apiUrl,
+      timeoutMs: 4000,
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
       },
     });
     if (res.success && res.data) {
+      cachedWorkingActiveSessionsPath = path;
       const list = Array.isArray(res.data)
         ? res.data
         : (res.data.data || res.data.sessions || res.data.active_staff || res.data.staff || res.data.results || []);

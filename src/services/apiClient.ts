@@ -72,7 +72,7 @@ async function request<T = any>(
 
   const headers: Record<string, string> = {
     'Accept': 'application/json',
-    ...DEFAULT_NO_CACHE_HEADERS,
+    ...(method === 'GET' ? DEFAULT_NO_CACHE_HEADERS : {}),
     ...(options.headers || {}),
   };
 
@@ -188,12 +188,11 @@ async function request<T = any>(
   };
 
   try {
-    const response = await fetchWithTimeout(fullUrl, reqInit, options.timeoutMs || 60000);
+    const response = await fetchWithTimeout(fullUrl, reqInit, options.timeoutMs || 25000);
     return await parseResponse(response);
   } catch (error: any) {
-    // If the request fails (e.g. cross-origin CORS preflight rejection when custom headers like Cache-Control are sent),
-    // automatically retry once with minimal headers to ensure zero downtime for the user
-    if (headers['Cache-Control'] && !options._isRetry) {
+    // Only retry GET requests when non-timeout network/CORS preflight error occurs with custom Cache-Control headers
+    if (method === 'GET' && error?.name !== 'AbortError' && headers['Cache-Control'] && !options._isRetry) {
       try {
         const fallbackHeaders = { ...headers };
         delete fallbackHeaders['Cache-Control'];
@@ -203,7 +202,7 @@ async function request<T = any>(
           ...reqInit,
           headers: fallbackHeaders,
         };
-        const fallbackRes = await fetchWithTimeout(fullUrl, fallbackInit, options.timeoutMs || 60000);
+        const fallbackRes = await fetchWithTimeout(fullUrl, fallbackInit, options.timeoutMs || 15000);
         return await parseResponse(fallbackRes);
       } catch {
         // Fall through to standard error handling

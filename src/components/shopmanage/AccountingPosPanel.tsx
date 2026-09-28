@@ -1187,8 +1187,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       connectWebSocket();
     }
 
-    // 3. Poll active sessions every 3s so concurrent logins/logouts across devices stay in sync in real time
-    fallbackInterval = setInterval(loadActiveSessions, 3000);
+    // 3. Poll active sessions every 12s so concurrent logins/logouts across devices stay in sync without flooding the network
+    fallbackInterval = setInterval(loadActiveSessions, 12000);
 
     return () => {
       isMounted = false;

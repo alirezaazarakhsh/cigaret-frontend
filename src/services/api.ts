@@ -731,12 +731,28 @@ export const productsApi = {
     const safeImage = (product.image && product.image.startsWith('data:')) ? '' : (product.image || '');
 
     // Smart PK Resolution for Category
-    let resolvedCategoryPk: number | null = null;
-    if (product.category !== undefined && product.category !== null && !isNaN(Number(product.category))) {
-      resolvedCategoryPk = Number(product.category);
-    } else if (product.category && typeof product.category === 'string') {
-      try {
-        const cats = await categoriesApi.getAll();
+    let resolvedCategoryPk: number | null = typeof (product as any).category_id === 'number'
+      ? (product as any).category_id
+      : null;
+    let resolvedCategoryName: string = (product as any).category_name || '';
+    let resolvedCategorySlug: string = (product as any).category_slug || '';
+
+    try {
+      const cats = await categoriesApi.getAll();
+      if (resolvedCategoryPk !== null) {
+        const byId = cats.find(c => Number(c.id) === resolvedCategoryPk);
+        if (byId) {
+          resolvedCategoryName = resolvedCategoryName || byId.name || '';
+          resolvedCategorySlug = resolvedCategorySlug || byId.slug || '';
+        }
+      } else if (product.category !== undefined && product.category !== null && !isNaN(Number(product.category))) {
+        resolvedCategoryPk = Number(product.category);
+        const byId = cats.find(c => Number(c.id) === resolvedCategoryPk);
+        if (byId) {
+          resolvedCategoryName = resolvedCategoryName || byId.name || '';
+          resolvedCategorySlug = resolvedCategorySlug || byId.slug || '';
+        }
+      } else if (product.category && typeof product.category === 'string') {
         const catTarget = product.category.trim().toLowerCase();
         const matched = cats.find(c => 
           String(c.id) === catTarget || 
@@ -746,19 +762,37 @@ export const productsApi = {
         );
         if (matched && !isNaN(Number(matched.id))) {
           resolvedCategoryPk = Number(matched.id);
+          resolvedCategoryName = resolvedCategoryName || matched.name || '';
+          resolvedCategorySlug = resolvedCategorySlug || matched.slug || '';
         } else if (cats.length > 0 && !isNaN(Number(cats[0].id))) {
-          // If category not found, create or pick first valid category
           try {
             const createdCat = await categoriesApi.create({ name: product.category, slug: `cat-${Date.now()}` });
             if (createdCat && !isNaN(Number(createdCat.id))) {
               resolvedCategoryPk = Number(createdCat.id);
+              resolvedCategoryName = createdCat.name || product.category;
+              resolvedCategorySlug = createdCat.slug || '';
             }
           } catch {
             resolvedCategoryPk = Number(cats[0].id);
+            resolvedCategoryName = cats[0].name || '';
+            resolvedCategorySlug = cats[0].slug || '';
           }
         }
-      } catch {}
-    }
+      }
+    } catch {}
+
+    // Known valid category_id values from existing products in products_product table (satisfies legacy categories_category FK on server)
+    const knownValidCategoryIds = Array.from(
+      new Set([
+        ...getLocalProducts()
+          .map((p: any) => Number(p?.category_id))
+          .filter((n: number) => !isNaN(n) && n > 0),
+        1,
+      ])
+    );
+    const dbSafeCategoryPk = (resolvedCategoryPk !== null && knownValidCategoryIds.includes(resolvedCategoryPk))
+      ? resolvedCategoryPk
+      : (knownValidCategoryIds[0] ?? 1);
 
     // Smart PK Resolution for Brand
     let resolvedBrandPk: number | null = null;
@@ -876,7 +910,7 @@ export const productsApi = {
       name_en: product.nameEn || '',
       slug: product.slug || `prod-${Date.now()}`,
       ...(product.barcode && product.barcode.trim() ? { barcode: product.barcode.trim().slice(0, 60) } : {}),
-      category: resolvedCategoryPk !== null ? resolvedCategoryPk : (typeof product.category === 'number' ? product.category : null),
+      category: dbSafeCategoryPk,
       brand: resolvedBrandPk !== null ? resolvedBrandPk : (typeof product.brand === 'number' ? product.brand : null),
       hologram: resolvedHologramPk !== null ? resolvedHologramPk : (typeof product.hologram === 'number' ? product.hologram : null),
       carton_price: Number(product.cartonPrice) || 0,
@@ -933,7 +967,10 @@ export const productsApi = {
       nameFa: product.nameFa || 'محصول جدید',
       nameEn: product.nameEn || '',
       brand: product.brand || '',
-      category: (product.category as any) || 'cigarettes',
+      category: (resolvedCategorySlug || product.category || 'cigarettes') as any,
+      category_id: resolvedCategoryPk ?? dbSafeCategoryPk,
+      category_name: resolvedCategoryName || undefined,
+      category_slug: resolvedCategorySlug || undefined,
       origin: product.origin || 'ایران',
       tar: product.tar || '',
       nicotine: product.nicotine || '',
@@ -976,16 +1013,6 @@ export const productsApi = {
       keyTakeaways: product.keyTakeaways || [],
     };
 
-    // Known valid category_id values from existing products in products_product table (satisfies legacy categories_category FK)
-    const knownValidCategoryIds = Array.from(
-      new Set([
-        ...getLocalProducts()
-          .map((p: any) => Number(p?.category_id))
-          .filter((n: number) => !isNaN(n) && n > 0),
-        1,
-      ])
-    );
-
     // Primary DRF endpoints in order
     const candidateEndpoints = [
       '/products/items/create/',
@@ -996,14 +1023,11 @@ export const productsApi = {
 
     let response: any = { success: false, status: 404 };
     for (const ep of candidateEndpoints) {
-      response = await httpClient.post(ep, payload, { timeoutMs: 8000 });
+      response = await httpClient.post(ep, payload, { timeoutMs: 25000 });
       if (response.success) break;
-      // If server returned 400 or 500 (e.g. IntegrityError on legacy categories_category FK or duplicate slug/barcode), retry with safe fallback category
-      if (response.status === 400 || response.status === 500) {
-        const fallbackCategoryPk =
-          knownValidCategoryIds.find(id => id !== payload.category) ??
-          knownValidCategoryIds[0] ??
-          1;
+      // If server returned 0 (CORS/500/timeout), 400, or 500 (e.g. IntegrityError or duplicate slug/barcode), retry with safe fallback payload
+      if (response.status === 0 || response.status === 400 || response.status === 500) {
+        const fallbackCategoryPk = knownValidCategoryIds[0] ?? 1;
         const sanitizedPayload: Record<string, any> = {
           ...payload,
           slug: `prod-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -1014,7 +1038,7 @@ export const productsApi = {
           gallery_images: safeImages,
         };
         delete sanitizedPayload.barcode;
-        const retryRes = await httpClient.post(ep, sanitizedPayload, { timeoutMs: 8000 });
+        const retryRes = await httpClient.post(ep, sanitizedPayload, { timeoutMs: 20000 });
         if (retryRes.success) {
           response = retryRes;
           break;
@@ -1027,14 +1051,16 @@ export const productsApi = {
           brand: null,
           hologram: null,
         };
-        const retryRes2 = await httpClient.post(ep, ultraSafeCreatePayload, { timeoutMs: 8000 });
+        const retryRes2 = await httpClient.post(ep, ultraSafeCreatePayload, { timeoutMs: 20000 });
         if (retryRes2.success) {
           response = retryRes2;
           break;
         }
+        // Stop looping through other endpoints if the primary endpoint exists (status !== 404 && status !== 405)
+        break;
       }
-      if (response.status !== 404 && response.status !== 405 && response.status !== 0) {
-        continue;
+      if (response.status !== 404 && response.status !== 405) {
+        break;
       }
     }
 
@@ -1042,6 +1068,10 @@ export const productsApi = {
       const respData = response.data.data || response.data;
       const finalCreatedId = String(respData.id || newProdId);
       saveProductRichOverride(finalCreatedId, {
+        category: String(resolvedCategorySlug || product.category || 'cigarettes'),
+        category_id: resolvedCategoryPk ?? dbSafeCategoryPk,
+        category_name: resolvedCategoryName || undefined,
+        category_slug: resolvedCategorySlug || undefined,
         excerpt: product.excerpt || '',
         description: product.description || '',
         metaDescription: product.metaDescription || '',
@@ -1097,8 +1127,66 @@ export const productsApi = {
     const effMoqBox = productData.moqBox !== undefined ? Math.max(0, Number(productData.moqBox) || 0) : undefined;
     const effMoqPack = productData.moqPack !== undefined ? Math.max(0, Number(productData.moqPack) || 0) : undefined;
 
-    // Immediately persist rich fields (excerpt, TinyMCE description, gallery images, features, sales channels, MOQ) so they are never lost
+    // Smart PK Resolution for Category
+    let resolvedCategoryPk: number | undefined = typeof (productData as any).category_id === 'number'
+      ? (productData as any).category_id
+      : undefined;
+    let resolvedCategoryName: string | undefined = (productData as any).category_name;
+    let resolvedCategorySlug: string | undefined = (productData as any).category_slug;
+
+    try {
+      const cats = await categoriesApi.getAll();
+      if (resolvedCategoryPk !== undefined) {
+        const byId = cats.find(c => Number(c.id) === resolvedCategoryPk);
+        if (byId) {
+          resolvedCategoryName = resolvedCategoryName || byId.name || undefined;
+          resolvedCategorySlug = resolvedCategorySlug || byId.slug || undefined;
+        }
+      } else if (productData.category !== undefined && productData.category !== null && !isNaN(Number(productData.category))) {
+        resolvedCategoryPk = Number(productData.category);
+        const byId = cats.find(c => Number(c.id) === resolvedCategoryPk);
+        if (byId) {
+          resolvedCategoryName = resolvedCategoryName || byId.name || undefined;
+          resolvedCategorySlug = resolvedCategorySlug || byId.slug || undefined;
+        }
+      } else if (productData.category && typeof productData.category === 'string') {
+        const catTarget = productData.category.trim().toLowerCase();
+        const matched = cats.find(c =>
+          String(c.id) === catTarget ||
+          (c.slug && c.slug.toLowerCase() === catTarget) ||
+          (c.name && c.name.trim().toLowerCase() === catTarget) ||
+          (c.nameEn && c.nameEn.trim().toLowerCase() === catTarget)
+        );
+        if (matched && !isNaN(Number(matched.id))) {
+          resolvedCategoryPk = Number(matched.id);
+          resolvedCategoryName = resolvedCategoryName || matched.name || undefined;
+          resolvedCategorySlug = resolvedCategorySlug || matched.slug || undefined;
+        } else if (cats.length > 0 && !isNaN(Number(cats[0].id))) {
+          resolvedCategoryPk = Number(cats[0].id);
+          resolvedCategoryName = resolvedCategoryName || cats[0].name || undefined;
+          resolvedCategorySlug = resolvedCategorySlug || cats[0].slug || undefined;
+        }
+      }
+    } catch {}
+
+    const knownValidCategoryIds = Array.from(
+      new Set([
+        ...getLocalProducts()
+          .map((p: any) => Number(p?.category_id))
+          .filter((n: number) => !isNaN(n) && n > 0),
+        1,
+      ])
+    );
+    const dbSafeUpdateCategoryPk = (resolvedCategoryPk !== undefined && knownValidCategoryIds.includes(resolvedCategoryPk))
+      ? resolvedCategoryPk
+      : undefined;
+
+    // Immediately persist rich fields (category, excerpt, TinyMCE description, gallery images, features, sales channels, MOQ) so they are never lost
     saveProductRichOverride(cleanId, {
+      ...(productData.category !== undefined || resolvedCategorySlug !== undefined ? { category: String(resolvedCategorySlug || productData.category) } : {}),
+      ...(resolvedCategoryPk !== undefined ? { category_id: resolvedCategoryPk } : {}),
+      ...(resolvedCategoryName !== undefined ? { category_name: resolvedCategoryName } : {}),
+      ...(resolvedCategorySlug !== undefined ? { category_slug: resolvedCategorySlug } : {}),
       excerpt: productData.excerpt ?? '',
       description: productData.description ?? '',
       metaDescription: productData.metaDescription ?? '',
@@ -1143,32 +1231,6 @@ export const productsApi = {
     const safeImages = allGalleryImages
       .map(img => (img && img.startsWith('data:')) ? '' : img)
       .filter(Boolean);
-
-    // Smart PK Resolution for Category
-    let resolvedCategoryPk: number | undefined = typeof (productData as any).category_id === 'number'
-      ? (productData as any).category_id
-      : undefined;
-    if (resolvedCategoryPk === undefined) {
-      if (productData.category !== undefined && productData.category !== null && !isNaN(Number(productData.category))) {
-        resolvedCategoryPk = Number(productData.category);
-      } else if (productData.category && typeof productData.category === 'string') {
-        try {
-          const cats = await categoriesApi.getAll();
-          const catTarget = productData.category.trim().toLowerCase();
-          const matched = cats.find(c =>
-            String(c.id) === catTarget ||
-            (c.slug && c.slug.toLowerCase() === catTarget) ||
-            (c.name && c.name.trim().toLowerCase() === catTarget) ||
-            (c.nameEn && c.nameEn.trim().toLowerCase() === catTarget)
-          );
-          if (matched && !isNaN(Number(matched.id))) {
-            resolvedCategoryPk = Number(matched.id);
-          } else if (cats.length > 0 && !isNaN(Number(cats[0].id))) {
-            resolvedCategoryPk = Number(cats[0].id);
-          }
-        } catch {}
-      }
-    }
 
     // Smart PK Resolution for Brand
     let resolvedBrandPk: number | null | undefined = typeof (productData as any).brand_id === 'number'
@@ -1271,7 +1333,7 @@ export const productsApi = {
       name_fa: productData.nameFa,
       name_en: productData.nameEn || '',
       ...(resolvedBrandPk !== undefined ? { brand: resolvedBrandPk } : {}),
-      ...(resolvedCategoryPk !== undefined ? { category: resolvedCategoryPk } : {}),
+      ...(dbSafeUpdateCategoryPk !== undefined ? { category: dbSafeUpdateCategoryPk } : {}),
       ...(resolvedHologramPk !== undefined ? { hologram: resolvedHologramPk } : {}),
       carton_price: Number(productData.cartonPrice) || 0,
       box_price: Number(productData.boxPrice) || 0,
@@ -1324,28 +1386,28 @@ export const productsApi = {
     };
 
     // Attempt remote PATCH / PUT
-    let response = await httpClient.patch(`/products/items/${cleanId}/update/`, payload);
-    if (!response.success && response.status !== 400 && response.status !== 500) {
-      response = await httpClient.put(`/products/items/${cleanId}/update/`, payload);
+    let response = await httpClient.patch(`/products/items/${cleanId}/update/`, payload, { timeoutMs: 25000 });
+    if (!response.success && response.status !== 0 && response.status !== 400 && response.status !== 500) {
+      response = await httpClient.put(`/products/items/${cleanId}/update/`, payload, { timeoutMs: 20000 });
     }
-    // Retry 1 on 400 or 500: remove slug/barcode/category FK while keeping gallery_images & descriptions
-    if (!response.success && (response.status === 400 || response.status === 500)) {
+    // Retry 1 on 0/400/500: remove slug/barcode/category FK while keeping gallery_images & descriptions
+    if (!response.success && (response.status === 0 || response.status === 400 || response.status === 500)) {
       const safeFallbackPayload = { ...payload };
       delete safeFallbackPayload.slug;
       delete safeFallbackPayload.barcode;
       delete safeFallbackPayload.category;
       if (typeof safeFallbackPayload.brand !== 'number') delete safeFallbackPayload.brand;
       if (typeof safeFallbackPayload.hologram !== 'number' && safeFallbackPayload.hologram !== null) delete safeFallbackPayload.hologram;
-      response = await httpClient.patch(`/products/items/${cleanId}/update/`, safeFallbackPayload);
+      response = await httpClient.patch(`/products/items/${cleanId}/update/`, safeFallbackPayload, { timeoutMs: 20000 });
 
-      // Retry 2 on 400 or 500: also replace base64 gallery images with safe URLs in case server serializer is older
-      if (!response.success && (response.status === 400 || response.status === 500)) {
+      // Retry 2 on 0/400/500: also replace base64 gallery images with safe URLs in case server serializer is older
+      if (!response.success && (response.status === 0 || response.status === 400 || response.status === 500)) {
         const ultraSafePayload = {
           ...safeFallbackPayload,
           images: safeImages,
           gallery_images: safeImages,
         };
-        response = await httpClient.patch(`/products/items/${cleanId}/update/`, ultraSafePayload);
+        response = await httpClient.patch(`/products/items/${cleanId}/update/`, ultraSafePayload, { timeoutMs: 20000 });
       }
     }
     if (!response.success && response.status === 404) {
