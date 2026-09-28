@@ -85,7 +85,8 @@ import {
   getLocalSliders,
   getLocalWholesaleBenefits,
   djangoFetchWholesaleBenefits,
-  WholesaleBenefitCard
+  WholesaleBenefitCard,
+  getProductRichOverride
 } from './services/djangoApi';
 import { api, accountsApi, visitorsApi, categoriesApi, getLocalProducts } from './services/api';
 import { ProductCategoryItem } from './components/product-manage/types';
@@ -1335,6 +1336,21 @@ export default function App() {
       setActiveTab('user-panel');
       return;
     }
+    const richOverride = getProductRichOverride(product.id);
+    const minReq = unit === 'carton'
+      ? Math.max(1, Number(richOverride?.moq || product.moq || (product as any).min_order_carton || 1))
+      : unit === 'box'
+      ? Math.max(1, Number(richOverride?.moqBox || product.moqBox || (product as any).min_order_box || 1))
+      : Math.max(1, Number(richOverride?.moqPack || product.moqPack || (product as any).min_order_pack || 1));
+    const unitLabel = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
+
+    const existingItem = cartItems.find(item => item.product.id === product.id && item.unit === unit);
+    const nextQty = (existingItem ? existingItem.quantity : 0) + quantity;
+    if (nextQty < minReq) {
+      showToast(`⚠️ حداقل سفارش ${unitLabel} برای ${product.nameFa}، ${formatNumberFa(minReq)} ${unitLabel} می‌باشد.`);
+      return;
+    }
+
     setCartItems(prev => {
       const existingIndex = prev.findIndex(item => item.product.id === product.id && item.unit === unit);
       if (existingIndex > -1) {
@@ -1342,9 +1358,8 @@ export default function App() {
         updated[existingIndex].quantity += quantity;
         return updated;
       }
-      return [...prev, { product, unit, quantity }];
+      return [...prev, { product, unit, quantity: Math.max(minReq, quantity) }];
     });
-    const unitLabel = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
     showToast(`تعداد ${formatNumberFa(quantity)} ${unitLabel} ${product.nameFa} به پیش‌فاکتور افزوده شد.`);
   };
 
@@ -1352,6 +1367,23 @@ export default function App() {
     if (newQuantity <= 0) {
       handleRemoveCartItem(productId, unit);
       return;
+    }
+    const targetItem = cartItems.find(item => item.product.id === productId && item.unit === unit);
+    if (targetItem) {
+      const p = targetItem.product;
+      const richOverride = getProductRichOverride(p.id);
+      const minReq = unit === 'carton'
+        ? Math.max(1, Number(richOverride?.moq || p.moq || (p as any).min_order_carton || 1))
+        : unit === 'box'
+        ? Math.max(1, Number(richOverride?.moqBox || p.moqBox || (p as any).min_order_box || 1))
+        : unit === 'pack'
+        ? Math.max(1, Number(richOverride?.moqPack || p.moqPack || (p as any).min_order_pack || 1))
+        : 1;
+      const unitLabel = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
+      if (newQuantity < minReq) {
+        showToast(`⚠️ حداقل سفارش ${unitLabel} برای ${p.nameFa}، ${formatNumberFa(minReq)} ${unitLabel} است. برای حذف کامل از دکمه سطل زباله استفاده کنید.`);
+        return;
+      }
     }
     setCartItems(prev => prev.map(item => {
       if (item.product.id === productId && item.unit === unit) {

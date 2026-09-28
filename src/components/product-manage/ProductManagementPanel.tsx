@@ -244,14 +244,23 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
     try {
       if (exists) {
         const finalProd = await productsApi.update(savedProd.id, savedProd);
-        const updatedList = products.map(p => p.id === savedProd.id ? { ...savedProd, ...finalProd } : p);
+        const mergedSaved = {
+          ...savedProd,
+          ...finalProd,
+          excerpt: savedProd.excerpt ?? finalProd.excerpt ?? '',
+          description: savedProd.description ?? finalProd.description ?? '',
+          moq: Math.max(1, Number(savedProd.moq) || Number(finalProd.moq) || 1),
+          moqBox: Math.max(1, Number(savedProd.moqBox) || Number(finalProd.moqBox) || 1),
+          moqPack: Math.max(1, Number(savedProd.moqPack) || Number(finalProd.moqPack) || 1),
+        };
+        const updatedList = products.map(p => p.id === savedProd.id ? mergedSaved : p);
         onUpdateProducts(updatedList);
         try {
           localStorage.setItem('wholesale_products', JSON.stringify(updatedList));
           localStorage.setItem('sovin_django_products', JSON.stringify(updatedList));
         } catch {}
         if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updatedList, product: finalProd } }));
+          window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updatedList, product: mergedSaved } }));
         }
         setActiveTab('list');
         setSelectedProduct(null);
@@ -723,6 +732,7 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
       <div className="w-full px-3 sm:px-6 lg:px-8 pt-4 sm:pt-6">
         {activeTab === 'editor' && (
           <ProductEditorPage
+            key={selectedProduct?.id || 'create-new'}
             product={selectedProduct}
             initialBarcode={currentInitialBarcode}
             categories={categories}

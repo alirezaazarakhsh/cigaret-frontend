@@ -139,6 +139,24 @@ class ProductKeyFeatureInline(admin.TabularInline):
 class ProductImageInline(admin.TabularInline):
     model = ProductImage
     extra = 1
+    readonly_fields = ['image_preview']
+    fields = ['image', 'image_preview', 'order']
+
+    @admin.display(description=_('پیش‌نمایش تصویر گالری'))
+    def image_preview(self, obj):
+        if obj and obj.image:
+            raw_str = str(obj.image).strip()
+            if raw_str.startswith(('http://', 'https://', 'data:')):
+                url = raw_str
+            elif hasattr(obj.image, 'url'):
+                url = obj.image.url
+            else:
+                url = f"/media/{raw_str.lstrip('/')}"
+            return format_html(
+                '<img src="{}" style="max-width: 90px; max-height: 60px; border-radius: 6px; object-fit: cover; border: 1px solid #cbd5e1; padding: 2px; background: #fff;" />',
+                url
+            )
+        return format_html('<span style="color: #94a3b8; font-size: 11px;">بدون تصویر</span>')
 
 
 @admin.register(Product)
@@ -150,17 +168,23 @@ class ProductAdmin(admin.ModelAdmin):
         'brand',
         'carton_price_toman',
         'stock_cartons',
+        'min_order_carton',
+        'min_order_box',
+        'min_order_pack',
         'badge_display',
         'is_active',
         'created_at_jalali',
     ]
+    readonly_fields = ['main_image_preview']
     list_filter = [
         'is_active',
+        'is_featured',
         'badge',
         'category',
         'brand',
         'has_carton',
         'has_box',
+        'has_pack',
         'is_pos_only',
     ]
     search_fields = ['name', 'name_en', 'barcode', 'slug', 'focus_keyword']
@@ -198,8 +222,8 @@ class ProductAdmin(admin.ModelAdmin):
                 ('carton_price', 'box_price', 'pack_price', 'purchase_price'),
                 ('stock_cartons', 'stock_boxes'),
                 ('boxes_per_carton', 'packs_per_box'),
-                ('min_order_carton', 'min_order_box'),
-                ('has_carton', 'has_box', 'is_pos_only'),
+                ('min_order_carton', 'min_order_box', 'min_order_pack'),
+                ('has_carton', 'has_box', 'has_pack', 'is_box_only', 'is_pos_only'),
             )
         }),
         (_('مشخصات فنی و شناسنامه استاندارد دود'), {
@@ -212,7 +236,7 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': ('full_description',),
         }),
         (_('تصویر شاخص محصول'), {
-            'fields': ('main_image', 'image'),
+            'fields': ('main_image', 'main_image_preview', 'image'),
         }),
         (_('تنظیمات سئو و کلمه کلیدی کانونی (Yoast SEO)'), {
             'fields': (
@@ -226,6 +250,22 @@ class ProductAdmin(admin.ModelAdmin):
             'fields': (('is_active', 'is_featured'),),
         }),
     )
+
+    @admin.display(description=_('پیش‌نمایش تصویر شاخص'))
+    def main_image_preview(self, obj):
+        if obj:
+            url = None
+            if obj.main_image:
+                raw_m = str(obj.main_image).strip()
+                url = raw_m if raw_m.startswith(('http://', 'https://', 'data:')) else (obj.main_image.url if hasattr(obj.main_image, 'url') else f"/media/{raw_m.lstrip('/')}")
+            elif obj.image:
+                url = obj.image
+            if url:
+                return format_html(
+                    '<img src="{}" style="max-width: 120px; max-height: 80px; border-radius: 8px; object-fit: contain; border: 1px solid #cbd5e1; padding: 3px; background: #fff;" />',
+                    url
+                )
+        return format_html('<span style="color: #94a3b8; font-size: 12px;">بدون تصویر شاخص</span>')
 
     @admin.display(description=_('تاریخ ثبت (شمسی)'), ordering='created_at')
     def created_at_jalali(self, obj):

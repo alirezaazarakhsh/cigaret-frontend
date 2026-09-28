@@ -349,29 +349,50 @@ export const staffAuthService = {
       }
     } catch {}
 
-    try {
-      const res = await djangoPosLogoutApi(targetPhone, targetUserId);
-      if (res && res.success) {
-        invalidatePosTokenAndSession('manual_logout');
-        return res;
-      }
-    } catch {}
+    // بلافاصله وضعیت احراز هویت محلی را پاک کن تا هیچ تایمر یا syncStaffPresence همزمانی دوباره کاربر را لاگین نکند
+    invalidatePosTokenAndSession('manual_logout');
+
+    const toAsciiDigits = (val: any): string =>
+      String(val || '')
+        .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+        .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+        .replace(/\D/g, '');
+
+    const rawDigits = toAsciiDigits(targetPhone);
+    const normPhone = rawDigits.length >= 10
+      ? ('0' + rawDigits.slice(-10))
+      : (targetPhone ? String(targetPhone).trim() : undefined);
 
     const numericId = targetUserId && /^\d+$/.test(String(targetUserId).trim())
       ? Number(String(targetUserId).trim())
-      : (targetPhone && String(targetPhone).replace(/\D/g, '').endsWith('9120759419') ? 1 : undefined);
-    const query = numericId ? `?user_id=${numericId}` : '';
+      : (normPhone && normPhone.endsWith('9120759419') ? 1 : undefined);
 
-    const res = await httpClient.post<any>(`/api/v1/posuserlogout/${query}`, { phone: targetPhone, user_id: numericId }, {
-      headers: API_CACHE_CONTROL_HEADERS
+    try {
+      await djangoPosLogoutApi(normPhone || targetPhone, numericId || targetUserId);
+    } catch {}
+
+    const queryParams: string[] = [];
+    if (numericId) queryParams.push(`user_id=${numericId}`);
+    if (normPhone) queryParams.push(`phone=${encodeURIComponent(normPhone)}`);
+    const query = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
+    await httpClient.post<any>(`/api/v1/posuserlogout/${query}`, { phone: normPhone || targetPhone, user_id: numericId }, {
+      headers: API_CACHE_CONTROL_HEADERS,
+      skipAuth: true
     }).catch(() => ({ success: false }));
 
-    if (!res.success) {
-      await httpClient.post<any>(`/api/v1/posuser/logout/${query}`, { phone: targetPhone, user_id: numericId }, {
-        headers: API_CACHE_CONTROL_HEADERS
-      }).catch(() => {});
-    }
-    invalidatePosTokenAndSession('manual_logout');
+    // اطلاع‌رسانی آنی به سایر تب‌ها و پنجره‌ها
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        const bc = new BroadcastChannel('sevin_pos_sessions_channel');
+        bc.postMessage({ type: 'STAFF_LOGOUT', phone: normPhone || targetPhone, userId: numericId, ts: Date.now() });
+        bc.close();
+      }
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('sevin-pos-online-sessions-changed'));
+      }
+    } catch {}
+
     return { success: true, message: 'خروج پرسنل و حذف نشست با موفقیت انجام شد.' };
   },
 
@@ -513,18 +534,30 @@ export const staffAuthService = {
    */
   async syncStaffPresence(staff: any): Promise<void> {
     if (!staff || !staff.phone) return;
+    if (typeof localStorage !== 'undefined' && localStorage.getItem('sovin_pos_auth') !== 'true') {
+      return;
+    }
     try {
-      const cleanPhone = String(staff.phone).trim().replace(/\s+/g, '');
+      const toAsciiDigits = (val: any): string =>
+        String(val || '')
+          .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+          .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+          .replace(/\D/g, '');
+      const rawDigits = toAsciiDigits(staff.phone);
+      const cleanPhone = rawDigits.length >= 10 ? ('0' + rawDigits.slice(-10)) : String(staff.phone).trim().replace(/\s+/g, '');
       const isSuper = cleanPhone.endsWith('9120759419');
       const passCandidates = Array.from(new Set([
+        isSuper ? 'sasha9419' : undefined,
         staff.pinCode,
         staff.pin_code,
         staff.password,
-        isSuper ? 'sasha9419' : undefined,
         isSuper ? 'alirezazzz9419@S' : undefined,
       ].filter(Boolean)));
 
       for (const candidate of passCandidates) {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('sovin_pos_auth') !== 'true') {
+          return;
+        }
         const res = await httpClient.post<any>('/api/v1/posuserlogin/', {
           phone: cleanPhone,
           password: String(candidate)
@@ -545,16 +578,6 @@ export const staffAuthService = {
    * GET /api/v1/posuseractive-sessions/
    */
   async getActiveSessions(): Promise<{ success: boolean; data?: any[] }> {
-    try {
-      const activeList = await djangoFetchActiveSessions();
-      if (Array.isArray(activeList) && activeList.length > 0) {
-        const filtered = activeList.filter((s: any) => s && (s.is_online === true || s.status === 'online' || s.online === true || s.is_active_session === true));
-        if (filtered.length > 0) {
-          return { success: true, data: filtered };
-        }
-      }
-    } catch {}
-
     const ts = Date.now();
     const endpoints = [
       `/api/v1/posuseractive-sessions/?_t=${ts}`,
@@ -564,21 +587,28 @@ export const staffAuthService = {
 
     for (const ep of endpoints) {
       const res = await httpClient.get<any>(ep, {
-        headers: API_CACHE_CONTROL_HEADERS
+        headers: API_CACHE_CONTROL_HEADERS,
+        skipAuth: true
       }).catch(() => null);
 
       if (res && res.success && res.data) {
         const list = Array.isArray(res.data)
           ? res.data
           : (res.data?.data || res.data?.sessions || res.data?.active_staff || res.data?.staff || res.data?.results || []);
-        if (Array.isArray(list) && list.length > 0) {
+        if (Array.isArray(list)) {
           const filtered = list.filter((s: any) => s && (s.is_online === true || s.status === 'online' || s.online === true || s.is_active_session === true));
-          if (filtered.length > 0) {
-            return { success: true, data: filtered };
-          }
+          return { success: true, data: filtered };
         }
       }
     }
+
+    try {
+      const activeList = await djangoFetchActiveSessions();
+      if (Array.isArray(activeList)) {
+        const filtered = activeList.filter((s: any) => s && (s.is_online === true || s.status === 'online' || s.online === true || s.is_active_session === true));
+        return { success: true, data: filtered };
+      }
+    } catch {}
 
     // Fallback: Check if current staff is logged in and authenticated on this device
     try {

@@ -1,11 +1,25 @@
 import { WholesaleTierDiscount } from '../types';
 
 export function formatToman(amount: number): string {
-  return new Intl.NumberFormat('fa-IR').format(amount) + ' تومان';
+  return new Intl.NumberFormat('fa-IR').format(Math.round(Number(amount) || 0)) + ' تومان';
 }
 
 export function formatNumberFa(val: number): string {
-  return new Intl.NumberFormat('fa-IR').format(val);
+  return new Intl.NumberFormat('fa-IR').format(Number(val) || 0);
+}
+
+export function formatTomanInWords(amount: number): string {
+  const num = Math.floor(Math.abs(Number(amount) || 0));
+  if (num === 0) return '۰ تومان';
+  const billions = Math.floor(num / 1_000_000_000);
+  const millions = Math.floor((num % 1_000_000_000) / 1_000_000);
+  const thousands = Math.floor((num % 1_000_000) / 1_000);
+  const parts: string[] = [];
+  if (billions > 0) parts.push(`${formatNumberFa(billions)} میلیارد`);
+  if (millions > 0) parts.push(`${formatNumberFa(millions)} میلیون`);
+  if (thousands > 0 && billions === 0) parts.push(`${formatNumberFa(thousands)} هزار`);
+  if (parts.length === 0) return `${formatNumberFa(num)} تومان`;
+  return `${parts.join(' و ')} تومان`;
 }
 
 /**
@@ -47,9 +61,10 @@ export function getProductStockInfo(product: {
   hasPack?: boolean;
   isBoxOnly?: boolean;
 }) {
-  const cartons = Math.max(0, Math.floor(Number(product.stockCartons) || 0));
-  const looseBoxes = Math.max(0, Math.floor(Number(product.stockBoxes) || 0));
-  const loosePacks = Math.max(0, Math.floor(Number(product.stockPacks) || 0));
+  const rawCartons = Math.max(0, Number(product.stockCartons) || 0);
+  const cartons = Math.floor(rawCartons);
+  const rawStockBoxes = Math.max(0, Math.floor(Number(product.stockBoxes) || 0));
+  const rawStockPacks = Math.max(0, Math.floor(Number(product.stockPacks) || 0));
   const boxesPerCarton = Number(product.boxesPerCarton) > 0 ? Number(product.boxesPerCarton) : 50;
   const packsPerBox = Number(product.packsPerBox) > 0 ? Number(product.packsPerBox) : 10;
 
@@ -57,14 +72,22 @@ export function getProductStockInfo(product: {
   const hasBox = product.hasBox !== false;
   const hasPack = Boolean(product.hasPack);
 
-  const totalBoxes = hasCarton ? Math.floor(cartons * boxesPerCarton) + looseBoxes : looseBoxes;
-  const displayBoxes = looseBoxes > 0 ? looseBoxes : (hasCarton ? Math.floor(cartons * boxesPerCarton) : 0);
-  const totalPacks = Math.floor(totalBoxes * packsPerBox) + loosePacks;
-  const displayPacks = loosePacks > 0 ? loosePacks : Math.floor(displayBoxes * packsPerBox);
+  // When product has cartons (> 0), totalBoxes is strictly derived from rawCartons * boxesPerCarton
+  // (e.g. 10 cartons * 50 = 500 boxes, 11 cartons * 50 = 550 boxes).
+  const totalBoxes = hasCarton && rawCartons > 0
+    ? Math.round(rawCartons * boxesPerCarton)
+    : rawStockBoxes;
+  const displayBoxes = totalBoxes;
+  const totalPacks = totalBoxes > 0
+    ? Math.round(totalBoxes * packsPerBox)
+    : rawStockPacks;
+  const displayPacks = totalPacks;
+  const looseBoxes = Math.max(0, totalBoxes - (cartons * boxesPerCarton));
 
-  const isAvailable = product.isAvailable !== false && (cartons > 0 || looseBoxes > 0 || loosePacks > 0);
+  const isAvailable = product.isAvailable !== false && (rawCartons > 0 || totalBoxes > 0 || totalPacks > 0);
 
   if (product.category === 'drinks_coffee') {
+    const drinkSummary = isAvailable ? `${formatNumberFa(cartons || totalBoxes)} عدد` : 'ناموجود (نوشیدنی)';
     return {
       cartons,
       looseBoxes,
@@ -72,10 +95,13 @@ export function getProductStockInfo(product: {
       totalBoxes,
       displayPacks,
       totalPacks,
+      packs: totalPacks,
       boxesPerCarton: 1,
       packsPerBox: 1,
       isAvailable,
-      textSummary: isAvailable ? `${formatNumberFa(cartons || looseBoxes)} عدد` : 'ناموجود (نوشیدنی)'
+      isOutOfStock: !isAvailable,
+      textSummary: drinkSummary,
+      displayText: drinkSummary,
     };
   }
 
@@ -101,10 +127,13 @@ export function getProductStockInfo(product: {
     totalBoxes,
     displayPacks,
     totalPacks,
+    packs: totalPacks,
     boxesPerCarton,
     packsPerBox,
     isAvailable,
+    isOutOfStock: !isAvailable,
     textSummary,
+    displayText: textSummary,
   };
 }
 

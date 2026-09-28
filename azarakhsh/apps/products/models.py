@@ -136,6 +136,7 @@ class Product(models.Model):
 
     min_order_carton = models.PositiveIntegerField(_("حداقل سفارش کارتن"), default=1)
     min_order_box = models.PositiveIntegerField(_("حداقل سفارش باکس"), default=1)
+    min_order_pack = models.PositiveIntegerField(_("حداقل سفارش پاکت"), default=1)
 
     has_carton = models.BooleanField(_("امکان فروش کارتنی"), default=True)
     has_box = models.BooleanField(_("امکان فروش باکسی"), default=True)
@@ -151,7 +152,7 @@ class Product(models.Model):
     country_origin = models.CharField(_("کشور تولیدکننده / مبدا"), max_length=100, blank=True, null=True)
 
     badge = models.CharField(_("نشان ویژه محصول"), max_length=30, choices=BADGE_CHOICES, default='none')
-    main_image = models.ImageField(_("تصویر اصلی محصول"), upload_to="products/", blank=True, null=True)
+    main_image = models.ImageField(_("تصویر اصلی محصول"), upload_to="products/", max_length=500, blank=True, null=True)
     image = models.CharField(_("آدرس / URL تصویر"), max_length=500, blank=True, null=True)
     excerpt = models.TextField(_("چکیده و خلاصه کوتاه"), blank=True, null=True)
     full_description = HTMLField(_("توضیحات جامع (TinyMCE)"), blank=True, null=True)
@@ -238,7 +239,7 @@ class ProductKeyFeature(models.Model):
 
 class ProductImage(models.Model):
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name='gallery', verbose_name=_("محصول"))
-    image = models.ImageField(_("تصویر گالری"), upload_to="products/gallery/")
+    image = models.ImageField(_("تصویر گالری"), upload_to="products/gallery/", max_length=500)
     order = models.PositiveIntegerField(_("ترتیب نمایش"), default=0)
 
     class Meta:

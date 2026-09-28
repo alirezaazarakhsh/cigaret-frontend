@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { useFormPersistence } from '../../hooks/useFormPersistence';
 import {
   ArrowRight,
@@ -34,10 +34,10 @@ import { CigaretteProduct, CigaretteCategory, ProductAppliedFeature, WholesaleTi
 import { ProductCategoryItem, ProductHologramItem, ProductFeatureItem, INITIAL_PRODUCT_FEATURES } from './types';
 import { TinyMceEditor } from '../common/TinyMceEditor';
 import { calculateProductYoastSeo, ProductYoastSeoReport } from './seoUtils';
-import { formatNumberFa } from '../../utils/formatters';
+import { formatNumberFa, formatTomanInWords } from '../../utils/formatters';
 import { getFrontendDomain } from '../../services/apiConfig';
 import { attributesApi, tierDiscountTemplatesApi, productsApi } from '../../services/api';
-import { sanitizeSlug } from '../../services/djangoApi';
+import { sanitizeSlug, normalizeCigaretteSizeForDjango, normalizeFilterTypeForDjango, getProductRichOverride } from '../../services/djangoApi';
 
 interface ProductEditorPageProps {
   product: CigaretteProduct | null;
@@ -108,16 +108,19 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
   // Initial form data
   const initialFormValues = useMemo(() => {
     if (product) {
+      const richOverride = getProductRichOverride(product.id);
       const initialApplied = product.appliedFeatures && product.appliedFeatures.length > 0
         ? product.appliedFeatures
-        : [
-            { id: 'feat-tar', featureId: 'feat-tar', nameFa: 'قطران (Tar)', value: product.tar ? product.tar.replace(/[^0-9.]/g, '') || product.tar : '6', unit: 'mg' },
-            { id: 'feat-nicotine', featureId: 'feat-nicotine', nameFa: 'نیکوتین (Nicotine)', value: product.nicotine ? product.nicotine.replace(/[^0-9.]/g, '') || product.nicotine : '0.5', unit: 'mg' },
-            { id: 'feat-format', featureId: 'feat-format', nameFa: 'سایز و اندازه پاکت (Format)', value: product.packSize || 'کینگ سایز (King Size)' },
-            { id: 'feat-flavor', featureId: 'feat-flavor', nameFa: 'طعم و اسانس (Flavor)', value: product.flavor || 'توتون خالص طبیعی (Original)' },
-            { id: 'feat-filter', featureId: 'feat-filter', nameFa: 'نوع فیلتر (Filter Technology)', value: product.filterType || 'فیلتر سفید استاندارد' },
-            { id: 'feat-origin', featureId: 'feat-origin', nameFa: 'کشور سازنده و مبدأ', value: product.origin || 'سوئیس اصل (Duty Free)' },
-          ];
+        : (richOverride?.appliedFeatures && richOverride.appliedFeatures.length > 0
+          ? richOverride.appliedFeatures
+          : [
+              { id: 'feat-tar', featureId: 'feat-tar', nameFa: 'قطران (Tar)', value: product.tar ? product.tar.replace(/[^0-9.]/g, '') || product.tar : '6', unit: 'mg' },
+              { id: 'feat-nicotine', featureId: 'feat-nicotine', nameFa: 'نیکوتین (Nicotine)', value: product.nicotine ? product.nicotine.replace(/[^0-9.]/g, '') || product.nicotine : '0.5', unit: 'mg' },
+              { id: 'feat-format', featureId: 'feat-format', nameFa: 'سایز و اندازه پاکت (Format)', value: product.packSize || 'کینگ سایز (King Size)' },
+              { id: 'feat-flavor', featureId: 'feat-flavor', nameFa: 'طعم و اسانس (Flavor)', value: product.flavor || 'توتون خالص طبیعی (Original)' },
+              { id: 'feat-filter', featureId: 'feat-filter', nameFa: 'نوع فیلتر (Filter Technology)', value: product.filterType || 'فیلتر سفید استاندارد' },
+              { id: 'feat-origin', featureId: 'feat-origin', nameFa: 'کشور سازنده و مبدأ', value: product.origin || 'سوئیس اصل (Duty Free)' },
+            ]);
 
       const initialIsFeatured = Boolean(
         product.isFeatured !== undefined 
@@ -125,27 +128,34 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
           : ((product as any).is_featured || product.badge === 'پیشنهاد ویژه' || product.badge === 'special')
       );
 
+      const resolvedExcerpt = product.excerpt || (product as any).short_description || richOverride?.excerpt || '';
+      const resolvedDescription = product.description || (product as any).full_description || richOverride?.description || '';
+      const resolvedMoq = Number(richOverride?.moq || product.moq || (product as any).min_order_carton || 1);
+      const resolvedMoqBox = Number(richOverride?.moqBox || product.moqBox || (product as any).min_order_box || 1);
+      const resolvedMoqPack = Number(richOverride?.moqPack || product.moqPack || (product as any).min_order_pack || 1);
+
       return {
         ...product,
         barcode: product.barcode || initialBarcode || '',
         purchasePrice: product.purchasePrice !== undefined ? Number(product.purchasePrice) : 0,
         stockBoxes: product.stockBoxes !== undefined ? Number(product.stockBoxes) : 0,
-        moq: (product.moq !== undefined && product.moq !== null) ? Number(product.moq) : 0,
-        moqBox: (product.moqBox !== undefined && product.moqBox !== null) ? Number(product.moqBox) : 0,
+        moq: resolvedMoq,
+        moqBox: resolvedMoqBox,
+        moqPack: resolvedMoqPack,
         tierDiscounts: product.tierDiscounts ? [...product.tierDiscounts] : [],
         slug: product.slug || product.nameEn?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `prod-${product.id}`,
         keyTakeaways: product.keyTakeaways || [],
         focusKeyword: product.focusKeyword || `${product.nameFa || ''}`.trim(),
         metaTitle: product.metaTitle || product.nameFa || '',
-        metaDescription: product.metaDescription || product.excerpt || '',
-        excerpt: product.excerpt || (product as any).short_description || '',
-        description: product.description || (product as any).full_description || '',
-        cigaretteSize: product.cigaretteSize || product.packSize || (product as any).cigarette_size || 'king_size',
-        packSize: product.packSize || product.cigaretteSize || (product as any).cigarette_size || 'king_size',
-        filterType: product.filterType || (product as any).filter_type || 'white',
+        metaDescription: product.metaDescription || resolvedExcerpt || '',
+        excerpt: resolvedExcerpt,
+        description: resolvedDescription,
+        cigaretteSize: normalizeCigaretteSizeForDjango(product.cigaretteSize || product.packSize || (product as any).cigarette_size || 'king_size'),
+        packSize: normalizeCigaretteSizeForDjango(product.packSize || product.cigaretteSize || (product as any).cigarette_size || 'king_size'),
+        filterType: normalizeFilterTypeForDjango(product.filterType || (product as any).filter_type || 'white'),
         isFeatured: initialIsFeatured,
         appliedFeatures: initialApplied,
-        images: product.images ? [...product.images] : [],
+        images: product.images && product.images.length > 0 ? [...product.images] : (richOverride?.images ? [...richOverride.images] : []),
       };
     }
     return {
@@ -168,8 +178,9 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       packsPerBox: 10,
       stockCartons: 10,
       stockBoxes: 0,
-      moq: 0,
-      moqBox: 0,
+      moq: 1,
+      moqBox: 1,
+      moqPack: 1,
       image: '',
       barcode: initialBarcode || '',
       flavor: 'طعم کلاسیک توتون',
@@ -211,6 +222,26 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
     hasDraft,
     clear: clearFormPersistence,
   } = useFormPersistence<any>('sevin_product_draft', initialFormValues, !product);
+
+  // Ensure form state stays synced if product details are enriched from backend
+  useEffect(() => {
+    if (!product?.id) return;
+    let isMounted = true;
+    productsApi.getById(product.id).then((fresh) => {
+      if (isMounted && fresh) {
+        setFormData((prev: any) => ({
+          ...prev,
+          excerpt: prev.excerpt || fresh.excerpt || '',
+          description: prev.description || fresh.description || '',
+          moq: (prev.moq && prev.moq > 1) ? prev.moq : (fresh.moq || prev.moq || 1),
+          moqBox: (prev.moqBox && prev.moqBox > 1) ? prev.moqBox : (fresh.moqBox || prev.moqBox || 1),
+          moqPack: (prev.moqPack && prev.moqPack > 1) ? prev.moqPack : (fresh.moqPack || prev.moqPack || 1),
+          images: (prev.images && prev.images.length > 0) ? prev.images : (fresh.images || []),
+        }));
+      }
+    }).catch(() => {});
+    return () => { isMounted = false; };
+  }, [product?.id]);
 
   // UI States
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -758,9 +789,12 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         boxesPerCarton: Number(formData.boxesPerCarton) || 50,
         packsPerBox: Number(formData.packsPerBox) || 10,
         stockCartons: Number(formData.stockCartons) || 0,
-        stockBoxes: Number(formData.stockBoxes) || 0,
-        moq: typeof formData.moq === 'number' ? formData.moq : (Number(formData.moq) || 0),
-        moqBox: typeof formData.moqBox === 'number' ? formData.moqBox : (Number(formData.moqBox) || 0),
+        stockBoxes: (Number(formData.stockCartons) || 0) > 0
+          ? Math.round((Number(formData.stockCartons) || 0) * (Number(formData.boxesPerCarton) || 50))
+          : (Number(formData.stockBoxes) || 0),
+        moq: Math.max(1, Number(formData.moq) || 1),
+        moqBox: Math.max(1, Number(formData.moqBox) || 1),
+        moqPack: Math.max(1, Number(formData.moqPack) || 1),
         image: formData.image || '',
         images: Array.isArray(formData.images) ? formData.images : (product?.images || []),
         barcode: formData.barcode?.trim() || '',
@@ -1223,7 +1257,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
               {/* Carton Price */}
               <div>
                 <label className="block text-xs font-black text-slate-800 mb-1.5">
-                  قیمت هر کارتن (تومان):
+                  قیمت هر ۱ کارتن (تومان):
                 </label>
                 <input
                   type="number"
@@ -1233,7 +1267,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 font-black focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
                 <p className="text-[10px] text-emerald-600 font-bold mt-1">
-                  {formData.cartonPrice ? `${formatNumberFa(formData.cartonPrice)} تومان` : '۰ تومان'}
+                  {formData.cartonPrice ? `${formatNumberFa(formData.cartonPrice)} تومان (${formatTomanInWords(formData.cartonPrice)})` : '۰ تومان'}
                 </p>
               </div>
 
@@ -1250,7 +1284,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs sm:text-sm text-slate-900 font-black focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
                 <p className="text-[10px] text-emerald-600 font-bold mt-1">
-                  {formData.boxPrice ? `${formatNumberFa(formData.boxPrice)} تومان` : '۰ تومان'}
+                  {formData.boxPrice ? `${formatNumberFa(formData.boxPrice)} تومان (${formatTomanInWords(formData.boxPrice)})` : '۰ تومان'}
                 </p>
               </div>
 
@@ -1267,7 +1301,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
                 <p className="text-[10px] text-slate-500 font-bold mt-1">
-                  {formData.packPrice ? `${formatNumberFa(formData.packPrice)} تومان` : 'اختیاری'}
+                  {formData.packPrice ? `${formatNumberFa(formData.packPrice)} تومان (${formatTomanInWords(formData.packPrice)})` : 'اختیاری'}
                 </p>
               </div>
 
@@ -1284,7 +1318,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                   className="w-full bg-amber-50/60 border border-amber-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-amber-500 focus:bg-white"
                 />
                 <p className="text-[10px] text-amber-700 font-bold mt-1">
-                  {formData.purchasePrice ? `${formatNumberFa(formData.purchasePrice)} تومان (سود حسابداری)` : '۰ تومان'}
+                  {formData.purchasePrice ? `${formatNumberFa(formData.purchasePrice)} تومان (${formatTomanInWords(formData.purchasePrice)})` : '۰ تومان'}
                 </p>
               </div>
 
@@ -1297,25 +1331,55 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 <input
                   type="number"
                   value={formData.stockCartons ?? ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, stockCartons: Number(e.target.value) }))}
+                  onChange={(e) => {
+                    const nextCartons = Math.max(0, Number(e.target.value) || 0);
+                    setFormData(prev => {
+                      const bpc = Number(prev.boxesPerCarton) || 50;
+                      return {
+                        ...prev,
+                        stockCartons: nextCartons,
+                        stockBoxes: Math.round(nextCartons * bpc),
+                      };
+                    });
+                  }}
                   placeholder="10"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
+                <p className="text-[10px] text-blue-600 font-bold mt-1">
+                  {`معادل: ${formatNumberFa(Math.round((Number(formData.stockCartons) || 0) * (Number(formData.boxesPerCarton) || 50)))} باکس | ${formatNumberFa(Math.round((Number(formData.stockCartons) || 0) * (Number(formData.boxesPerCarton) || 50) * (Number(formData.packsPerBox) || 10)))} پاکت`}
+                </p>
               </div>
 
               {/* Stock Boxes */}
               <div>
                 <label className="block text-xs font-black text-slate-800 mb-1.5 flex items-center gap-1">
                   <Warehouse className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>موجودی فله انبار (باکس):</span>
+                  <span>کل موجودی به باکس (۵۰ باکس در کارتن):</span>
                 </label>
                 <input
                   type="number"
-                  value={formData.stockBoxes ?? ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, stockBoxes: Number(e.target.value) }))}
-                  placeholder="0"
+                  value={
+                    (Number(formData.stockCartons) || 0) > 0
+                      ? Math.round((Number(formData.stockCartons) || 0) * (Number(formData.boxesPerCarton) || 50))
+                      : (formData.stockBoxes ?? '')
+                  }
+                  onChange={(e) => {
+                    const nextBoxes = Math.max(0, Number(e.target.value) || 0);
+                    setFormData(prev => {
+                      const bpc = Number(prev.boxesPerCarton) || 50;
+                      return {
+                        ...prev,
+                        stockBoxes: nextBoxes,
+                        stockCartons: Math.round((nextBoxes / bpc) * 1000) / 1000,
+                      };
+                    });
+                  }}
+                  placeholder="500"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-bold focus:outline-none focus:border-indigo-500 focus:bg-white"
                 />
+                <p className="text-[10px] text-slate-500 font-bold mt-1">
+                  {`ارزش کل موجودی: ${formatTomanInWords((Number(formData.stockCartons) || 0) * (Number(formData.cartonPrice) || 0))}`}
+                </p>
               </div>
 
               {/* Boxes Per Carton */}
@@ -1326,7 +1390,14 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 <input
                   type="number"
                   value={formData.boxesPerCarton ?? ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, boxesPerCarton: Number(e.target.value) }))}
+                  onChange={(e) => {
+                    const nextBpc = Math.max(1, Number(e.target.value) || 50);
+                    setFormData(prev => ({
+                      ...prev,
+                      boxesPerCarton: nextBpc,
+                      stockBoxes: Math.round((Number(prev.stockCartons) || 0) * nextBpc),
+                    }));
+                  }}
                   placeholder="50"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
@@ -1339,14 +1410,14 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  value={formData.moq ?? 0}
-                  onChange={(e) => setFormData(prev => ({ ...prev, moq: Number(e.target.value) || 0 }))}
-                  placeholder="0 (بدون حداقل)"
+                  min="1"
+                  value={formData.moq ?? 1}
+                  onChange={(e) => setFormData(prev => ({ ...prev, moq: Math.max(1, Number(e.target.value) || 1) }))}
+                  placeholder="مثلاً 1 یا 2"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  {Number(formData.moq) === 0 ? 'بدون محدودیت حداقل (حتی ۰ کارتن)' : `حداقل ${formatNumberFa(Number(formData.moq))} کارتن`}
+                  {`حداقل سفارش مجاز: ${formatNumberFa(Math.max(1, Number(formData.moq) || 1))} کارتن`}
                 </p>
               </div>
 
@@ -1357,14 +1428,32 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="0"
-                  value={formData.moqBox ?? 0}
-                  onChange={(e) => setFormData(prev => ({ ...prev, moqBox: Number(e.target.value) || 0 }))}
-                  placeholder="0 (بدون حداقل)"
+                  min="1"
+                  value={formData.moqBox ?? 1}
+                  onChange={(e) => setFormData(prev => ({ ...prev, moqBox: Math.max(1, Number(e.target.value) || 1) }))}
+                  placeholder="مثلاً 1 یا 5"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  {Number(formData.moqBox) === 0 ? 'بدون محدودیت حداقل (حتی ۰ باکس)' : `حداقل ${formatNumberFa(Number(formData.moqBox))} باکس`}
+                  {`حداقل سفارش مجاز: ${formatNumberFa(Math.max(1, Number(formData.moqBox) || 1))} باکس`}
+                </p>
+              </div>
+
+              {/* MOQ Pack */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                  حداقل سفارش تک‌فروشی (MOQ پاکت):
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={formData.moqPack ?? 1}
+                  onChange={(e) => setFormData(prev => ({ ...prev, moqPack: Math.max(1, Number(e.target.value) || 1) }))}
+                  placeholder="مثلاً 1 یا 10"
+                  className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white"
+                />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  {`حداقل سفارش مجاز: ${formatNumberFa(Math.max(1, Number(formData.moqPack) || 1))} پاکت`}
                 </p>
               </div>
             </div>

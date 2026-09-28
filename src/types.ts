@@ -361,6 +361,7 @@ export interface CigaretteProduct {
   stockBoxes?: number; // موجودی فله انبار به باکس/بسته ۱۰ تایی
   moq: number; // حداقل سفارش به کارتن (می‌تواند ۰ باشد)
   moqBox?: number; // حداقل سفارش عمده به باکس (می‌تواند ۰ باشد)
+  moqPack?: number; // حداقل سفارش پاکت (می‌تواند ۰ باشد)
   image: string;
   images?: string[];
   barcode: string;

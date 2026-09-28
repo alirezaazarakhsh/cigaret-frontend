@@ -69,6 +69,8 @@ import {
   djangoFetchFooterSettings,
   mapDjangoItemToProduct,
   normalizeBadgeForDjango,
+  normalizeCigaretteSizeForDjango,
+  normalizeFilterTypeForDjango,
   isMockProductRecord,
   ensureValidDjangoAdminToken,
   saveProductRichOverride
@@ -814,8 +816,11 @@ export const productsApi = {
       ? 'بار تازه'
       : product.badge;
     const normalizedBadge = normalizeBadgeForDjango(effectiveBadge);
+    const normalizedCigaretteSize = normalizeCigaretteSizeForDjango(product.cigaretteSize || product.packSize);
+    const normalizedFilterType = normalizeFilterTypeForDjango(product.filterType);
 
-    const safeImages = (product.images || [])
+    const allGalleryImages = (product.images || []).filter(Boolean);
+    const safeImages = allGalleryImages
       .map(img => (img && img.startsWith('data:')) ? '' : img)
       .filter(Boolean);
 
@@ -861,12 +866,16 @@ export const productsApi = {
 
     await ensureValidDjangoAdminToken().catch(() => '');
 
+    const validCanonicalCreate = (product.canonicalUrl && (product.canonicalUrl.startsWith('http://') || product.canonicalUrl.startsWith('https://')))
+      ? product.canonicalUrl
+      : null;
+
     const payload: Record<string, any> = {
       name: product.nameFa || 'کالای جدید',
       name_fa: product.nameFa || 'کالای جدید',
       name_en: product.nameEn || '',
       slug: product.slug || `prod-${Date.now()}`,
-      barcode: product.barcode || '',
+      ...(product.barcode && product.barcode.trim() ? { barcode: product.barcode.trim().slice(0, 60) } : {}),
       category: resolvedCategoryPk !== null ? resolvedCategoryPk : (typeof product.category === 'number' ? product.category : null),
       brand: resolvedBrandPk !== null ? resolvedBrandPk : (typeof product.brand === 'number' ? product.brand : null),
       hologram: resolvedHologramPk !== null ? resolvedHologramPk : (typeof product.hologram === 'number' ? product.hologram : null),
@@ -878,25 +887,27 @@ export const productsApi = {
       packs_per_box: Number(product.packsPerBox) || 10,
       stock_cartons: Number(product.stockCartons) || 0,
       stock_boxes: Number(product.stockBoxes) || 0,
-      min_order_carton: Number(product.moq) ?? 0,
-      min_order_box: Number(product.moqBox) ?? 0,
+      min_order_carton: Math.max(1, Number(product.moq) || 1),
+      min_order_box: Math.max(1, Number(product.moqBox) || 1),
+      min_order_pack: Math.max(1, Number(product.moqPack) || 1),
       badge: normalizedBadge,
+      image: safeImage,
       image_url: safeImage,
-      images: safeImages,
-      gallery_images: safeImages,
+      images: allGalleryImages,
+      gallery_images: allGalleryImages,
       full_description: product.description || '',
       description: product.description || '',
       excerpt: product.excerpt || '',
-      meta_title: product.metaTitle || product.nameFa || '',
+      meta_title: (product.metaTitle || product.nameFa || '').slice(0, 150),
       meta_description: product.metaDescription || product.excerpt || '',
-      focus_keyword: product.focusKeyword || product.nameFa || '',
+      focus_keyword: (product.focusKeyword || product.nameFa || '').slice(0, 100),
       seo_keywords: Array.isArray(product.keywords) ? product.keywords.join(', ') : (product.keywords || product.focusKeyword || product.nameFa || ''),
-      canonical_url: product.canonicalUrl || '',
-      country_origin: product.origin || '',
-      tar: product.tar || '',
-      nicotine: product.nicotine || '',
-      cigarette_size: product.cigaretteSize || product.packSize || 'king_size',
-      filter_type: product.filterType || 'white',
+      ...(validCanonicalCreate ? { canonical_url: validCanonicalCreate } : {}),
+      country_origin: (product.origin || '').slice(0, 100),
+      tar: (product.tar || '').slice(0, 20),
+      nicotine: (product.nicotine || '').slice(0, 20),
+      cigarette_size: normalizedCigaretteSize,
+      filter_type: normalizedFilterType,
       is_pos_only: Boolean(product.isPosOnly),
       is_box_only: Boolean(product.isBoxOnly),
       has_carton: product.hasCarton !== false,
@@ -926,9 +937,9 @@ export const productsApi = {
       origin: product.origin || 'ایران',
       tar: product.tar || '',
       nicotine: product.nicotine || '',
-      cigaretteSize: product.cigaretteSize || product.packSize || 'king_size',
-      packSize: product.packSize || product.cigaretteSize || 'king_size',
-      filterType: product.filterType || 'white',
+      cigaretteSize: normalizedCigaretteSize,
+      packSize: product.packSize || normalizedCigaretteSize,
+      filterType: normalizedFilterType,
       flavor: product.flavor || '',
       packagingType: product.packagingType || '',
       manufacturer: product.manufacturer || '',
@@ -941,8 +952,9 @@ export const productsApi = {
       packsPerBox: Number(product.packsPerBox) || 10,
       stockCartons: Number(product.stockCartons) || 0,
       stockBoxes: Number(product.stockBoxes) || 0,
-      moq: Number(product.moq) ?? 0,
-      moqBox: Number(product.moqBox) ?? 0,
+      moq: Math.max(1, Number(product.moq) || 1),
+      moqBox: Math.max(1, Number(product.moqBox) || 1),
+      moqPack: Math.max(1, Number(product.moqPack) || 1),
       image: product.image || '',
       images: Array.isArray(product.images) ? product.images : [],
       barcode: product.barcode || '',
@@ -976,7 +988,7 @@ export const productsApi = {
     for (const ep of candidateEndpoints) {
       response = await httpClient.post(ep, payload, { timeoutMs: 8000 });
       if (response.success) break;
-      // If server returned 400 with string/fk/slug error, retry with sanitized keys
+      // If server returned 400 with string/fk/slug/base64 error, retry with sanitized keys
       if (response.status === 400) {
         const sanitizedPayload = {
           ...payload,
@@ -984,7 +996,10 @@ export const productsApi = {
           brand: typeof payload.brand === 'number' ? payload.brand : null,
           hologram: typeof payload.hologram === 'number' ? payload.hologram : null,
           category: typeof payload.category === 'number' ? payload.category : 1,
+          images: safeImages,
+          gallery_images: safeImages,
         };
+        delete sanitizedPayload.barcode;
         const retryRes = await httpClient.post(ep, sanitizedPayload, { timeoutMs: 8000 });
         if (retryRes.success) {
           response = retryRes;
@@ -1019,8 +1034,9 @@ export const productsApi = {
         packPrice: Number(product.packPrice) || 0,
         stockBoxes: Number(product.stockBoxes) || 0,
         stockCartons: Number(product.stockCartons) || 0,
-        moq: Number(product.moq) ?? 0,
-        moqBox: Number(product.moqBox) ?? 0,
+        moq: Math.max(1, Number(product.moq) || 1),
+        moqBox: Math.max(1, Number(product.moqBox) || 1),
+        moqPack: Math.max(1, Number(product.moqPack) || 1),
         flavor: product.flavor || '',
         packagingType: product.packagingType || '',
         manufacturer: product.manufacturer || '',
@@ -1050,7 +1066,11 @@ export const productsApi = {
       ? 'بار تازه'
       : productData.badge;
 
-    // Immediately persist rich fields (excerpt, TinyMCE description, gallery images, features, sales channels) so they are never lost
+    const effMoq = productData.moq !== undefined ? Math.max(1, Number(productData.moq) || 1) : undefined;
+    const effMoqBox = productData.moqBox !== undefined ? Math.max(1, Number(productData.moqBox) || 1) : undefined;
+    const effMoqPack = productData.moqPack !== undefined ? Math.max(1, Number(productData.moqPack) || 1) : undefined;
+
+    // Immediately persist rich fields (excerpt, TinyMCE description, gallery images, features, sales channels, MOQ) so they are never lost
     saveProductRichOverride(cleanId, {
       excerpt: productData.excerpt ?? '',
       description: productData.description ?? '',
@@ -1071,8 +1091,9 @@ export const productsApi = {
       packPrice: productData.packPrice !== undefined ? Number(productData.packPrice) : undefined,
       stockBoxes: productData.stockBoxes !== undefined ? Number(productData.stockBoxes) : undefined,
       stockCartons: productData.stockCartons !== undefined ? Number(productData.stockCartons) : undefined,
-      moq: productData.moq !== undefined ? Number(productData.moq) : undefined,
-      moqBox: productData.moqBox !== undefined ? Number(productData.moqBox) : undefined,
+      moq: effMoq,
+      moqBox: effMoqBox,
+      moqPack: effMoqPack,
       flavor: productData.flavor,
       packagingType: productData.packagingType,
       manufacturer: productData.manufacturer,
@@ -1088,8 +1109,11 @@ export const productsApi = {
     const safeImage = (productData.image && productData.image.startsWith('data:')) ? '' : (productData.image || '');
 
     const normalizedBadge = normalizeBadgeForDjango(effectiveBadge);
+    const normalizedCigaretteSize = normalizeCigaretteSizeForDjango(productData.cigaretteSize || productData.packSize);
+    const normalizedFilterType = normalizeFilterTypeForDjango(productData.filterType);
 
-    const safeImages = (productData.images || [])
+    const allGalleryImages = (productData.images || []).filter(Boolean);
+    const safeImages = allGalleryImages
       .map(img => (img && img.startsWith('data:')) ? '' : img)
       .filter(Boolean);
 
@@ -1211,6 +1235,10 @@ export const productsApi = {
       };
     });
 
+    const validCanonicalUpdate = (productData.canonicalUrl && (productData.canonicalUrl.startsWith('http://') || productData.canonicalUrl.startsWith('https://')))
+      ? productData.canonicalUrl
+      : null;
+
     const payload: Record<string, any> = {
       name: productData.nameFa,
       name_fa: productData.nameFa,
@@ -1226,13 +1254,14 @@ export const productsApi = {
       packs_per_box: Number(productData.packsPerBox) || 10,
       stock_cartons: Number(productData.stockCartons) || 0,
       stock_boxes: Number(productData.stockBoxes) || 0,
-      min_order_carton: Number(productData.moq) ?? 0,
-      min_order_box: Number(productData.moqBox) ?? 0,
-      tar: productData.tar || '',
-      nicotine: productData.nicotine || '',
-      country_origin: productData.origin || '',
-      cigarette_size: productData.cigaretteSize || productData.packSize || 'king_size',
-      filter_type: productData.filterType || 'white',
+      min_order_carton: effMoq ?? 1,
+      min_order_box: effMoqBox ?? 1,
+      min_order_pack: effMoqPack ?? 1,
+      tar: (productData.tar || '').slice(0, 20),
+      nicotine: (productData.nicotine || '').slice(0, 20),
+      country_origin: (productData.origin || '').slice(0, 100),
+      cigarette_size: normalizedCigaretteSize,
+      filter_type: normalizedFilterType,
       badge: normalizedBadge,
       is_pos_only: Boolean(productData.isPosOnly),
       is_box_only: Boolean(productData.isBoxOnly),
@@ -1244,19 +1273,20 @@ export const productsApi = {
       is_approved: true,
       status: 'active',
       is_featured: isFeaturedVal,
-      ...(productData.barcode ? { barcode: productData.barcode } : {}),
+      ...(productData.barcode && productData.barcode.trim() ? { barcode: productData.barcode.trim().slice(0, 60) } : {}),
       ...(productData.slug ? { slug: productData.slug } : {}),
+      image: safeImage,
       image_url: safeImage,
-      images: safeImages,
-      gallery_images: safeImages,
+      images: allGalleryImages,
+      gallery_images: allGalleryImages,
       full_description: productData.description ?? '',
       description: productData.description ?? '',
       excerpt: productData.excerpt ?? '',
-      meta_title: productData.metaTitle || productData.nameFa || '',
+      meta_title: (productData.metaTitle || productData.nameFa || '').slice(0, 150),
       meta_description: productData.metaDescription || productData.excerpt || '',
-      focus_keyword: productData.focusKeyword || productData.nameFa || '',
+      focus_keyword: (productData.focusKeyword || productData.nameFa || '').slice(0, 100),
       seo_keywords: Array.isArray(productData.keywords) ? productData.keywords.join(', ') : (productData.keywords || productData.focusKeyword || productData.nameFa || ''),
-      canonical_url: productData.canonicalUrl || '',
+      ...(validCanonicalUpdate ? { canonical_url: validCanonicalUpdate } : {}),
       key_features: keyFeatures,
       key_takeaways: productData.keyTakeaways || [],
       tier_discounts: mappedTierDiscounts,
@@ -1268,10 +1298,10 @@ export const productsApi = {
 
     // Attempt remote PATCH / PUT
     let response = await httpClient.patch(`/products/items/${cleanId}/update/`, payload);
-    if (!response.success) {
+    if (!response.success && response.status !== 400) {
       response = await httpClient.put(`/products/items/${cleanId}/update/`, payload);
     }
-    // If 400 validation error (e.g. slug/barcode/FK conflict), retry without slug/barcode/FKs so descriptions & prices always save
+    // Retry 1 on 400: remove slug/barcode/non-numeric FKs while keeping gallery_images & descriptions
     if (!response.success && response.status === 400) {
       const safeFallbackPayload = { ...payload };
       delete safeFallbackPayload.slug;
@@ -1280,6 +1310,16 @@ export const productsApi = {
       if (typeof safeFallbackPayload.category !== 'number') delete safeFallbackPayload.category;
       if (typeof safeFallbackPayload.hologram !== 'number' && safeFallbackPayload.hologram !== null) delete safeFallbackPayload.hologram;
       response = await httpClient.patch(`/products/items/${cleanId}/update/`, safeFallbackPayload);
+
+      // Retry 2 on 400: also replace base64 gallery images with safe URLs in case server serializer is older
+      if (!response.success && response.status === 400) {
+        const ultraSafePayload = {
+          ...safeFallbackPayload,
+          images: safeImages,
+          gallery_images: safeImages,
+        };
+        response = await httpClient.patch(`/products/items/${cleanId}/update/`, ultraSafePayload);
+      }
     }
     if (!response.success && response.status === 404) {
       response = await httpClient.patch(`/products/${cleanId}/update/`, payload);
@@ -1294,9 +1334,15 @@ export const productsApi = {
         const mergedRaw = {
           ...productData,
           ...respObj,
-          excerpt: respObj.excerpt || productData.excerpt || '',
-          full_description: respObj.full_description || productData.description || '',
-          description: respObj.full_description || respObj.description || productData.description || '',
+          excerpt: productData.excerpt ?? respObj.excerpt ?? '',
+          full_description: productData.description ?? respObj.full_description ?? '',
+          description: productData.description ?? respObj.full_description ?? respObj.description ?? '',
+          min_order_carton: effMoq ?? respObj.min_order_carton ?? 1,
+          min_order_box: effMoqBox ?? respObj.min_order_box ?? 1,
+          min_order_pack: effMoqPack ?? respObj.min_order_pack ?? 1,
+          moq: effMoq ?? respObj.min_order_carton ?? 1,
+          moqBox: effMoqBox ?? respObj.min_order_box ?? 1,
+          moqPack: effMoqPack ?? respObj.min_order_pack ?? 1,
           images: (productData.images && productData.images.length > 0) ? productData.images : (respObj.gallery_images || respObj.images || []),
           appliedFeatures: (productData.appliedFeatures && productData.appliedFeatures.length > 0) ? productData.appliedFeatures : (respObj.attributes_values || []),
           is_featured: isFeaturedVal,
@@ -1353,16 +1399,96 @@ export const productsApi = {
   },
 
   /**
-   * Deducts or increases stock on PATCH /products/:id/sync-pos-stock/
+   * Deducts or increases stock on PATCH /products/items/:id/update/ and /products/items/:id/pos-sync-stock/
    */
-  async updateStock(id: string, newStockCartons: number): Promise<boolean> {
+  async updateStock(id: string, newStockCartons: number, newStockBoxes?: number): Promise<boolean> {
     const cleanId = String(id).replace(/^django-/, '');
-    await httpClient.patch(`/products/items/${cleanId}/pos-sync-stock/`, { stock_cartons_delta: 0, stock_cartons: newStockCartons })
-      .catch(() => httpClient.patch(`/products/${cleanId}/sync-pos-stock/`, { stock_cartons: newStockCartons }))
-      .catch(() => {});
     const currentProducts = getLocalProducts();
-    const updated = currentProducts.map(p => p.id === id ? { ...p, stockCartons: newStockCartons, isAvailable: newStockCartons > 0 } : p);
+    const existingProd = currentProducts.find(p => String(p.id) === String(id) || String(p.id) === cleanId || String(p.djangoId) === cleanId);
+    const boxesPerCarton = existingProd?.boxesPerCarton || 50;
+
+    const safeCartons = Math.max(0, Math.round(Number(newStockCartons) * 1000) / 1000);
+    const intCartons = Math.max(0, Math.round(safeCartons));
+    const resolvedBoxes = newStockBoxes !== undefined
+      ? Math.max(0, Math.round(Number(newStockBoxes)))
+      : Math.max(0, Math.round(safeCartons * boxesPerCarton));
+
+    const prevCartons = existingProd ? Math.round(Number(existingProd.stockCartons) || 0) : intCartons;
+    const prevBoxes = existingProd
+      ? ((existingProd.stockBoxes && existingProd.stockBoxes > 0) ? Math.round(Number(existingProd.stockBoxes)) : Math.round(prevCartons * boxesPerCarton))
+      : resolvedBoxes;
+
+    const deltaCartons = intCartons - prevCartons;
+    const deltaBoxes = resolvedBoxes - prevBoxes;
+
+    await ensureValidDjangoAdminToken().catch(() => '');
+
+    const directPayload: Record<string, any> = {
+      stock_cartons: intCartons,
+      stock_boxes: resolvedBoxes,
+      is_active: safeCartons > 0 || resolvedBoxes > 0,
+    };
+
+    // 1. Primary update via standard ProductUpdateAPIView so exact stock_cartons and stock_boxes are saved in DB
+    let updatedOnServer = false;
+    const updateEndpoints = [
+      `/products/items/${cleanId}/update/`,
+      `/products/${cleanId}/update/`,
+      `/products/items/${cleanId}/`,
+      `/products/${cleanId}/`,
+    ];
+    for (const ep of updateEndpoints) {
+      const res = await httpClient.patch(ep, directPayload).catch(() => ({ success: false }));
+      if (res && res.success) {
+        updatedOnServer = true;
+        break;
+      }
+    }
+
+    // 2. Fallback / secondary sync via ProductSyncPosStockAPIView with real delta values
+    if (!updatedOnServer) {
+      const syncPayload = {
+        stock_cartons: intCartons,
+        stock_boxes: resolvedBoxes,
+        stock_cartons_delta: deltaCartons,
+        stock_boxes_delta: deltaBoxes,
+      };
+      const resSync = await httpClient.patch(`/products/items/${cleanId}/pos-sync-stock/`, syncPayload).catch(() => ({ success: false }));
+      if (!resSync || !resSync.success) {
+        await httpClient.patch(`/products/${cleanId}/sync-pos-stock/`, syncPayload).catch(() => {});
+      }
+    }
+
+    // 3. Persist in rich override and local product stores so Product Editor & Catalog stay 100% in sync
+    saveProductRichOverride(cleanId, {
+      stockCartons: safeCartons,
+      stockBoxes: resolvedBoxes,
+    });
+    if (String(id) !== cleanId) {
+      saveProductRichOverride(String(id), {
+        stockCartons: safeCartons,
+        stockBoxes: resolvedBoxes,
+      });
+    }
+
+    const updated = currentProducts.map(p => {
+      if (String(p.id) === String(id) || String(p.id) === cleanId || String(p.djangoId) === cleanId) {
+        return {
+          ...p,
+          stockCartons: safeCartons,
+          stockBoxes: resolvedBoxes,
+          isAvailable: safeCartons > 0 || resolvedBoxes > 0,
+        };
+      }
+      return p;
+    });
     saveLocalProducts(updated);
+    djangoDatabaseStore.setProducts(updated);
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updated } }));
+    }
+
     return true;
   },
 

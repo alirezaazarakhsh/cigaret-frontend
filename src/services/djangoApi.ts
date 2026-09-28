@@ -2286,6 +2286,37 @@ export function mapBadgeFromDjango(badgeCode?: string): string {
 }
 
 /**
+ * Normalizes Persian or English cigarette size strings into valid Django SIZE_CHOICES codes.
+ */
+export function normalizeCigaretteSizeForDjango(size?: string): string {
+  if (!size) return 'king_size';
+  const s = size.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  const valid = ['king_size', 'slims', 'super_slims', 'nano', 'compact', 'queen_size'];
+  if (valid.includes(s)) return s;
+  if ((s.includes('super') && s.includes('slim')) || s.includes('سوپر')) return 'super_slims';
+  if (s.includes('slim') || s.includes('اسلیم') || s.includes('باریک')) return 'slims';
+  if (s.includes('nano') || s.includes('نانو')) return 'nano';
+  if (s.includes('compact') || s.includes('کامپکت')) return 'compact';
+  if (s.includes('queen') || s.includes('کویین')) return 'queen_size';
+  return 'king_size';
+}
+
+/**
+ * Normalizes Persian or English filter type strings into valid Django FILTER_CHOICES codes.
+ */
+export function normalizeFilterTypeForDjango(filter?: string): string {
+  if (!filter) return 'white';
+  const f = filter.trim().toLowerCase();
+  const valid = ['white', 'yellow', 'charcoal', 'recessed', 'capsule'];
+  if (valid.includes(f)) return f;
+  if (f.includes('yellow') || f.includes('cork') || f.includes('زرد')) return 'yellow';
+  if (f.includes('charcoal') || f.includes('carbon') || f.includes('کربن') || f.includes('زغال')) return 'charcoal';
+  if (f.includes('recessed') || f.includes('مجوف')) return 'recessed';
+  if (f.includes('capsule') || f.includes('کپسول') || f.includes('پاور') || f.includes('طعم')) return 'capsule';
+  return 'white';
+}
+
+/**
  * Normalizes raw category value (string, object, or ID) into a clean valid CigaretteCategory slug or string.
  */
 export function extractCategory(val: any, fallback: CigaretteCategory = 'cigarettes'): CigaretteCategory {
@@ -2364,6 +2395,7 @@ export interface ProductRichOverride {
   stockCartons?: number;
   moq?: number;
   moqBox?: number;
+  moqPack?: number;
   flavor?: string;
   packagingType?: string;
   manufacturer?: string;
@@ -2499,15 +2531,18 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     0
   );
 
-  // Minimum Order Quantities
-  const moq = parseNumeric(
-    item.min_order_carton ?? item.moq ?? item.min_order_quantity ?? item.moqCarton ?? richOverride?.moq,
-    1
-  );
-  const moqBox = parseNumeric(
-    item.min_order_box ?? item.moq_box ?? item.moqBox ?? richOverride?.moqBox,
-    1
-  );
+  // Minimum Order Quantities (Prioritize user-saved richOverride or explicit backend value > 0)
+  const backendMoq = parseNumeric(item.min_order_carton ?? item.moq ?? item.min_order_quantity ?? item.moqCarton, 0);
+  const overrideMoq = richOverride?.moq !== undefined ? parseNumeric(richOverride.moq, 0) : 0;
+  const moq = overrideMoq > 0 ? overrideMoq : (backendMoq > 0 ? backendMoq : 1);
+
+  const backendMoqBox = parseNumeric(item.min_order_box ?? item.moq_box ?? item.moqBox, 0);
+  const overrideMoqBox = richOverride?.moqBox !== undefined ? parseNumeric(richOverride.moqBox, 0) : 0;
+  const moqBox = overrideMoqBox > 0 ? overrideMoqBox : (backendMoqBox > 0 ? backendMoqBox : 1);
+
+  const backendMoqPack = parseNumeric((item as any).min_order_pack ?? (item as any).moq_pack ?? (item as any).moqPack, 0);
+  const overrideMoqPack = richOverride?.moqPack !== undefined ? parseNumeric(richOverride.moqPack, 0) : 0;
+  const moqPack = overrideMoqPack > 0 ? overrideMoqPack : (backendMoqPack > 0 ? backendMoqPack : 1);
 
   // Images (check main_image, image_url, image, gallery, gallery_images, images)
   let imagesArr: string[] = [];
@@ -2602,13 +2637,13 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     html ? html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() : '';
 
   const excerpt =
+    (richOverride?.excerpt !== undefined && richOverride.excerpt.trim() !== '' ? richOverride.excerpt : '') ||
     rawExcerpt ||
-    (richOverride?.excerpt !== undefined ? richOverride.excerpt : '') ||
     rawMetaDescription;
 
   const description =
-    rawFullDescription ||
-    (richOverride?.description !== undefined ? richOverride.description : '');
+    (richOverride?.description !== undefined && richOverride.description.trim() !== '' ? richOverride.description : '') ||
+    rawFullDescription;
 
   const focusKeyword = extractStringFromField(
     item.focus_keyword || item.focusKeyword || item.seo_keywords || richOverride?.focusKeyword,
@@ -2745,6 +2780,10 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     stockBoxes,
     moq,
     moqBox,
+    moqPack,
+    min_order_carton: moq,
+    min_order_box: moqBox,
+    min_order_pack: moqPack,
     image: mainImg,
     images: imagesArr,
     barcode,
@@ -4146,7 +4185,6 @@ export async function djangoFetchPosStaffList(config?: DjangoCrmConfig): Promise
 }
 
 export async function djangoFetchActiveSessions(config?: DjangoCrmConfig): Promise<any[]> {
-  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
   const ts = Date.now();
   const candidateUrls = [
     `/api/v1/posuseractive-sessions/?_t=${ts}`,
@@ -4157,7 +4195,7 @@ export async function djangoFetchActiveSessions(config?: DjangoCrmConfig): Promi
 
   for (const url of candidateUrls) {
     const res = await executeDjangoAxiosRequest(url, 'GET', undefined, {
-      token,
+      apiUrl: config?.apiUrl,
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
@@ -4259,21 +4297,31 @@ export async function djangoPosLoginApi(payload: any, config?: DjangoCrmConfig):
 }
 
 export async function djangoPosLogoutApi(phone?: string, userId?: string | number, config?: DjangoCrmConfig): Promise<any> {
-  const token = getApiToken();
+  const toAsciiDigits = (val: any): string =>
+    String(val || '')
+      .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+      .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+      .replace(/\D/g, '');
+
+  const rawDigits = toAsciiDigits(phone);
+  const normPhone = rawDigits.length >= 10
+    ? ('0' + rawDigits.slice(-10))
+    : (phone ? String(phone).trim() : undefined);
+
   let numericUserId: number | undefined = undefined;
   if (userId !== undefined && userId !== null && /^\d+$/.test(String(userId).trim())) {
     numericUserId = Number(String(userId).trim());
-  } else if (phone && String(phone).replace(/\D/g, '').endsWith('9120759419')) {
+  } else if (normPhone && normPhone.endsWith('9120759419')) {
     numericUserId = 1;
   }
 
-  if (!numericUserId && phone) {
+  if ((!numericUserId || (numericUserId === 1 && normPhone && !normPhone.endsWith('9120759419'))) && normPhone) {
     try {
-      const normPhone = String(phone).replace(/\D/g, '').replace(/^98/, '0');
+      const targetLast10 = normPhone.slice(-10);
       const sessions = await djangoFetchActiveSessions(config);
       const matched = sessions.find((s: any) => {
-        const sp = String(s.phone || s.mobile || s.username || '').replace(/\D/g, '').replace(/^98/, '0');
-        return sp && sp === normPhone;
+        const sp = toAsciiDigits(s.phone || s.mobile || s.username || '').slice(-10);
+        return sp && sp === targetLast10;
       });
       if (matched && (matched.user_id || matched.id)) {
         const candidate = Number(matched.user_id || matched.id);
@@ -4282,14 +4330,24 @@ export async function djangoPosLogoutApi(phone?: string, userId?: string | numbe
     } catch {}
   }
 
-  const query = numericUserId ? `?user_id=${numericUserId}` : '';
+  const queryParams: string[] = [];
+  if (numericUserId) queryParams.push(`user_id=${numericUserId}`);
+  if (normPhone) queryParams.push(`phone=${encodeURIComponent(normPhone)}`);
+  const query = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
+
   const payload: Record<string, any> = {};
-  if (phone) payload.phone = phone;
+  if (normPhone) payload.phone = normPhone;
   if (numericUserId) payload.user_id = numericUserId;
 
-  let res = await executeDjangoAxiosRequest(`/api/v1/posuserlogout/${query}`, 'POST', payload, { token });
+  // Do NOT attach Authorization Bearer token here: an expired token triggers 401 before the view runs,
+  // and a shared/admin token causes DRF to extract user_id=1 instead of the target staff member.
+  let res = await executeDjangoAxiosRequest(`/api/v1/posuserlogout/${query}`, 'POST', payload, {
+    apiUrl: config?.apiUrl,
+  });
   if (!res.success) {
-    res = await executeDjangoAxiosRequest(`/api/v1/posuser/logout/${query}`, 'POST', payload, { token });
+    res = await executeDjangoAxiosRequest(`/api/v1/posuser/logout/${query}`, 'POST', payload, {
+      apiUrl: config?.apiUrl,
+    });
   }
   return res;
 }

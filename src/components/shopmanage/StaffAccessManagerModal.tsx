@@ -62,16 +62,8 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
   };
 
   useEffect(() => {
-    if (Array.isArray(onlineSessions) && onlineSessions.length > 0) {
-      setLiveOnlineSessions(prev => {
-        const merged = new Map<string, any>();
-        [...onlineSessions, ...prev].forEach((s: any) => {
-          if (!s) return;
-          const key = normalizePhoneKey(s.phone || s.mobile || s.username) || String(s.id || s.user_id || '');
-          if (key && !merged.has(key)) merged.set(key, s);
-        });
-        return Array.from(merged.values());
-      });
+    if (Array.isArray(onlineSessions)) {
+      setLiveOnlineSessions(onlineSessions);
     }
   }, [onlineSessions]);
 
@@ -128,7 +120,7 @@ export const StaffAccessManagerModal: React.FC<StaffAccessManagerModalProps> = (
           }
         }).catch(() => {});
       }
-    }, 10000);
+    }, 3000);
 
     return () => {
       isMounted = false;

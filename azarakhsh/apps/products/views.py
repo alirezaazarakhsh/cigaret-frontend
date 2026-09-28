@@ -527,7 +527,7 @@ class ProductCreateAPIView(APIView):
     def get(self, request):
         categories = Category.objects.all().values('id', 'name', 'slug', 'color')
         brands = ProductBrand.objects.all().values('id', 'name', 'slug', 'country')
-        holograms = ProductHologram.objects.all().values('id', 'title', 'badge_text', 'trust_level')
+        holograms = ProductHologram.objects.all().values('id', 'title', 'issuer_org', 'country_origin', 'security_level')
         return Response({
             'status': 'success',
             'message': 'اطلاعات اولیه فرم افزودن محصول دریافت گردید.',
@@ -544,6 +544,7 @@ class ProductCreateAPIView(APIView):
                 'stock_boxes': 0,
                 'min_order_carton': 1,
                 'min_order_box': 1,
+                'min_order_pack': 1,
                 'has_carton': True,
                 'has_box': True,
                 'has_pack': False,
@@ -559,14 +560,14 @@ class ProductCreateAPIView(APIView):
         responses={201: ProductSerializer}
     )
     def post(self, request):
-        serializer = ProductCreateUpdateSerializer(data=request.data)
+        serializer = ProductCreateUpdateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             product = serializer.save()
             target_scope = "صندوق حضوری" if product.is_pos_only else "سایت آنلاین و صندوق فروشگاهی"
             return Response({
                 'status': 'success',
                 'message': f'محصول جدید «{product.name}» با موفقیت در دیتابیس ثبت شد و به {target_scope} اضافه گردید.',
-                'data': ProductSerializer(product).data
+                'data': ProductDetailSerializer(product, context={'request': request}).data
             }, status=status.HTTP_201_CREATED)
         return Response({
             'status': 'error',
@@ -577,22 +578,81 @@ class ProductCreateAPIView(APIView):
 
 class ProductDetailAPIView(APIView):
     permission_classes = [AllowAny]
+    serializer_class = ProductCreateUpdateSerializer
+
+    def get_object(self):
+        pk = self.kwargs.get('pk')
+        if pk:
+            return get_object_or_404(
+                Product.objects.select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'key_features', 'tier_discounts', 'attributes_values__attribute'),
+                pk=pk
+            )
+        return None
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs.setdefault('context', {'request': getattr(self, 'request', None)})
+        if not args and 'instance' not in kwargs and 'data' not in kwargs:
+            obj = self.get_object()
+            if obj is not None:
+                kwargs['instance'] = obj
+        return self.serializer_class(*args, **kwargs)
 
     @swagger_auto_schema(
         operation_summary="دریافت جزئیات کامل محصول به همراه گالری و ویژگی‌ها",
         responses={200: ProductDetailSerializer}
     )
     def get(self, request, pk):
-        product = get_object_or_404(
-            Product.objects.select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'attributes_values__attribute'), 
-            pk=pk
-        )
+        product = self.get_object()
         serializer = ProductDetailSerializer(product, context={'request': request})
         return Response({'status': 'success', 'data': serializer.data})
+
+    def put(self, request, pk):
+        view = ProductUpdateAPIView()
+        view.request = request
+        view.kwargs = {'pk': pk}
+        return view.put(request, pk)
+
+    def patch(self, request, pk):
+        view = ProductUpdateAPIView()
+        view.request = request
+        view.kwargs = {'pk': pk}
+        return view.patch(request, pk)
+
+    def delete(self, request, pk):
+        return ProductDeleteAPIView().delete(request, pk)
 
 
 class ProductUpdateAPIView(APIView):
     permission_classes = [AllowAny]
+    serializer_class = ProductCreateUpdateSerializer
+
+    def get_object(self):
+        pk = self.kwargs.get('pk')
+        if pk:
+            return get_object_or_404(
+                Product.objects.select_related('category', 'brand', 'hologram').prefetch_related('gallery', 'key_features', 'tier_discounts', 'attributes_values__attribute'),
+                pk=pk
+            )
+        return None
+
+    def get_serializer(self, *args, **kwargs):
+        kwargs.setdefault('context', {'request': getattr(self, 'request', None)})
+        if not args and 'instance' not in kwargs and 'data' not in kwargs:
+            obj = self.get_object()
+            if obj is not None:
+                kwargs['instance'] = obj
+        return self.serializer_class(*args, **kwargs)
+
+    @swagger_auto_schema(
+        operation_summary="دریافت اطلاعات فعلی محصول در فرم ویرایش",
+        responses={200: ProductDetailSerializer}
+    )
+    def get(self, request, pk):
+        product = self.get_object()
+        return Response({
+            'status': 'success',
+            'data': ProductDetailSerializer(product, context={'request': request}).data
+        })
 
     @swagger_auto_schema(
         operation_summary="ویرایش اطلاعات محصول (مدیریت)",
@@ -604,6 +664,7 @@ class ProductUpdateAPIView(APIView):
         serializer = ProductCreateUpdateSerializer(product, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             updated = serializer.save()
+            updated.refresh_from_db()
             return Response({
                 'status': 'success',
                 'message': 'اطلاعات کالا با موفقیت بروزرسانی گردید.',
@@ -614,14 +675,14 @@ class ProductUpdateAPIView(APIView):
     @swagger_auto_schema(
         operation_summary="ویرایش جزئی اطلاعات محصول (مدیریت)",
         request_body=ProductCreateUpdateSerializer,
-        responses={200: ProductSerializer}
+        responses={200: ProductDetailSerializer}
     )
     def patch(self, request, pk):
         return self.put(request, pk)
 
 
 class ProductSyncPosStockAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         operation_summary="همگام‌سازی موجودی و کانال عرضه صندوق حضوری",
@@ -629,14 +690,22 @@ class ProductSyncPosStockAPIView(APIView):
     )
     def patch(self, request, pk):
         product = get_object_or_404(Product, pk=pk)
+        cartons_direct = request.data.get('stock_cartons')
+        boxes_direct = request.data.get('stock_boxes')
         cartons_delta = request.data.get('stock_cartons_delta')
         boxes_delta = request.data.get('stock_boxes_delta')
         is_pos_only = request.data.get('is_pos_only')
 
-        if cartons_delta is not None:
-            product.stock_cartons = max(0, product.stock_cartons + int(cartons_delta))
-        if boxes_delta is not None:
-            product.stock_boxes = max(0, product.stock_boxes + int(boxes_delta))
+        if cartons_direct is not None and (cartons_delta is None or int(float(cartons_delta)) == 0):
+            product.stock_cartons = max(0, int(round(float(cartons_direct))))
+        elif cartons_delta is not None:
+            product.stock_cartons = max(0, product.stock_cartons + int(round(float(cartons_delta))))
+
+        if boxes_direct is not None and (boxes_delta is None or int(float(boxes_delta)) == 0):
+            product.stock_boxes = max(0, int(round(float(boxes_direct))))
+        elif boxes_delta is not None:
+            product.stock_boxes = max(0, product.stock_boxes + int(round(float(boxes_delta))))
+
         if is_pos_only is not None:
             product.is_pos_only = bool(is_pos_only)
 

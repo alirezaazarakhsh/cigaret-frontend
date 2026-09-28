@@ -54,6 +54,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             return {
               ...prev,
               ...fresh,
+              excerpt: fresh.excerpt || prev.excerpt || '',
+              description: fresh.description || prev.description || '',
+              moq: Math.max(Number(prev.moq) || 1, Number(fresh.moq) || 1),
+              moqBox: Math.max(Number(prev.moqBox) || 1, Number(fresh.moqBox) || 1),
+              moqPack: Math.max(Number(prev.moqPack) || 1, Number(fresh.moqPack) || 1),
               images: mergedImages,
               appliedFeatures: mergedFeatures,
             };
@@ -67,25 +72,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   }, [initialProduct]);
 
   const product = detailedProduct || initialProduct;
+  const richOverride = product ? getProductRichOverride(product.id) : null;
 
   const isDrink = product?.category === 'drinks_coffee';
   const showCarton = !isDrink && product?.hasCarton !== false && !product?.isBoxOnly;
   const showBox = !isDrink && (product?.hasBox !== false || product?.isBoxOnly === true);
   const showPack = Boolean(product?.hasPack) || isDrink || (!showCarton && !showBox);
 
-  const moqCarton = (product?.moq !== undefined && product?.moq !== null) ? Number(product.moq) : 0;
-  const moqBox = (product?.moqBox !== undefined && product?.moqBox !== null) ? Number(product.moqBox) : 0;
+  const moqCarton = Math.max(1, Number(richOverride?.moq || product?.moq || (product as any)?.min_order_carton || 1));
+  const moqBox = Math.max(1, Number(richOverride?.moqBox || product?.moqBox || (product as any)?.min_order_box || 1));
+  const moqPack = Math.max(1, Number(richOverride?.moqPack || product?.moqPack || (product as any)?.min_order_pack || 1));
 
   const [cartonQty, setCartonQty] = useState<number>(() => {
     if (!showCarton) return 0;
-    return moqCarton > 0 ? moqCarton : 1;
+    return moqCarton;
   });
   const [boxQty, setBoxQty] = useState<number>(() => {
-    if (!showCarton && showBox) return moqBox > 0 ? moqBox : 1;
+    if (!showCarton && showBox) return moqBox;
     return 0;
   });
   const [packQty, setPackQty] = useState<number>(() => {
-    if (!showCarton && !showBox && showPack) return 1;
+    if (!showCarton && !showBox && showPack) return moqPack;
     return 0;
   });
   const [added, setAdded] = useState(false);
@@ -93,9 +100,27 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const [isImageExpanded, setIsImageExpanded] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
+  useEffect(() => {
+    setCartonQty(prev => {
+      if (!showCarton) return 0;
+      return prev < moqCarton ? moqCarton : prev;
+    });
+    setBoxQty(prev => {
+      if (!showBox) return 0;
+      if (!showCarton && prev < moqBox) return moqBox;
+      if (prev > 0 && prev < moqBox) return moqBox;
+      return prev;
+    });
+    setPackQty(prev => {
+      if (!showPack) return 0;
+      if (!showCarton && !showBox && prev < moqPack) return moqPack;
+      if (prev > 0 && prev < moqPack) return moqPack;
+      return prev;
+    });
+  }, [moqCarton, moqBox, moqPack, showCarton, showBox, showPack]);
+
   if (!product) return null;
 
-  const richOverride = getProductRichOverride(product.id);
   const rawImagesList = [
     product.image,
     ...(Array.isArray(product.images) ? product.images : []),
@@ -132,25 +157,49 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   const handleAdd = () => {
     setMoqError(null);
-    if (showCarton && cartonQty > 0 && moqCarton > 0 && cartonQty < moqCarton) {
+    if (showCarton && cartonQty > 0 && cartonQty < moqCarton) {
       setMoqError(`حداقل سفارش کارتن برای این محصول ${formatNumberFa(moqCarton)} کارتن است.`);
+      setCartonQty(moqCarton);
       return;
     }
-    if (showBox && boxQty > 0 && moqBox > 0 && boxQty < moqBox) {
+    if (showBox && boxQty > 0 && boxQty < moqBox) {
       setMoqError(`حداقل سفارش باکس برای این محصول ${formatNumberFa(moqBox)} باکس است.`);
+      setBoxQty(moqBox);
+      return;
+    }
+    if (showPack && packQty > 0 && packQty < moqPack) {
+      setMoqError(`حداقل سفارش پاکت برای این محصول ${formatNumberFa(moqPack)} پاکت است.`);
+      setPackQty(moqPack);
+      return;
+    }
+    if (
+      (!showCarton || cartonQty === 0) &&
+      (!showBox || boxQty === 0) &&
+      (!showPack || packQty === 0)
+    ) {
+      if (showCarton) {
+        setMoqError(`حداقل سفارش کارتن برای این محصول ${formatNumberFa(moqCarton)} کارتن است.`);
+        setCartonQty(moqCarton);
+      } else if (showBox) {
+        setMoqError(`حداقل سفارش باکس برای این محصول ${formatNumberFa(moqBox)} باکس است.`);
+        setBoxQty(moqBox);
+      } else if (showPack) {
+        setMoqError(`حداقل سفارش پاکت برای این محصول ${formatNumberFa(moqPack)} پاکت است.`);
+        setPackQty(moqPack);
+      }
       return;
     }
 
     let hasAdded = false;
-    if (showCarton && cartonQty > 0) {
+    if (showCarton && cartonQty >= moqCarton) {
       onAddToCart(product, 'carton', cartonQty);
       hasAdded = true;
     }
-    if (showBox && boxQty > 0) {
+    if (showBox && boxQty >= moqBox) {
       onAddToCart(product, 'box', boxQty);
       hasAdded = true;
     }
-    if (showPack && packQty > 0) {
+    if (showPack && packQty >= moqPack) {
       onAddToCart(product, 'pack', packQty);
       hasAdded = true;
     }
@@ -313,6 +362,26 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             <p className="text-xs text-slate-500 font-mono tracking-tight" dir="ltr">
               {product.nameEn}
             </p>
+            {(() => {
+              const headerExcerpt = (
+                richOverride?.excerpt ||
+                product.excerpt ||
+                (product as any).short_description ||
+                ''
+              ).trim();
+              if (!headerExcerpt) return null;
+              return (
+                <div className="mt-2 p-2.5 rounded-xl bg-blue-50/60 border border-blue-100 text-xs text-slate-700 leading-relaxed">
+                  <div className="flex items-center gap-1 font-bold text-blue-900 mb-0.5 text-[11px]">
+                    <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                    <span>خلاصه محصول:</span>
+                  </div>
+                  <p className="whitespace-pre-line leading-relaxed text-slate-700">
+                    {headerExcerpt}
+                  </p>
+                </div>
+              );
+            })()}
             <div className="pt-1 flex items-center gap-2 flex-wrap">
               <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg border ${
                 !stockInfo.isOutOfStock
@@ -328,15 +397,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         {/* Full Rich Description (نقد و بررسی و توضیحات جامع محصول - TinyMCE) */}
         {(() => {
           const rawFullDesc = (
+            richOverride?.description ||
             product.description ||
             (product as any).full_description ||
-            richOverride?.description ||
             ''
           ).trim();
           const rawExcerpt = (
+            richOverride?.excerpt ||
             product.excerpt ||
             (product as any).short_description ||
-            richOverride?.excerpt ||
             ''
           ).trim();
 
@@ -357,7 +426,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <span>نقد و بررسی و توضیحات جامع محصول:</span>
                   </div>
                   <div
-                    className="max-h-36 sm:max-h-44 overflow-y-auto overscroll-contain pl-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify font-normal"
+                    className="max-h-48 sm:max-h-60 overflow-y-auto overscroll-contain pl-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify font-normal"
                     style={{ overscrollBehavior: 'contain' }}
                   >
                     {hasHtmlTags ? (
@@ -510,7 +579,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
                     <button
                       type="button"
-                      onClick={() => setCartonQty(q => q + 1)}
+                      onClick={() => {
+                        setMoqError(null);
+                        setCartonQty(q => (q === 0 ? moqCarton : q + 1));
+                      }}
                       className="w-7 h-7 rounded-md bg-white hover:bg-blue-600 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -518,7 +590,21 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <span className="w-8 text-center font-bold text-xs text-slate-900">{formatNumberFa(cartonQty)}</span>
                     <button
                       type="button"
-                      onClick={() => setCartonQty(q => Math.max(0, q - 1))}
+                      onClick={() => {
+                        setCartonQty(q => {
+                          if (q <= 0) return 0;
+                          if (q <= moqCarton) {
+                            if (boxQty > 0 || packQty > 0) {
+                              setMoqError(null);
+                              return 0;
+                            }
+                            setMoqError(`حداقل سفارش کارتن برای این محصول ${formatNumberFa(moqCarton)} کارتن است.`);
+                            return moqCarton;
+                          }
+                          setMoqError(null);
+                          return q - 1;
+                        });
+                      }}
                       className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
                     >
                       <Minus className="w-3.5 h-3.5" />
@@ -535,8 +621,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 </div>
                 <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
                   <span>حداقل سفارش کارتن:</span>
-                  <span className="font-bold text-slate-700">
-                    {moqCarton > 0 ? `${formatNumberFa(moqCarton)} کارتن` : 'بدون محدودیت'}
+                  <span className="font-bold text-blue-700">
+                    {formatNumberFa(moqCarton)} کارتن
                   </span>
                 </div>
               </div>
@@ -556,7 +642,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
                     <button
                       type="button"
-                      onClick={() => setBoxQty(q => q + 1)}
+                      onClick={() => {
+                        setMoqError(null);
+                        setBoxQty(q => (q === 0 ? moqBox : q + 1));
+                      }}
                       className="w-7 h-7 rounded-md bg-white hover:bg-slate-800 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -564,7 +653,25 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <span className="w-8 text-center font-bold text-xs text-slate-900">{formatNumberFa(boxQty)}</span>
                     <button
                       type="button"
-                      onClick={() => setBoxQty(q => Math.max(0, q - 1))}
+                      onClick={() => {
+                        setBoxQty(q => {
+                          if (q <= 0) return 0;
+                          if (q <= moqBox) {
+                            if ((showCarton && cartonQty > 0) || (showPack && packQty > 0)) {
+                              if (moqBox > 1) {
+                                setMoqError(`حداقل سفارش باکس ${formatNumberFa(moqBox)} باکس است (تعداد باکس به ۰ تغییر یافت).`);
+                              } else {
+                                setMoqError(null);
+                              }
+                              return 0;
+                            }
+                            setMoqError(`حداقل سفارش باکس برای این محصول ${formatNumberFa(moqBox)} باکس است.`);
+                            return moqBox;
+                          }
+                          setMoqError(null);
+                          return q - 1;
+                        });
+                      }}
                       className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
                     >
                       <Minus className="w-3.5 h-3.5" />
@@ -582,7 +689,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                 <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
                   <span>حداقل سفارش باکس:</span>
                   <span className="font-bold text-slate-700">
-                    {moqBox > 0 ? `${formatNumberFa(moqBox)} باکس` : 'بدون محدودیت'}
+                    {formatNumberFa(moqBox)} باکس
                   </span>
                 </div>
               </div>
@@ -602,7 +709,10 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
                     <button
                       type="button"
-                      onClick={() => setPackQty(q => q + 1)}
+                      onClick={() => {
+                        setMoqError(null);
+                        setPackQty(q => (q === 0 ? moqPack : q + 1));
+                      }}
                       className="w-7 h-7 rounded-md bg-white hover:bg-emerald-600 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
                     >
                       <Plus className="w-3.5 h-3.5" />
@@ -610,7 +720,25 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <span className="w-8 text-center font-bold text-xs text-slate-900">{formatNumberFa(packQty)}</span>
                     <button
                       type="button"
-                      onClick={() => setPackQty(q => Math.max(0, q - 1))}
+                      onClick={() => {
+                        setPackQty(q => {
+                          if (q <= 0) return 0;
+                          if (q <= moqPack) {
+                            if ((showCarton && cartonQty > 0) || (showBox && boxQty > 0)) {
+                              if (moqPack > 1) {
+                                setMoqError(`حداقل سفارش پاکت ${formatNumberFa(moqPack)} پاکت است (تعداد پاکت به ۰ تغییر یافت).`);
+                              } else {
+                                setMoqError(null);
+                              }
+                              return 0;
+                            }
+                            setMoqError(`حداقل سفارش پاکت برای این محصول ${formatNumberFa(moqPack)} پاکت است.`);
+                            return moqPack;
+                          }
+                          setMoqError(null);
+                          return q - 1;
+                        });
+                      }}
                       className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
                     >
                       <Minus className="w-3.5 h-3.5" />
@@ -626,9 +754,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   </div>
                 </div>
                 <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
-                  <span>موجودی پاکت:</span>
+                  <span>حداقل سفارش پاکت:</span>
                   <span className="font-bold text-emerald-700">
-                    {formatNumberFa(stockInfo.packs)} پاکت
+                    {formatNumberFa(moqPack)} پاکت
                   </span>
                 </div>
               </div>

@@ -968,11 +968,15 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     return [];
   });
 
+  const isLoggingOutRef = useRef<boolean>(false);
+  const lastPresenceSyncRef = useRef<number>(0);
+
   useEffect(() => {
     let isMounted = true;
     let ws: WebSocket | null = null;
     let reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
     let fallbackInterval: ReturnType<typeof setInterval> | null = null;
+    let bc: BroadcastChannel | null = null;
 
     const normalizePhoneKey = (val: any): string => {
       const digits = String(val || '')
@@ -995,9 +999,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         const sPhoneKey = normalizePhoneKey(sPhoneRaw);
         const sIdStr = String(s.id || s.user_id || s.userId || '');
         const isMe = Boolean(
-          s.isCurrentUser || s.is_current_user || s.is_self ||
-          (currentIdStr && sIdStr === currentIdStr) ||
-          (currentPhoneKey && sPhoneKey && sPhoneKey === currentPhoneKey)
+          isAuthenticated && !isLoggingOutRef.current && (
+            s.isCurrentUser || s.is_current_user || s.is_self ||
+            (currentIdStr && sIdStr === currentIdStr) ||
+            (currentPhoneKey && sPhoneKey && sPhoneKey === currentPhoneKey)
+          )
         );
 
         let formattedTime = s.loginTime || s.login_time || s.online_time || s.time || '';
@@ -1035,9 +1041,9 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
       const mapped = Array.from(dedupedMap.values());
 
-      // Ensure current user session is present in list if authenticated
+      // Ensure current user session is present in list if authenticated and not logging out
       const hasCurrent = mapped.some((s: any) => s.isCurrentUser || (currentPhoneKey && normalizePhoneKey(s.phone) === currentPhoneKey));
-      if (isAuthenticated && !hasCurrent && currentStaff && currentStaff.phone) {
+      if (isAuthenticated && !isLoggingOutRef.current && !hasCurrent && currentStaff && currentStaff.phone) {
         mapped.unshift({
           id: String(currentStaff.id || 'current_user_session'),
           fullName: currentStaff.fullName,
@@ -1048,21 +1054,28 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           avatarColor: currentStaff.avatarColor || 'bg-indigo-600',
           isCurrentUser: true
         });
+
+        // If server did not have our current authenticated user in its online list, re-sync our presence to DB
+        if (Date.now() - lastPresenceSyncRef.current > 12000) {
+          lastPresenceSyncRef.current = Date.now();
+          staffAuthService.syncStaffPresence(currentStaff).catch(() => {});
+        }
       }
 
       setOnlineSessions(mapped);
     };
 
     const loadActiveSessions = async () => {
+      if (isLoggingOutRef.current) return;
       try {
         const res = await staffAuthService.getActiveSessions();
-        if (res && res.success && Array.isArray(res.data) && isMounted) {
+        if (res && res.success && Array.isArray(res.data) && isMounted && !isLoggingOutRef.current) {
           processSessionsList(res.data);
           return;
         }
       } catch {}
 
-      if (isAuthenticated && currentStaff && currentStaff.phone && isMounted) {
+      if (isAuthenticated && !isLoggingOutRef.current && currentStaff && currentStaff.phone && isMounted) {
         const cleanCurrentPhone = String(currentStaff.phone).replace(/\D/g, '');
         const mySession = {
           id: String(currentStaff.id || `staff_${cleanCurrentPhone}`),
@@ -1082,9 +1095,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     };
 
     // 1. Sync current device's staff presence to Django DB and fetch all active sessions
-    if (isAuthenticated && currentStaff?.phone) {
+    if (isAuthenticated && !isLoggingOutRef.current && currentStaff?.phone) {
+      lastPresenceSyncRef.current = Date.now();
       staffAuthService.syncStaffPresence(currentStaff).finally(() => {
-        if (isMounted) loadActiveSessions();
+        if (isMounted && !isLoggingOutRef.current) loadActiveSessions();
       });
     } else {
       loadActiveSessions();
@@ -1107,8 +1121,27 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       window.addEventListener('sevin-pos-session-expired', handleSessionExpired);
     }
 
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        bc = new BroadcastChannel('sevin_pos_sessions_channel');
+        bc.onmessage = (ev) => {
+          if (!isMounted) return;
+          if (ev.data?.type === 'STAFF_LOGOUT' && ev.data?.phone) {
+            const outKey = normalizePhoneKey(ev.data.phone);
+            setOnlineSessions(prev => prev.filter(s => normalizePhoneKey(s.phone) !== outKey));
+            setTimeout(() => {
+              if (isMounted) loadActiveSessions();
+            }, 400);
+          } else {
+            loadActiveSessions();
+          }
+        };
+      }
+    } catch {}
+
     // 2. Real-time WebSocket Connection
     const connectWebSocket = () => {
+      if (!isAuthenticated || isLoggingOutRef.current) return;
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         let host = window.location.host;
@@ -1120,8 +1153,9 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
-          // Send join / authenticate payload if needed
-          ws?.send(JSON.stringify({ action: 'subscribe_sessions', phone: currentStaff?.phone }));
+          if (isAuthenticated && !isLoggingOutRef.current && currentStaff?.phone) {
+            ws?.send(JSON.stringify({ action: 'subscribe_sessions', phone: currentStaff?.phone }));
+          }
         };
 
         ws.onmessage = (event) => {
@@ -1139,27 +1173,31 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         };
 
         ws.onclose = () => {
-          if (!isMounted) return;
-          // Retry connection after 10s if closed
+          if (!isMounted || !isAuthenticated || isLoggingOutRef.current) return;
           reconnectTimeout = setTimeout(connectWebSocket, 10000);
         };
       } catch {
-        if (isMounted) {
+        if (isMounted && isAuthenticated && !isLoggingOutRef.current) {
           reconnectTimeout = setTimeout(connectWebSocket, 15000);
         }
       }
     };
 
-    connectWebSocket();
+    if (isAuthenticated && !isLoggingOutRef.current) {
+      connectWebSocket();
+    }
 
-    // 3. Poll active sessions every 10s so concurrent logins/logouts across devices stay in sync
-    fallbackInterval = setInterval(loadActiveSessions, 10000);
+    // 3. Poll active sessions every 3s so concurrent logins/logouts across devices stay in sync in real time
+    fallbackInterval = setInterval(loadActiveSessions, 3000);
 
     return () => {
       isMounted = false;
       if (typeof window !== 'undefined') {
         window.removeEventListener('sevin-pos-online-sessions-changed', handleSessionsChanged);
         window.removeEventListener('sevin-pos-session-expired', handleSessionExpired);
+      }
+      if (bc) {
+        try { bc.close(); } catch {}
       }
       if (ws) {
         ws.onclose = null;
@@ -1168,7 +1206,14 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (fallbackInterval) clearInterval(fallbackInterval);
     };
-  }, [isAuthenticated, currentStaff?.phone, currentStaff?.id, currentStaff?.fullName, showOnlineStaffModal, showStaffModal]);
+  }, [isAuthenticated, currentStaff?.phone, currentStaff?.id, currentStaff?.fullName]);
+
+  // Refresh sessions list immediately when opening online staff modal or staff management modal
+  useEffect(() => {
+    if ((showOnlineStaffModal || showStaffModal) && isAuthenticated && !isLoggingOutRef.current) {
+      window.dispatchEvent(new CustomEvent('sevin-pos-online-sessions-changed'));
+    }
+  }, [showOnlineStaffModal, showStaffModal, isAuthenticated]);
 
   const [showQuickAddProductModal, setShowQuickAddProductModal] = useState<boolean>(false);
   const [pendingBarcode, setPendingBarcode] = useState<string>('');
@@ -1183,10 +1228,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   }, [staffList]);
 
   useEffect(() => {
+    if (!isAuthenticated || isLoggingOutRef.current) return;
     try {
       localStorage.setItem('sovin_pos_current_staff', JSON.stringify(currentStaff));
     } catch {}
-  }, [currentStaff]);
+  }, [currentStaff, isAuthenticated]);
 
   // Quick Add Product Handler
   const handleQuickAddProduct = async (newProduct: CigaretteProduct, addToCartDirectly: boolean) => {
@@ -1440,6 +1486,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       await new Promise(resolve => setTimeout(resolve, 750));
       const res = await api.accounts.posLogin(loginPhone, loginPass);
       if (res.success) {
+        isLoggingOutRef.current = false;
         setIsAuthenticated(true);
         setCurrentStaff(res.data.user);
         setLoginError('');
@@ -1511,22 +1558,23 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   };
 
   const handleLogout = async () => {
+    isLoggingOutRef.current = true;
     setIsLoggingOut(true);
     const logoutPhone = currentStaff?.phone;
     const logoutUserId = (currentStaff as any)?.user_id || currentStaff?.id;
 
-    // ۱. فراخوانی بک‌اند با ارسال شماره همراه و شناسه کاربر جهت پاکسازی نشست از لیست آنلاین
-    try {
-      await api.accounts.posLogout(logoutPhone, logoutUserId);
-    } catch (err) {
-      console.error('Logout API error:', err);
-    }
-
-    // ۲. پاکسازی نشست در حافظه کلاینت
+    // ۱. پاکسازی فوری نشست در حافظه کلاینت تا هیچ تایمر یا افکتی دوباره لاگین نکند
     invalidatePosTokenAndSession('manual_logout');
 
     if (logoutPhone) {
       setOnlineSessions(prev => prev.filter(s => s.phone !== logoutPhone));
+    }
+
+    // ۲. فراخوانی بک‌اند با ارسال شماره همراه و شناسه کاربر جهت پاکسازی نشست از لیست آنلاین
+    try {
+      await api.accounts.posLogout(logoutPhone, logoutUserId);
+    } catch (err) {
+      console.error('Logout API error:', err);
     }
 
     // هدایت سریع به صفحه لاگین بدون وقفه طولانی
@@ -2068,28 +2116,44 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   const handleQuickAdjustStock = async (product: CigaretteProduct, unit: 'carton' | 'box' | 'pack', delta: number) => {
     const boxesPerCarton = product.boxesPerCarton || 50;
     const packsPerBox = product.packsPerBox || 10;
-    
+    const currentStockInfo = getProductStockInfo(product);
+    const currentCartons = Math.max(0, Number(product.stockCartons) || 0);
+    const currentBoxes = Math.max(0, Math.round(Number(currentStockInfo.totalBoxes) || 0));
+
+    let newStockCartons = currentCartons;
+    let newStockBoxes = currentBoxes;
     let deltaCartons = 0;
+    let deltaBoxes = 0;
+
     if (unit === 'carton') {
-      deltaCartons = delta;
+      const baseWholeCartons = Math.max(0, Math.floor(currentCartons));
+      newStockCartons = Math.max(0, baseWholeCartons + delta);
+      deltaCartons = newStockCartons - baseWholeCartons;
+      newStockBoxes = Math.round(newStockCartons * boxesPerCarton);
+      deltaBoxes = Math.round(deltaCartons * boxesPerCarton);
     } else if (unit === 'box') {
-      deltaCartons = delta / boxesPerCarton;
+      newStockBoxes = Math.max(0, currentBoxes + delta);
+      deltaBoxes = newStockBoxes - currentBoxes;
+      newStockCartons = Math.round((newStockBoxes / boxesPerCarton) * 1000) / 1000;
+      deltaCartons = Math.round((deltaBoxes / boxesPerCarton) * 1000) / 1000;
     } else {
       deltaCartons = delta / (boxesPerCarton * packsPerBox);
+      newStockCartons = Math.max(0, Math.round((currentCartons + deltaCartons) * 1000) / 1000);
+      newStockBoxes = Math.max(0, Math.round(newStockCartons * boxesPerCarton));
+      deltaBoxes = newStockBoxes - currentBoxes;
     }
 
-    const newStock = Math.max(0, Math.round((product.stockCartons + deltaCartons) * 1000) / 1000);
-
     try {
-      // Sync with DB
-      await api.products.updateStock(product.id, newStock);
+      // Sync with DB and local product stores
+      await api.products.updateStock(product.id, newStockCartons, newStockBoxes);
 
       const updatedProducts = productsList.map(p => {
-        if (p.id !== product.id) return p;
+        if (String(p.id) !== String(product.id)) return p;
         return {
           ...p,
-          stockCartons: newStock,
-          isAvailable: newStock > 0,
+          stockCartons: newStockCartons,
+          stockBoxes: newStockBoxes,
+          isAvailable: newStockCartons > 0 || newStockBoxes > 0,
         };
       });
 
@@ -2101,10 +2165,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         productName: product.nameFa,
         type: delta > 0 ? 'stock_in' : 'adjustment',
         deltaCartons: deltaCartons,
-        deltaBoxes: deltaCartons * boxesPerCarton,
-        finalStockCartons: newStock,
+        deltaBoxes: deltaBoxes || (deltaCartons * boxesPerCarton),
+        finalStockCartons: newStockCartons,
         date: `${now.toLocaleDateString('fa-IR')} ${now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`,
-        note: `تغییر سریع موجودی صندوق: ${delta > 0 ? '+' : ''}${formatNumberFa(delta)} ${unitLabel}`,
+        note: `تغییر سریع موجودی انبار: ${delta > 0 ? '+' : ''}${formatNumberFa(delta)} ${unitLabel} (ذخیره در دیتابیس محصول)`,
       };
 
       const updatedLogs = [newLog, ...stockLogs];
@@ -2114,14 +2178,115 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       try {
         localStorage.setItem('sovin_pos_stock_logs', JSON.stringify(updatedLogs));
         localStorage.setItem('wholesale_products', JSON.stringify(updatedProducts));
+        localStorage.setItem('sovin_django_products', JSON.stringify(updatedProducts));
       } catch {}
 
       if (onUpdateProductsStock) {
         onUpdateProductsStock(updatedProducts);
       }
+
+      setSuccessBanner(`موجودی «${product.nameFa}» (${formatNumberFa(Math.floor(newStockCartons))} کارتن / ${formatNumberFa(newStockBoxes)} باکس) در محصول و دیتابیس ذخیره شد.`);
+      setTimeout(() => setSuccessBanner(null), 3000);
     } catch (err: any) {
       if (showToast) showToast('خطا در بروزرسانی موجودی در سرور');
     }
+  };
+
+  // Explicit Save of Carton & Box Stock to Product & Database
+  const handleSaveInventoryProductStock = async (product: CigaretteProduct, targetCartons: number, targetBoxes: number) => {
+    const boxesPerCarton = product.boxesPerCarton || 50;
+    const rawTargetCartons = Math.max(0, Number(targetCartons) || 0);
+    const rawTargetBoxes = Math.max(0, Math.round(Number(targetBoxes) || 0));
+    const expectedBoxesFromCartons = Math.round(rawTargetCartons * boxesPerCarton);
+    const safeCartons = rawTargetBoxes !== expectedBoxesFromCartons
+      ? Math.round((rawTargetBoxes / boxesPerCarton) * 1000) / 1000
+      : rawTargetCartons;
+    const safeBoxes = Math.round(safeCartons * boxesPerCarton);
+    const prevCartons = Math.max(0, Number(product.stockCartons) || 0);
+    const deltaCartons = Math.round((safeCartons - prevCartons) * 1000) / 1000;
+
+    try {
+      await api.products.updateStock(product.id, safeCartons, safeBoxes);
+
+      const updatedProducts = productsList.map(p => {
+        if (String(p.id) !== String(product.id)) return p;
+        return {
+          ...p,
+          stockCartons: safeCartons,
+          stockBoxes: safeBoxes,
+          isAvailable: safeCartons > 0 || safeBoxes > 0,
+        };
+      });
+
+      const now = new Date();
+      const newLog: StockAdjustmentLog = {
+        id: `adj_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        productId: product.id,
+        productName: product.nameFa,
+        type: deltaCartons >= 0 ? 'stock_in' : 'adjustment',
+        deltaCartons: deltaCartons,
+        deltaBoxes: safeBoxes - Math.round(getProductStockInfo(product).totalBoxes),
+        finalStockCartons: safeCartons,
+        date: `${now.toLocaleDateString('fa-IR')} ${now.toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' })}`,
+        note: `ثبت و ذخیره موجودی در دیتابیس محصول: ${formatNumberFa(Math.floor(safeCartons))} کارتن و ${formatNumberFa(safeBoxes)} باکس`,
+      };
+
+      const updatedLogs = [newLog, ...stockLogs];
+      setStockLogs(updatedLogs);
+      setProductsList(updatedProducts);
+
+      try {
+        localStorage.setItem('sovin_pos_stock_logs', JSON.stringify(updatedLogs));
+        localStorage.setItem('wholesale_products', JSON.stringify(updatedProducts));
+        localStorage.setItem('sovin_django_products', JSON.stringify(updatedProducts));
+      } catch {}
+
+      if (onUpdateProductsStock) {
+        onUpdateProductsStock(updatedProducts);
+      }
+
+      setSuccessBanner(`موجودی «${product.nameFa}» (${formatNumberFa(Math.floor(safeCartons))} کارتن / ${formatNumberFa(safeBoxes)} باکس) با موفقیت در محصول و دیتابیس ذخیره شد.`);
+      setTimeout(() => setSuccessBanner(null), 3000);
+    } catch (err: any) {
+      if (showToast) showToast('خطا در ذخیره موجودی در دیتابیس محصول');
+    }
+  };
+
+  // Convert Rial to Toman (divide prices by 10 if an extra 0 was entered)
+  const handleConvertProductRialToToman = async (product: CigaretteProduct) => {
+    const nextCartonPrice = Math.round((product.cartonPrice || 0) / 10);
+    const nextBoxPrice = Math.round((product.boxPrice || 0) / 10);
+    const nextPackPrice = Math.round((product.packPrice || 0) / 10);
+    const nextPurchasePrice = product.purchasePrice ? Math.round(product.purchasePrice / 10) : 0;
+
+    const updatedItem: CigaretteProduct = {
+      ...product,
+      cartonPrice: nextCartonPrice,
+      boxPrice: nextBoxPrice,
+      packPrice: nextPackPrice,
+      purchasePrice: nextPurchasePrice,
+    };
+
+    try {
+      await api.products.update(product.id, updatedItem);
+    } catch {}
+
+    const updatedProducts = productsList.map(p =>
+      String(p.id) === String(product.id) ? updatedItem : p
+    );
+    setProductsList(updatedProducts);
+
+    try {
+      localStorage.setItem('wholesale_products', JSON.stringify(updatedProducts));
+      localStorage.setItem('sovin_django_products', JSON.stringify(updatedProducts));
+    } catch {}
+
+    if (onUpdateProductsStock) {
+      onUpdateProductsStock(updatedProducts);
+    }
+
+    setSuccessBanner(`قیمت «${product.nameFa}» از ریال به تومان (÷۱۰) اصلاح شد: هر کارتن ${formatToman(nextCartonPrice)}`);
+    setTimeout(() => setSuccessBanner(null), 3500);
   };
 
   // Create New Product in Store Inventory
@@ -2207,11 +2372,11 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   }, [productsList]);
 
   const totalBoxesInStock = useMemo(() => {
-    return productsList.reduce((sum, p) => sum + (p.stockCartons * (p.boxesPerCarton || 50)), 0);
+    return productsList.reduce((sum, p) => sum + getProductStockInfo(p).totalBoxes, 0);
   }, [productsList]);
 
   const totalPacksInStock = useMemo(() => {
-    return productsList.reduce((sum, p) => sum + (p.stockCartons * (p.boxesPerCarton || 50) * (p.packsPerBox || 10)), 0);
+    return productsList.reduce((sum, p) => sum + getProductStockInfo(p).totalPacks, 0);
   }, [productsList]);
 
   const lowStockCount = useMemo(() => {
@@ -3778,6 +3943,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               lowStockCount={lowStockCount}
               stockLogs={stockLogs}
               onQuickAdjustStock={(prod, unit, delta) => handleQuickAdjustStock(prod, unit, delta)}
+              onSaveProductStock={(prod, cartons, boxes) => handleSaveInventoryProductStock(prod, cartons, boxes)}
+              onConvertProductRialToToman={(prod) => handleConvertProductRialToToman(prod)}
               onOpenProductEditor={(prod) => {
                 setProductManagementSelectedProduct(prod || null);
                 setProductManagementInitialBarcode(prod ? prod.barcode || '' : '');

@@ -206,6 +206,7 @@ class LoginStaffAPIView(APIView):
 
 
 class LogoutStaffAPIView(APIView):
+    authentication_classes = []
     permission_classes = [AllowAny]
 
     @swagger_auto_schema(
@@ -213,12 +214,13 @@ class LogoutStaffAPIView(APIView):
         tags=['مدیریت پرسنل صندوق']
     )
     def post(self, request):
-        user_id = get_current_user_id_from_request(request) or request.data.get('user_id')
-        phone = request.data.get('phone') or request.data.get('username') or request.data.get('mobile')
+        explicit_user_id = request.data.get('user_id') or request.GET.get('user_id')
+        phone = request.data.get('phone') or request.data.get('username') or request.data.get('mobile') or request.GET.get('phone')
+        user_id = explicit_user_id if explicit_user_id else (None if phone else get_current_user_id_from_request(request))
 
         if user_id:
             try:
-                user = User.objects.get(id=user_id)
+                user = User.objects.get(id=int(user_id))
                 user.last_login = None
                 user.save(update_fields=['last_login'])
             except Exception:
