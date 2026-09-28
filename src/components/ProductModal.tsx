@@ -20,14 +20,14 @@ import {
   FileText
 } from 'lucide-react';
 import { CigaretteProduct } from '../types';
-import { formatToman, formatNumberFa, getApplicableDiscount } from '../utils/formatters';
+import { formatToman, formatNumberFa, getApplicableDiscount, getProductStockInfo } from '../utils/formatters';
 import { productsApi } from '../services/api';
 import { getProductRichOverride } from '../services/djangoApi';
 
 interface ProductModalProps {
   product: CigaretteProduct | null;
   onClose: () => void;
-  onAddToCart: (product: CigaretteProduct, unit: 'carton' | 'box', quantity: number) => void;
+  onAddToCart: (product: CigaretteProduct, unit: 'carton' | 'box' | 'pack', quantity: number) => void;
 }
 
 export const ProductModal: React.FC<ProductModalProps> = ({
@@ -43,7 +43,21 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       let isMounted = true;
       productsApi.getById(initialProduct.id).then((fresh) => {
         if (isMounted && fresh) {
-          setDetailedProduct((prev) => prev ? { ...prev, ...fresh } : fresh);
+          setDetailedProduct((prev) => {
+            if (!prev) return fresh;
+            const mergedImages = (fresh.images && fresh.images.length > 0)
+              ? fresh.images
+              : (prev.images && prev.images.length > 0 ? prev.images : [fresh.image || prev.image].filter(Boolean));
+            const mergedFeatures = (fresh.appliedFeatures && fresh.appliedFeatures.length > 0)
+              ? fresh.appliedFeatures
+              : (prev.appliedFeatures || []);
+            return {
+              ...prev,
+              ...fresh,
+              images: mergedImages,
+              appliedFeatures: mergedFeatures,
+            };
+          });
         }
       }).catch(() => {});
       return () => {
@@ -54,15 +68,24 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   const product = detailedProduct || initialProduct;
 
+  const isDrink = product?.category === 'drinks_coffee';
+  const showCarton = !isDrink && product?.hasCarton !== false && !product?.isBoxOnly;
+  const showBox = !isDrink && (product?.hasBox !== false || product?.isBoxOnly === true);
+  const showPack = Boolean(product?.hasPack) || isDrink || (!showCarton && !showBox);
+
   const moqCarton = (product?.moq !== undefined && product?.moq !== null) ? Number(product.moq) : 0;
   const moqBox = (product?.moqBox !== undefined && product?.moqBox !== null) ? Number(product.moqBox) : 0;
 
   const [cartonQty, setCartonQty] = useState<number>(() => {
-    if (product?.hasCarton === false) return 0;
+    if (!showCarton) return 0;
     return moqCarton > 0 ? moqCarton : 1;
   });
   const [boxQty, setBoxQty] = useState<number>(() => {
-    if (product?.hasCarton === false) return moqBox > 0 ? moqBox : 1;
+    if (!showCarton && showBox) return moqBox > 0 ? moqBox : 1;
+    return 0;
+  });
+  const [packQty, setPackQty] = useState<number>(() => {
+    if (!showCarton && !showBox && showPack) return 1;
     return 0;
   });
   const [added, setAdded] = useState(false);
@@ -72,7 +95,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   if (!product) return null;
 
-  const images = product.images && product.images.length > 0 ? product.images : [product.image];
+  const richOverride = getProductRichOverride(product.id);
+  const rawImagesList = [
+    product.image,
+    ...(Array.isArray(product.images) ? product.images : []),
+    ...(Array.isArray(richOverride?.images) ? richOverride.images : []),
+  ].filter((img): img is string => Boolean(img && typeof img === 'string' && img.trim() !== ''));
+  const images = rawImagesList.length > 0 ? Array.from(new Set(rawImagesList)) : [product.image];
+
+  const stockInfo = getProductStockInfo(product);
+
+  const packsPerBoxVal = product.packsPerBox || 10;
+  const effectivePackPrice = (product.packPrice && product.packPrice > 0)
+    ? product.packPrice
+    : (product.boxPrice > 0 ? Math.round(product.boxPrice / packsPerBoxVal) : (product.pricePerUnit || 0));
 
   const cartonTotalRaw = product.cartonPrice * cartonQty;
   const cartonDiscountPercent = getApplicableDiscount('carton', cartonQty, product.tierDiscounts);
@@ -84,26 +120,38 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const boxDiscountVal = (boxTotalRaw * boxDiscountPercent) / 100;
   const boxTotalFinal = boxTotalRaw - boxDiscountVal;
 
-  const grandTotal = (cartonQty > 0 ? cartonTotalFinal : 0) + (boxQty > 0 ? boxTotalFinal : 0);
+  const packTotalRaw = effectivePackPrice * packQty;
+  const packDiscountPercent = getApplicableDiscount('pack', packQty, product.tierDiscounts);
+  const packDiscountVal = (packTotalRaw * packDiscountPercent) / 100;
+  const packTotalFinal = packTotalRaw - packDiscountVal;
+
+  const grandTotal =
+    (showCarton && cartonQty > 0 ? cartonTotalFinal : 0) +
+    (showBox && boxQty > 0 ? boxTotalFinal : 0) +
+    (showPack && packQty > 0 ? packTotalFinal : 0);
 
   const handleAdd = () => {
     setMoqError(null);
-    if (cartonQty > 0 && moqCarton > 0 && cartonQty < moqCarton) {
+    if (showCarton && cartonQty > 0 && moqCarton > 0 && cartonQty < moqCarton) {
       setMoqError(`حداقل سفارش کارتن برای این محصول ${formatNumberFa(moqCarton)} کارتن است.`);
       return;
     }
-    if (boxQty > 0 && moqBox > 0 && boxQty < moqBox) {
+    if (showBox && boxQty > 0 && moqBox > 0 && boxQty < moqBox) {
       setMoqError(`حداقل سفارش باکس برای این محصول ${formatNumberFa(moqBox)} باکس است.`);
       return;
     }
 
     let hasAdded = false;
-    if (cartonQty > 0) {
+    if (showCarton && cartonQty > 0) {
       onAddToCart(product, 'carton', cartonQty);
       hasAdded = true;
     }
-    if (boxQty > 0) {
+    if (showBox && boxQty > 0) {
       onAddToCart(product, 'box', boxQty);
+      hasAdded = true;
+    }
+    if (showPack && packQty > 0) {
+      onAddToCart(product, 'pack', packQty);
       hasAdded = true;
     }
     if (hasAdded) {
@@ -114,6 +162,66 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       }, 800);
     }
   };
+
+  // Build unified feature items from Image 5 (appliedFeatures) + standard fields for Image 6
+  const featureItems: { id: string; label: string; value: string; unit?: string; isCustom?: boolean }[] = [];
+  const addedFeatureKeys = new Set<string>();
+
+  const pushFeature = (key: string, label: string, val?: string | number | null, unit?: string, isCustom?: boolean) => {
+    if (val === undefined || val === null) return;
+    const strVal = String(val).trim();
+    if (!strVal || strVal === '—' || strVal === '-' || strVal === 'ندارد') return;
+    const normKey = key.toLowerCase().trim();
+    if (addedFeatureKeys.has(normKey)) return;
+    addedFeatureKeys.add(normKey);
+    featureItems.push({ id: key, label, value: strVal, unit, isCustom });
+  };
+
+  if (product.brand) pushFeature('brand', 'برند', product.brand);
+
+  // First prioritize all features explicitly added in ProductEditorPage (Image 5 -> Image 6)
+  const rawAppliedFeatures = (product.appliedFeatures && product.appliedFeatures.length > 0)
+    ? product.appliedFeatures
+    : (richOverride?.appliedFeatures || []);
+
+  rawAppliedFeatures.forEach((af: any, idx: number) => {
+    const fId = String(af.featureId || af.id || `custom-${idx}`);
+    const fName = String(af.nameFa || af.name || '').trim();
+    const fVal = String(af.value ?? '').trim();
+    if (!fName || !fVal) return;
+
+    if (fId === 'feat-origin' || fName.includes('کشور سازنده') || fName.includes('مبدأ')) {
+      pushFeature('origin', fName, fVal, af.unit, true);
+    } else if (fId === 'feat-tar' || fName.includes('قطران')) {
+      pushFeature('tar', fName, fVal, af.unit, true);
+    } else if (fId === 'feat-nicotine' || fName.includes('نیکوتین')) {
+      pushFeature('nicotine', fName, fVal, af.unit, true);
+    } else if (fId === 'feat-format' || fName.includes('فرمت') || fName.includes('سایز')) {
+      pushFeature('packSize', fName, fVal, af.unit, true);
+    } else if (fId === 'feat-flavor' || fName.includes('طعم')) {
+      pushFeature('flavor', fName, fVal, af.unit, true);
+    } else if (fId === 'feat-filter' || fName.includes('فیلتر')) {
+      pushFeature('filterType', fName, fVal, af.unit, true);
+    } else {
+      pushFeature(`af-${fId}-${idx}`, fName, fVal, af.unit, true);
+    }
+  });
+
+  // Fallback to standard product properties if not already provided via appliedFeatures
+  if (product.origin) pushFeature('origin', 'کشور تولید کننده', product.origin);
+  if (product.packSize || product.cigaretteSize) pushFeature('packSize', 'فرمت و سایز پاکت', product.packSize || product.cigaretteSize);
+  if (product.flavor) pushFeature('flavor', 'طعم و اسانس', product.flavor);
+  if (product.filterType) pushFeature('filterType', 'نوع فیلتر', product.filterType);
+  if (product.packagingType) pushFeature('packagingType', 'نوع بسته‌بندی', product.packagingType);
+  if (product.manufacturer) pushFeature('manufacturer', 'شرکت سازنده', product.manufacturer);
+  if (product.tar) pushFeature('tar', 'قطران (Tar)', product.tar);
+  if (product.nicotine) pushFeature('nicotine', 'نیکوتین (Nicotine)', product.nicotine);
+  if (showCarton && product.boxesPerCarton) {
+    pushFeature('boxesPerCarton', 'تعداد در هر کارتن', `${formatNumberFa(product.boxesPerCarton)} باکس`);
+  }
+  if (showPack && product.packsPerBox) {
+    pushFeature('packsPerBox', 'تعداد پاکت در هر باکس', `${formatNumberFa(product.packsPerBox)} پاکت`);
+  }
 
   return (
     <div 
@@ -129,27 +237,48 @@ export const ProductModal: React.FC<ProductModalProps> = ({
       >
         {/* Header Section */}
         <div className="flex flex-col sm:flex-row items-start gap-4 mb-5">
-          <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 shrink-0 shadow-sm cursor-pointer relative" onClick={() => setIsImageExpanded(true)}>
-            <AnimatePresence mode="wait">
-              <motion.img 
-                key={currentImageIndex}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                src={images[currentImageIndex]} 
-                alt={product.nameFa} 
-                className="w-full h-full object-cover" 
-              />
-            </AnimatePresence>
+          <div className="shrink-0 space-y-2">
+            <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-xl overflow-hidden bg-slate-50 border border-slate-200 shadow-sm cursor-pointer relative" onClick={() => setIsImageExpanded(true)}>
+              <AnimatePresence mode="wait">
+                <motion.img 
+                  key={currentImageIndex}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  src={images[currentImageIndex] || product.image} 
+                  alt={product.nameFa} 
+                  className="w-full h-full object-cover" 
+                />
+              </AnimatePresence>
+              {images.length > 1 && (
+                <>
+                  <button className="absolute left-1 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-0.5 rounded-full shadow-xs cursor-pointer" onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i - 1 + images.length) % images.length); }}>
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/80 hover:bg-white p-0.5 rounded-full shadow-xs cursor-pointer" onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i + 1) % images.length); }}>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </>
+              )}
+            </div>
+            {/* Gallery Thumbnails */}
             {images.length > 1 && (
-              <>
-                <button className="absolute left-1 top-1/2 -translate-y-1/2 bg-white/70 p-0.5 rounded-full" onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i - 1 + images.length) % images.length); }}>
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <button className="absolute right-1 top-1/2 -translate-y-1/2 bg-white/70 p-0.5 rounded-full" onClick={(e) => { e.stopPropagation(); setCurrentImageIndex(i => (i + 1) % images.length); }}>
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </>
+              <div className="flex items-center gap-1.5 overflow-x-auto max-w-[140px] pb-1">
+                {images.map((imgUrl, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => setCurrentImageIndex(idx)}
+                    className={`w-8 h-8 rounded-lg overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
+                      idx === currentImageIndex
+                        ? 'border-blue-600 ring-2 ring-blue-500/20 scale-105'
+                        : 'border-slate-200 opacity-70 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={imgUrl} alt="" className="w-full h-full object-cover" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
           <div className="flex-1 space-y-1.5 min-w-0">
@@ -166,6 +295,17 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   {product.hologram}
                 </span>
               )}
+              {product.isFeatured ? (
+                <span className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-amber-600" />
+                  پیشنهاد ویژه
+                </span>
+              ) : (product.tierDiscounts && product.tierDiscounts.length > 0) ? (
+                <span className="text-[11px] text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1">
+                  <TrendingDown className="w-3 h-3 text-rose-600" />
+                  تخفیف ویژه
+                </span>
+              ) : null}
             </div>
             <h2 className="text-lg sm:text-xl font-bold text-slate-900 leading-tight mt-2">
               {product.nameFa}
@@ -173,12 +313,20 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             <p className="text-xs text-slate-500 font-mono tracking-tight" dir="ltr">
               {product.nameEn}
             </p>
+            <div className="pt-1 flex items-center gap-2 flex-wrap">
+              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-lg border ${
+                !stockInfo.isOutOfStock
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                  : 'bg-red-50 text-red-600 border-red-200'
+              }`}>
+                موجودی انبار: {stockInfo.displayText}
+              </span>
+            </div>
           </div>
         </div>
 
         {/* Full Rich Description (نقد و بررسی و توضیحات جامع محصول - TinyMCE) */}
         {(() => {
-          const richOverride = getProductRichOverride(product.id);
           const rawFullDesc = (
             product.description ||
             (product as any).full_description ||
@@ -247,32 +395,33 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           );
         })()}
 
-        {/* Additional Features */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5 text-xs">
-           {product.brand && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">برند:<br/><span className="font-bold text-slate-900">{product.brand}</span></div>}
-           {product.origin && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">کشور تولید کننده:<br/><span className="font-bold text-slate-900">{product.origin}</span></div>}
-           {product.packSize && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">سایز پاکت:<br/><span className="font-bold text-slate-900">{product.packSize}</span></div>}
-           {product.flavor && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">طعم و اسانس:<br/><span className="font-bold text-slate-900">{product.flavor}</span></div>}
-           {product.filterType && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">نوع فیلتر:<br/><span className="font-bold text-slate-900">{product.filterType}</span></div>}
-           {product.packagingType && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">نوع بسته بندی:<br/><span className="font-bold text-slate-900">{product.packagingType}</span></div>}
-           {product.manufacturer && <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">شرکت سازنده:<br/><span className="font-bold text-slate-900">{product.manufacturer}</span></div>}
-           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">قطران (Tar):<br/><span className="font-bold text-slate-900">{product.tar}</span></div>
-           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">نیکوتین (Nicotine):<br/><span className="font-bold text-slate-900">{product.nicotine}</span></div>
-           <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">تعداد در هر کارتن:<br/><span className="font-bold text-slate-900">{formatNumberFa(product.boxesPerCarton)}</span></div>
+        {/* Product Technical Features & Specifications (Image 5 -> Image 6) */}
+        {featureItems.length > 0 && (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mb-5 text-xs">
+            {featureItems.map((feat) => (
+              <div
+                key={feat.id}
+                className={`p-3 rounded-xl border transition-colors ${
+                  feat.isCustom
+                    ? 'bg-blue-50/50 border-blue-200/80'
+                    : 'bg-slate-50 border-slate-200'
+                }`}
+              >
+                <span className="text-[11px] text-slate-500 block mb-0.5">{feat.label}:</span>
+                <span className="font-bold text-slate-900">
+                  {feat.value}{' '}
+                  {feat.unit ? (
+                    <span className="font-mono text-[11px] text-blue-700 font-semibold" dir="ltr">
+                      {feat.unit}
+                    </span>
+                  ) : null}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
 
-           {/* Any custom applied features */}
-           {product.appliedFeatures && product.appliedFeatures
-             .filter(af => !['feat-tar', 'feat-nicotine', 'feat-format', 'feat-flavor', 'feat-origin', 'feat-filter'].includes(af.id) && !['feat-tar', 'feat-nicotine', 'feat-format', 'feat-flavor', 'feat-origin', 'feat-filter'].includes(af.featureId || ''))
-             .map((af) => (
-               <div key={af.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-                 {af.nameFa}:<br/>
-                 <span className="font-bold text-slate-900">{af.value} {af.unit ? <span className="font-mono text-[11px] text-slate-600">[{af.unit}]</span> : null}</span>
-               </div>
-             ))
-           }
-        </div>
-
-        {/* Discount Tier Table (Carton & Box) */}
+        {/* Discount Tier Table (Carton & Box & Pack) */}
         {product.tierDiscounts && product.tierDiscounts.length > 0 && (
           <div className="mb-5 bg-slate-50 p-3.5 sm:p-4 rounded-xl border border-slate-200">
             <div className="flex items-center justify-between gap-1.5 text-xs font-bold text-slate-800 mb-2.5">
@@ -286,11 +435,14 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-center text-xs">
               {product.tierDiscounts.map((tier: any, idx: number) => {
+                const isPack = tier.unit === 'pack' || (!tier.unit && tier.label?.includes('پاکت'));
                 const isBox = tier.unit === 'box' || (!tier.unit && tier.label?.includes('باکس'));
                 const minQty = tier.minQuantity ?? tier.minCartons ?? 1;
                 const discountPct = tier.discountPercentage ?? tier.discountPercent ?? 0;
-                const unitName = isBox ? 'باکس' : 'کارتن';
-                const isCurrentlyActive = isBox
+                const unitName = isPack ? 'پاکت' : isBox ? 'باکس' : 'کارتن';
+                const isCurrentlyActive = isPack
+                  ? (packQty >= minQty && minQty > 0)
+                  : isBox
                   ? (boxQty >= minQty && minQty > 0)
                   : (cartonQty >= minQty && minQty > 0);
 
@@ -305,7 +457,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                   >
                     <div className="flex items-center justify-center gap-1">
                       <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-                        isBox ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
+                        isPack ? 'bg-emerald-100 text-emerald-800' : isBox ? 'bg-amber-100 text-amber-800' : 'bg-blue-100 text-blue-800'
                       }`}>
                         {unitName}
                       </span>
@@ -326,100 +478,161 @@ export const ProductModal: React.FC<ProductModalProps> = ({
           </div>
         )}
 
-        {/* Dual Ordering Stepper: Carton & Box */}
+        {/* Dynamic Ordering Steppers: Carton, Box, Pack (Images 7, 8, 9) */}
         <div className="bg-slate-50 p-3.5 sm:p-4 rounded-xl border border-slate-200 space-y-3">
-          <div className="text-xs font-bold text-slate-800">
-            انتخاب تعداد کارتن و باکس برای ثبت در پیش‌فاکتور:
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs font-bold text-slate-800">
+              انتخاب تعداد سفارش برای ثبت در پیش‌فاکتور:
+            </div>
+            <span className="text-[11px] font-bold text-slate-600">
+              موجودی: {stockInfo.displayText}
+            </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className={`grid grid-cols-1 ${
+            [showCarton, showBox, showPack].filter(Boolean).length >= 3
+              ? 'sm:grid-cols-3'
+              : [showCarton, showBox, showPack].filter(Boolean).length === 2
+              ? 'sm:grid-cols-2'
+              : 'sm:grid-cols-1'
+          } gap-3`}>
             {/* Carton selector */}
-            <div className="bg-white p-3 rounded-xl border border-blue-200">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-blue-900 flex items-center gap-1">
-                  <Package className="w-3.5 h-3.5 text-blue-600" />
-                  کارتن ({formatNumberFa(product.boxesPerCarton)} باکسی)
-                </span>
-                <span className="text-xs font-black text-blue-700">{formatToman(product.cartonPrice)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setCartonQty(q => q + 1)}
-                    className="w-7 h-7 rounded-md bg-white hover:bg-blue-600 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="w-8 text-center font-bold text-xs text-slate-900">{formatNumberFa(cartonQty)}</span>
-                  <button
-                    type="button"
-                    onClick={() => setCartonQty(q => Math.max(0, q - 1))}
-                    className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
+            {showCarton && (
+              <div className="bg-white p-3 rounded-xl border border-blue-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-blue-900 flex items-center gap-1">
+                    <Package className="w-3.5 h-3.5 text-blue-600" />
+                    کارتن ({formatNumberFa(product.boxesPerCarton || 50)} باکسی)
+                  </span>
+                  <span className="text-xs font-black text-blue-700">{formatToman(product.cartonPrice)}</span>
                 </div>
-                <div className="text-left">
-                  <div className="text-xs font-bold text-slate-800">{formatToman(cartonTotalFinal)}</div>
-                  {cartonDiscountPercent > 0 && (
-                    <div className="text-[10px] text-emerald-600 font-bold">
-                      ({formatNumberFa(cartonDiscountPercent)}٪ تخفیف)
-                    </div>
-                  )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setCartonQty(q => q + 1)}
+                      className="w-7 h-7 rounded-md bg-white hover:bg-blue-600 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="w-8 text-center font-bold text-xs text-slate-900">{formatNumberFa(cartonQty)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setCartonQty(q => Math.max(0, q - 1))}
+                      className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-slate-800">{formatToman(cartonTotalFinal)}</div>
+                    {cartonDiscountPercent > 0 && (
+                      <div className="text-[10px] text-emerald-600 font-bold">
+                        ({formatNumberFa(cartonDiscountPercent)}٪ تخفیف)
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                  <span>حداقل سفارش کارتن:</span>
+                  <span className="font-bold text-slate-700">
+                    {moqCarton > 0 ? `${formatNumberFa(moqCarton)} کارتن` : 'بدون محدودیت'}
+                  </span>
                 </div>
               </div>
-              <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
-                <span>حداقل سفارش کارتن (MOQ):</span>
-                <span className="font-bold text-slate-700">
-                  {moqCarton > 0 ? `${formatNumberFa(moqCarton)} کارتن` : 'بدون محدودیت'}
-                </span>
-              </div>
-            </div>
+            )}
 
             {/* Box selector */}
-            <div className="bg-white p-3 rounded-xl border border-slate-200">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
-                  <Boxes className="w-3.5 h-3.5 text-slate-600" />
-                  باکس (۱۰ پاکتی)
-                </span>
-                <span className="text-xs font-black text-slate-800">{formatToman(product.boxPrice)}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => setBoxQty(q => q + 1)}
-                    className="w-7 h-7 rounded-md bg-white hover:bg-slate-800 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="w-8 text-center font-bold text-xs text-slate-900">{formatNumberFa(boxQty)}</span>
-                  <button
-                    type="button"
-                    onClick={() => setBoxQty(q => Math.max(0, q - 1))}
-                    className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
-                  >
-                    <Minus className="w-3.5 h-3.5" />
-                  </button>
+            {showBox && (
+              <div className="bg-white p-3 rounded-xl border border-slate-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                    <Boxes className="w-3.5 h-3.5 text-slate-600" />
+                    باکس ({formatNumberFa(product.packsPerBox || 10)} پاکتی)
+                  </span>
+                  <span className="text-xs font-black text-slate-800">{formatToman(product.boxPrice)}</span>
                 </div>
-                <div className="text-left">
-                  <div className="text-xs font-bold text-slate-800">{formatToman(boxTotalFinal)}</div>
-                  {boxDiscountPercent > 0 && (
-                    <div className="text-[10px] text-emerald-600 font-bold">
-                      ({formatNumberFa(boxDiscountPercent)}٪ تخفیف)
-                    </div>
-                  )}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setBoxQty(q => q + 1)}
+                      className="w-7 h-7 rounded-md bg-white hover:bg-slate-800 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="w-8 text-center font-bold text-xs text-slate-900">{formatNumberFa(boxQty)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setBoxQty(q => Math.max(0, q - 1))}
+                      className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-slate-800">{formatToman(boxTotalFinal)}</div>
+                    {boxDiscountPercent > 0 && (
+                      <div className="text-[10px] text-emerald-600 font-bold">
+                        ({formatNumberFa(boxDiscountPercent)}٪ تخفیف)
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                  <span>حداقل سفارش باکس:</span>
+                  <span className="font-bold text-slate-700">
+                    {moqBox > 0 ? `${formatNumberFa(moqBox)} باکس` : 'بدون محدودیت'}
+                  </span>
                 </div>
               </div>
-              <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
-                <span>حداقل سفارش باکس (MOQ):</span>
-                <span className="font-bold text-slate-700">
-                  {moqBox > 0 ? `${formatNumberFa(moqBox)} باکس` : 'بدون محدودیت'}
-                </span>
+            )}
+
+            {/* Pack selector (Image 9 -> Image 7) */}
+            {showPack && (
+              <div className="bg-white p-3 rounded-xl border border-emerald-200">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-emerald-900 flex items-center gap-1">
+                    <Package className="w-3.5 h-3.5 text-emerald-600" />
+                    پاکت (تک‌فروشی)
+                  </span>
+                  <span className="text-xs font-black text-emerald-700">{formatToman(effectivePackPrice)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setPackQty(q => q + 1)}
+                      className="w-7 h-7 rounded-md bg-white hover:bg-emerald-600 hover:text-white font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="w-8 text-center font-bold text-xs text-slate-900">{formatNumberFa(packQty)}</span>
+                    <button
+                      type="button"
+                      onClick={() => setPackQty(q => Math.max(0, q - 1))}
+                      className="w-7 h-7 rounded-md bg-white hover:bg-slate-200 font-bold text-sm transition-colors flex items-center justify-center text-slate-800 cursor-pointer"
+                    >
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs font-bold text-slate-800">{formatToman(packTotalFinal)}</div>
+                    {packDiscountPercent > 0 && (
+                      <div className="text-[10px] text-emerald-600 font-bold">
+                        ({formatNumberFa(packDiscountPercent)}٪ تخفیف)
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="mt-2 pt-1.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                  <span>موجودی پاکت:</span>
+                  <span className="font-bold text-emerald-700">
+                    {formatNumberFa(stockInfo.packs)} پاکت
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {moqError && (
@@ -439,8 +652,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
         <div className="mt-5">
           <button
             onClick={handleAdd}
-            disabled={cartonQty === 0 && boxQty === 0}
-            className={`w-full py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 disabled:opacity-50 ${
+            disabled={(showCarton ? cartonQty : 0) === 0 && (showBox ? boxQty : 0) === 0 && (showPack ? packQty : 0) === 0}
+            className={`w-full py-3 rounded-xl font-black text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-95 disabled:opacity-50 cursor-pointer ${
               added ? 'bg-emerald-600 text-white shadow-emerald-600/20' : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/20'
             }`}
           >
@@ -452,7 +665,13 @@ export const ProductModal: React.FC<ProductModalProps> = ({
             ) : (
               <>
                 <ShoppingCart className="w-4 h-4" />
-                افزودن ({formatNumberFa(cartonQty)} کارتن + {formatNumberFa(boxQty)} باکس) به پیش‌فاکتور
+                افزودن (
+                {[
+                  showCarton && cartonQty > 0 ? `${formatNumberFa(cartonQty)} کارتن` : null,
+                  showBox && boxQty > 0 ? `${formatNumberFa(boxQty)} باکس` : null,
+                  showPack && packQty > 0 ? `${formatNumberFa(packQty)} پاکت` : null,
+                ].filter(Boolean).join(' + ') || '۰ واحد'}
+                ) به پیش‌فاکتور
               </>
             )}
           </button>

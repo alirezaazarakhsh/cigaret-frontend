@@ -810,7 +810,10 @@ export const productsApi = {
       } catch {}
     }
 
-    const normalizedBadge = normalizeBadgeForDjango(product.badge);
+    const effectiveBadge = (!isFeaturedVal && (product.badge === 'پیشنهاد ویژه' || product.badge === 'special'))
+      ? 'بار تازه'
+      : product.badge;
+    const normalizedBadge = normalizeBadgeForDjango(effectiveBadge);
 
     const safeImages = (product.images || [])
       .map(img => (img && img.startsWith('data:')) ? '' : img)
@@ -827,6 +830,7 @@ export const productsApi = {
         attribute_id: attrPk,
         attribute_name: af.nameFa || '',
         name: af.nameFa || '',
+        name_en: af.nameEn || '',
         value: valStr,
         text_value: valStr,
         numeric_value: numVal,
@@ -874,8 +878,8 @@ export const productsApi = {
       packs_per_box: Number(product.packsPerBox) || 10,
       stock_cartons: Number(product.stockCartons) || 0,
       stock_boxes: Number(product.stockBoxes) || 0,
-      min_order_carton: Number(product.moq) || 1,
-      min_order_box: Number(product.moqBox) || 1,
+      min_order_carton: Number(product.moq) ?? 0,
+      min_order_box: Number(product.moqBox) ?? 0,
       badge: normalizedBadge,
       image_url: safeImage,
       images: safeImages,
@@ -906,6 +910,7 @@ export const productsApi = {
       key_features: keyFeatures,
       key_takeaways: product.keyTakeaways || [],
       tier_discounts: mappedTierDiscounts,
+      attributes: mappedAttributes,
       attributes_values: mappedAttributes,
       applied_features: mappedAttributes,
       product_attributes: mappedAttributes,
@@ -924,6 +929,9 @@ export const productsApi = {
       cigaretteSize: product.cigaretteSize || product.packSize || 'king_size',
       packSize: product.packSize || product.cigaretteSize || 'king_size',
       filterType: product.filterType || 'white',
+      flavor: product.flavor || '',
+      packagingType: product.packagingType || '',
+      manufacturer: product.manufacturer || '',
       isFeatured: isFeaturedVal,
       cartonPrice: Number(product.cartonPrice) || 0,
       boxPrice: Number(product.boxPrice) || 0,
@@ -933,9 +941,10 @@ export const productsApi = {
       packsPerBox: Number(product.packsPerBox) || 10,
       stockCartons: Number(product.stockCartons) || 0,
       stockBoxes: Number(product.stockBoxes) || 0,
-      moq: Number(product.moq) || 1,
-      moqBox: Number(product.moqBox) || 1,
+      moq: Number(product.moq) ?? 0,
+      moqBox: Number(product.moqBox) ?? 0,
       image: product.image || '',
+      images: Array.isArray(product.images) ? product.images : [],
       barcode: product.barcode || '',
       slug: product.slug || `prod-${Date.now()}`,
       priceTrend: 'stable',
@@ -951,7 +960,7 @@ export const productsApi = {
       isBoxOnly: Boolean(product.isBoxOnly),
       isPosOnly: Boolean(product.isPosOnly),
       appliedFeatures: product.appliedFeatures || [],
-      badge: product.badge,
+      badge: effectiveBadge,
       keyTakeaways: product.keyTakeaways || [],
     };
 
@@ -997,6 +1006,24 @@ export const productsApi = {
         metaTitle: product.metaTitle || '',
         focusKeyword: product.focusKeyword || '',
         keyTakeaways: product.keyTakeaways || [],
+        images: Array.isArray(product.images) ? product.images : [],
+        image: product.image || '',
+        appliedFeatures: product.appliedFeatures || [],
+        isFeatured: isFeaturedVal,
+        badge: effectiveBadge || '',
+        hasCarton: product.hasCarton !== false,
+        hasBox: product.hasBox !== false,
+        hasPack: Boolean(product.hasPack),
+        isBoxOnly: Boolean(product.isBoxOnly),
+        isPosOnly: Boolean(product.isPosOnly),
+        packPrice: Number(product.packPrice) || 0,
+        stockBoxes: Number(product.stockBoxes) || 0,
+        stockCartons: Number(product.stockCartons) || 0,
+        moq: Number(product.moq) ?? 0,
+        moqBox: Number(product.moqBox) ?? 0,
+        flavor: product.flavor || '',
+        packagingType: product.packagingType || '',
+        manufacturer: product.manufacturer || '',
       });
       const created = {
         ...newProductFull,
@@ -1015,7 +1042,15 @@ export const productsApi = {
   async update(id: string, productData: Partial<CigaretteProduct>): Promise<CigaretteProduct> {
     const cleanId = String(id).replace(/^django-/, '');
 
-    // Immediately persist rich fields (excerpt, TinyMCE description, SEO) so they are never lost
+    const isFeaturedVal = productData.isFeatured !== undefined 
+      ? Boolean(productData.isFeatured) 
+      : Boolean(productData.badge === 'پیشنهاد ویژه' || productData.badge === 'special');
+
+    const effectiveBadge = (!isFeaturedVal && (productData.badge === 'پیشنهاد ویژه' || productData.badge === 'special' || productData.badge === 'تخفیف ویژه'))
+      ? 'بار تازه'
+      : productData.badge;
+
+    // Immediately persist rich fields (excerpt, TinyMCE description, gallery images, features, sales channels) so they are never lost
     saveProductRichOverride(cleanId, {
       excerpt: productData.excerpt ?? '',
       description: productData.description ?? '',
@@ -1023,6 +1058,24 @@ export const productsApi = {
       metaTitle: productData.metaTitle ?? '',
       focusKeyword: productData.focusKeyword ?? '',
       keyTakeaways: productData.keyTakeaways,
+      images: Array.isArray(productData.images) ? productData.images : undefined,
+      image: productData.image,
+      appliedFeatures: Array.isArray(productData.appliedFeatures) ? productData.appliedFeatures : undefined,
+      isFeatured: isFeaturedVal,
+      badge: effectiveBadge ?? '',
+      hasCarton: productData.hasCarton,
+      hasBox: productData.hasBox,
+      hasPack: productData.hasPack,
+      isBoxOnly: productData.isBoxOnly,
+      isPosOnly: productData.isPosOnly,
+      packPrice: productData.packPrice !== undefined ? Number(productData.packPrice) : undefined,
+      stockBoxes: productData.stockBoxes !== undefined ? Number(productData.stockBoxes) : undefined,
+      stockCartons: productData.stockCartons !== undefined ? Number(productData.stockCartons) : undefined,
+      moq: productData.moq !== undefined ? Number(productData.moq) : undefined,
+      moqBox: productData.moqBox !== undefined ? Number(productData.moqBox) : undefined,
+      flavor: productData.flavor,
+      packagingType: productData.packagingType,
+      manufacturer: productData.manufacturer,
     });
 
     await ensureValidDjangoAdminToken().catch(() => '');
@@ -1032,13 +1085,9 @@ export const productsApi = {
       display_order: idx + 1
     }));
 
-    const isFeaturedVal = productData.isFeatured !== undefined 
-      ? Boolean(productData.isFeatured) 
-      : Boolean(productData.badge === 'پیشنهاد ویژه' || productData.badge === 'special');
-
     const safeImage = (productData.image && productData.image.startsWith('data:')) ? '' : (productData.image || '');
 
-    const normalizedBadge = normalizeBadgeForDjango(productData.badge);
+    const normalizedBadge = normalizeBadgeForDjango(effectiveBadge);
 
     const safeImages = (productData.images || [])
       .map(img => (img && img.startsWith('data:')) ? '' : img)
@@ -1133,6 +1182,7 @@ export const productsApi = {
         attribute_id: attrPk,
         attribute_name: af.nameFa || '',
         name: af.nameFa || '',
+        name_en: af.nameEn || '',
         value: valStr,
         text_value: valStr,
         numeric_value: numVal,
@@ -1176,8 +1226,8 @@ export const productsApi = {
       packs_per_box: Number(productData.packsPerBox) || 10,
       stock_cartons: Number(productData.stockCartons) || 0,
       stock_boxes: Number(productData.stockBoxes) || 0,
-      min_order_carton: Number(productData.moq) || 1,
-      min_order_box: Number(productData.moqBox) || 1,
+      min_order_carton: Number(productData.moq) ?? 0,
+      min_order_box: Number(productData.moqBox) ?? 0,
       tar: productData.tar || '',
       nicotine: productData.nicotine || '',
       country_origin: productData.origin || '',
@@ -1210,6 +1260,7 @@ export const productsApi = {
       key_features: keyFeatures,
       key_takeaways: productData.keyTakeaways || [],
       tier_discounts: mappedTierDiscounts,
+      attributes: mappedAttributes,
       attributes_values: mappedAttributes,
       applied_features: mappedAttributes,
       product_attributes: mappedAttributes,
@@ -1246,6 +1297,19 @@ export const productsApi = {
           excerpt: respObj.excerpt || productData.excerpt || '',
           full_description: respObj.full_description || productData.description || '',
           description: respObj.full_description || respObj.description || productData.description || '',
+          images: (productData.images && productData.images.length > 0) ? productData.images : (respObj.gallery_images || respObj.images || []),
+          appliedFeatures: (productData.appliedFeatures && productData.appliedFeatures.length > 0) ? productData.appliedFeatures : (respObj.attributes_values || []),
+          is_featured: isFeaturedVal,
+          isFeatured: isFeaturedVal,
+          badge: effectiveBadge,
+          has_carton: productData.hasCarton !== false,
+          has_box: productData.hasBox !== false,
+          has_pack: Boolean(productData.hasPack),
+          is_box_only: Boolean(productData.isBoxOnly),
+          is_pos_only: Boolean(productData.isPosOnly),
+          pack_price: Number(productData.packPrice) || Number(respObj.pack_price) || 0,
+          stock_boxes: Number(productData.stockBoxes) ?? Number(respObj.stock_boxes) ?? 0,
+          stock_cartons: Number(productData.stockCartons) ?? Number(respObj.stock_cartons) ?? 0,
         };
         const updatedFromBackend = mapDjangoItemToProduct(mergedRaw, 0);
         const currentProducts = getLocalProducts();
@@ -1258,11 +1322,11 @@ export const productsApi = {
 
     // Update locally
     const currentProducts = getLocalProducts();
-    const updated = currentProducts.map(p => (String(p.id) === String(id) || String(p.id) === cleanId) ? { ...p, ...productData } : p);
+    const updated = currentProducts.map(p => (String(p.id) === String(id) || String(p.id) === cleanId) ? { ...p, ...productData, isFeatured: isFeaturedVal, badge: effectiveBadge } : p);
     saveLocalProducts(updated);
     djangoDatabaseStore.setProducts(updated);
 
-    return updated.find(p => String(p.id) === String(id) || String(p.id) === cleanId) || (productData as CigaretteProduct);
+    return updated.find(p => String(p.id) === String(id) || String(p.id) === cleanId) || ({ ...productData, isFeatured: isFeaturedVal, badge: effectiveBadge } as CigaretteProduct);
   },
 
   /**

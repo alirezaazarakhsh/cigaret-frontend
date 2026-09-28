@@ -298,7 +298,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
     }
   }, [initialBarcode, product]);
 
-  // Fetch full product details (full_description, excerpt, category_detail) from /products/items/:id/ when editing
+  // Fetch full product details (full_description, excerpt, category_detail, gallery images, features) from /products/items/:id/ when editing
   React.useEffect(() => {
     if (product?.id) {
       let isMounted = true;
@@ -310,6 +310,8 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
             excerpt: prev.excerpt || fresh.excerpt || (fresh as any).short_description || '',
             metaDescription: prev.metaDescription || fresh.metaDescription || fresh.excerpt || '',
             keyTakeaways: (prev.keyTakeaways && prev.keyTakeaways.length > 0) ? prev.keyTakeaways : (fresh.keyTakeaways || []),
+            images: (prev.images && prev.images.length > 0) ? prev.images : (fresh.images || []),
+            appliedFeatures: (prev.appliedFeatures && prev.appliedFeatures.length > 0) ? prev.appliedFeatures : (fresh.appliedFeatures || []),
           }));
         }
       }).catch(() => {});
@@ -471,6 +473,9 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       if (feat.id === 'feat-flavor') next.flavor = defaultValue;
       if (feat.id === 'feat-filter') next.filterType = defaultValue;
       if (feat.id === 'feat-origin') next.origin = defaultValue;
+      if (feat.id === 'feat-packaging') next.packagingType = defaultValue;
+      if (feat.id === 'feat-manufacturer') next.manufacturer = defaultValue;
+      if (feat.id === 'feat-carton-boxes' && !isNaN(Number(defaultValue))) next.boxesPerCarton = Number(defaultValue);
 
       return next;
     });
@@ -511,6 +516,11 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       if (featureId === 'feat-flavor') next.flavor = newValue;
       if (featureId === 'feat-filter') next.filterType = newValue;
       if (featureId === 'feat-origin') next.origin = newValue;
+      if (featureId === 'feat-packaging') next.packagingType = newValue;
+      if (featureId === 'feat-manufacturer') next.manufacturer = newValue;
+      if (featureId === 'feat-carton-boxes' && !isNaN(Number(newValue)) && Number(newValue) > 0) {
+        next.boxesPerCarton = Number(newValue);
+      }
 
       return next;
     });
@@ -755,7 +765,9 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         images: Array.isArray(formData.images) ? formData.images : (product?.images || []),
         barcode: formData.barcode?.trim() || '',
         flavor: formData.flavor?.trim() || 'ساده',
-        badge: formData.badge || 'بار تازه',
+        badge: (!formData.isFeatured && (formData.badge === 'پیشنهاد ویژه' || formData.badge === 'special' || formData.badge === 'تخفیف ویژه'))
+          ? 'بار تازه'
+          : (formData.badge || 'بار تازه'),
         priceTrend: formData.priceTrend || 'stable',
         lastPriceUpdate: new Date().toLocaleDateString('fa-IR'),
         hologram: formData.hologram || 'شرکتی اصل',
@@ -1136,19 +1148,65 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 </div>
               </div>
 
-              {/* Short Excerpt */}
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  خلاصه و معرفی کوتاه محصول (Excerpt):
-                </label>
-                <textarea
-                  rows={2}
-                  value={formData.excerpt || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
-                  placeholder="توضیح مختصر ۱ الی ۲ خطی برای نمایش در کارت‌های کاتالوگ و نتایج گوگل..."
-                  className="w-full bg-slate-50 border border-slate-300 rounded-xl p-3 text-xs text-slate-900 focus:outline-none focus:border-blue-500 focus:bg-white transition-all leading-relaxed"
-                />
-              </div>
+              {/* Short Excerpt with 120-character limit indicator */}
+              {(() => {
+                const MAX_EXCERPT_CHARS = 120;
+                const excerptLen = (formData.excerpt || '').length;
+                const isOverExcerptLimit = excerptLen > MAX_EXCERPT_CHARS;
+                return (
+                  <div className="sm:col-span-2 space-y-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <label className={`block text-xs font-bold ${isOverExcerptLimit ? 'text-red-600' : 'text-slate-700'}`}>
+                        خلاصه و معرفی کوتاه محصول در کارت کاتالوگ (Excerpt):
+                      </label>
+                      <span className={`px-2.5 py-0.5 rounded-lg text-[11px] font-black border transition-all ${
+                        isOverExcerptLimit
+                          ? 'bg-red-50 text-red-600 border-red-300 animate-pulse'
+                          : excerptLen > 95
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}>
+                        {formatNumberFa(excerptLen)} / {formatNumberFa(MAX_EXCERPT_CHARS)} کاراکتر
+                      </span>
+                    </div>
+                    <textarea
+                      rows={2}
+                      value={formData.excerpt || ''}
+                      onChange={(e) => setFormData(prev => ({ ...prev, excerpt: e.target.value }))}
+                      placeholder="توضیح مختصر ۱ الی ۲ خطی برای نمایش در کارت‌های کاتالوگ (حداکثر ۱۲۰ کاراکتر)..."
+                      className={`w-full rounded-xl p-3 text-xs transition-all leading-relaxed focus:outline-none ${
+                        isOverExcerptLimit
+                          ? 'bg-red-50/50 border-2 border-red-500 text-red-900 focus:border-red-600 ring-2 ring-red-500/20'
+                          : 'bg-slate-50 border border-slate-300 text-slate-900 focus:border-blue-500 focus:bg-white'
+                      }`}
+                    />
+                    <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full transition-all duration-300 ${
+                          isOverExcerptLimit
+                            ? 'bg-red-600'
+                            : excerptLen > 95
+                            ? 'bg-amber-500'
+                            : 'bg-emerald-500'
+                        }`}
+                        style={{ width: `${Math.min(100, (excerptLen / MAX_EXCERPT_CHARS) * 100)}%` }}
+                      />
+                    </div>
+                    {isOverExcerptLimit ? (
+                      <p className="text-[11px] font-black text-red-600 flex items-center gap-1.5 pt-0.5">
+                        <AlertCircle className="w-3.5 h-3.5 shrink-0 text-red-600" />
+                        <span>
+                          توجه: متن توضیحات کارت محصول {formatNumberFa(excerptLen - MAX_EXCERPT_CHARS)} کاراکتر بیشتر از حد مجاز ({formatNumberFa(MAX_EXCERPT_CHARS)} کاراکتر) است! لطفاً متن را کوتاه‌تر کنید.
+                        </span>
+                      </p>
+                    ) : (
+                      <p className="text-[10px] text-slate-400">
+                        حداکثر مجاز برای نمایش استاندارد در کارت کاتالوگ محصول: {formatNumberFa(MAX_EXCERPT_CHARS)} کاراکتر
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -1514,12 +1572,24 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                   <input
                     type="checkbox"
                     checked={Boolean(formData.hasPack)}
-                    onChange={(e) => setFormData(prev => ({ ...prev, hasPack: e.target.checked }))}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setFormData(prev => {
+                        const nextPackPrice = checked && (!prev.packPrice || Number(prev.packPrice) === 0) && Number(prev.boxPrice) > 0
+                          ? Math.round(Number(prev.boxPrice) / (Number(prev.packsPerBox) || 10))
+                          : prev.packPrice;
+                        return {
+                          ...prev,
+                          hasPack: checked,
+                          packPrice: nextPackPrice,
+                        };
+                      });
+                    }}
                     className="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4 cursor-pointer"
                   />
                   <div>
                     <span className="font-bold block">امکان فروش پاکتی (تک‌فروشی)</span>
-                    <span className="text-[11px] opacity-75 block">فروش دانه‌ای تک‌پاکت ویژه مشتریان خرده</span>
+                    <span className="text-[11px] opacity-75 block">فروش دانه‌ای تک‌پاکت و نمایش قیمت و انتخاب پاکت در کاتالوگ</span>
                   </div>
                 </label>
 
@@ -2630,11 +2700,16 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 <input
                   type="checkbox"
                   checked={Boolean(formData.isFeatured)}
-                  onChange={(e) => setFormData(prev => ({ 
-                    ...prev, 
-                    isFeatured: e.target.checked,
-                    badge: e.target.checked && (!prev.badge || prev.badge === 'بار تازه') ? 'پیشنهاد ویژه' : prev.badge
-                  }))}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFormData(prev => ({ 
+                      ...prev, 
+                      isFeatured: checked,
+                      badge: checked
+                        ? ((!prev.badge || prev.badge === 'بار تازه') ? 'پیشنهاد ویژه' : prev.badge)
+                        : ((prev.badge === 'پیشنهاد ویژه' || prev.badge === 'special' || prev.badge === 'تخفیف ویژه' || prev.badge === 'تخفیف تیراژ') ? 'بار تازه' : prev.badge)
+                    }));
+                  }}
                   className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
                 />
               </label>

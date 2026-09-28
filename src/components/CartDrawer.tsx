@@ -114,20 +114,23 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
   // Calculations
   const totalBoxes = cartItems.reduce((sum, item) => {
-    return sum + (item.unit === 'carton' ? item.quantity * item.product.boxesPerCarton : item.quantity);
+    if (item.unit === 'carton') return sum + item.quantity * item.product.boxesPerCarton;
+    if (item.unit === 'box') return sum + item.quantity;
+    return sum;
   }, 0);
 
   const totalCartons = cartItems.reduce((sum, item) => {
-    return sum + (item.unit === 'carton' ? item.quantity : Math.floor(item.quantity / item.product.boxesPerCarton));
+    return sum + (item.unit === 'carton' ? item.quantity : item.unit === 'box' ? Math.floor(item.quantity / item.product.boxesPerCarton) : 0);
   }, 0);
 
   const subtotal = cartItems.reduce((sum, item) => {
-    const price = item.unit === 'carton' ? item.product.cartonPrice : item.product.boxPrice;
-    return sum + price * item.quantity;
+    const pPrice = item.product.packPrice || (item.product.boxPrice ? Math.round(item.product.boxPrice / (item.product.packsPerBox || 10)) : 0);
+    return sum + calculateItemSubtotal(item.product.cartonPrice, item.product.boxPrice, item.unit, item.quantity, pPrice);
   }, 0);
 
   const totalDiscount = cartItems.reduce((sum, item) => {
-    const rawTotal = calculateItemSubtotal(item.product.cartonPrice, item.product.boxPrice, item.unit, item.quantity);
+    const pPrice = item.product.packPrice || (item.product.boxPrice ? Math.round(item.product.boxPrice / (item.product.packsPerBox || 10)) : 0);
+    const rawTotal = calculateItemSubtotal(item.product.cartonPrice, item.product.boxPrice, item.unit, item.quantity, pPrice);
     const discountPercent = getApplicableDiscount(item.unit, item.quantity, item.product.tierDiscounts);
     return sum + (rawTotal * discountPercent) / 100;
   }, 0);
@@ -497,11 +500,13 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 {/* List of Cart Items */}
                 <div className="space-y-3">
                   {cartItems.map((item) => {
+                    const pPrice = item.product.packPrice || (item.product.boxPrice ? Math.round(item.product.boxPrice / (item.product.packsPerBox || 10)) : 0);
                     const itemRawTotal = calculateItemSubtotal(
                       item.product.cartonPrice,
                       item.product.boxPrice,
                       item.unit,
-                      item.quantity
+                      item.quantity,
+                      pPrice
                     );
                     const discountPercent = getApplicableDiscount(
                       item.unit,
@@ -511,7 +516,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     const itemDiscount = (itemRawTotal * discountPercent) / 100;
                     const itemFinal = itemRawTotal - itemDiscount;
 
-                    const itemMoq = item.unit === 'carton' ? (item.product.moq || 0) : (item.product.moqBox || 0);
+                    const itemMoq = item.unit === 'carton' ? (item.product.moq || 0) : item.unit === 'box' ? (item.product.moqBox || 0) : 0;
                     const isBelowMoq = itemMoq > 0 && item.quantity < itemMoq;
 
                     return (
@@ -534,7 +539,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                               </span>
                             </div>
                             <div className="text-[11px] text-slate-600 ">
-                              واحد: <span className="text-slate-900 font-bold">{item.unit === 'carton' ? `کارتن (${item.product.boxesPerCarton} باکسی)` : 'باکس (۱۰ پاکتی)'}</span>
+                              واحد: <span className="text-slate-900 font-bold">{item.unit === 'carton' ? `کارتن (${item.product.boxesPerCarton} باکسی)` : item.unit === 'box' ? `باکس (${item.product.packsPerBox || 10} پاکتی)` : 'پاکت (تک‌فروشی)'}</span>
                             </div>
                             {itemMoq > 0 && (
                               <div className={`text-[10px] font-bold mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${

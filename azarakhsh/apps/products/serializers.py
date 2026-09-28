@@ -449,11 +449,26 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         # استخراج فیلدهای توکار قبل از اعتبارسنجی
         attributes_raw = data_dict.pop('attributes', None)
         if attributes_raw is None:
+            attributes_raw = data_dict.pop('attributes_values', None)
+        if attributes_raw is None:
+            attributes_raw = data_dict.pop('applied_features', None)
+        if attributes_raw is None:
+            attributes_raw = data_dict.pop('product_attributes', None)
+        if attributes_raw is None:
             attributes_raw = data_dict.pop('custom_features', None)
+        else:
+            data_dict.pop('attributes_values', None)
+            data_dict.pop('applied_features', None)
+            data_dict.pop('product_attributes', None)
+            data_dict.pop('custom_features', None)
 
         tier_discounts_raw = data_dict.pop('tier_discounts', None)
         gallery_raw = data_dict.pop('gallery', None)
         gallery_images_raw = data_dict.pop('gallery_images', None)
+        if gallery_images_raw is None:
+            gallery_images_raw = data_dict.pop('images', None)
+        else:
+            data_dict.pop('images', None)
         key_features_raw = data_dict.pop('key_features', None)
         key_takeaways_raw = data_dict.pop('key_takeaways', None)
 
@@ -572,15 +587,16 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         """
         # ۱. ذخیره‌سازی ویژگی‌های فنی EAV
         if attributes_data is not None and isinstance(attributes_data, list):
+            product.attributes_values.all().delete()
             for item in attributes_data:
                 if not isinstance(item, dict):
                     continue
 
-                attr_id = item.get('attribute_id') or item.get('id')
-                attr_name = item.get('name') or item.get('title')
-                val = item.get('value')
-                val_num = item.get('value_number')
-                val_bool = item.get('value_boolean')
+                attr_id = item.get('attribute_id') or item.get('attribute') or item.get('id')
+                attr_name = item.get('attribute_name') or item.get('name') or item.get('nameFa') or item.get('title')
+                val = item.get('value') if item.get('value') is not None else item.get('text_value')
+                val_num = item.get('value_number') if item.get('value_number') is not None else item.get('numeric_value')
+                val_bool = item.get('value_boolean') if item.get('value_boolean') is not None else item.get('boolean_value')
 
                 attr_obj = None
                 if attr_id and str(attr_id).isdigit():
@@ -603,6 +619,10 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
                 if not attr_obj:
                     continue
+
+                if item.get('unit') and not attr_obj.unit:
+                    attr_obj.unit = str(item.get('unit')).strip()
+                    attr_obj.save(update_fields=['unit'])
 
                 if val_num is None and val is not None and attr_obj.data_type == 'number':
                     try:
@@ -641,11 +661,11 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
 
         # ۳. ذخیره‌سازی گالری تصاویر
         g_list = gallery_data if gallery_data is not None else gallery_images_data
-        if g_list is not None and isinstance(g_list, list):
+        if g_list is not None and isinstance(g_list, list) and len(g_list) > 0:
             product.gallery.all().delete()
             for idx, g_item in enumerate(g_list):
                 if isinstance(g_item, dict):
-                    img_val = g_item.get('image') or g_item.get('url')
+                    img_val = g_item.get('image') or g_item.get('image_url') or g_item.get('url')
                     order_val = g_item.get('order', idx)
                     if img_val:
                         ProductImage.objects.create(product=product, image=img_val, order=order_val)

@@ -2349,6 +2349,24 @@ export interface ProductRichOverride {
   metaTitle?: string;
   focusKeyword?: string;
   keyTakeaways?: string[];
+  images?: string[];
+  image?: string;
+  appliedFeatures?: any[];
+  isFeatured?: boolean;
+  badge?: string;
+  hasCarton?: boolean;
+  hasBox?: boolean;
+  hasPack?: boolean;
+  isBoxOnly?: boolean;
+  isPosOnly?: boolean;
+  packPrice?: number;
+  stockBoxes?: number;
+  stockCartons?: number;
+  moq?: number;
+  moqBox?: number;
+  flavor?: string;
+  packagingType?: string;
+  manufacturer?: string;
   updatedAt?: number;
 }
 
@@ -2358,9 +2376,15 @@ export function saveProductRichOverride(id: string | number, data: ProductRichOv
   try {
     const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(PRODUCT_RICH_OVERRIDES_KEY) : null;
     const store: Record<string, ProductRichOverride> = raw ? JSON.parse(raw) : {};
+    const cleanedData: Record<string, any> = {};
+    Object.entries(data).forEach(([k, v]) => {
+      if (v !== undefined) {
+        cleanedData[k] = v;
+      }
+    });
     store[cleanId] = {
       ...(store[cleanId] || {}),
-      ...data,
+      ...cleanedData,
       updatedAt: Date.now(),
     };
     if (typeof localStorage !== 'undefined') {
@@ -2457,7 +2481,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     cartonPrice > 0 ? Math.round(cartonPrice / safeBoxesPerCarton) : 0
   );
   const packPrice = parseNumeric(
-    item.pack_price ?? item.packPrice ?? item.price_pack,
+    item.pack_price ?? item.packPrice ?? item.price_pack ?? richOverride?.packPrice,
     boxPrice > 0 ? Math.round(boxPrice / safePacksPerBox) : 0
   );
   const purchasePrice = parseNumeric(
@@ -2467,21 +2491,21 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
 
   // Stock
   const stockCartons = parseNumeric(
-    item.stock_cartons ?? item.stockCartons ?? item.stock_carton ?? item.stock ?? item.inventory,
+    item.stock_cartons ?? item.stockCartons ?? item.stock_carton ?? item.stock ?? item.inventory ?? richOverride?.stockCartons,
     0
   );
   const stockBoxes = parseNumeric(
-    item.stock_boxes ?? item.stockBoxes ?? item.stock_box,
+    item.stock_boxes ?? item.stockBoxes ?? item.stock_box ?? richOverride?.stockBoxes,
     0
   );
 
   // Minimum Order Quantities
   const moq = parseNumeric(
-    item.min_order_carton ?? item.moq ?? item.min_order_quantity ?? item.moqCarton,
+    item.min_order_carton ?? item.moq ?? item.min_order_quantity ?? item.moqCarton ?? richOverride?.moq,
     1
   );
   const moqBox = parseNumeric(
-    item.min_order_box ?? item.moq_box ?? item.moqBox,
+    item.min_order_box ?? item.moq_box ?? item.moqBox ?? richOverride?.moqBox,
     1
   );
 
@@ -2497,14 +2521,26 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     imagesArr = item.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
   }
 
+  // Merge or restore gallery images from richOverride so gallery never disappears after save/edit
+  if (richOverride?.images !== undefined && Array.isArray(richOverride.images)) {
+    const overrideImgs = richOverride.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
+    if (overrideImgs.length > 0) {
+      const mergedImgs = [...overrideImgs];
+      imagesArr.forEach((bImg) => {
+        if (bImg && !mergedImgs.includes(bImg)) {
+          mergedImgs.push(bImg);
+        }
+      });
+      imagesArr = mergedImgs;
+    } else if (imagesArr.length <= 1) {
+      imagesArr = [];
+    }
+  }
+
   const mainImg = extractImageUrl(
-    item.main_image || item.image_url || item.image || item.photo || item.picture || imagesArr[0] || '',
+    item.main_image || item.image_url || item.image || item.photo || item.picture || richOverride?.image || imagesArr[0] || '',
     ''
   );
-
-  if (mainImg && !imagesArr.includes(mainImg)) {
-    imagesArr = [mainImg, ...imagesArr];
-  }
 
   // Barcode & Badge
   const barcode = extractStringFromField(
@@ -2515,7 +2551,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     item.badge || item.badge_text,
     ''
   );
-  const badge = mapBadgeFromDjango(rawBadge);
+  let badge = richOverride?.badge !== undefined ? richOverride.badge : mapBadgeFromDjango(rawBadge);
 
   // Price Trend
   const priceTrend: 'up' | 'down' | 'stable' = 
@@ -2524,12 +2560,29 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
 
   // Booleans
   const isAvailable = item.is_active !== undefined ? Boolean(item.is_active) : (item.is_available !== undefined ? Boolean(item.is_available) : true);
-  const isFeatured = item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean(item.isFeatured || badge === 'پیشنهاد ویژه' || rawBadge === 'special');
-  const isPosOnly = item.is_pos_only !== undefined ? Boolean(item.is_pos_only) : Boolean(item.isPosOnly || item.is_pos_exclusive);
-  const isBoxOnly = item.is_box_only !== undefined ? Boolean(item.is_box_only) : Boolean(item.isBoxOnly);
-  const hasCarton = item.has_carton !== undefined ? Boolean(item.has_carton) : item.hasCarton !== false;
-  const hasBox = item.has_box !== undefined ? Boolean(item.has_box) : item.hasBox !== false;
-  const hasPack = item.has_pack !== undefined ? Boolean(item.has_pack) : Boolean(item.hasPack);
+  const isFeatured = richOverride?.isFeatured !== undefined
+    ? Boolean(richOverride.isFeatured)
+    : (item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean(item.isFeatured || badge === 'پیشنهاد ویژه' || rawBadge === 'special'));
+
+  if (!isFeatured && (badge === 'پیشنهاد ویژه' || badge === 'special' || badge === 'تخفیف ویژه')) {
+    badge = 'بار تازه';
+  }
+
+  const isPosOnly = richOverride?.isPosOnly !== undefined
+    ? Boolean(richOverride.isPosOnly)
+    : (item.is_pos_only !== undefined ? Boolean(item.is_pos_only) : Boolean(item.isPosOnly || item.is_pos_exclusive));
+  const isBoxOnly = richOverride?.isBoxOnly !== undefined
+    ? Boolean(richOverride.isBoxOnly)
+    : (item.is_box_only !== undefined ? Boolean(item.is_box_only) : Boolean(item.isBoxOnly));
+  const hasCarton = richOverride?.hasCarton !== undefined
+    ? Boolean(richOverride.hasCarton)
+    : (item.has_carton !== undefined ? Boolean(item.has_carton) : item.hasCarton !== false);
+  const hasBox = richOverride?.hasBox !== undefined
+    ? Boolean(richOverride.hasBox)
+    : (item.has_box !== undefined ? Boolean(item.has_box) : item.hasBox !== false);
+  const hasPack = richOverride?.hasPack !== undefined
+    ? Boolean(richOverride.hasPack)
+    : (item.has_pack !== undefined ? Boolean(item.has_pack) : Boolean(item.hasPack));
 
   // Descriptions & SEO (Strictly separate Excerpt vs Full TinyMCE Description)
   const rawFullDescription = extractStringFromField(
@@ -2607,13 +2660,31 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
   }
 
   const rawAttrs = item.attributes_values || item.applied_features || item.product_attributes || item.attributes || item.appliedFeatures;
-  const appliedFeatures = Array.isArray(rawAttrs) ? rawAttrs.map((a: any) => ({
-    id: String(a.id || Math.random()),
-    featureId: a.attribute || a.attribute_id ? String(a.attribute || a.attribute_id) : undefined,
+  let appliedFeatures = Array.isArray(rawAttrs) ? rawAttrs.map((a: any) => ({
+    id: String(a.id || a.featureId || Math.random()),
+    featureId: a.attribute || a.attribute_id || a.featureId ? String(a.attribute || a.attribute_id || a.featureId) : undefined,
     nameFa: extractStringFromField(a.attribute_name || a.nameFa || a.name, ''),
+    nameEn: extractStringFromField(a.name_en || a.nameEn, ''),
     value: extractStringFromField(a.text_value || a.value, a.value_number !== null && a.value_number !== undefined ? String(a.value_number) : (a.value_boolean !== null && a.value_boolean !== undefined ? (a.value_boolean ? 'بله' : 'خیر') : '')),
     unit: extractStringFromField(a.attribute_unit || a.unit, ''),
   })).filter((f: any) => f.nameFa) : [];
+
+  if (richOverride?.appliedFeatures && Array.isArray(richOverride.appliedFeatures)) {
+    const overrideFeats = richOverride.appliedFeatures.filter((f: any) => f && f.nameFa);
+    if (overrideFeats.length > 0) {
+      const mergedFeats = [...overrideFeats];
+      appliedFeatures.forEach((bf: any) => {
+        if (bf.nameFa && !mergedFeats.some((mf: any) => mf.nameFa === bf.nameFa || (mf.featureId && mf.featureId === bf.featureId))) {
+          mergedFeats.push(bf);
+        }
+      });
+      appliedFeatures = mergedFeats;
+    }
+  }
+
+  const flavor = extractStringFromField(item.flavor || richOverride?.flavor, '');
+  const packagingType = extractStringFromField(item.packaging_type || item.packagingType || richOverride?.packagingType, '');
+  const manufacturer = extractStringFromField(item.manufacturer || richOverride?.manufacturer, '');
 
   // Explicit property transformation logging for debugging
   console.groupCollapsed(`[djangoCigaretteProduct Mapping] ID=${finalId} | Name="${nameFa}"`);
@@ -2661,6 +2732,9 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     origin,
     tar,
     nicotine,
+    flavor,
+    packagingType,
+    manufacturer,
     cartonPrice,
     boxPrice,
     packPrice,

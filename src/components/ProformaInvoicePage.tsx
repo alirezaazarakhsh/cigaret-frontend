@@ -165,11 +165,13 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
   let totalDiscount = 0;
 
   cartItems.forEach(item => {
+    const pPrice = item.product.packPrice || (item.product.boxPrice ? Math.round(item.product.boxPrice / (item.product.packsPerBox || 10)) : 0);
     const itemSubtotal = calculateItemSubtotal(
       item.product.cartonPrice,
       item.product.boxPrice,
       item.unit,
-      item.quantity
+      item.quantity,
+      pPrice
     );
     subtotal += itemSubtotal;
 
@@ -184,7 +186,7 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
     if (item.unit === 'carton') {
       totalCartons += item.quantity;
       totalBoxes += item.quantity * item.product.boxesPerCarton;
-    } else {
+    } else if (item.unit === 'box') {
       totalBoxes += item.quantity;
     }
   });
@@ -641,11 +643,13 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {cartItems.map((item, idx) => {
+                        const pPrice = item.product.packPrice || (item.product.boxPrice ? Math.round(item.product.boxPrice / (item.product.packsPerBox || 10)) : 0);
                         const itemSubtotal = calculateItemSubtotal(
                           item.product.cartonPrice,
                           item.product.boxPrice,
                           item.unit,
-                          item.quantity
+                          item.quantity,
+                          pPrice
                         );
                         const discountPercent = getApplicableDiscount(
                           item.unit,
@@ -664,9 +668,13 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                             </td>
                             <td className="p-3 text-center font-bold">
                               <span className={`px-2 py-0.5 rounded-md text-[11px] whitespace-nowrap ${
-                                item.unit === 'carton' ? 'bg-blue-50 text-blue-800 font-black' : 'bg-slate-100 text-slate-700'
+                                item.unit === 'carton'
+                                  ? 'bg-blue-50 text-blue-800 font-black'
+                                  : item.unit === 'box'
+                                  ? 'bg-slate-100 text-slate-700'
+                                  : 'bg-emerald-50 text-emerald-800 font-black'
                               }`}>
-                                {item.unit === 'carton' ? 'کارتن (۵۰ باکس)' : 'باکس'}
+                                {item.unit === 'carton' ? `کارتن (${formatNumberFa(item.product.boxesPerCarton || 50)} باکس)` : item.unit === 'box' ? 'باکس' : 'پاکت'}
                               </span>
                             </td>
                             <td className="p-3 text-center">
@@ -690,7 +698,7 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                               </div>
                             </td>
                             <td className="p-3 text-left font-mono font-bold text-slate-700" dir="ltr">
-                              {formatNumberFa(item.unit === 'carton' ? item.product.cartonPrice : item.product.boxPrice)}
+                              {formatNumberFa(item.unit === 'carton' ? item.product.cartonPrice : item.unit === 'box' ? item.product.boxPrice : pPrice)}
                             </td>
                             <td className="p-3 text-center">
                               {discountPercent > 0 ? (

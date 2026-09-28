@@ -23,7 +23,7 @@ import { generatePriceListPdf } from '../utils/pdfGenerator';
 
 interface LivePriceTableProps {
   products: CigaretteProduct[];
-  onAddToCart: (product: CigaretteProduct, unit: 'carton' | 'box', quantity: number) => void;
+  onAddToCart: (product: CigaretteProduct, unit: 'carton' | 'box' | 'pack', quantity: number) => void;
   onSelectProduct: (product: CigaretteProduct) => void;
 }
 

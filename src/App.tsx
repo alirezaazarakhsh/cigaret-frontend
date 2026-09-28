@@ -1324,7 +1324,7 @@ export default function App() {
   }, [filteredProducts, currentPage]);
 
   // Cart operations
-  const handleAddToCart = (product: CigaretteProduct, unit: 'carton' | 'box', quantity: number) => {
+  const handleAddToCart = (product: CigaretteProduct, unit: 'carton' | 'box' | 'pack', quantity: number) => {
     if (!currentUser) {
       showToast('برای افزودن کالا به سبد خرید و ثبت سفارش، لطفاً ابتدا وارد پنل کاربری شوید.');
       setActiveTab('user-panel');
@@ -1344,10 +1344,11 @@ export default function App() {
       }
       return [...prev, { product, unit, quantity }];
     });
-    showToast(`تعداد ${formatNumberFa(quantity)} ${unit === 'carton' ? 'کارتن' : 'باکس'} ${product.nameFa} به پیش‌فاکتور افزوده شد.`);
+    const unitLabel = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
+    showToast(`تعداد ${formatNumberFa(quantity)} ${unitLabel} ${product.nameFa} به پیش‌فاکتور افزوده شد.`);
   };
 
-  const handleUpdateQuantity = (productId: string, unit: 'carton' | 'box', newQuantity: number) => {
+  const handleUpdateQuantity = (productId: string, unit: 'carton' | 'box' | 'pack' | 'single' | 'kg', newQuantity: number) => {
     if (newQuantity <= 0) {
       handleRemoveCartItem(productId, unit);
       return;
@@ -1360,7 +1361,7 @@ export default function App() {
     }));
   };
 
-  const handleRemoveCartItem = (productId: string, unit: 'carton' | 'box') => {
+  const handleRemoveCartItem = (productId: string, unit: 'carton' | 'box' | 'pack' | 'single' | 'kg') => {
     setCartItems(prev => prev.filter(item => !(item.product.id === productId && item.unit === unit)));
     showToast('ردیف کالا از پیش‌فاکتور حذف گردید.');
   };
