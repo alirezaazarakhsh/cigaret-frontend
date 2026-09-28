@@ -32,9 +32,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onToggleSelect,
 }) => {
   const richOverride = getProductRichOverride(product.id);
-  const moqCarton = Math.max(1, Number(richOverride?.moq || product.moq || (product as any).min_order_carton || 1));
-  const moqBox = Math.max(1, Number(richOverride?.moqBox || product.moqBox || (product as any).min_order_box || 1));
-  const moqPack = Math.max(1, Number(richOverride?.moqPack || product.moqPack || (product as any).min_order_pack || 1));
+  const moqCarton = Math.max(0, Number(richOverride?.moq ?? product.moq ?? (product as any).min_order_carton ?? 0));
+  const moqBox = Math.max(0, Number(richOverride?.moqBox ?? product.moqBox ?? (product as any).min_order_box ?? 0));
+  const moqPack = Math.max(0, Number(richOverride?.moqPack ?? product.moqPack ?? (product as any).min_order_pack ?? 0));
+  const minStepCarton = Math.max(1, moqCarton);
+  const minStepBox = Math.max(1, moqBox);
+  const minStepPack = Math.max(1, moqPack);
 
   const showCarton = product.hasCarton !== false && !product.isBoxOnly && (product.cartonPrice || 0) > 0;
   const showBox = product.hasBox !== false && (product.boxPrice || 0) > 0;
@@ -45,9 +48,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       : ((product.boxPrice || 0) > 0 ? Math.round(product.boxPrice / (product.packsPerBox || 10)) : 0));
   const showPack = Boolean(product.hasPack) && effectivePackPrice > 0;
 
-  const [cartonQty, setCartonQty] = useState<number>(() => showCarton ? moqCarton : 0);
-  const [boxQty, setBoxQty] = useState<number>(() => (!showCarton && showBox) ? moqBox : 0);
-  const [packQty, setPackQty] = useState<number>(() => (!showCarton && !showBox && showPack) ? moqPack : 0);
+  const [cartonQty, setCartonQty] = useState<number>(() => showCarton ? minStepCarton : 0);
+  const [boxQty, setBoxQty] = useState<number>(() => (!showCarton && showBox) ? minStepBox : 0);
+  const [packQty, setPackQty] = useState<number>(() => (!showCarton && !showBox && showPack) ? minStepPack : 0);
   const [cartonJustAdded, setCartonJustAdded] = useState(false);
   const [boxJustAdded, setBoxJustAdded] = useState(false);
   const [packJustAdded, setPackJustAdded] = useState(false);
@@ -57,18 +60,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   useEffect(() => {
     setCartonQty(prev => {
       if (!showCarton) return 0;
-      return prev < moqCarton ? moqCarton : prev;
+      if (moqCarton > 0 && prev > 0 && prev < moqCarton) return moqCarton;
+      return prev;
     });
     setBoxQty(prev => {
       if (!showBox) return 0;
-      if (!showCarton && prev < moqBox) return moqBox;
-      if (prev > 0 && prev < moqBox) return moqBox;
+      if (moqBox > 0 && prev > 0 && prev < moqBox) return moqBox;
       return prev;
     });
     setPackQty(prev => {
       if (!showPack) return 0;
-      if (!showCarton && !showBox && prev < moqPack) return moqPack;
-      if (prev > 0 && prev < moqPack) return moqPack;
+      if (moqPack > 0 && prev > 0 && prev < moqPack) return moqPack;
       return prev;
     });
   }, [moqCarton, moqBox, moqPack, showCarton, showBox, showPack]);
@@ -84,27 +86,29 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const handleAddCarton = () => {
     if (!stockInfo.isAvailable) return;
-    if (cartonQty < moqCarton) {
+    const effectiveQty = cartonQty === 0 ? minStepCarton : cartonQty;
+    if (moqCarton > 0 && effectiveQty < moqCarton) {
       setCartonQty(moqCarton);
       triggerMoqWarning(`حداقل سفارش مجاز برای این محصول ${formatNumberFa(moqCarton)} کارتن است.`);
       return;
     }
     setMoqWarning(null);
-    onAddToCart(product, 'carton', cartonQty);
+    if (cartonQty === 0) setCartonQty(effectiveQty);
+    onAddToCart(product, 'carton', effectiveQty);
     setCartonJustAdded(true);
     setTimeout(() => setCartonJustAdded(false), 1200);
   };
 
   const handleAddBox = () => {
     if (!stockInfo.isAvailable) return;
-    const effectiveQty = boxQty === 0 ? moqBox : boxQty;
-    if (effectiveQty < moqBox) {
+    const effectiveQty = boxQty === 0 ? minStepBox : boxQty;
+    if (moqBox > 0 && effectiveQty < moqBox) {
       setBoxQty(moqBox);
       triggerMoqWarning(`حداقل سفارش مجاز برای این محصول ${formatNumberFa(moqBox)} باکس است.`);
       return;
     }
     setMoqWarning(null);
-    if (boxQty === 0) setBoxQty(moqBox);
+    if (boxQty === 0) setBoxQty(effectiveQty);
     onAddToCart(product, 'box', effectiveQty);
     setBoxJustAdded(true);
     setTimeout(() => setBoxJustAdded(false), 1200);
@@ -112,14 +116,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const handleAddPack = () => {
     if (!stockInfo.isAvailable) return;
-    const effectiveQty = packQty === 0 ? moqPack : packQty;
-    if (effectiveQty < moqPack) {
+    const effectiveQty = packQty === 0 ? minStepPack : packQty;
+    if (moqPack > 0 && effectiveQty < moqPack) {
       setPackQty(moqPack);
       triggerMoqWarning(`حداقل سفارش مجاز برای این محصول ${formatNumberFa(moqPack)} پاکت است.`);
       return;
     }
     setMoqWarning(null);
-    if (packQty === 0) setPackQty(moqPack);
+    if (packQty === 0) setPackQty(effectiveQty);
     onAddToCart(product, 'pack', effectiveQty);
     setPackJustAdded(true);
     setTimeout(() => setPackJustAdded(false), 1200);
@@ -127,32 +131,32 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   const handleAddBoth = () => {
     if (!stockInfo.isAvailable) return;
-    if (showCarton && cartonQty > 0 && cartonQty < moqCarton) {
+    if (showCarton && cartonQty > 0 && moqCarton > 0 && cartonQty < moqCarton) {
       setCartonQty(moqCarton);
       triggerMoqWarning(`حداقل سفارش کارتن برای این محصول ${formatNumberFa(moqCarton)} کارتن است.`);
       return;
     }
-    if (showBox && boxQty > 0 && boxQty < moqBox) {
+    if (showBox && boxQty > 0 && moqBox > 0 && boxQty < moqBox) {
       setBoxQty(moqBox);
       triggerMoqWarning(`حداقل سفارش باکس برای این محصول ${formatNumberFa(moqBox)} باکس است.`);
       return;
     }
-    if (showPack && packQty > 0 && packQty < moqPack) {
+    if (showPack && packQty > 0 && moqPack > 0 && packQty < moqPack) {
       setPackQty(moqPack);
       triggerMoqWarning(`حداقل سفارش پاکت برای این محصول ${formatNumberFa(moqPack)} پاکت است.`);
       return;
     }
     setMoqWarning(null);
     let added = false;
-    if (showCarton && cartonQty >= moqCarton) {
+    if (showCarton && cartonQty > 0 && cartonQty >= moqCarton) {
       onAddToCart(product, 'carton', cartonQty);
       added = true;
     }
-    if (showBox && boxQty >= moqBox) {
+    if (showBox && boxQty > 0 && boxQty >= moqBox) {
       onAddToCart(product, 'box', boxQty);
       added = true;
     }
-    if (showPack && packQty >= moqPack) {
+    if (showPack && packQty > 0 && packQty >= moqPack) {
       onAddToCart(product, 'pack', packQty);
       added = true;
     }
@@ -410,7 +414,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       type="button"
                       onClick={() => {
                         setMoqWarning(null);
-                        setCartonQty(q => (q < moqCarton ? moqCarton : q + 1));
+                        setCartonQty(q => (q < minStepCarton ? minStepCarton : q + 1));
                       }}
                       className="w-5 h-5 rounded-md bg-blue-50 hover:bg-blue-600 hover:text-white text-blue-900 flex items-center justify-center font-bold text-[10px] transition-colors shrink-0 cursor-pointer"
                       title="افزایش کارتن"
@@ -423,9 +427,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        if (cartonQty > moqCarton) {
+                        if (cartonQty > minStepCarton) {
                           setCartonQty(q => q - 1);
-                        } else {
+                        } else if (moqCarton > 0) {
                           triggerMoqWarning(`حداقل سفارش کارتن برای این محصول ${formatNumberFa(moqCarton)} کارتن است.`);
                         }
                       }}
@@ -473,7 +477,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       type="button"
                       onClick={() => {
                         setMoqWarning(null);
-                        setBoxQty(q => (q < moqBox ? moqBox : q + 1));
+                        setBoxQty(q => (q < minStepBox ? minStepBox : q + 1));
                       }}
                       className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-800 hover:text-white text-slate-900 flex items-center justify-center font-bold text-[10px] transition-colors shrink-0 cursor-pointer"
                       title="افزایش باکس"
@@ -486,11 +490,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        if (boxQty > moqBox) {
+                        if (boxQty > minStepBox) {
                           setBoxQty(q => q - 1);
-                        } else if (boxQty === moqBox && showCarton) {
+                        } else if (boxQty === minStepBox && showCarton) {
                           setBoxQty(0);
-                        } else {
+                        } else if (moqBox > 0) {
                           triggerMoqWarning(`حداقل سفارش باکس برای این محصول ${formatNumberFa(moqBox)} باکس است.`);
                         }
                       }}
@@ -538,7 +542,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       type="button"
                       onClick={() => {
                         setMoqWarning(null);
-                        setPackQty(q => (q < moqPack ? moqPack : q + 1));
+                        setPackQty(q => (q < minStepPack ? minStepPack : q + 1));
                       }}
                       className="w-5 h-5 rounded-md bg-emerald-50 hover:bg-emerald-600 hover:text-white text-emerald-900 flex items-center justify-center font-bold text-[10px] transition-colors shrink-0 cursor-pointer"
                       title="افزایش پاکت"
@@ -551,11 +555,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     <button
                       type="button"
                       onClick={() => {
-                        if (packQty > moqPack) {
+                        if (packQty > minStepPack) {
                           setPackQty(q => q - 1);
-                        } else if (packQty === moqPack && (showCarton || showBox)) {
+                        } else if (packQty === minStepPack && (showCarton || showBox)) {
                           setPackQty(0);
-                        } else {
+                        } else if (moqPack > 0) {
                           triggerMoqWarning(`حداقل سفارش پاکت برای این محصول ${formatNumberFa(moqPack)} پاکت است.`);
                         }
                       }}

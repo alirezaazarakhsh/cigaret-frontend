@@ -2531,18 +2531,21 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     0
   );
 
-  // Minimum Order Quantities (Prioritize user-saved richOverride or explicit backend value > 0)
+  // Minimum Order Quantities (Default 0 = no restriction unless explicitly configured by admin)
   const backendMoq = parseNumeric(item.min_order_carton ?? item.moq ?? item.min_order_quantity ?? item.moqCarton, 0);
-  const overrideMoq = richOverride?.moq !== undefined ? parseNumeric(richOverride.moq, 0) : 0;
-  const moq = overrideMoq > 0 ? overrideMoq : (backendMoq > 0 ? backendMoq : 1);
+  const moq = richOverride?.moq !== undefined
+    ? Math.max(0, parseNumeric(richOverride.moq, 0))
+    : (backendMoq > 1 ? backendMoq : 0);
 
   const backendMoqBox = parseNumeric(item.min_order_box ?? item.moq_box ?? item.moqBox, 0);
-  const overrideMoqBox = richOverride?.moqBox !== undefined ? parseNumeric(richOverride.moqBox, 0) : 0;
-  const moqBox = overrideMoqBox > 0 ? overrideMoqBox : (backendMoqBox > 0 ? backendMoqBox : 1);
+  const moqBox = richOverride?.moqBox !== undefined
+    ? Math.max(0, parseNumeric(richOverride.moqBox, 0))
+    : (backendMoqBox > 1 ? backendMoqBox : 0);
 
   const backendMoqPack = parseNumeric((item as any).min_order_pack ?? (item as any).moq_pack ?? (item as any).moqPack, 0);
-  const overrideMoqPack = richOverride?.moqPack !== undefined ? parseNumeric(richOverride.moqPack, 0) : 0;
-  const moqPack = overrideMoqPack > 0 ? overrideMoqPack : (backendMoqPack > 0 ? backendMoqPack : 1);
+  const moqPack = richOverride?.moqPack !== undefined
+    ? Math.max(0, parseNumeric(richOverride.moqPack, 0))
+    : (backendMoqPack > 1 ? backendMoqPack : 0);
 
   // Images (check main_image, image_url, image, gallery, gallery_images, images)
   let imagesArr: string[] = [];

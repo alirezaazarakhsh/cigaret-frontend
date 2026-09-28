@@ -134,9 +134,9 @@ class Product(models.Model):
     boxes_per_carton = models.PositiveIntegerField(_("تعداد باکس در کارتن"), default=50)
     packs_per_box = models.PositiveIntegerField(_("تعداد پاکت در باکس"), default=10)
 
-    min_order_carton = models.PositiveIntegerField(_("حداقل سفارش کارتن"), default=1)
-    min_order_box = models.PositiveIntegerField(_("حداقل سفارش باکس"), default=1)
-    min_order_pack = models.PositiveIntegerField(_("حداقل سفارش پاکت"), default=1)
+    min_order_carton = models.PositiveIntegerField(_("حداقل سفارش کارتن"), default=0)
+    min_order_box = models.PositiveIntegerField(_("حداقل سفارش باکس"), default=0)
+    min_order_pack = models.PositiveIntegerField(_("حداقل سفارش پاکت"), default=0)
 
     has_carton = models.BooleanField(_("امکان فروش کارتنی"), default=True)
     has_box = models.BooleanField(_("امکان فروش باکسی"), default=True)

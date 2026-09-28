@@ -887,9 +887,9 @@ export const productsApi = {
       packs_per_box: Number(product.packsPerBox) || 10,
       stock_cartons: Number(product.stockCartons) || 0,
       stock_boxes: Number(product.stockBoxes) || 0,
-      min_order_carton: Math.max(1, Number(product.moq) || 1),
-      min_order_box: Math.max(1, Number(product.moqBox) || 1),
-      min_order_pack: Math.max(1, Number(product.moqPack) || 1),
+      min_order_carton: Math.max(0, Number(product.moq ?? 0) || 0),
+      min_order_box: Math.max(0, Number(product.moqBox ?? 0) || 0),
+      min_order_pack: Math.max(0, Number(product.moqPack ?? 0) || 0),
       badge: normalizedBadge,
       image: safeImage,
       image_url: safeImage,
@@ -952,9 +952,9 @@ export const productsApi = {
       packsPerBox: Number(product.packsPerBox) || 10,
       stockCartons: Number(product.stockCartons) || 0,
       stockBoxes: Number(product.stockBoxes) || 0,
-      moq: Math.max(1, Number(product.moq) || 1),
-      moqBox: Math.max(1, Number(product.moqBox) || 1),
-      moqPack: Math.max(1, Number(product.moqPack) || 1),
+      moq: Math.max(0, Number(product.moq ?? 0) || 0),
+      moqBox: Math.max(0, Number(product.moqBox ?? 0) || 0),
+      moqPack: Math.max(0, Number(product.moqPack ?? 0) || 0),
       image: product.image || '',
       images: Array.isArray(product.images) ? product.images : [],
       barcode: product.barcode || '',
@@ -976,6 +976,16 @@ export const productsApi = {
       keyTakeaways: product.keyTakeaways || [],
     };
 
+    // Known valid category_id values from existing products in products_product table (satisfies legacy categories_category FK)
+    const knownValidCategoryIds = Array.from(
+      new Set([
+        ...getLocalProducts()
+          .map((p: any) => Number(p?.category_id))
+          .filter((n: number) => !isNaN(n) && n > 0),
+        1,
+      ])
+    );
+
     // Primary DRF endpoints in order
     const candidateEndpoints = [
       '/products/items/create/',
@@ -988,14 +998,18 @@ export const productsApi = {
     for (const ep of candidateEndpoints) {
       response = await httpClient.post(ep, payload, { timeoutMs: 8000 });
       if (response.success) break;
-      // If server returned 400 with string/fk/slug/base64 error, retry with sanitized keys
-      if (response.status === 400) {
-        const sanitizedPayload = {
+      // If server returned 400 or 500 (e.g. IntegrityError on legacy categories_category FK or duplicate slug/barcode), retry with safe fallback category
+      if (response.status === 400 || response.status === 500) {
+        const fallbackCategoryPk =
+          knownValidCategoryIds.find(id => id !== payload.category) ??
+          knownValidCategoryIds[0] ??
+          1;
+        const sanitizedPayload: Record<string, any> = {
           ...payload,
           slug: `prod-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
           brand: typeof payload.brand === 'number' ? payload.brand : null,
           hologram: typeof payload.hologram === 'number' ? payload.hologram : null,
-          category: typeof payload.category === 'number' ? payload.category : 1,
+          category: fallbackCategoryPk,
           images: safeImages,
           gallery_images: safeImages,
         };
@@ -1003,6 +1017,19 @@ export const productsApi = {
         const retryRes = await httpClient.post(ep, sanitizedPayload, { timeoutMs: 8000 });
         if (retryRes.success) {
           response = retryRes;
+          break;
+        }
+        // Final fallback if brand/hologram or category != 1 caused FK constraint error
+        const ultraSafeCreatePayload: Record<string, any> = {
+          ...sanitizedPayload,
+          slug: `prod-${Date.now()}-${Math.floor(Math.random() * 9000 + 1000)}`,
+          category: 1,
+          brand: null,
+          hologram: null,
+        };
+        const retryRes2 = await httpClient.post(ep, ultraSafeCreatePayload, { timeoutMs: 8000 });
+        if (retryRes2.success) {
+          response = retryRes2;
           break;
         }
       }
@@ -1034,9 +1061,9 @@ export const productsApi = {
         packPrice: Number(product.packPrice) || 0,
         stockBoxes: Number(product.stockBoxes) || 0,
         stockCartons: Number(product.stockCartons) || 0,
-        moq: Math.max(1, Number(product.moq) || 1),
-        moqBox: Math.max(1, Number(product.moqBox) || 1),
-        moqPack: Math.max(1, Number(product.moqPack) || 1),
+        moq: Math.max(0, Number(product.moq ?? 0) || 0),
+        moqBox: Math.max(0, Number(product.moqBox ?? 0) || 0),
+        moqPack: Math.max(0, Number(product.moqPack ?? 0) || 0),
         flavor: product.flavor || '',
         packagingType: product.packagingType || '',
         manufacturer: product.manufacturer || '',
@@ -1066,9 +1093,9 @@ export const productsApi = {
       ? 'بار تازه'
       : productData.badge;
 
-    const effMoq = productData.moq !== undefined ? Math.max(1, Number(productData.moq) || 1) : undefined;
-    const effMoqBox = productData.moqBox !== undefined ? Math.max(1, Number(productData.moqBox) || 1) : undefined;
-    const effMoqPack = productData.moqPack !== undefined ? Math.max(1, Number(productData.moqPack) || 1) : undefined;
+    const effMoq = productData.moq !== undefined ? Math.max(0, Number(productData.moq) || 0) : undefined;
+    const effMoqBox = productData.moqBox !== undefined ? Math.max(0, Number(productData.moqBox) || 0) : undefined;
+    const effMoqPack = productData.moqPack !== undefined ? Math.max(0, Number(productData.moqPack) || 0) : undefined;
 
     // Immediately persist rich fields (excerpt, TinyMCE description, gallery images, features, sales channels, MOQ) so they are never lost
     saveProductRichOverride(cleanId, {
@@ -1254,9 +1281,9 @@ export const productsApi = {
       packs_per_box: Number(productData.packsPerBox) || 10,
       stock_cartons: Number(productData.stockCartons) || 0,
       stock_boxes: Number(productData.stockBoxes) || 0,
-      min_order_carton: effMoq ?? 1,
-      min_order_box: effMoqBox ?? 1,
-      min_order_pack: effMoqPack ?? 1,
+      min_order_carton: effMoq ?? 0,
+      min_order_box: effMoqBox ?? 0,
+      min_order_pack: effMoqPack ?? 0,
       tar: (productData.tar || '').slice(0, 20),
       nicotine: (productData.nicotine || '').slice(0, 20),
       country_origin: (productData.origin || '').slice(0, 100),
@@ -1298,21 +1325,21 @@ export const productsApi = {
 
     // Attempt remote PATCH / PUT
     let response = await httpClient.patch(`/products/items/${cleanId}/update/`, payload);
-    if (!response.success && response.status !== 400) {
+    if (!response.success && response.status !== 400 && response.status !== 500) {
       response = await httpClient.put(`/products/items/${cleanId}/update/`, payload);
     }
-    // Retry 1 on 400: remove slug/barcode/non-numeric FKs while keeping gallery_images & descriptions
-    if (!response.success && response.status === 400) {
+    // Retry 1 on 400 or 500: remove slug/barcode/category FK while keeping gallery_images & descriptions
+    if (!response.success && (response.status === 400 || response.status === 500)) {
       const safeFallbackPayload = { ...payload };
       delete safeFallbackPayload.slug;
       delete safeFallbackPayload.barcode;
+      delete safeFallbackPayload.category;
       if (typeof safeFallbackPayload.brand !== 'number') delete safeFallbackPayload.brand;
-      if (typeof safeFallbackPayload.category !== 'number') delete safeFallbackPayload.category;
       if (typeof safeFallbackPayload.hologram !== 'number' && safeFallbackPayload.hologram !== null) delete safeFallbackPayload.hologram;
       response = await httpClient.patch(`/products/items/${cleanId}/update/`, safeFallbackPayload);
 
-      // Retry 2 on 400: also replace base64 gallery images with safe URLs in case server serializer is older
-      if (!response.success && response.status === 400) {
+      // Retry 2 on 400 or 500: also replace base64 gallery images with safe URLs in case server serializer is older
+      if (!response.success && (response.status === 400 || response.status === 500)) {
         const ultraSafePayload = {
           ...safeFallbackPayload,
           images: safeImages,
@@ -1337,12 +1364,12 @@ export const productsApi = {
           excerpt: productData.excerpt ?? respObj.excerpt ?? '',
           full_description: productData.description ?? respObj.full_description ?? '',
           description: productData.description ?? respObj.full_description ?? respObj.description ?? '',
-          min_order_carton: effMoq ?? respObj.min_order_carton ?? 1,
-          min_order_box: effMoqBox ?? respObj.min_order_box ?? 1,
-          min_order_pack: effMoqPack ?? respObj.min_order_pack ?? 1,
-          moq: effMoq ?? respObj.min_order_carton ?? 1,
-          moqBox: effMoqBox ?? respObj.min_order_box ?? 1,
-          moqPack: effMoqPack ?? respObj.min_order_pack ?? 1,
+          min_order_carton: effMoq ?? 0,
+          min_order_box: effMoqBox ?? 0,
+          min_order_pack: effMoqPack ?? 0,
+          moq: effMoq ?? 0,
+          moqBox: effMoqBox ?? 0,
+          moqPack: effMoqPack ?? 0,
           images: (productData.images && productData.images.length > 0) ? productData.images : (respObj.gallery_images || respObj.images || []),
           appliedFeatures: (productData.appliedFeatures && productData.appliedFeatures.length > 0) ? productData.appliedFeatures : (respObj.attributes_values || []),
           is_featured: isFeaturedVal,

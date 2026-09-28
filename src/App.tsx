@@ -1337,17 +1337,18 @@ export default function App() {
       return;
     }
     const richOverride = getProductRichOverride(product.id);
-    const minReq = unit === 'carton'
-      ? Math.max(1, Number(richOverride?.moq || product.moq || (product as any).min_order_carton || 1))
+    const configuredMoq = unit === 'carton'
+      ? Math.max(0, Number(richOverride?.moq ?? product.moq ?? (product as any).min_order_carton ?? 0))
       : unit === 'box'
-      ? Math.max(1, Number(richOverride?.moqBox || product.moqBox || (product as any).min_order_box || 1))
-      : Math.max(1, Number(richOverride?.moqPack || product.moqPack || (product as any).min_order_pack || 1));
+      ? Math.max(0, Number(richOverride?.moqBox ?? product.moqBox ?? (product as any).min_order_box ?? 0))
+      : Math.max(0, Number(richOverride?.moqPack ?? product.moqPack ?? (product as any).min_order_pack ?? 0));
+    const minReq = Math.max(1, configuredMoq);
     const unitLabel = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
 
     const existingItem = cartItems.find(item => item.product.id === product.id && item.unit === unit);
     const nextQty = (existingItem ? existingItem.quantity : 0) + quantity;
-    if (nextQty < minReq) {
-      showToast(`⚠️ حداقل سفارش ${unitLabel} برای ${product.nameFa}، ${formatNumberFa(minReq)} ${unitLabel} می‌باشد.`);
+    if (configuredMoq > 0 && nextQty < configuredMoq) {
+      showToast(`⚠️ حداقل سفارش ${unitLabel} برای ${product.nameFa}، ${formatNumberFa(configuredMoq)} ${unitLabel} می‌باشد.`);
       return;
     }
 
@@ -1372,16 +1373,16 @@ export default function App() {
     if (targetItem) {
       const p = targetItem.product;
       const richOverride = getProductRichOverride(p.id);
-      const minReq = unit === 'carton'
-        ? Math.max(1, Number(richOverride?.moq || p.moq || (p as any).min_order_carton || 1))
+      const configuredMoq = unit === 'carton'
+        ? Math.max(0, Number(richOverride?.moq ?? p.moq ?? (p as any).min_order_carton ?? 0))
         : unit === 'box'
-        ? Math.max(1, Number(richOverride?.moqBox || p.moqBox || (p as any).min_order_box || 1))
+        ? Math.max(0, Number(richOverride?.moqBox ?? p.moqBox ?? (p as any).min_order_box ?? 0))
         : unit === 'pack'
-        ? Math.max(1, Number(richOverride?.moqPack || p.moqPack || (p as any).min_order_pack || 1))
-        : 1;
+        ? Math.max(0, Number(richOverride?.moqPack ?? p.moqPack ?? (p as any).min_order_pack ?? 0))
+        : 0;
       const unitLabel = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
-      if (newQuantity < minReq) {
-        showToast(`⚠️ حداقل سفارش ${unitLabel} برای ${p.nameFa}، ${formatNumberFa(minReq)} ${unitLabel} است. برای حذف کامل از دکمه سطل زباله استفاده کنید.`);
+      if (configuredMoq > 0 && newQuantity < configuredMoq) {
+        showToast(`⚠️ حداقل سفارش ${unitLabel} برای ${p.nameFa}، ${formatNumberFa(configuredMoq)} ${unitLabel} است. برای حذف کامل از دکمه سطل زباله استفاده کنید.`);
         return;
       }
     }

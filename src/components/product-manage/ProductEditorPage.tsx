@@ -130,9 +130,15 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
 
       const resolvedExcerpt = product.excerpt || (product as any).short_description || richOverride?.excerpt || '';
       const resolvedDescription = product.description || (product as any).full_description || richOverride?.description || '';
-      const resolvedMoq = Number(richOverride?.moq || product.moq || (product as any).min_order_carton || 1);
-      const resolvedMoqBox = Number(richOverride?.moqBox || product.moqBox || (product as any).min_order_box || 1);
-      const resolvedMoqPack = Number(richOverride?.moqPack || product.moqPack || (product as any).min_order_pack || 1);
+      const resolvedMoq = richOverride?.moq !== undefined
+        ? Math.max(0, Number(richOverride.moq) || 0)
+        : (Number(product.moq || (product as any).min_order_carton || 0) > 1 ? Number(product.moq || (product as any).min_order_carton) : 0);
+      const resolvedMoqBox = richOverride?.moqBox !== undefined
+        ? Math.max(0, Number(richOverride.moqBox) || 0)
+        : (Number(product.moqBox || (product as any).min_order_box || 0) > 1 ? Number(product.moqBox || (product as any).min_order_box) : 0);
+      const resolvedMoqPack = richOverride?.moqPack !== undefined
+        ? Math.max(0, Number(richOverride.moqPack) || 0)
+        : (Number(product.moqPack || (product as any).min_order_pack || 0) > 1 ? Number(product.moqPack || (product as any).min_order_pack) : 0);
 
       return {
         ...product,
@@ -178,9 +184,9 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       packsPerBox: 10,
       stockCartons: 10,
       stockBoxes: 0,
-      moq: 1,
-      moqBox: 1,
-      moqPack: 1,
+      moq: 0,
+      moqBox: 0,
+      moqPack: 0,
       image: '',
       barcode: initialBarcode || '',
       flavor: 'طعم کلاسیک توتون',
@@ -233,9 +239,9 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
           ...prev,
           excerpt: prev.excerpt || fresh.excerpt || '',
           description: prev.description || fresh.description || '',
-          moq: (prev.moq && prev.moq > 1) ? prev.moq : (fresh.moq || prev.moq || 1),
-          moqBox: (prev.moqBox && prev.moqBox > 1) ? prev.moqBox : (fresh.moqBox || prev.moqBox || 1),
-          moqPack: (prev.moqPack && prev.moqPack > 1) ? prev.moqPack : (fresh.moqPack || prev.moqPack || 1),
+          moq: prev.moq !== undefined ? prev.moq : (fresh.moq && fresh.moq > 1 ? fresh.moq : 0),
+          moqBox: prev.moqBox !== undefined ? prev.moqBox : (fresh.moqBox && fresh.moqBox > 1 ? fresh.moqBox : 0),
+          moqPack: prev.moqPack !== undefined ? prev.moqPack : (fresh.moqPack && fresh.moqPack > 1 ? fresh.moqPack : 0),
           images: (prev.images && prev.images.length > 0) ? prev.images : (fresh.images || []),
         }));
       }
@@ -792,9 +798,9 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         stockBoxes: (Number(formData.stockCartons) || 0) > 0
           ? Math.round((Number(formData.stockCartons) || 0) * (Number(formData.boxesPerCarton) || 50))
           : (Number(formData.stockBoxes) || 0),
-        moq: Math.max(1, Number(formData.moq) || 1),
-        moqBox: Math.max(1, Number(formData.moqBox) || 1),
-        moqPack: Math.max(1, Number(formData.moqPack) || 1),
+        moq: Math.max(0, Number(formData.moq) || 0),
+        moqBox: Math.max(0, Number(formData.moqBox) || 0),
+        moqPack: Math.max(0, Number(formData.moqPack) || 0),
         image: formData.image || '',
         images: Array.isArray(formData.images) ? formData.images : (product?.images || []),
         barcode: formData.barcode?.trim() || '',
@@ -1410,14 +1416,14 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  value={formData.moq ?? 1}
-                  onChange={(e) => setFormData(prev => ({ ...prev, moq: Math.max(1, Number(e.target.value) || 1) }))}
-                  placeholder="مثلاً 1 یا 2"
+                  min="0"
+                  value={formData.moq ?? 0}
+                  onChange={(e) => setFormData(prev => ({ ...prev, moq: Math.max(0, Number(e.target.value) || 0) }))}
+                  placeholder="0 (بدون محدودیت)"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  {`حداقل سفارش مجاز: ${formatNumberFa(Math.max(1, Number(formData.moq) || 1))} کارتن`}
+                  {`حداقل سفارش مجاز: ${formatNumberFa(Math.max(0, Number(formData.moq) || 0))} کارتن`}
                 </p>
               </div>
 
@@ -1428,14 +1434,14 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  value={formData.moqBox ?? 1}
-                  onChange={(e) => setFormData(prev => ({ ...prev, moqBox: Math.max(1, Number(e.target.value) || 1) }))}
-                  placeholder="مثلاً 1 یا 5"
+                  min="0"
+                  value={formData.moqBox ?? 0}
+                  onChange={(e) => setFormData(prev => ({ ...prev, moqBox: Math.max(0, Number(e.target.value) || 0) }))}
+                  placeholder="0 (بدون محدودیت)"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  {`حداقل سفارش مجاز: ${formatNumberFa(Math.max(1, Number(formData.moqBox) || 1))} باکس`}
+                  {`حداقل سفارش مجاز: ${formatNumberFa(Math.max(0, Number(formData.moqBox) || 0))} باکس`}
                 </p>
               </div>
 
@@ -1446,14 +1452,14 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 </label>
                 <input
                   type="number"
-                  min="1"
-                  value={formData.moqPack ?? 1}
-                  onChange={(e) => setFormData(prev => ({ ...prev, moqPack: Math.max(1, Number(e.target.value) || 1) }))}
-                  placeholder="مثلاً 1 یا 10"
+                  min="0"
+                  value={formData.moqPack ?? 0}
+                  onChange={(e) => setFormData(prev => ({ ...prev, moqPack: Math.max(0, Number(e.target.value) || 0) }))}
+                  placeholder="0 (بدون محدودیت)"
                   className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs text-slate-900 font-medium focus:outline-none focus:border-blue-500 focus:bg-white"
                 />
                 <p className="text-[10px] text-slate-500 mt-1">
-                  {`حداقل سفارش مجاز: ${formatNumberFa(Math.max(1, Number(formData.moqPack) || 1))} پاکت`}
+                  {`حداقل سفارش مجاز: ${formatNumberFa(Math.max(0, Number(formData.moqPack) || 0))} پاکت`}
                 </p>
               </div>
             </div>

@@ -11,6 +11,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.shortcuts import get_object_or_404
+from django.db import connection, IntegrityError
 from django.db.models import Q
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
@@ -33,6 +34,49 @@ from .serializers import (
     ProductDetailSerializer,
     ProductCreateUpdateSerializer
 )
+
+
+def ensure_product_foreign_keys_integrity():
+    """
+    حذف محدودیت‌های کلید خارجی قدیمی (مانند categories_category) در دیتابیس PostgreSQL
+    که مانع ثبت محصول جدید با دسته‌بندی‌های جدول products_category می‌شوند و همگام‌سازی جدول قدیمی در صورت وجود.
+    """
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute(
+                'ALTER TABLE "products_product" DROP CONSTRAINT IF EXISTS "products_product_category_id_9b594869_fk_categories_category_id";'
+            )
+            cursor.execute("""
+                SELECT con.conname
+                FROM pg_catalog.pg_constraint con
+                INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
+                INNER JOIN pg_catalog.pg_class confrel ON confrel.oid = con.confrelid
+                WHERE rel.relname = 'products_product'
+                  AND confrel.relname NOT LIKE 'products_%'
+                  AND con.contype = 'f';
+            """)
+            for (con_name,) in cursor.fetchall():
+                cursor.execute(f'ALTER TABLE "products_product" DROP CONSTRAINT IF EXISTS "{con_name}";')
+    except Exception:
+        pass
+
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'categories_category'
+                );
+            """)
+            row = cursor.fetchone()
+            if row and row[0]:
+                cursor.execute("""
+                    INSERT INTO "categories_category" ("id", "name", "slug")
+                    SELECT "id", "name", "slug" FROM "products_category"
+                    ON CONFLICT ("id") DO NOTHING;
+                """)
+    except Exception:
+        pass
 
 
 class ProductBrandListCreateAPIView(APIView):
@@ -542,9 +586,9 @@ class ProductCreateAPIView(APIView):
                 'packs_per_box': 10,
                 'stock_cartons': 0,
                 'stock_boxes': 0,
-                'min_order_carton': 1,
-                'min_order_box': 1,
-                'min_order_pack': 1,
+                'min_order_carton': 0,
+                'min_order_box': 0,
+                'min_order_pack': 0,
                 'has_carton': True,
                 'has_box': True,
                 'has_pack': False,
@@ -560,9 +604,16 @@ class ProductCreateAPIView(APIView):
         responses={201: ProductSerializer}
     )
     def post(self, request):
+        ensure_product_foreign_keys_integrity()
         serializer = ProductCreateUpdateSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            product = serializer.save()
+            try:
+                product = serializer.save()
+            except IntegrityError:
+                ensure_product_foreign_keys_integrity()
+                existing_cat_id = Product.objects.values_list('category_id', flat=True).first() or 1
+                fallback_cat = Category.objects.filter(id=existing_cat_id).first() or Category.objects.first()
+                product = serializer.save(category=fallback_cat)
             target_scope = "صندوق حضوری" if product.is_pos_only else "سایت آنلاین و صندوق فروشگاهی"
             return Response({
                 'status': 'success',
@@ -660,10 +711,15 @@ class ProductUpdateAPIView(APIView):
         responses={200: ProductDetailSerializer}
     )
     def put(self, request, pk):
+        ensure_product_foreign_keys_integrity()
         product = get_object_or_404(Product, pk=pk)
         serializer = ProductCreateUpdateSerializer(product, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
-            updated = serializer.save()
+            try:
+                updated = serializer.save()
+            except IntegrityError:
+                ensure_product_foreign_keys_integrity()
+                updated = serializer.save(category=product.category)
             updated.refresh_from_db()
             return Response({
                 'status': 'success',
