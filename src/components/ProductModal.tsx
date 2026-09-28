@@ -39,21 +39,30 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   useEffect(() => {
     setDetailedProduct(initialProduct);
+    setCurrentImageIndex(0);
     if (initialProduct?.id) {
       let isMounted = true;
       productsApi.getById(initialProduct.id).then((fresh) => {
         if (isMounted && fresh) {
           setDetailedProduct((prev) => {
             if (!prev) return fresh;
-            const mergedImages = (fresh.images && fresh.images.length > 0)
-              ? fresh.images
-              : (prev.images && prev.images.length > 0 ? prev.images : [fresh.image || prev.image].filter(Boolean));
+            const override = getProductRichOverride(initialProduct.id);
+            const preservedMainImage =
+              (override?.image && override.image.trim() !== '')
+                ? override.image
+                : (prev.image && prev.image.trim() !== '' ? prev.image : fresh.image);
+            const mergedImages = (override?.images && Array.isArray(override.images))
+              ? override.images
+              : ((fresh.images && fresh.images.length > 0)
+                ? fresh.images
+                : (prev.images && prev.images.length > 0 ? prev.images : []));
             const mergedFeatures = (fresh.appliedFeatures && fresh.appliedFeatures.length > 0)
               ? fresh.appliedFeatures
               : (prev.appliedFeatures || []);
             return {
               ...prev,
               ...fresh,
+              image: preservedMainImage || fresh.image || prev.image || '',
               excerpt: fresh.excerpt || prev.excerpt || '',
               description: fresh.description || prev.description || '',
               moq: Math.max(Number(prev.moq) || 0, Number(fresh.moq) || 0),
@@ -86,18 +95,9 @@ export const ProductModal: React.FC<ProductModalProps> = ({
   const minStepBox = Math.max(1, moqBox);
   const minStepPack = Math.max(1, moqPack);
 
-  const [cartonQty, setCartonQty] = useState<number>(() => {
-    if (!showCarton) return 0;
-    return minStepCarton;
-  });
-  const [boxQty, setBoxQty] = useState<number>(() => {
-    if (!showCarton && showBox) return minStepBox;
-    return 0;
-  });
-  const [packQty, setPackQty] = useState<number>(() => {
-    if (!showCarton && !showBox && showPack) return minStepPack;
-    return 0;
-  });
+  const [cartonQty, setCartonQty] = useState<number>(0);
+  const [boxQty, setBoxQty] = useState<number>(0);
+  const [packQty, setPackQty] = useState<number>(0);
   const [added, setAdded] = useState(false);
   const [moqError, setMoqError] = useState<string | null>(null);
   const [isImageExpanded, setIsImageExpanded] = useState(false);
@@ -123,12 +123,15 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
   if (!product) return null;
 
+  const primaryFeaturedImage = (richOverride?.image && richOverride.image.trim() !== '')
+    ? richOverride.image
+    : product.image;
+
   const rawImagesList = [
-    product.image,
-    ...(Array.isArray(product.images) ? product.images : []),
-    ...(Array.isArray(richOverride?.images) ? richOverride.images : []),
+    primaryFeaturedImage,
+    ...(Array.isArray(richOverride?.images) ? richOverride.images : (Array.isArray(product.images) ? product.images : [])),
   ].filter((img): img is string => Boolean(img && typeof img === 'string' && img.trim() !== ''));
-  const images = rawImagesList.length > 0 ? Array.from(new Set(rawImagesList)) : [product.image];
+  const images = rawImagesList.length > 0 ? Array.from(new Set(rawImagesList)) : [primaryFeaturedImage || product.image];
 
   const stockInfo = getProductStockInfo(product);
 
@@ -362,12 +365,23 @@ export const ProductModal: React.FC<ProductModalProps> = ({
               {product.nameEn}
             </p>
             {(() => {
-              const headerExcerpt = (
+              const rawHeaderExcerpt = (
                 richOverride?.excerpt ||
                 product.excerpt ||
                 (product as any).short_description ||
                 ''
-              ).trim();
+              );
+              const headerExcerpt = rawHeaderExcerpt
+                .replace(/<[^>]*>/g, ' ')
+                .replace(/&amp;nbsp;/gi, ' ')
+                .replace(/&nbsp;/gi, ' ')
+                .replace(/\u00A0/g, ' ')
+                .replace(/&zwnj;/gi, '\u200c')
+                .replace(/&quot;/gi, '"')
+                .replace(/&#39;/gi, "'")
+                .replace(/&amp;/gi, '&')
+                .replace(/\s+/g, ' ')
+                .trim();
               if (!headerExcerpt) return null;
               return (
                 <div className="mt-2 p-2.5 rounded-xl bg-blue-50/60 border border-blue-100 text-xs text-slate-700 leading-relaxed">
@@ -375,7 +389,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <FileText className="w-3.5 h-3.5 text-blue-600 shrink-0" />
                     <span>خلاصه محصول:</span>
                   </div>
-                  <p className="whitespace-pre-line leading-relaxed text-slate-700">
+                  <p className="whitespace-pre-line break-words leading-relaxed text-slate-700">
                     {headerExcerpt}
                   </p>
                 </div>
@@ -395,21 +409,37 @@ export const ProductModal: React.FC<ProductModalProps> = ({
 
         {/* Full Rich Description (نقد و بررسی و توضیحات جامع محصول - TinyMCE) */}
         {(() => {
-          const rawFullDesc = (
+          const normalizeHtmlSpaces = (val: string) =>
+            val
+              .replace(/&amp;nbsp;/gi, ' ')
+              .replace(/&nbsp;/gi, ' ')
+              .replace(/\u00A0/g, ' ')
+              .replace(/&zwnj;/gi, '\u200c')
+              .trim();
+
+          const rawFullDesc = normalizeHtmlSpaces(
             richOverride?.description ||
             product.description ||
             (product as any).full_description ||
             ''
-          ).trim();
-          const rawExcerpt = (
+          );
+          const rawExcerpt = normalizeHtmlSpaces(
             richOverride?.excerpt ||
             product.excerpt ||
             (product as any).short_description ||
             ''
-          ).trim();
+          );
 
           const fullText = rawFullDesc || rawExcerpt;
           const hasHtmlTags = /<[a-z][\s\S]*>/i.test(fullText);
+          const plainDecodedText = !hasHtmlTags
+            ? fullText
+                .replace(/&quot;/gi, '"')
+                .replace(/&#39;/gi, "'")
+                .replace(/&lt;/gi, '<')
+                .replace(/&gt;/gi, '>')
+                .replace(/&amp;/gi, '&')
+            : fullText;
 
           if (!fullText && (!product.keyTakeaways || product.keyTakeaways.length === 0)) {
             return null;
@@ -425,17 +455,17 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                     <span>نقد و بررسی و توضیحات جامع محصول:</span>
                   </div>
                   <div
-                    className="max-h-48 sm:max-h-60 overflow-y-auto overscroll-contain pl-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify font-normal"
+                    className="max-h-48 sm:max-h-60 overflow-y-auto overscroll-contain pl-1.5 text-xs sm:text-sm text-slate-700 leading-relaxed text-justify font-normal break-words"
                     style={{ overscrollBehavior: 'contain' }}
                   >
                     {hasHtmlTags ? (
                       <div
-                        className="prose prose-sm max-w-none text-slate-700 leading-relaxed"
+                        className="prose prose-sm max-w-none text-slate-700 leading-relaxed break-words"
                         dangerouslySetInnerHTML={{ __html: fullText }}
                       />
                     ) : (
-                      <p className="whitespace-pre-line leading-relaxed">
-                        {fullText}
+                      <p className="whitespace-pre-line break-words leading-relaxed">
+                        {plainDecodedText}
                       </p>
                     )}
                   </div>
@@ -593,14 +623,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         setCartonQty(q => {
                           if (q <= 0) return 0;
                           if (q <= minStepCarton) {
-                            if (boxQty > 0 || packQty > 0) {
-                              setMoqError(null);
-                              return 0;
-                            }
-                            if (moqCarton > 0) {
-                              setMoqError(`حداقل سفارش کارتن برای این محصول ${formatNumberFa(moqCarton)} کارتن است.`);
-                            }
-                            return minStepCarton;
+                            setMoqError(null);
+                            return 0;
                           }
                           setMoqError(null);
                           return q - 1;
@@ -658,14 +682,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         setBoxQty(q => {
                           if (q <= 0) return 0;
                           if (q <= minStepBox) {
-                            if ((showCarton && cartonQty > 0) || (showPack && packQty > 0)) {
-                              setMoqError(null);
-                              return 0;
-                            }
-                            if (moqBox > 0) {
-                              setMoqError(`حداقل سفارش باکس برای این محصول ${formatNumberFa(moqBox)} باکس است.`);
-                            }
-                            return minStepBox;
+                            setMoqError(null);
+                            return 0;
                           }
                           setMoqError(null);
                           return q - 1;
@@ -723,14 +741,8 @@ export const ProductModal: React.FC<ProductModalProps> = ({
                         setPackQty(q => {
                           if (q <= 0) return 0;
                           if (q <= minStepPack) {
-                            if ((showCarton && cartonQty > 0) || (showBox && boxQty > 0)) {
-                              setMoqError(null);
-                              return 0;
-                            }
-                            if (moqPack > 0) {
-                              setMoqError(`حداقل سفارش پاکت برای این محصول ${formatNumberFa(moqPack)} پاکت است.`);
-                            }
-                            return minStepPack;
+                            setMoqError(null);
+                            return 0;
                           }
                           setMoqError(null);
                           return q - 1;

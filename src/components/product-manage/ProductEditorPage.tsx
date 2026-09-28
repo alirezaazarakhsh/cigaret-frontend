@@ -128,8 +128,11 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
           : ((product as any).is_featured || product.badge === 'پیشنهاد ویژه' || product.badge === 'special')
       );
 
-      const resolvedExcerpt = product.excerpt || (product as any).short_description || richOverride?.excerpt || '';
-      const resolvedDescription = product.description || (product as any).full_description || richOverride?.description || '';
+      const cleanTextSpaces = (str?: string) =>
+        str ? str.replace(/&amp;nbsp;/gi, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ') : '';
+
+      const resolvedExcerpt = cleanTextSpaces(product.excerpt || (product as any).short_description || richOverride?.excerpt || '');
+      const resolvedDescription = cleanTextSpaces(product.description || (product as any).full_description || richOverride?.description || '');
       const resolvedMoq = richOverride?.moq !== undefined
         ? Math.max(0, Number(richOverride.moq) || 0)
         : (Number(product.moq || (product as any).min_order_carton || 0) > 1 ? Number(product.moq || (product as any).min_order_carton) : 0);
@@ -140,8 +143,16 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         ? Math.max(0, Number(richOverride.moqPack) || 0)
         : (Number(product.moqPack || (product as any).min_order_pack || 0) > 1 ? Number(product.moqPack || (product as any).min_order_pack) : 0);
 
+      const resolvedMainImage = (richOverride?.image !== undefined && richOverride.image !== '')
+        ? richOverride.image
+        : (product.image || '');
+      const resolvedGalleryImages = (richOverride?.images !== undefined && Array.isArray(richOverride.images))
+        ? [...richOverride.images]
+        : (product.images && product.images.length > 0 ? [...product.images] : []);
+
       return {
         ...product,
+        image: resolvedMainImage,
         barcode: product.barcode || initialBarcode || '',
         purchasePrice: product.purchasePrice !== undefined ? Number(product.purchasePrice) : 0,
         stockBoxes: product.stockBoxes !== undefined ? Number(product.stockBoxes) : 0,
@@ -153,7 +164,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         keyTakeaways: product.keyTakeaways || [],
         focusKeyword: product.focusKeyword || `${product.nameFa || ''}`.trim(),
         metaTitle: product.metaTitle || product.nameFa || '',
-        metaDescription: product.metaDescription || resolvedExcerpt || '',
+        metaDescription: cleanTextSpaces(product.metaDescription || resolvedExcerpt || ''),
         excerpt: resolvedExcerpt,
         description: resolvedDescription,
         cigaretteSize: normalizeCigaretteSizeForDjango(product.cigaretteSize || product.packSize || (product as any).cigarette_size || 'king_size'),
@@ -161,7 +172,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         filterType: normalizeFilterTypeForDjango(product.filterType || (product as any).filter_type || 'white'),
         isFeatured: initialIsFeatured,
         appliedFeatures: initialApplied,
-        images: product.images && product.images.length > 0 ? [...product.images] : (richOverride?.images ? [...richOverride.images] : []),
+        images: resolvedGalleryImages,
       };
     }
     return {
@@ -235,14 +246,18 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
     let isMounted = true;
     productsApi.getById(product.id).then((fresh) => {
       if (isMounted && fresh) {
+        const override = getProductRichOverride(product.id);
         setFormData((prev: any) => ({
           ...prev,
+          image: prev.image || override?.image || fresh.image || '',
           excerpt: prev.excerpt || fresh.excerpt || '',
           description: prev.description || fresh.description || '',
           moq: prev.moq !== undefined ? prev.moq : (fresh.moq && fresh.moq > 1 ? fresh.moq : 0),
           moqBox: prev.moqBox !== undefined ? prev.moqBox : (fresh.moqBox && fresh.moqBox > 1 ? fresh.moqBox : 0),
           moqPack: prev.moqPack !== undefined ? prev.moqPack : (fresh.moqPack && fresh.moqPack > 1 ? fresh.moqPack : 0),
-          images: (prev.images && prev.images.length > 0) ? prev.images : (fresh.images || []),
+          images: (prev.images && prev.images.length > 0)
+            ? prev.images
+            : (override?.images !== undefined ? override.images : (fresh.images || [])),
         }));
       }
     }).catch(() => {});
@@ -341,13 +356,17 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       let isMounted = true;
       productsApi.getById(product.id).then((fresh) => {
         if (isMounted && fresh) {
+          const override = getProductRichOverride(product.id);
           setFormData((prev: any) => ({
             ...prev,
+            image: prev.image || override?.image || fresh.image || '',
             description: prev.description || fresh.description || (fresh as any).full_description || '',
             excerpt: prev.excerpt || fresh.excerpt || (fresh as any).short_description || '',
             metaDescription: prev.metaDescription || fresh.metaDescription || fresh.excerpt || '',
             keyTakeaways: (prev.keyTakeaways && prev.keyTakeaways.length > 0) ? prev.keyTakeaways : (fresh.keyTakeaways || []),
-            images: (prev.images && prev.images.length > 0) ? prev.images : (fresh.images || []),
+            images: (prev.images && prev.images.length > 0)
+              ? prev.images
+              : (override?.images !== undefined ? override.images : (fresh.images || [])),
             appliedFeatures: (prev.appliedFeatures && prev.appliedFeatures.length > 0) ? prev.appliedFeatures : (fresh.appliedFeatures || []),
           }));
         }
@@ -811,8 +830,8 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         priceTrend: formData.priceTrend || 'stable',
         lastPriceUpdate: new Date().toLocaleDateString('fa-IR'),
         hologram: formData.hologram || 'شرکتی اصل',
-        description: formData.description || '',
-        excerpt: formData.excerpt || '',
+        description: (formData.description || '').replace(/&amp;nbsp;/gi, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' '),
+        excerpt: (formData.excerpt || '').replace(/&amp;nbsp;/gi, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' '),
         slug: formData.slug || `prod-${Date.now()}`,
         isAvailable: formData.isAvailable !== false,
         isFeatured: Boolean(formData.isFeatured),
@@ -824,7 +843,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         tierDiscounts: formData.tierDiscounts || [],
         focusKeyword: formData.focusKeyword?.trim() || '',
         metaTitle: formData.metaTitle?.trim() || formData.nameFa || '',
-        metaDescription: formData.metaDescription?.trim() || formData.excerpt || '',
+        metaDescription: (formData.metaDescription?.trim() || formData.excerpt || '').replace(/&amp;nbsp;/gi, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' '),
         keyTakeaways: formData.keyTakeaways || [],
         seoScore: seoReport.overallScore,
         cigaretteSize: formData.cigaretteSize || formData.packSize || 'king_size',

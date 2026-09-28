@@ -2553,9 +2553,11 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     ? Math.max(0, parseNumeric(richOverride.moqPack, 0))
     : (backendMoqPack > 1 ? backendMoqPack : 0);
 
-  // Images (check main_image, image_url, image, gallery, gallery_images, images)
+  // Images (strictly separate Featured Image `image` from Gallery Images `images`)
   let imagesArr: string[] = [];
-  if (Array.isArray(item.gallery) && item.gallery.length > 0) {
+  if (richOverride?.images !== undefined && Array.isArray(richOverride.images)) {
+    imagesArr = richOverride.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
+  } else if (Array.isArray(item.gallery) && item.gallery.length > 0) {
     imagesArr = item.gallery.map((g: any) => extractImageUrl(g?.image_url || g?.image || g, '')).filter(Boolean);
   } else if (Array.isArray(item.gallery_images) && item.gallery_images.length > 0) {
     imagesArr = item.gallery_images.map((img: any) => extractImageUrl(img?.image_url || img?.image || img, '')).filter(Boolean);
@@ -2565,24 +2567,15 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     imagesArr = item.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
   }
 
-  // Merge or restore gallery images from richOverride so gallery never disappears after save/edit
-  if (richOverride?.images !== undefined && Array.isArray(richOverride.images)) {
-    const overrideImgs = richOverride.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
-    if (overrideImgs.length > 0) {
-      const mergedImgs = [...overrideImgs];
-      imagesArr.forEach((bImg) => {
-        if (bImg && !mergedImgs.includes(bImg)) {
-          mergedImgs.push(bImg);
-        }
-      });
-      imagesArr = mergedImgs;
-    } else if (imagesArr.length <= 1) {
-      imagesArr = [];
-    }
-  }
-
   const mainImg = extractImageUrl(
-    item.main_image || item.image_url || item.image || item.photo || item.picture || richOverride?.image || imagesArr[0] || '',
+    (richOverride?.image !== undefined && richOverride.image !== '' ? richOverride.image : '') ||
+      item.main_image ||
+      item.image_url ||
+      item.image ||
+      item.photo ||
+      item.picture ||
+      (richOverride?.image === undefined ? imagesArr[0] : '') ||
+      '',
     ''
   );
 
@@ -2628,31 +2621,42 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     ? Boolean(richOverride.hasPack)
     : (item.has_pack !== undefined ? Boolean(item.has_pack) : Boolean(item.hasPack));
 
-  // Descriptions & SEO (Strictly separate Excerpt vs Full TinyMCE Description)
-  const rawFullDescription = extractStringFromField(
-    item.full_description ?? item.fullDescription ?? item.description ?? item.content ?? item.body ?? item.about,
-    ''
+  // Descriptions & SEO (Strictly separate Excerpt vs Full TinyMCE Description & clean &nbsp;)
+  const cleanHtmlNbsp = (str: string): string =>
+    str ? str.replace(/&amp;nbsp;/gi, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ').trim() : '';
+
+  const rawFullDescription = cleanHtmlNbsp(
+    extractStringFromField(
+      item.full_description ?? item.fullDescription ?? item.description ?? item.content ?? item.body ?? item.about,
+      ''
+    )
   );
-  const rawExcerpt = extractStringFromField(
-    item.excerpt ?? item.short_description ?? item.shortDescription ?? item.summary ?? item.intro ?? item.short_desc,
-    ''
+  const rawExcerpt = cleanHtmlNbsp(
+    extractStringFromField(
+      item.excerpt ?? item.short_description ?? item.shortDescription ?? item.summary ?? item.intro ?? item.short_desc,
+      ''
+    )
   );
-  const rawMetaDescription = extractStringFromField(
-    item.meta_description ?? item.metaDescription,
-    ''
+  const rawMetaDescription = cleanHtmlNbsp(
+    extractStringFromField(
+      item.meta_description ?? item.metaDescription,
+      ''
+    )
   );
 
   const stripHtmlTags = (html: string): string =>
-    html ? html.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    html ? html.replace(/<[^>]*>/g, ' ').replace(/&amp;nbsp;/gi, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim() : '';
 
-  const excerpt =
+  const excerpt = cleanHtmlNbsp(
     (richOverride?.excerpt !== undefined && richOverride.excerpt.trim() !== '' ? richOverride.excerpt : '') ||
     rawExcerpt ||
-    rawMetaDescription;
+    rawMetaDescription
+  );
 
-  const description =
+  const description = cleanHtmlNbsp(
     (richOverride?.description !== undefined && richOverride.description.trim() !== '' ? richOverride.description : '') ||
-    rawFullDescription;
+    rawFullDescription
+  );
 
   const focusKeyword = extractStringFromField(
     item.focus_keyword || item.focusKeyword || item.seo_keywords || richOverride?.focusKeyword,

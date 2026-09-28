@@ -985,10 +985,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                     if s_img.startswith('data:image'):
                         decoded_file = decode_base64_image(s_img, prefix=f"gal_{product.id}_{idx}")
                         if decoded_file:
-                            gal_obj = ProductImage.objects.create(product=product, image=decoded_file, order=order_val)
-                            if idx == 0 and not product.main_image:
-                                product.main_image = gal_obj.image
-                                product.save(update_fields=['main_image'])
+                            ProductImage.objects.create(product=product, image=decoded_file, order=order_val)
                     else:
                         rel_media = normalize_media_path(s_img)
                         if rel_media:

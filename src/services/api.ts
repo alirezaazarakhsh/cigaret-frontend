@@ -925,7 +925,8 @@ export const productsApi = {
       min_order_box: Math.max(0, Number(product.moqBox ?? 0) || 0),
       min_order_pack: Math.max(0, Number(product.moqPack ?? 0) || 0),
       badge: normalizedBadge,
-      image: safeImage,
+      main_image: product.image || '',
+      image: product.image || safeImage,
       image_url: safeImage,
       images: allGalleryImages,
       gallery_images: allGalleryImages,
@@ -1034,9 +1035,12 @@ export const productsApi = {
           brand: typeof payload.brand === 'number' ? payload.brand : null,
           hologram: typeof payload.hologram === 'number' ? payload.hologram : null,
           category: fallbackCategoryPk,
+          image: safeImage,
+          image_url: safeImage,
           images: safeImages,
           gallery_images: safeImages,
         };
+        delete sanitizedPayload.main_image;
         delete sanitizedPayload.barcode;
         const retryRes = await httpClient.post(ep, sanitizedPayload, { timeoutMs: 20000 });
         if (retryRes.success) {
@@ -1364,7 +1368,8 @@ export const productsApi = {
       is_featured: isFeaturedVal,
       ...(productData.barcode && productData.barcode.trim() ? { barcode: productData.barcode.trim().slice(0, 60) } : {}),
       ...(productData.slug ? { slug: productData.slug } : {}),
-      image: safeImage,
+      main_image: productData.image || '',
+      image: productData.image || safeImage,
       image_url: safeImage,
       images: allGalleryImages,
       gallery_images: allGalleryImages,
@@ -1404,9 +1409,12 @@ export const productsApi = {
       if (!response.success && (response.status === 0 || response.status === 400 || response.status === 500)) {
         const ultraSafePayload = {
           ...safeFallbackPayload,
+          image: safeImage,
+          image_url: safeImage,
           images: safeImages,
           gallery_images: safeImages,
         };
+        delete (ultraSafePayload as any).main_image;
         response = await httpClient.patch(`/products/items/${cleanId}/update/`, ultraSafePayload, { timeoutMs: 20000 });
       }
     }
@@ -1420,9 +1428,16 @@ export const productsApi = {
     if (response.success && response.data) {
       const respObj = response.data.data || response.data;
       if (respObj && typeof respObj === 'object') {
+        const preservedFeaturedImage =
+          productData.image !== undefined
+            ? productData.image
+            : (respObj.main_image || respObj.image_url || respObj.image || '');
         const mergedRaw = {
           ...productData,
           ...respObj,
+          image: preservedFeaturedImage,
+          main_image: preservedFeaturedImage,
+          image_url: preservedFeaturedImage,
           excerpt: productData.excerpt ?? respObj.excerpt ?? '',
           full_description: productData.description ?? respObj.full_description ?? '',
           description: productData.description ?? respObj.full_description ?? respObj.description ?? '',
@@ -1432,7 +1447,7 @@ export const productsApi = {
           moq: effMoq ?? 0,
           moqBox: effMoqBox ?? 0,
           moqPack: effMoqPack ?? 0,
-          images: (productData.images && productData.images.length > 0) ? productData.images : (respObj.gallery_images || respObj.images || []),
+          images: Array.isArray(productData.images) ? productData.images : (respObj.gallery_images || respObj.images || []),
           appliedFeatures: (productData.appliedFeatures && productData.appliedFeatures.length > 0) ? productData.appliedFeatures : (respObj.attributes_values || []),
           is_featured: isFeaturedVal,
           isFeatured: isFeaturedVal,

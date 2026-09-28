@@ -48,9 +48,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       : ((product.boxPrice || 0) > 0 ? Math.round(product.boxPrice / (product.packsPerBox || 10)) : 0));
   const showPack = Boolean(product.hasPack) && effectivePackPrice > 0;
 
-  const [cartonQty, setCartonQty] = useState<number>(() => showCarton ? minStepCarton : 0);
-  const [boxQty, setBoxQty] = useState<number>(() => (!showCarton && showBox) ? minStepBox : 0);
-  const [packQty, setPackQty] = useState<number>(() => (!showCarton && !showBox && showPack) ? minStepPack : 0);
+  const [cartonQty, setCartonQty] = useState<number>(0);
+  const [boxQty, setBoxQty] = useState<number>(0);
+  const [packQty, setPackQty] = useState<number>(0);
   const [cartonJustAdded, setCartonJustAdded] = useState(false);
   const [boxJustAdded, setBoxJustAdded] = useState(false);
   const [packJustAdded, setPackJustAdded] = useState(false);
@@ -243,7 +243,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           className="relative h-36 sm:h-40 w-full rounded-xl overflow-hidden mb-2 bg-slate-50 cursor-pointer group-hover:opacity-95 transition-all border border-slate-100"
         >
           <img 
-            src={product.image} 
+            src={(richOverride?.image && richOverride.image.trim() !== '') ? richOverride.image : product.image} 
             alt={product.nameFa}
             className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-300"
             loading="lazy"
@@ -303,7 +303,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         {(() => {
           const MAX_CARD_DESC_CHARS = 100;
           const stripHtml = (str?: string) =>
-            str ? str.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim() : '';
+            str
+              ? str
+                  .replace(/<[^>]*>/g, ' ')
+                  .replace(/&amp;nbsp;/gi, ' ')
+                  .replace(/&nbsp;/gi, ' ')
+                  .replace(/\u00A0/g, ' ')
+                  .replace(/&zwnj;/gi, '\u200c')
+                  .replace(/&quot;/gi, '"')
+                  .replace(/&#39;/gi, "'")
+                  .replace(/&amp;/gi, '&')
+                  .replace(/\s+/g, ' ')
+                  .trim()
+              : '';
           const rawShortDesc =
             stripHtml(richOverride?.excerpt) ||
             stripHtml(product.excerpt) ||
@@ -429,8 +441,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       onClick={() => {
                         if (cartonQty > minStepCarton) {
                           setCartonQty(q => q - 1);
-                        } else if (moqCarton > 0) {
-                          triggerMoqWarning(`حداقل سفارش کارتن برای این محصول ${formatNumberFa(moqCarton)} کارتن است.`);
+                        } else if (cartonQty > 0) {
+                          setCartonQty(0);
                         }
                       }}
                       className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-[10px] transition-colors shrink-0 cursor-pointer"
@@ -492,10 +504,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       onClick={() => {
                         if (boxQty > minStepBox) {
                           setBoxQty(q => q - 1);
-                        } else if (boxQty === minStepBox && showCarton) {
+                        } else if (boxQty > 0) {
                           setBoxQty(0);
-                        } else if (moqBox > 0) {
-                          triggerMoqWarning(`حداقل سفارش باکس برای این محصول ${formatNumberFa(moqBox)} باکس است.`);
                         }
                       }}
                       className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-[10px] transition-colors shrink-0 cursor-pointer"
@@ -557,10 +567,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       onClick={() => {
                         if (packQty > minStepPack) {
                           setPackQty(q => q - 1);
-                        } else if (packQty === minStepPack && (showCarton || showBox)) {
+                        } else if (packQty > 0) {
                           setPackQty(0);
-                        } else if (moqPack > 0) {
-                          triggerMoqWarning(`حداقل سفارش پاکت برای این محصول ${formatNumberFa(moqPack)} پاکت است.`);
                         }
                       }}
                       className="w-5 h-5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center font-bold text-[10px] transition-colors shrink-0 cursor-pointer"
