@@ -2610,11 +2610,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
   );
   const mappedFromDjango = mapBadgeFromDjango(rawBadge);
   let badge = mappedFromDjango;
-  if (rawBadge === 'new' && richOverride?.badgeExplicit === 'بار تازه') {
-    badge = 'بار تازه';
-  } else if ((!rawBadge || rawBadge === 'none') && richOverride?.badgeExplicit === 'موجودی محدود') {
-    badge = 'موجودی محدود';
-  } else if (!rawBadge && richOverride?.badgeExplicit !== undefined) {
+  if (richOverride?.badgeExplicit !== undefined) {
     badge = mapBadgeFromDjango(richOverride.badgeExplicit);
   }
 

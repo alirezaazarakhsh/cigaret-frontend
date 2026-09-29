@@ -68,6 +68,7 @@ import {
   djangoFetchSliders,
   djangoFetchFooterSettings,
   mapDjangoItemToProduct,
+  mapBadgeFromDjango,
   normalizeBadgeForDjango,
   normalizeCigaretteSizeForDjango,
   normalizeFilterTypeForDjango,
