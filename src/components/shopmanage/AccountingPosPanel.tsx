@@ -87,6 +87,7 @@ import {
   ClipboardList
 } from 'lucide-react';
 import { api } from '../../services/api';
+import { subscribeToProductSync } from '../../services/productSync';
 import { staffAuthService } from '../../services/modules/staffAuthService';
 import { currencyRatesApi } from '../../services/currencyApi';
 import { 
@@ -593,22 +594,15 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       setProductsList(stored);
     }
 
-    const handleProductsChanged = (e: any) => {
-      if (e?.detail?.products && Array.isArray(e.detail.products)) {
-        setProductsList(e.detail.products);
-      } else {
-        const stored = djangoDatabaseStore.getProducts();
-        setProductsList(stored);
+    // Live multi-device, multi-window & background sync
+    const unsubscribe = subscribeToProductSync((updated) => {
+      if (Array.isArray(updated) && updated.length > 0) {
+        setProductsList(updated);
       }
-    };
+    });
 
-    if (typeof window !== 'undefined') {
-      window.addEventListener('sevin-products-changed', handleProductsChanged);
-    }
     return () => {
-      if (typeof window !== 'undefined') {
-        window.removeEventListener('sevin-products-changed', handleProductsChanged);
-      }
+      unsubscribe();
     };
   }, [initialProducts]);
 

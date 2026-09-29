@@ -33,6 +33,7 @@ import {
   INITIAL_PRODUCT_BRANDS
 } from './types';
 import { formatNumberFa } from '../../utils/formatters';
+import { broadcastProductSync } from '../../services/productSync';
 import { categoriesApi, hologramsApi, attributesApi, brandsApi, productsApi } from '../../services/api';
 import { saveProductToDjango } from '../../services/djangoApi';
 
@@ -263,13 +264,7 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
             : p
         );
         onUpdateProducts(updatedList);
-        try {
-          localStorage.setItem('wholesale_products', JSON.stringify(updatedList));
-          localStorage.setItem('sovin_django_products', JSON.stringify(updatedList));
-        } catch {}
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updatedList, product: mergedSaved } }));
-        }
+        broadcastProductSync(updatedList, mergedSaved);
         setActiveTab('list');
         setSelectedProduct(null);
         showToast(`محصول «${savedProd.nameFa}» با موفقیت ویرایش و در پایگاه‌داده انبار ثبت شد.`);
@@ -277,13 +272,7 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
         const finalProd = await productsApi.create(savedProd);
         const updatedList = [finalProd, ...products];
         onUpdateProducts(updatedList);
-        try {
-          localStorage.setItem('wholesale_products', JSON.stringify(updatedList));
-          localStorage.setItem('sovin_django_products', JSON.stringify(updatedList));
-        } catch {}
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updatedList, product: finalProd } }));
-        }
+        broadcastProductSync(updatedList, finalProd);
         setActiveTab('list');
         setSelectedProduct(null);
         showToast(`کالای جدید «${savedProd.nameFa}» با موفقیت در دیتابیس ثبت و به ویترین اضافه شد.`);
@@ -301,13 +290,7 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
       await productsApi.delete(prod.id);
       const updated = products.filter((p) => p.id !== prod.id);
       onUpdateProducts(updated);
-      try {
-        localStorage.setItem('wholesale_products', JSON.stringify(updated));
-        localStorage.setItem('sovin_django_products', JSON.stringify(updated));
-      } catch {}
-      if (typeof window !== 'undefined') {
-        window.dispatchEvent(new CustomEvent('sevin-products-changed', { detail: { products: updated } }));
-      }
+      broadcastProductSync(updated);
       showToast(`محصول «${prod.nameFa}» با موفقیت از دیتابیس و سایت حذف شد.`);
     } catch (err: any) {
       showToast(err?.message || 'خطا در حذف محصول از دیتابیس', 'error');
