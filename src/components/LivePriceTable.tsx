@@ -183,9 +183,32 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
                         ? product.packPrice
                         : (product.boxPrice ? Math.round(product.boxPrice / packsPerBox) : 0));
 
-                  const effectiveMoqCarton = Math.max(0, Number(richOverride?.moq ?? product.moq ?? (product as any).min_order_carton ?? 0));
-                  const effectiveMoqBox = Math.max(0, Number(richOverride?.moqBox ?? product.moqBox ?? (product as any).min_order_box ?? 0));
-                  const effectiveMoqPack = Math.max(0, Number(richOverride?.moqPack ?? product.moqPack ?? (product as any).min_order_pack ?? 0));
+                  const effectiveMoqCarton = Math.max(
+                    0,
+                    Number(product.moq) || 0,
+                    Number((product as any).min_order_carton) || 0,
+                    Number(richOverride?.moq) || 0
+                  );
+                  const effectiveMoqBox = Math.max(
+                    0,
+                    Number(product.moqBox) || 0,
+                    Number((product as any).min_order_box) || 0,
+                    Number(richOverride?.moqBox) || 0
+                  );
+                  const effectiveMoqPack = Math.max(
+                    0,
+                    Number(product.moqPack) || 0,
+                    Number((product as any).min_order_pack) || 0,
+                    Number(richOverride?.moqPack) || 0
+                  );
+
+                  const minCarton = Math.max(1, effectiveMoqCarton);
+                  const minBox = Math.max(1, effectiveMoqBox);
+                  const minPack = Math.max(1, effectiveMoqPack);
+
+                  const canOrderCarton = qty >= minCarton;
+                  const canOrderBox = qty >= minBox;
+                  const canOrderPack = qty >= minPack;
 
                   return (
                     <tr 
@@ -328,18 +351,29 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
                         <div className="flex items-center justify-center gap-1.5 flex-wrap">
                           <div className="flex items-center bg-slate-100 border border-slate-200 rounded-lg p-0.5">
                             <button
+                              type="button"
                               onClick={() => setQty(product.id, qty + 1)}
-                              className="w-6 h-6 rounded bg-white text-slate-800 flex items-center justify-center font-bold text-xs hover:bg-blue-100 hover:text-blue-700"
+                              className="w-6 h-6 rounded bg-white text-slate-800 flex items-center justify-center font-bold text-xs hover:bg-blue-100 hover:text-blue-700 cursor-pointer"
                               title="افزایش"
                             >
                               +
                             </button>
-                            <span className="w-6 text-center font-bold text-xs text-slate-800 ">
-                              {formatNumberFa(qty)}
-                            </span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={formatNumberFa(qty)}
+                              onChange={(e) => {
+                                const en = e.target.value.replace(/[۰-۹]/g, d => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, d => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d))).replace(/\D/g, '');
+                                const parsed = parseInt(en, 10);
+                                setQty(product.id, isNaN(parsed) || parsed < 1 ? 1 : parsed);
+                              }}
+                              className="w-8 text-center font-bold text-xs text-slate-800 bg-transparent focus:outline-none"
+                              title="تعداد سفارش"
+                            />
                             <button
+                              type="button"
                               onClick={() => setQty(product.id, qty - 1)}
-                              className="w-6 h-6 rounded bg-white text-slate-800 flex items-center justify-center font-bold text-xs hover:bg-slate-200 "
+                              className="w-6 h-6 rounded bg-white text-slate-800 flex items-center justify-center font-bold text-xs hover:bg-slate-200 cursor-pointer"
                               title="کاهش"
                             >
                               -
@@ -348,9 +382,22 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
 
                           {showCarton && (
                             <button
-                              onClick={() => onAddToCart(product, 'carton', selectedQuantities[product.id] ? qty : Math.max(qty, effectiveMoqCarton || 1))}
-                              className="px-2 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
-                              title="افزودن کارتن به پیش‌فاکتور"
+                              type="button"
+                              disabled={!canOrderCarton}
+                              onClick={() => {
+                                if (!canOrderCarton) return;
+                                onAddToCart(product, 'carton', qty);
+                              }}
+                              className={`px-2 py-1.5 rounded-lg text-white font-black text-[11px] transition-all shadow-2xs flex items-center gap-1 ${
+                                canOrderCarton
+                                  ? 'bg-blue-600 hover:bg-blue-700 cursor-pointer'
+                                  : 'bg-blue-600 opacity-35 cursor-not-allowed'
+                              }`}
+                              title={
+                                canOrderCarton
+                                  ? 'افزودن کارتن به پیش‌فاکتور'
+                                  : `حداقل سفارش کارتن ${formatNumberFa(minCarton)} عدد است`
+                              }
                             >
                               <Package className="w-3 h-3" />
                               +کارتن
@@ -359,9 +406,22 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
 
                           {showBox && (
                             <button
-                              onClick={() => onAddToCart(product, 'box', selectedQuantities[product.id] ? qty : Math.max(qty, effectiveMoqBox || 1))}
-                              className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-black text-[11px] transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
-                              title="افزودن باکس به پیش‌فاکتور"
+                              type="button"
+                              disabled={!canOrderBox}
+                              onClick={() => {
+                                if (!canOrderBox) return;
+                                onAddToCart(product, 'box', qty);
+                              }}
+                              className={`px-2 py-1.5 rounded-lg text-white font-black text-[11px] transition-all shadow-2xs flex items-center gap-1 ${
+                                canOrderBox
+                                  ? 'bg-slate-800 hover:bg-slate-900 cursor-pointer'
+                                  : 'bg-slate-800 opacity-35 cursor-not-allowed'
+                              }`}
+                              title={
+                                canOrderBox
+                                  ? 'افزودن باکس به پیش‌فاکتور'
+                                  : `حداقل سفارش باکس ${formatNumberFa(minBox)} عدد است`
+                              }
                             >
                               <Boxes className="w-3 h-3" />
                               +باکس
@@ -370,9 +430,22 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
 
                           {showPack && (
                             <button
-                              onClick={() => onAddToCart(product, 'pack', selectedQuantities[product.id] ? qty : Math.max(qty, effectiveMoqPack || 1))}
-                              className="px-2 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
-                              title="افزودن پاکت به پیش‌فاکتور"
+                              type="button"
+                              disabled={!canOrderPack}
+                              onClick={() => {
+                                if (!canOrderPack) return;
+                                onAddToCart(product, 'pack', qty);
+                              }}
+                              className={`px-2 py-1.5 rounded-lg text-white font-black text-[11px] transition-all shadow-2xs flex items-center gap-1 ${
+                                canOrderPack
+                                  ? 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
+                                  : 'bg-emerald-600 opacity-35 cursor-not-allowed'
+                              }`}
+                              title={
+                                canOrderPack
+                                  ? 'افزودن پاکت به پیش‌فاکتور'
+                                  : `حداقل سفارش پاکت ${formatNumberFa(minPack)} عدد است`
+                              }
                             >
                               <ShoppingCart className="w-3 h-3" />
                               +پاکت

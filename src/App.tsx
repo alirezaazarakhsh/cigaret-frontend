@@ -667,7 +667,22 @@ export default function App() {
     setCurrentPage(1);
   }, [selectedCategory, selectedBrand, priceRange, searchQuery, sortBy]);
   
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
+  const [cartItems, setCartItems] = useState<CartItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('sevin_cart_items');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sevin_cart_items', JSON.stringify(cartItems));
+    } catch {}
+  }, [cartItems]);
 
   const [activeProductModal, setActiveProductModal] = useState<CigaretteProduct | null>(null);
   const [activeInvoice, setActiveInvoice] = useState<OrderInvoice | null>(null);
@@ -1328,42 +1343,41 @@ export default function App() {
 
   // Cart operations
   const handleAddToCart = (product: CigaretteProduct, unit: 'carton' | 'box' | 'pack', quantity: number) => {
-    if (!currentUser) {
-      showToast('برای افزودن کالا به سبد خرید و ثبت سفارش، لطفاً ابتدا وارد پنل کاربری شوید.');
-      setActiveTab('user-panel');
-      return;
-    }
-    if (currentUser.role === 'customer' && (!currentUser.isProfileCompleted || !currentUser.address || currentUser.fullName.includes('گرامی'))) {
-      showToast('⚠️ مشتری گرامی: جهت ثبت خرید و فاکتور رسمی، ابتدا نام مسئول، نام فروشگاه و آدرس را در پنل کاربری تکمیل فرمایید.');
-      setActiveTab('user-panel');
-      return;
-    }
     const richOverride = getProductRichOverride(product.id);
     const configuredMoq = unit === 'carton'
-      ? Math.max(0, Number(richOverride?.moq ?? product.moq ?? (product as any).min_order_carton ?? 0))
+      ? Math.max(0, Number(product.moq) || 0, Number((product as any).min_order_carton) || 0, Number(richOverride?.moq) || 0)
       : unit === 'box'
-      ? Math.max(0, Number(richOverride?.moqBox ?? product.moqBox ?? (product as any).min_order_box ?? 0))
-      : Math.max(0, Number(richOverride?.moqPack ?? product.moqPack ?? (product as any).min_order_pack ?? 0));
+      ? Math.max(0, Number(product.moqBox) || 0, Number((product as any).min_order_box) || 0, Number(richOverride?.moqBox) || 0)
+      : Math.max(0, Number(product.moqPack) || 0, Number((product as any).min_order_pack) || 0, Number(richOverride?.moqPack) || 0);
     const minReq = Math.max(1, configuredMoq);
     const unitLabel = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
-
-    const existingItem = cartItems.find(item => item.product.id === product.id && item.unit === unit);
-    const nextQty = (existingItem ? existingItem.quantity : 0) + quantity;
-    if (configuredMoq > 0 && nextQty < configuredMoq) {
-      showToast(`⚠️ حداقل سفارش ${unitLabel} برای ${product.nameFa}، ${formatNumberFa(configuredMoq)} ${unitLabel} می‌باشد.`);
-      return;
-    }
+    const effectiveAddQty = Math.max(minReq, quantity);
 
     setCartItems(prev => {
       const existingIndex = prev.findIndex(item => item.product.id === product.id && item.unit === unit);
       if (existingIndex > -1) {
         const updated = [...prev];
-        updated[existingIndex].quantity += quantity;
+        updated[existingIndex] = {
+          ...updated[existingIndex],
+          quantity: Math.max(minReq, updated[existingIndex].quantity + quantity),
+        };
         return updated;
       }
-      return [...prev, { product, unit, quantity: Math.max(minReq, quantity) }];
+      return [...prev, { product, unit, quantity: effectiveAddQty }];
     });
-    showToast(`تعداد ${formatNumberFa(quantity)} ${unitLabel} ${product.nameFa} به پیش‌فاکتور افزوده شد.`);
+
+    if (!currentUser) {
+      showToast(`تعداد ${formatNumberFa(effectiveAddQty)} ${unitLabel} ${product.nameFa} در پیش‌فاکتور ثبت شد. لطفاً جهت تکمیل سفارش وارد پنل کاربری شوید.`);
+      setActiveTab('user-panel');
+      return;
+    }
+    if (currentUser.role === 'customer' && (!currentUser.isProfileCompleted || !currentUser.address || currentUser.fullName.includes('گرامی'))) {
+      showToast(`⚠️ تعداد ${formatNumberFa(effectiveAddQty)} ${unitLabel} ${product.nameFa} در پیش‌فاکتور ثبت شد. لطفاً مشخصات فروشگاه و آدرس را تکمیل فرمایید.`);
+      setActiveTab('user-panel');
+      return;
+    }
+
+    showToast(`تعداد ${formatNumberFa(effectiveAddQty)} ${unitLabel} ${product.nameFa} به پیش‌فاکتور افزوده شد.`);
   };
 
   const handleUpdateQuantity = (productId: string, unit: 'carton' | 'box' | 'pack' | 'single' | 'kg', newQuantity: number) => {
@@ -1376,11 +1390,11 @@ export default function App() {
       const p = targetItem.product;
       const richOverride = getProductRichOverride(p.id);
       const configuredMoq = unit === 'carton'
-        ? Math.max(0, Number(richOverride?.moq ?? p.moq ?? (p as any).min_order_carton ?? 0))
+        ? Math.max(0, Number(p.moq) || 0, Number((p as any).min_order_carton) || 0, Number(richOverride?.moq) || 0)
         : unit === 'box'
-        ? Math.max(0, Number(richOverride?.moqBox ?? p.moqBox ?? (p as any).min_order_box ?? 0))
+        ? Math.max(0, Number(p.moqBox) || 0, Number((p as any).min_order_box) || 0, Number(richOverride?.moqBox) || 0)
         : unit === 'pack'
-        ? Math.max(0, Number(richOverride?.moqPack ?? p.moqPack ?? (p as any).min_order_pack ?? 0))
+        ? Math.max(0, Number(p.moqPack) || 0, Number((p as any).min_order_pack) || 0, Number(richOverride?.moqPack) || 0)
         : 0;
       const unitLabel = unit === 'carton' ? 'کارتن' : unit === 'box' ? 'باکس' : 'پاکت';
       if (configuredMoq > 0 && newQuantity < configuredMoq) {
@@ -1846,6 +1860,9 @@ export default function App() {
           onAddToCart={(product, unit, quantity) => {
             setIsComparisonModalOpen(false);
             handleAddToCart(product, unit, quantity);
+            if (currentUser && (currentUser.role !== 'customer' || (currentUser.isProfileCompleted && currentUser.address && !currentUser.fullName.includes('گرامی')))) {
+              setIsCartOpen(true);
+            }
           }}
         />
 

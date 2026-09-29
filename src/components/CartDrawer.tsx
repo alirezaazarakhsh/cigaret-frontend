@@ -26,6 +26,7 @@ import { CartItem, CustomerInfo, OrderInvoice, UserProfile, RetailShopCustomer, 
 import { formatToman, formatNumberFa, calculateItemSubtotal, getApplicableDiscount } from '../utils/formatters';
 import { generateInvoicePdf } from '../utils/pdfGenerator';
 import { DEFAULT_SHIPPING_OPTIONS, MOCK_BANK_ACCOUNT } from '../data/shippingOptions';
+import { getProductRichOverride } from '../services/djangoApi';
 
 interface CartDrawerProps {
   isOpen: boolean;
@@ -277,11 +278,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
 
     // Check MOQ for all items (carton, box, and pack)
     for (const item of cartItems) {
+      const richOv = getProductRichOverride(item.product.id);
       const moq = item.unit === 'carton'
-        ? (item.product.moq || 0)
+        ? Math.max(0, Number(item.product.moq) || 0, Number((item.product as any).min_order_carton) || 0, Number(richOv?.moq) || 0)
         : item.unit === 'box'
-        ? (item.product.moqBox || 0)
-        : (item.product.moqPack || 0);
+        ? Math.max(0, Number(item.product.moqBox) || 0, Number((item.product as any).min_order_box) || 0, Number(richOv?.moqBox) || 0)
+        : Math.max(0, Number(item.product.moqPack) || 0, Number((item.product as any).min_order_pack) || 0, Number(richOv?.moqPack) || 0);
       const unitLabel = item.unit === 'carton' ? 'کارتن' : item.unit === 'box' ? 'باکس' : 'پاکت';
       if (moq > 0 && item.quantity < moq) {
         setSubmitErrorMsg(`حداقل سفارش برای «${item.product.nameFa}» تعداد ${formatNumberFa(moq)} ${unitLabel} است.`);
@@ -521,7 +523,12 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     const itemDiscount = (itemRawTotal * discountPercent) / 100;
                     const itemFinal = itemRawTotal - itemDiscount;
 
-                    const itemMoq = item.unit === 'carton' ? (item.product.moq || 0) : item.unit === 'box' ? (item.product.moqBox || 0) : (item.product.moqPack || 0);
+                    const richOv = getProductRichOverride(item.product.id);
+                    const itemMoq = item.unit === 'carton'
+                      ? Math.max(0, Number(item.product.moq) || 0, Number((item.product as any).min_order_carton) || 0, Number(richOv?.moq) || 0)
+                      : item.unit === 'box'
+                      ? Math.max(0, Number(item.product.moqBox) || 0, Number((item.product as any).min_order_box) || 0, Number(richOv?.moqBox) || 0)
+                      : Math.max(0, Number(item.product.moqPack) || 0, Number((item.product as any).min_order_pack) || 0, Number(richOv?.moqPack) || 0);
                     const isBelowMoq = itemMoq > 0 && item.quantity < itemMoq;
 
                     return (

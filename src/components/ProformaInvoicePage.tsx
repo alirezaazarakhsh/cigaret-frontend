@@ -594,10 +594,10 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                                   const nextUnit: 'carton' | 'box' | 'pack' = pCarton ? 'carton' : pBox ? 'box' : pPack ? 'pack' : 'carton';
                                   setAddUnit(nextUnit);
                                   const nextMoq = nextUnit === 'carton'
-                                    ? Math.max(1, Number(ov?.moq ?? prod.moq ?? 1))
+                                    ? Math.max(1, Number(prod.moq) || 0, Number((prod as any).min_order_carton) || 0, Number(ov?.moq) || 0)
                                     : nextUnit === 'box'
-                                    ? Math.max(1, Number(ov?.moqBox ?? prod.moqBox ?? 1))
-                                    : Math.max(1, Number(ov?.moqPack ?? prod.moqPack ?? 1));
+                                    ? Math.max(1, Number(prod.moqBox) || 0, Number((prod as any).min_order_box) || 0, Number(ov?.moqBox) || 0)
+                                    : Math.max(1, Number(prod.moqPack) || 0, Number((prod as any).min_order_pack) || 0, Number(ov?.moqPack) || 0);
                                   setAddQuantity(nextMoq);
                                 }}
                                 className="w-full text-right px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between text-xs"
@@ -630,10 +630,10 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                           setAddUnit(u);
                           if (selectedAddProduct) {
                             const m = u === 'carton'
-                              ? Math.max(1, Number(selectedAddOverride?.moq ?? selectedAddProduct.moq ?? 1))
+                              ? Math.max(1, Number(selectedAddProduct.moq) || 0, Number((selectedAddProduct as any).min_order_carton) || 0, Number(selectedAddOverride?.moq) || 0)
                               : u === 'box'
-                              ? Math.max(1, Number(selectedAddOverride?.moqBox ?? selectedAddProduct.moqBox ?? 1))
-                              : Math.max(1, Number(selectedAddOverride?.moqPack ?? selectedAddProduct.moqPack ?? 1));
+                              ? Math.max(1, Number(selectedAddProduct.moqBox) || 0, Number((selectedAddProduct as any).min_order_box) || 0, Number(selectedAddOverride?.moqBox) || 0)
+                              : Math.max(1, Number(selectedAddProduct.moqPack) || 0, Number((selectedAddProduct as any).min_order_pack) || 0, Number(selectedAddOverride?.moqPack) || 0);
                             setAddQuantity(m);
                           }
                         }}
@@ -646,27 +646,44 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                     </div>
 
                     {/* Quantity Input */}
-                    <div className="w-full sm:w-24 shrink-0">
-                      <label className="block text-[10px] font-bold text-slate-600 mb-1">تعداد:</label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={addQuantity}
-                        onChange={(e) => setAddQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 text-center focus:border-blue-600 focus:outline-none"
-                      />
-                    </div>
+                    {(() => {
+                      const currentUnitMoq = selectedAddProduct
+                        ? (addUnit === 'carton'
+                            ? Math.max(1, Number(selectedAddProduct.moq) || 0, Number((selectedAddProduct as any).min_order_carton) || 0, Number(selectedAddOverride?.moq) || 0)
+                            : addUnit === 'box'
+                            ? Math.max(1, Number(selectedAddProduct.moqBox) || 0, Number((selectedAddProduct as any).min_order_box) || 0, Number(selectedAddOverride?.moqBox) || 0)
+                            : Math.max(1, Number(selectedAddProduct.moqPack) || 0, Number((selectedAddProduct as any).min_order_pack) || 0, Number(selectedAddOverride?.moqPack) || 0))
+                        : 1;
+                      const isAddBelowMoq = Boolean(selectedAddProduct && addQuantity < currentUnitMoq);
 
-                    {/* Add Button */}
-                    <button
-                      type="button"
-                      disabled={!selectedAddProduct}
-                      onClick={handleAddProductInline}
-                      className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:hover:bg-blue-600 text-white font-black px-6 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shrink-0 h-[38px]"
-                    >
-                      <Plus className="w-4 h-4" />
-                      افزودن کالا
-                    </button>
+                      return (
+                        <>
+                          <div className="w-full sm:w-24 shrink-0">
+                            <label className="block text-[10px] font-bold text-slate-600 mb-1">
+                              تعداد{currentUnitMoq > 1 ? ` (حداقل ${formatNumberFa(currentUnitMoq)})` : ''}:
+                            </label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={addQuantity}
+                              onChange={(e) => setAddQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                              className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-mono font-bold text-slate-900 text-center focus:border-blue-600 focus:outline-none"
+                            />
+                          </div>
+
+                          {/* Add Button */}
+                          <button
+                            type="button"
+                            disabled={!selectedAddProduct || isAddBelowMoq}
+                            onClick={handleAddProductInline}
+                            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 disabled:opacity-35 disabled:cursor-not-allowed disabled:hover:bg-blue-600 text-white font-black px-6 py-2 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-colors shrink-0 h-[38px]"
+                          >
+                            <Plus className="w-4 h-4" />
+                            افزودن کالا
+                          </button>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
 

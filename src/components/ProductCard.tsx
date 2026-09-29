@@ -32,9 +32,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onToggleSelect,
 }) => {
   const richOverride = getProductRichOverride(product.id);
-  const moqCarton = Math.max(0, Number(richOverride?.moq ?? product.moq ?? (product as any).min_order_carton ?? 0));
-  const moqBox = Math.max(0, Number(richOverride?.moqBox ?? product.moqBox ?? (product as any).min_order_box ?? 0));
-  const moqPack = Math.max(0, Number(richOverride?.moqPack ?? product.moqPack ?? (product as any).min_order_pack ?? 0));
+  const moqCarton = Math.max(0, Number(product.moq) || 0, Number((product as any).min_order_carton) || 0, Number(richOverride?.moq) || 0);
+  const moqBox = Math.max(0, Number(product.moqBox) || 0, Number((product as any).min_order_box) || 0, Number(richOverride?.moqBox) || 0);
+  const moqPack = Math.max(0, Number(product.moqPack) || 0, Number((product as any).min_order_pack) || 0, Number(richOverride?.moqPack) || 0);
   const minStepCarton = Math.max(1, moqCarton);
   const minStepBox = Math.max(1, moqBox);
   const minStepPack = Math.max(1, moqPack);

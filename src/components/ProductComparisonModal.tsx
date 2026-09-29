@@ -200,9 +200,9 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
                       const showCarton = (ov?.hasCarton ?? p.hasCarton) !== false && !(ov?.isBoxOnly ?? p.isBoxOnly);
                       const showBox = (ov?.hasBox ?? p.hasBox) !== false;
                       const showPack = Boolean(ov?.hasPack ?? p.hasPack);
-                      const mCarton = Math.max(1, Number(ov?.moq ?? p.moq ?? 1));
-                      const mBox = Math.max(1, Number(ov?.moqBox ?? p.moqBox ?? 1));
-                      const mPack = Math.max(1, Number(ov?.moqPack ?? p.moqPack ?? 1));
+                      const mCarton = Math.max(1, Number(p.moq) || 0, Number((p as any).min_order_carton) || 0, Number(ov?.moq) || 0);
+                      const mBox = Math.max(1, Number(p.moqBox) || 0, Number((p as any).min_order_box) || 0, Number(ov?.moqBox) || 0);
+                      const mPack = Math.max(1, Number(p.moqPack) || 0, Number((p as any).min_order_pack) || 0, Number(ov?.moqPack) || 0);
                       return (
                         <td key={p.id} className="p-4 font-bold text-slate-700 space-y-1">
                           {showCarton && <div>کارتن: {formatNumberFa(mCarton)} عدد</div>}
@@ -229,9 +229,9 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
                       const showCarton = (ov?.hasCarton ?? p.hasCarton) !== false && !(ov?.isBoxOnly ?? p.isBoxOnly);
                       const showBox = (ov?.hasBox ?? p.hasBox) !== false;
                       const showPack = Boolean(ov?.hasPack ?? p.hasPack);
-                      const mCarton = Math.max(1, Number(ov?.moq ?? p.moq ?? 1));
-                      const mBox = Math.max(1, Number(ov?.moqBox ?? p.moqBox ?? 1));
-                      const mPack = Math.max(1, Number(ov?.moqPack ?? p.moqPack ?? 1));
+                      const mCarton = Math.max(1, Number(p.moq) || 0, Number((p as any).min_order_carton) || 0, Number(ov?.moq) || 0);
+                      const mBox = Math.max(1, Number(p.moqBox) || 0, Number((p as any).min_order_box) || 0, Number(ov?.moqBox) || 0);
+                      const mPack = Math.max(1, Number(p.moqPack) || 0, Number((p as any).min_order_pack) || 0, Number(ov?.moqPack) || 0);
                       return (
                         <td key={p.id} className="p-4">
                           <div className="flex flex-wrap gap-1.5">
@@ -243,7 +243,7 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
                                 }}
                                 className="flex-1 py-2 px-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
                               >
-                                + سفارش کارتن
+                                + سفارش کارتن{mCarton > 1 ? ` (${formatNumberFa(mCarton)})` : ''}
                               </button>
                             )}
                             {showBox && (
@@ -254,7 +254,7 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
                                 }}
                                 className="flex-1 py-2 px-2.5 bg-slate-800 hover:bg-slate-900 text-white font-black text-[11px] rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
                               >
-                                + سفارش باکس
+                                + سفارش باکس{mBox > 1 ? ` (${formatNumberFa(mBox)})` : ''}
                               </button>
                             )}
                             {showPack && (
@@ -265,7 +265,7 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
                                 }}
                                 className="flex-1 py-2 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
                               >
-                                + سفارش پاکت
+                                + سفارش پاکت{mPack > 1 ? ` (${formatNumberFa(mPack)})` : ''}
                               </button>
                             )}
                           </div>

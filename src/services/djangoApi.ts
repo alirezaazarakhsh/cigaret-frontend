@@ -2551,19 +2551,16 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
 
   // Minimum Order Quantities (Default 0 = no restriction unless explicitly configured by admin)
   const backendMoq = parseNumeric(item.min_order_carton ?? item.moq ?? item.min_order_quantity ?? item.moqCarton, 0);
-  const moq = richOverride?.moq !== undefined
-    ? Math.max(0, parseNumeric(richOverride.moq, 0))
-    : (backendMoq > 1 ? backendMoq : 0);
+  const overrideMoq = richOverride?.moq !== undefined ? Math.max(0, parseNumeric(richOverride.moq, 0)) : 0;
+  const moq = backendMoq > 1 ? backendMoq : (overrideMoq > 1 ? overrideMoq : (backendMoq || overrideMoq));
 
   const backendMoqBox = parseNumeric(item.min_order_box ?? item.moq_box ?? item.moqBox, 0);
-  const moqBox = richOverride?.moqBox !== undefined
-    ? Math.max(0, parseNumeric(richOverride.moqBox, 0))
-    : (backendMoqBox > 1 ? backendMoqBox : 0);
+  const overrideMoqBox = richOverride?.moqBox !== undefined ? Math.max(0, parseNumeric(richOverride.moqBox, 0)) : 0;
+  const moqBox = backendMoqBox > 1 ? backendMoqBox : (overrideMoqBox > 1 ? overrideMoqBox : (backendMoqBox || overrideMoqBox));
 
   const backendMoqPack = parseNumeric((item as any).min_order_pack ?? (item as any).moq_pack ?? (item as any).moqPack, 0);
-  const moqPack = richOverride?.moqPack !== undefined
-    ? Math.max(0, parseNumeric(richOverride.moqPack, 0))
-    : (backendMoqPack > 1 ? backendMoqPack : 0);
+  const overrideMoqPack = richOverride?.moqPack !== undefined ? Math.max(0, parseNumeric(richOverride.moqPack, 0)) : 0;
+  const moqPack = backendMoqPack > 1 ? backendMoqPack : (overrideMoqPack > 1 ? overrideMoqPack : (backendMoqPack || overrideMoqPack));
 
   // Images (strictly separate Featured Image `image` from Gallery Images `images`)
   let imagesArr: string[] = [];
