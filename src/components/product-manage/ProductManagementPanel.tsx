@@ -247,11 +247,13 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
         const mergedSaved = {
           ...savedProd,
           ...finalProd,
+          image: savedProd.image || finalProd.image || '',
+          images: Array.isArray(savedProd.images) ? savedProd.images : (finalProd.images || []),
           excerpt: savedProd.excerpt ?? finalProd.excerpt ?? '',
           description: savedProd.description ?? finalProd.description ?? '',
-          moq: Math.max(1, Number(savedProd.moq) || Number(finalProd.moq) || 1),
-          moqBox: Math.max(1, Number(savedProd.moqBox) || Number(finalProd.moqBox) || 1),
-          moqPack: Math.max(1, Number(savedProd.moqPack) || Number(finalProd.moqPack) || 1),
+          moq: Math.max(0, Number(savedProd.moq ?? finalProd.moq ?? 0) || 0),
+          moqBox: Math.max(0, Number(savedProd.moqBox ?? finalProd.moqBox ?? 0) || 0),
+          moqPack: Math.max(0, Number(savedProd.moqPack ?? finalProd.moqPack ?? 0) || 0),
         };
         const updatedList = products.map(p => p.id === savedProd.id ? mergedSaved : p);
         onUpdateProducts(updatedList);

@@ -4,11 +4,12 @@ products/serializers.py
 """
 
 from rest_framework import serializers
-from django.db import transaction
+from django.db import transaction, connection
 from django.db.models import Q
 from django.utils.text import slugify
 from django.core.files.base import ContentFile
 import base64
+import json
 import uuid
 from .models import (
     Category,
@@ -30,6 +31,39 @@ def to_english_digits(val):
     if val is None:
         return ''
     return str(val).translate(PERSIAN_DIGITS_MAP)
+
+
+def ensure_product_foreign_keys_integrity():
+    """
+    حذف ایمن محدودیت‌های کلید خارجی قدیمی (مانند categories_category) در دیتابیس PostgreSQL
+    با استفاده از Savepoint مجزا جهت جلوگیری از خطای InFailedSqlTransaction هنگام ذخیره دسته‌بندی.
+    """
+    try:
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    'ALTER TABLE "products_product" DROP CONSTRAINT IF EXISTS "products_product_category_id_9b594869_fk_categories_category_id";'
+                )
+    except Exception:
+        pass
+
+    try:
+        with transaction.atomic():
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT con.conname
+                    FROM pg_catalog.pg_constraint con
+                    INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
+                    INNER JOIN pg_catalog.pg_class confrel ON confrel.oid = con.confrelid
+                    WHERE rel.relname = 'products_product'
+                      AND confrel.relname NOT LIKE 'products_%'
+                      AND con.contype = 'f';
+                """)
+                rows = cursor.fetchall()
+                for (con_name,) in rows:
+                    cursor.execute(f'ALTER TABLE "products_product" DROP CONSTRAINT IF EXISTS "{con_name}";')
+    except Exception:
+        pass
 
 
 def decode_base64_image(data_str, prefix="product"):
@@ -235,7 +269,7 @@ class ProductKeyFeatureSerializer(serializers.ModelSerializer):
         model = ProductKeyFeature
         fields = ['id', 'title', 'display_order']
         extra_kwargs = {
-            'title': {'required': True},
+            'title': {'required': False, 'allow_blank': True},
             'display_order': {'required': False, 'default': 0}
         }
 
@@ -245,8 +279,8 @@ class ProductTierDiscountSerializer(serializers.ModelSerializer):
         model = ProductTierDiscount
         fields = ['id', 'min_quantity', 'discount_percent', 'discount_price_per_unit']
         extra_kwargs = {
-            'min_quantity': {'required': True},
-            'discount_percent': {'required': True},
+            'min_quantity': {'required': False, 'allow_null': True},
+            'discount_percent': {'required': False, 'allow_null': True},
             'discount_price_per_unit': {'required': False, 'allow_null': True}
         }
 
@@ -348,26 +382,19 @@ class ProductSerializer(serializers.ModelSerializer):
             if hasattr(obj.main_image, 'url'):
                 url = obj.main_image.url
                 return request.build_absolute_uri(url) if request is not None else url
+            if raw_main.startswith('/'):
+                return request.build_absolute_uri(raw_main) if request is not None else raw_main
         if obj.image:
-            if obj.image.startswith('/') and request is not None:
-                return request.build_absolute_uri(obj.image)
-            return obj.image
-        first_gallery = obj.gallery.first() if hasattr(obj, 'gallery') else None
-        if first_gallery and first_gallery.image:
-            raw_gal = str(first_gallery.image).strip()
-            if raw_gal.startswith(('http://', 'https://', 'data:')):
-                return raw_gal
-            if hasattr(first_gallery.image, 'url'):
-                url = first_gallery.image.url
-                return request.build_absolute_uri(url) if request is not None else url
+            raw_img = str(obj.image).strip()
+            if raw_img:
+                if raw_img.startswith('/') and request is not None:
+                    return request.build_absolute_uri(raw_img)
+                return raw_img
         return None
 
     def get_images(self, obj):
         request = self.context.get('request')
         urls = []
-        main_url = self.get_image_url(obj)
-        if main_url:
-            urls.append(main_url)
         if hasattr(obj, 'gallery'):
             for g in obj.gallery.all():
                 if not g.image:
@@ -377,6 +404,8 @@ class ProductSerializer(serializers.ModelSerializer):
                     g_url = raw_g
                 elif hasattr(g.image, 'url'):
                     g_url = request.build_absolute_uri(g.image.url) if request is not None else g.image.url
+                elif raw_g.startswith('/') and request is not None:
+                    g_url = request.build_absolute_uri(raw_g)
                 else:
                     g_url = raw_g
                 if g_url and g_url not in urls:
@@ -386,8 +415,8 @@ class ProductSerializer(serializers.ModelSerializer):
     def to_representation(self, instance):
         data = super().to_representation(instance)
         resolved_img = self.get_image_url(instance)
-        if resolved_img and not data.get('image'):
-            data['image'] = resolved_img
+        data['image'] = resolved_img or ''
+        data['image_url'] = resolved_img
         return data
 
     def get_brand_logo(self, obj):
@@ -530,64 +559,99 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             'canonical_url': {'required': False, 'allow_blank': True, 'allow_null': True},
         }
 
+    def _parse_list_field(self, val):
+        if val is None:
+            return None
+        if isinstance(val, list):
+            return val
+        if isinstance(val, str):
+            s = val.strip()
+            if not s:
+                return None
+            if s.startswith('['):
+                try:
+                    parsed = json.loads(s)
+                    if isinstance(parsed, list):
+                        return parsed
+                except Exception:
+                    pass
+            return [item.strip() for item in s.splitlines() if item.strip()]
+        return None
+
     def to_internal_value(self, data):
+        ensure_product_foreign_keys_integrity()
+        self._new_main_image_uploaded = False
         is_querydict = hasattr(data, 'getlist')
+        clear_main_image_flag = False
+
         if is_querydict:
             plain_dict = {}
+            clear_main_image_flag = str(data.get('main_image-clear') or data.get('clear_main_image') or '').lower() in ('true', '1', 'on', 'yes')
             for k in data.keys():
+                if k.startswith(('gallery[', 'key_features[', 'tier_discounts[', 'attributes[')):
+                    continue
                 if k in ('gallery_images', 'images', 'key_takeaways', 'keyTakeaways'):
-                    vals = [v for v in data.getlist(k) if isinstance(v, str) and v.strip()]
+                    raw_list = data.getlist(k)
+                    vals = []
+                    for v in raw_list:
+                        if hasattr(v, 'read'):
+                            vals.append(v)
+                        elif isinstance(v, str) and v.strip():
+                            parsed_v = self._parse_list_field(v.strip())
+                            if parsed_v:
+                                vals.extend(parsed_v)
+                            else:
+                                vals.append(v.strip())
                     if vals:
                         plain_dict[k] = vals
                 elif k in ('gallery', 'key_features', 'tier_discounts', 'attributes', 'attributes_values', 'applied_features', 'product_attributes', 'custom_features'):
                     val = data.get(k)
-                    if isinstance(val, str) and val.strip():
-                        plain_dict[k] = val
+                    parsed_val = self._parse_list_field(val)
+                    if parsed_val is not None:
+                        plain_dict[k] = parsed_val
                 else:
                     plain_dict[k] = data.get(k)
             request = self.context.get('request')
-            if request and request.method in ('PUT', 'POST'):
+            is_full_html_form = all(f in data for f in ('name', 'carton_price', 'box_price', 'cigarette_size', 'filter_type'))
+            if request and request.method in ('PUT', 'POST') and is_full_html_form:
                 for bool_field in ('has_carton', 'has_box', 'has_pack', 'is_box_only', 'is_pos_only', 'is_active', 'is_featured'):
                     if bool_field not in data:
                         plain_dict[bool_field] = False
             data_dict = plain_dict
         else:
             data_dict = data.copy() if hasattr(data, 'copy') else dict(data)
+            clear_main_image_flag = bool(data_dict.pop('clear_main_image', False) or data_dict.pop('main_image-clear', False))
+
+        # حذف فیلدهای نمایشی فقط-خواندنی در صورت ارسال مجدد در پیلود JSON
+        for ro_field in ('brand_detail', 'hologram_detail', 'category_detail', 'category_color', 'brand_logo', 'created_at', 'updated_at'):
+            data_dict.pop(ro_field, None)
 
         # استخراج فیلدهای توکار قبل از اعتبارسنجی
-        attributes_raw = data_dict.pop('attributes', None)
-        if attributes_raw is None:
-            attributes_raw = data_dict.pop('attributes_values', None)
-        if attributes_raw is None:
-            attributes_raw = data_dict.pop('applied_features', None)
-        if attributes_raw is None:
-            attributes_raw = data_dict.pop('product_attributes', None)
-        if attributes_raw is None:
-            attributes_raw = data_dict.pop('custom_features', None)
-        else:
-            data_dict.pop('attributes_values', None)
-            data_dict.pop('applied_features', None)
-            data_dict.pop('product_attributes', None)
-            data_dict.pop('custom_features', None)
+        attributes_raw = None
+        for attr_key in ('attributes', 'attributes_values', 'applied_features', 'product_attributes', 'custom_features'):
+            val = data_dict.pop(attr_key, None)
+            if attributes_raw is None and val is not None:
+                attributes_raw = self._parse_list_field(val)
 
-        tier_discounts_raw = data_dict.pop('tier_discounts', None)
-        if tier_discounts_raw is None:
-            tier_discounts_raw = data_dict.pop('tierDiscounts', None)
-        else:
-            data_dict.pop('tierDiscounts', None)
+        tier_discounts_raw = None
+        for td_key in ('tier_discounts', 'tierDiscounts'):
+            val = data_dict.pop(td_key, None)
+            if tier_discounts_raw is None and val is not None:
+                tier_discounts_raw = self._parse_list_field(val)
 
-        gallery_raw = data_dict.pop('gallery', None)
-        gallery_images_raw = data_dict.pop('gallery_images', None)
-        if gallery_images_raw is None:
-            gallery_images_raw = data_dict.pop('images', None)
-        else:
-            data_dict.pop('images', None)
-        key_features_raw = data_dict.pop('key_features', None)
-        key_takeaways_raw = data_dict.pop('key_takeaways', None)
-        if key_takeaways_raw is None:
-            key_takeaways_raw = data_dict.pop('keyTakeaways', None)
-        else:
-            data_dict.pop('keyTakeaways', None)
+        gallery_raw = self._parse_list_field(data_dict.pop('gallery', None))
+        gallery_images_raw = None
+        for gi_key in ('gallery_images', 'images'):
+            val = data_dict.pop(gi_key, None)
+            if gallery_images_raw is None and val is not None:
+                gallery_images_raw = self._parse_list_field(val)
+
+        key_features_raw = self._parse_list_field(data_dict.pop('key_features', None))
+        key_takeaways_raw = None
+        for kt_key in ('key_takeaways', 'keyTakeaways'):
+            val = data_dict.pop(kt_key, None)
+            if key_takeaways_raw is None and val is not None:
+                key_takeaways_raw = self._parse_list_field(val)
 
         # نگاشت فیلدهای توضیحات کوتاه (excerpt / short_description) و توضیحات جامع (full_description / description)
         short_desc_val = data_dict.pop('short_description', None)
@@ -599,6 +663,18 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         desc_val = data_dict.pop('description', None)
         if 'full_description' not in data_dict and desc_val is not None:
             data_dict['full_description'] = desc_val
+        elif 'full_description' in data_dict and data_dict['full_description'] is None and desc_val is not None:
+            data_dict['full_description'] = desc_val
+
+        # پاکسازی فاصله‌های غیرقابل‌شکستن (&nbsp;) در متون
+        for txt_field in ('excerpt', 'full_description', 'meta_description'):
+            if txt_field in data_dict and isinstance(data_dict[txt_field], str):
+                data_dict[txt_field] = (
+                    data_dict[txt_field]
+                    .replace('&amp;nbsp;', ' ')
+                    .replace('&nbsp;', ' ')
+                    .replace('\u00a0', ' ')
+                )
 
         # نگاشت نام‌های معادل حداقل سفارش (کارتن، باکس، پاکت) و سایر فیلدهای عددی
         alias_map = {
@@ -662,36 +738,69 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
         else:
             data_dict.pop('nameEn', None)
 
-        # پردازش هوشمند تصویر اصلی (main_image و image و image_url) برای جلوگیری از خطای ImageField روی URL یا Base64
+        # پردازش هوشمند و ایزوله تصویر شاخص (main_image و image و image_url) کاملاً مستقل از گالری
+        request = self.context.get('request')
+        uploaded_main_file = None
+        if request is not None and hasattr(request, 'FILES'):
+            uploaded_main_file = request.FILES.get('main_image') or request.FILES.get('image')
+
         raw_main_img = data_dict.get('main_image')
         raw_img_url = data_dict.get('image')
         extra_img_url = data_dict.pop('image_url', None)
-        if not raw_img_url and extra_img_url:
-            raw_img_url = extra_img_url
 
-        if isinstance(raw_main_img, str):
-            if raw_main_img.startswith('data:image'):
-                decoded = decode_base64_image(raw_main_img, prefix="main")
+        if uploaded_main_file is not None or hasattr(raw_main_img, 'read'):
+            data_dict['main_image'] = uploaded_main_file or raw_main_img
+            data_dict.pop('image', None)
+            self._new_main_image_uploaded = True
+        elif hasattr(raw_img_url, 'read'):
+            data_dict['main_image'] = raw_img_url
+            data_dict.pop('image', None)
+            self._new_main_image_uploaded = True
+        else:
+            # بررسی ارسال تصویر شاخص به صورت Base64
+            b64_source = None
+            for candidate_b64 in (raw_main_img, raw_img_url, extra_img_url):
+                if isinstance(candidate_b64, str) and candidate_b64.strip().startswith('data:image'):
+                    b64_source = candidate_b64.strip()
+                    break
+
+            if b64_source:
+                decoded = decode_base64_image(b64_source, prefix="main")
                 if decoded:
                     data_dict['main_image'] = decoded
+                    data_dict.pop('image', None)
+                    self._new_main_image_uploaded = True
                 else:
                     data_dict.pop('main_image', None)
+                    data_dict.pop('image', None)
             else:
-                # رشته URL است نه فایل آپلودی؛ نباید وارد ImageField شود
+                # هیچ فایل جدید یا Base64 آپلود نشده است؛ جلوگیری از حذف ناخواسته main_image
                 data_dict.pop('main_image', None)
-                if raw_main_img.strip() and not raw_img_url:
-                    raw_img_url = raw_main_img.strip()
+                candidate_url = ''
+                for u in (raw_img_url, raw_main_img, extra_img_url):
+                    if isinstance(u, str) and u.strip() and not u.strip().startswith('data:image'):
+                        candidate_url = u.strip()
+                        break
 
-        if isinstance(raw_img_url, str):
-            if raw_img_url.startswith('data:image'):
-                decoded = decode_base64_image(raw_img_url, prefix="main")
-                if decoded and 'main_image' not in data_dict:
-                    data_dict['main_image'] = decoded
-                data_dict['image'] = ''
-            elif len(raw_img_url) > 500:
-                data_dict['image'] = raw_img_url[:500]
-            else:
-                data_dict['image'] = raw_img_url.strip()
+                if clear_main_image_flag:
+                    data_dict['main_image'] = None
+                    data_dict['image'] = ''
+                elif candidate_url:
+                    if self.instance and self.instance.main_image:
+                        inst_rel = normalize_media_path(str(self.instance.main_image))
+                        cand_rel = normalize_media_path(candidate_url)
+                        if inst_rel and cand_rel and inst_rel == cand_rel:
+                            # همان تصویر شاخص قبلی است؛ حفظ فایل اصلی
+                            data_dict['image'] = self.instance.main_image.url if hasattr(self.instance.main_image, 'url') else str(self.instance.main_image)
+                        else:
+                            # کاربر یک آدرس URL جدید برای تصویر شاخص وارد کرده است
+                            data_dict['image'] = candidate_url[:500]
+                            data_dict['main_image'] = None
+                    else:
+                        data_dict['image'] = candidate_url[:500]
+                else:
+                    # در صورت خالی بودن فیلد در فرم، تصویر شاخص قبلی کالا حفظ شود
+                    data_dict.pop('image', None)
 
         # استانداردسازی فیلدهای انتخابی (badge, cigarette_size, filter_type)
         if 'badge' in data_dict:
@@ -749,83 +858,122 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                 data_dict['canonical_url'] = None
 
         # پردازش هوشمند برند
-        b_val = data_dict.get('brand') or data_dict.pop('brand_id', None) or data_dict.pop('brand_name', None)
+        brand_id_alias = data_dict.pop('brand_id', None)
+        brand_name_alias = data_dict.pop('brand_name', None)
+        b_val = data_dict.get('brand')
+        if b_val is None or b_val == '':
+            b_val = brand_id_alias if brand_id_alias not in (None, '') else brand_name_alias
         if b_val is not None and b_val != '':
-            if isinstance(b_val, dict):
-                b_id = b_val.get('id')
+            if isinstance(b_val, ProductBrand):
+                data_dict['brand'] = b_val.id
+            elif isinstance(b_val, dict):
+                b_id = to_english_digits(b_val.get('id')).strip()
                 b_name = b_val.get('name') or b_val.get('title')
-                if b_id and str(b_id).isdigit() and ProductBrand.objects.filter(id=int(b_id)).exists():
+                if b_id.isdigit() and ProductBrand.objects.filter(id=int(b_id)).exists():
                     data_dict['brand'] = int(b_id)
                 elif b_name:
                     brand_obj, _ = ProductBrand.objects.get_or_create(
-                        name=str(b_name),
+                        name=str(b_name).strip(),
                         defaults={'slug': slugify(str(b_name), allow_unicode=True) or f"brand-{uuid.uuid4().hex[:6]}"}
                     )
                     data_dict['brand'] = brand_obj.id
             elif isinstance(b_val, (int, str)):
                 s_val = str(b_val).strip()
-                if s_val.isdigit() and ProductBrand.objects.filter(id=int(s_val)).exists():
-                    data_dict['brand'] = int(s_val)
+                s_digits = to_english_digits(s_val)
+                if s_digits.isdigit() and ProductBrand.objects.filter(id=int(s_digits)).exists():
+                    data_dict['brand'] = int(s_digits)
                 elif s_val:
-                    brand_obj, _ = ProductBrand.objects.get_or_create(
-                        name=s_val,
-                        defaults={'slug': slugify(s_val, allow_unicode=True) or f"brand-{uuid.uuid4().hex[:6]}"}
-                    )
+                    brand_obj = ProductBrand.objects.filter(
+                        Q(name__iexact=s_val) | Q(name_en__iexact=s_val) | Q(slug__iexact=s_val)
+                    ).first()
+                    if not brand_obj:
+                        brand_obj = ProductBrand.objects.create(
+                            name=s_val,
+                            slug=slugify(s_val, allow_unicode=True) or f"brand-{uuid.uuid4().hex[:6]}"
+                        )
                     data_dict['brand'] = brand_obj.id
 
-        # پردازش هوشمند دسته‌بندی
-        c_val = data_dict.get('category') or data_dict.pop('category_id', None) or data_dict.pop('category_name', None)
+        # پردازش هوشمند و قطعی دسته‌بندی (پشتیبانی از ID، اسلاگ و عنوان در ویرایش و ایجاد)
+        cat_id_alias = data_dict.pop('category_id', None)
+        cat_slug_alias = data_dict.pop('category_slug', None)
+        cat_name_alias = data_dict.pop('category_name', None)
+        c_val = data_dict.get('category')
+        if c_val is None or c_val == '':
+            for alias_c in (cat_id_alias, cat_slug_alias, cat_name_alias):
+                if alias_c is not None and alias_c != '':
+                    c_val = alias_c
+                    break
+
         if c_val is not None and c_val != '':
-            if isinstance(c_val, dict):
-                c_id = c_val.get('id')
-                c_name = c_val.get('name') or c_val.get('title') or c_val.get('slug')
-                if c_id and str(c_id).isdigit() and Category.objects.filter(id=int(c_id)).exists():
+            if isinstance(c_val, Category):
+                data_dict['category'] = c_val.id
+            elif isinstance(c_val, dict):
+                c_id = to_english_digits(c_val.get('id')).strip()
+                c_name = c_val.get('slug') or c_val.get('name') or c_val.get('title')
+                if c_id.isdigit() and Category.objects.filter(id=int(c_id)).exists():
                     data_dict['category'] = int(c_id)
                 elif c_name:
-                    cat_obj = Category.objects.filter(Q(slug=c_name) | Q(name=c_name) | Q(name_en=c_name)).first()
+                    c_name_str = str(c_name).strip()
+                    cat_obj = Category.objects.filter(
+                        Q(slug__iexact=c_name_str) | Q(name__iexact=c_name_str) | Q(name_en__iexact=c_name_str)
+                    ).first()
                     if not cat_obj:
                         cat_obj = Category.objects.create(
-                            name=str(c_name),
-                            slug=slugify(str(c_name), allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
+                            name=c_name_str,
+                            slug=slugify(c_name_str, allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
                         )
                     data_dict['category'] = cat_obj.id
             elif isinstance(c_val, (int, str)):
                 s_val = str(c_val).strip()
-                if s_val.isdigit() and Category.objects.filter(id=int(s_val)).exists():
-                    data_dict['category'] = int(s_val)
+                s_digits = to_english_digits(s_val)
+                if s_digits.isdigit() and Category.objects.filter(id=int(s_digits)).exists():
+                    data_dict['category'] = int(s_digits)
                 elif s_val:
-                    cat_obj = Category.objects.filter(Q(slug=s_val) | Q(name=s_val) | Q(name_en=s_val)).first()
+                    cat_obj = Category.objects.filter(
+                        Q(slug__iexact=s_val) | Q(name__iexact=s_val) | Q(name_en__iexact=s_val)
+                    ).first()
                     if not cat_obj:
                         cat_obj = Category.objects.create(
                             name=s_val,
                             slug=slugify(s_val, allow_unicode=True) or f"cat-{uuid.uuid4().hex[:6]}"
                         )
                     data_dict['category'] = cat_obj.id
-        elif self.instance is None and not data_dict.get('category'):
+        elif self.instance is not None:
+            data_dict.pop('category', None)
+        else:
             default_cat = Category.objects.first()
             if not default_cat:
                 default_cat = Category.objects.create(name='سیگار و دخانیات', slug='cigarettes')
             data_dict['category'] = default_cat.id
 
         # پردازش هوشمند و قطعی هولوگرام
-        h_val = data_dict.get('hologram') or data_dict.pop('hologram_id', None) or data_dict.pop('hologram_title', None)
+        holo_id_alias = data_dict.pop('hologram_id', None)
+        holo_title_alias = data_dict.pop('hologram_title', None) or data_dict.pop('hologram_name', None)
+        h_val = data_dict.get('hologram')
+        if h_val is None or h_val == '':
+            h_val = holo_id_alias if holo_id_alias not in (None, '') else holo_title_alias
         if h_val is not None and h_val != '':
-            if isinstance(h_val, dict):
-                h_id = h_val.get('id')
+            if isinstance(h_val, ProductHologram):
+                data_dict['hologram'] = h_val.id
+            elif isinstance(h_val, dict):
+                h_id = to_english_digits(h_val.get('id')).strip()
                 h_title = h_val.get('title') or h_val.get('name')
-                if h_id and str(h_id).isdigit() and ProductHologram.objects.filter(id=int(h_id)).exists():
+                if h_id.isdigit() and ProductHologram.objects.filter(id=int(h_id)).exists():
                     data_dict['hologram'] = int(h_id)
                 elif h_title:
-                    holo_obj, _ = ProductHologram.objects.get_or_create(title=str(h_title))
+                    holo_obj, _ = ProductHologram.objects.get_or_create(title=str(h_title).strip())
                     data_dict['hologram'] = holo_obj.id
             elif isinstance(h_val, (int, str)):
                 s_val = str(h_val).strip()
+                s_digits = to_english_digits(s_val)
                 if s_val in ('ندارد', 'بدون هولوگرام', 'none', 'null'):
                     data_dict['hologram'] = None
-                elif s_val.isdigit() and ProductHologram.objects.filter(id=int(s_val)).exists():
-                    data_dict['hologram'] = int(s_val)
+                elif s_digits.isdigit() and ProductHologram.objects.filter(id=int(s_digits)).exists():
+                    data_dict['hologram'] = int(s_digits)
                 elif s_val:
-                    holo_obj, _ = ProductHologram.objects.get_or_create(title=s_val)
+                    holo_obj = ProductHologram.objects.filter(title__iexact=s_val).first()
+                    if not holo_obj:
+                        holo_obj = ProductHologram.objects.create(title=s_val)
                     data_dict['hologram'] = holo_obj.id
 
         # پاکسازی بارکد و جلوگیری از خطای یکتایی روی رشته خالی یا تکراری
@@ -990,7 +1138,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                         rel_media = normalize_media_path(s_img)
                         if rel_media:
                             try:
-                                ProductImage.objects.create(product=product, image=rel_media[:100], order=order_val)
+                                ProductImage.objects.create(product=product, image=rel_media[:500], order=order_val)
                             except Exception:
                                 pass
 
@@ -999,8 +1147,11 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             for idx, f_obj in enumerate(uploaded_files):
                 ProductImage.objects.create(product=product, image=f_obj, order=start_order + idx)
 
-        # همگام‌سازی فیلد image محصول با تصویر اصلی ذخیره شده
-        if product.main_image and hasattr(product.main_image, 'url'):
+        # همگام‌سازی فیلد image محصول با تصویر اصلی ذخیره شده (فقط در صورت آپلود فایل جدید یا خالی بودن image)
+        if getattr(self, '_new_main_image_uploaded', False) and product.main_image and hasattr(product.main_image, 'url'):
+            product.image = product.main_image.url
+            product.save(update_fields=['image'])
+        elif not product.image and product.main_image and hasattr(product.main_image, 'url'):
             product.image = product.main_image.url
             product.save(update_fields=['image'])
 
@@ -1060,3 +1211,6 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             key_takeaways_data=key_takeaways
         )
         return product
+
+    def to_representation(self, instance):
+        return ProductDetailSerializer(instance, context=self.context).data

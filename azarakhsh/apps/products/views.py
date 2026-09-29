@@ -32,51 +32,9 @@ from .serializers import (
     ProductAttributeValueSerializer,
     ProductSerializer,
     ProductDetailSerializer,
-    ProductCreateUpdateSerializer
+    ProductCreateUpdateSerializer,
+    ensure_product_foreign_keys_integrity
 )
-
-
-def ensure_product_foreign_keys_integrity():
-    """
-    حذف محدودیت‌های کلید خارجی قدیمی (مانند categories_category) در دیتابیس PostgreSQL
-    که مانع ثبت محصول جدید با دسته‌بندی‌های جدول products_category می‌شوند و همگام‌سازی جدول قدیمی در صورت وجود.
-    """
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                'ALTER TABLE "products_product" DROP CONSTRAINT IF EXISTS "products_product_category_id_9b594869_fk_categories_category_id";'
-            )
-            cursor.execute("""
-                SELECT con.conname
-                FROM pg_catalog.pg_constraint con
-                INNER JOIN pg_catalog.pg_class rel ON rel.oid = con.conrelid
-                INNER JOIN pg_catalog.pg_class confrel ON confrel.oid = con.confrelid
-                WHERE rel.relname = 'products_product'
-                  AND confrel.relname NOT LIKE 'products_%'
-                  AND con.contype = 'f';
-            """)
-            for (con_name,) in cursor.fetchall():
-                cursor.execute(f'ALTER TABLE "products_product" DROP CONSTRAINT IF EXISTS "{con_name}";')
-    except Exception:
-        pass
-
-    try:
-        with connection.cursor() as cursor:
-            cursor.execute("""
-                SELECT EXISTS (
-                    SELECT FROM information_schema.tables
-                    WHERE table_schema = 'public' AND table_name = 'categories_category'
-                );
-            """)
-            row = cursor.fetchone()
-            if row and row[0]:
-                cursor.execute("""
-                    INSERT INTO "categories_category" ("id", "name", "slug")
-                    SELECT "id", "name", "slug" FROM "products_category"
-                    ON CONFLICT ("id") DO NOTHING;
-                """)
-    except Exception:
-        pass
 
 
 class ProductBrandListCreateAPIView(APIView):
@@ -611,9 +569,8 @@ class ProductCreateAPIView(APIView):
                 product = serializer.save()
             except IntegrityError:
                 ensure_product_foreign_keys_integrity()
-                existing_cat_id = Product.objects.values_list('category_id', flat=True).first() or 1
-                fallback_cat = Category.objects.filter(id=existing_cat_id).first() or Category.objects.first()
-                product = serializer.save(category=fallback_cat)
+                product = serializer.save()
+            product.refresh_from_db()
             target_scope = "صندوق حضوری" if product.is_pos_only else "سایت آنلاین و صندوق فروشگاهی"
             return Response({
                 'status': 'success',
@@ -629,6 +586,7 @@ class ProductCreateAPIView(APIView):
 
 class ProductDetailAPIView(APIView):
     permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = ProductCreateUpdateSerializer
 
     def get_object(self):
@@ -675,6 +633,7 @@ class ProductDetailAPIView(APIView):
 
 class ProductUpdateAPIView(APIView):
     permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     serializer_class = ProductCreateUpdateSerializer
 
     def get_object(self):
@@ -719,7 +678,7 @@ class ProductUpdateAPIView(APIView):
                 updated = serializer.save()
             except IntegrityError:
                 ensure_product_foreign_keys_integrity()
-                updated = serializer.save(category=product.category)
+                updated = serializer.save()
             updated.refresh_from_db()
             return Response({
                 'status': 'success',

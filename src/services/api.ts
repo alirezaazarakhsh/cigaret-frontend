@@ -790,9 +790,8 @@ export const productsApi = {
         1,
       ])
     );
-    const dbSafeCategoryPk = (resolvedCategoryPk !== null && knownValidCategoryIds.includes(resolvedCategoryPk))
-      ? resolvedCategoryPk
-      : (knownValidCategoryIds[0] ?? 1);
+    // Use the resolved category PK directly so the backend updates/creates with the exact selected category
+    const dbSafeCategoryPk = resolvedCategoryPk !== null ? resolvedCategoryPk : (knownValidCategoryIds[0] ?? 1);
 
     // Smart PK Resolution for Brand
     let resolvedBrandPk: number | null = null;
@@ -911,6 +910,9 @@ export const productsApi = {
       slug: product.slug || `prod-${Date.now()}`,
       ...(product.barcode && product.barcode.trim() ? { barcode: product.barcode.trim().slice(0, 60) } : {}),
       category: dbSafeCategoryPk,
+      ...(resolvedCategoryPk !== null ? { category_id: resolvedCategoryPk } : {}),
+      ...(resolvedCategorySlug ? { category_slug: resolvedCategorySlug } : {}),
+      ...(resolvedCategoryName ? { category_name: resolvedCategoryName } : {}),
       brand: resolvedBrandPk !== null ? resolvedBrandPk : (typeof product.brand === 'number' ? product.brand : null),
       hologram: resolvedHologramPk !== null ? resolvedHologramPk : (typeof product.hologram === 'number' ? product.hologram : null),
       carton_price: Number(product.cartonPrice) || 0,
@@ -1181,9 +1183,7 @@ export const productsApi = {
         1,
       ])
     );
-    const dbSafeUpdateCategoryPk = (resolvedCategoryPk !== undefined && knownValidCategoryIds.includes(resolvedCategoryPk))
-      ? resolvedCategoryPk
-      : undefined;
+    const dbSafeUpdateCategoryPk = resolvedCategoryPk;
 
     // Immediately persist rich fields (category, excerpt, TinyMCE description, gallery images, features, sales channels, MOQ) so they are never lost
     saveProductRichOverride(cleanId, {
@@ -1336,9 +1336,11 @@ export const productsApi = {
       name: productData.nameFa,
       name_fa: productData.nameFa,
       name_en: productData.nameEn || '',
-      ...(resolvedBrandPk !== undefined ? { brand: resolvedBrandPk } : {}),
-      ...(dbSafeUpdateCategoryPk !== undefined ? { category: dbSafeUpdateCategoryPk } : {}),
-      ...(resolvedHologramPk !== undefined ? { hologram: resolvedHologramPk } : {}),
+      ...(resolvedBrandPk !== undefined ? { brand: resolvedBrandPk, brand_id: resolvedBrandPk } : {}),
+      ...(dbSafeUpdateCategoryPk !== undefined ? { category: dbSafeUpdateCategoryPk, category_id: dbSafeUpdateCategoryPk } : {}),
+      ...(resolvedCategorySlug ? { category_slug: resolvedCategorySlug } : {}),
+      ...(resolvedCategoryName ? { category_name: resolvedCategoryName } : {}),
+      ...(resolvedHologramPk !== undefined ? { hologram: resolvedHologramPk, hologram_id: resolvedHologramPk } : {}),
       carton_price: Number(productData.cartonPrice) || 0,
       box_price: Number(productData.boxPrice) || 0,
       pack_price: Number(productData.packPrice) || 0,
@@ -1371,6 +1373,7 @@ export const productsApi = {
       main_image: productData.image || '',
       image: productData.image || safeImage,
       image_url: safeImage,
+      clear_main_image: Boolean((productData as any).clear_main_image || productData.image === ''),
       images: allGalleryImages,
       gallery_images: allGalleryImages,
       full_description: productData.description ?? '',

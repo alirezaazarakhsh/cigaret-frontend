@@ -2473,18 +2473,22 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
   const brandId = typeof item.brand === 'number' ? item.brand : (typeof item.brand_detail?.id === 'number' ? item.brand_detail.id : (typeof item.brand_id === 'number' ? item.brand_id : undefined));
 
   const categorySlug = extractStringFromField(
-    richOverride?.category_slug || item.category_slug || item.category_detail?.slug || (typeof item.category === 'object' ? item.category?.slug : ''),
+    item.category_slug || item.category_detail?.slug || (typeof item.category === 'object' ? item.category?.slug : '') || richOverride?.category_slug,
     ''
   );
   const categoryName = extractStringFromField(
-    richOverride?.category_name || item.category_name || item.category_detail?.name || (typeof item.category === 'object' ? item.category?.name : ''),
+    item.category_name || item.category_detail?.name || (typeof item.category === 'object' ? item.category?.name : '') || richOverride?.category_name,
     ''
   );
-  const categoryId = typeof richOverride?.category_id === 'number'
-    ? richOverride.category_id
-    : (typeof item.category === 'number' ? item.category : (typeof item.category_detail?.id === 'number' ? item.category_detail.id : (typeof item.category_id === 'number' ? item.category_id : undefined)));
+  const categoryId = typeof item.category === 'number'
+    ? item.category
+    : (typeof item.category_detail?.id === 'number'
+      ? item.category_detail.id
+      : (typeof item.category_id === 'number'
+        ? item.category_id
+        : (typeof richOverride?.category_id === 'number' ? richOverride.category_id : undefined)));
   const category = extractCategory(
-    richOverride?.category || categorySlug || categoryName || item.category || item.group,
+    categorySlug || categoryName || item.category || item.group || richOverride?.category,
     'cigarettes'
   );
 
@@ -2555,9 +2559,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
 
   // Images (strictly separate Featured Image `image` from Gallery Images `images`)
   let imagesArr: string[] = [];
-  if (richOverride?.images !== undefined && Array.isArray(richOverride.images)) {
-    imagesArr = richOverride.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
-  } else if (Array.isArray(item.gallery) && item.gallery.length > 0) {
+  if (Array.isArray(item.gallery) && item.gallery.length > 0) {
     imagesArr = item.gallery.map((g: any) => extractImageUrl(g?.image_url || g?.image || g, '')).filter(Boolean);
   } else if (Array.isArray(item.gallery_images) && item.gallery_images.length > 0) {
     imagesArr = item.gallery_images.map((img: any) => extractImageUrl(img?.image_url || img?.image || img, '')).filter(Boolean);
@@ -2565,18 +2567,18 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     imagesArr = item.product_images.map((img: any) => extractImageUrl(img?.image_url || img?.image || img, '')).filter(Boolean);
   } else if (Array.isArray(item.images) && item.images.length > 0) {
     imagesArr = item.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
+  } else if (!Array.isArray(item.gallery) && richOverride?.images !== undefined && Array.isArray(richOverride.images)) {
+    imagesArr = richOverride.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
   }
 
-  const mainImg = extractImageUrl(
-    (richOverride?.image !== undefined && richOverride.image !== '' ? richOverride.image : '') ||
-      item.main_image ||
-      item.image_url ||
-      item.image ||
-      item.photo ||
-      item.picture ||
-      (richOverride?.image === undefined ? imagesArr[0] : '') ||
-      '',
+  const backendMainImg = extractImageUrl(
+    item.main_image || item.image_url || item.image || item.photo || item.picture || '',
     ''
+  );
+  const mainImg = backendMainImg || (
+    (item.main_image === undefined && item.image_url === undefined && item.image === undefined && richOverride?.image)
+      ? extractImageUrl(richOverride.image, '')
+      : ''
   );
 
   // Barcode & Badge
@@ -2588,7 +2590,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     item.badge || item.badge_text,
     ''
   );
-  let badge = richOverride?.badge !== undefined ? richOverride.badge : mapBadgeFromDjango(rawBadge);
+  let badge = rawBadge ? mapBadgeFromDjango(rawBadge) : (richOverride?.badge !== undefined ? richOverride.badge : mapBadgeFromDjango(rawBadge));
 
   // Price Trend
   const priceTrend: 'up' | 'down' | 'stable' = 
@@ -2597,29 +2599,31 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
 
   // Booleans
   const isAvailable = item.is_active !== undefined ? Boolean(item.is_active) : (item.is_available !== undefined ? Boolean(item.is_available) : true);
-  const isFeatured = richOverride?.isFeatured !== undefined
-    ? Boolean(richOverride.isFeatured)
-    : (item.is_featured !== undefined ? Boolean(item.is_featured) : Boolean(item.isFeatured || badge === 'پیشنهاد ویژه' || rawBadge === 'special'));
+  const isFeatured = item.is_featured !== undefined
+    ? Boolean(item.is_featured)
+    : (richOverride?.isFeatured !== undefined
+      ? Boolean(richOverride.isFeatured)
+      : Boolean(item.isFeatured || badge === 'پیشنهاد ویژه' || rawBadge === 'special'));
 
   if (!isFeatured && (badge === 'پیشنهاد ویژه' || badge === 'special' || badge === 'تخفیف ویژه')) {
     badge = 'بار تازه';
   }
 
-  const isPosOnly = richOverride?.isPosOnly !== undefined
-    ? Boolean(richOverride.isPosOnly)
-    : (item.is_pos_only !== undefined ? Boolean(item.is_pos_only) : Boolean(item.isPosOnly || item.is_pos_exclusive));
-  const isBoxOnly = richOverride?.isBoxOnly !== undefined
-    ? Boolean(richOverride.isBoxOnly)
-    : (item.is_box_only !== undefined ? Boolean(item.is_box_only) : Boolean(item.isBoxOnly));
-  const hasCarton = richOverride?.hasCarton !== undefined
-    ? Boolean(richOverride.hasCarton)
-    : (item.has_carton !== undefined ? Boolean(item.has_carton) : item.hasCarton !== false);
-  const hasBox = richOverride?.hasBox !== undefined
-    ? Boolean(richOverride.hasBox)
-    : (item.has_box !== undefined ? Boolean(item.has_box) : item.hasBox !== false);
-  const hasPack = richOverride?.hasPack !== undefined
-    ? Boolean(richOverride.hasPack)
-    : (item.has_pack !== undefined ? Boolean(item.has_pack) : Boolean(item.hasPack));
+  const isPosOnly = item.is_pos_only !== undefined
+    ? Boolean(item.is_pos_only)
+    : (richOverride?.isPosOnly !== undefined ? Boolean(richOverride.isPosOnly) : Boolean(item.isPosOnly || item.is_pos_exclusive));
+  const isBoxOnly = item.is_box_only !== undefined
+    ? Boolean(item.is_box_only)
+    : (richOverride?.isBoxOnly !== undefined ? Boolean(richOverride.isBoxOnly) : Boolean(item.isBoxOnly));
+  const hasCarton = item.has_carton !== undefined
+    ? Boolean(item.has_carton)
+    : (richOverride?.hasCarton !== undefined ? Boolean(richOverride.hasCarton) : item.hasCarton !== false);
+  const hasBox = item.has_box !== undefined
+    ? Boolean(item.has_box)
+    : (richOverride?.hasBox !== undefined ? Boolean(richOverride.hasBox) : item.hasBox !== false);
+  const hasPack = item.has_pack !== undefined
+    ? Boolean(item.has_pack)
+    : (richOverride?.hasPack !== undefined ? Boolean(richOverride.hasPack) : Boolean(item.hasPack));
 
   // Descriptions & SEO (Strictly separate Excerpt vs Full TinyMCE Description & clean &nbsp;)
   const cleanHtmlNbsp = (str: string): string =>
@@ -2648,14 +2652,14 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     html ? html.replace(/<[^>]*>/g, ' ').replace(/&amp;nbsp;/gi, ' ').replace(/&nbsp;/gi, ' ').replace(/\u00A0/g, ' ').replace(/\s+/g, ' ').trim() : '';
 
   const excerpt = cleanHtmlNbsp(
-    (richOverride?.excerpt !== undefined && richOverride.excerpt.trim() !== '' ? richOverride.excerpt : '') ||
     rawExcerpt ||
+    (richOverride?.excerpt !== undefined && richOverride.excerpt.trim() !== '' ? richOverride.excerpt : '') ||
     rawMetaDescription
   );
 
   const description = cleanHtmlNbsp(
-    (richOverride?.description !== undefined && richOverride.description.trim() !== '' ? richOverride.description : '') ||
-    rawFullDescription
+    rawFullDescription ||
+    (richOverride?.description !== undefined && richOverride.description.trim() !== '' ? richOverride.description : '')
   );
 
   const focusKeyword = extractStringFromField(

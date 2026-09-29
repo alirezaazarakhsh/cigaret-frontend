@@ -249,15 +249,31 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         const override = getProductRichOverride(product.id);
         setFormData((prev: any) => ({
           ...prev,
-          image: prev.image || override?.image || fresh.image || '',
-          excerpt: prev.excerpt || fresh.excerpt || '',
-          description: prev.description || fresh.description || '',
-          moq: prev.moq !== undefined ? prev.moq : (fresh.moq && fresh.moq > 1 ? fresh.moq : 0),
-          moqBox: prev.moqBox !== undefined ? prev.moqBox : (fresh.moqBox && fresh.moqBox > 1 ? fresh.moqBox : 0),
-          moqPack: prev.moqPack !== undefined ? prev.moqPack : (fresh.moqPack && fresh.moqPack > 1 ? fresh.moqPack : 0),
-          images: (prev.images && prev.images.length > 0)
-            ? prev.images
-            : (override?.images !== undefined ? override.images : (fresh.images || [])),
+          nameFa: fresh.nameFa || prev.nameFa,
+          nameEn: fresh.nameEn || prev.nameEn,
+          brand: fresh.brand || prev.brand,
+          brand_id: (fresh as any).brand_id ?? prev.brand_id,
+          category: fresh.category || prev.category,
+          category_id: (fresh as any).category_id ?? prev.category_id,
+          hologram: fresh.hologram || prev.hologram,
+          hologram_id: (fresh as any).hologram_id ?? prev.hologram_id,
+          cartonPrice: fresh.cartonPrice ?? prev.cartonPrice,
+          boxPrice: fresh.boxPrice ?? prev.boxPrice,
+          packPrice: fresh.packPrice ?? prev.packPrice,
+          purchasePrice: fresh.purchasePrice ?? prev.purchasePrice,
+          stockCartons: fresh.stockCartons ?? prev.stockCartons,
+          stockBoxes: fresh.stockBoxes ?? prev.stockBoxes,
+          image: fresh.image !== undefined ? fresh.image : (prev.image || override?.image || ''),
+          excerpt: fresh.excerpt || prev.excerpt || '',
+          description: fresh.description || prev.description || '',
+          moq: fresh.moq !== undefined ? (fresh.moq > 1 ? fresh.moq : 0) : (prev.moq ?? 0),
+          moqBox: fresh.moqBox !== undefined ? (fresh.moqBox > 1 ? fresh.moqBox : 0) : (prev.moqBox ?? 0),
+          moqPack: fresh.moqPack !== undefined ? (fresh.moqPack > 1 ? fresh.moqPack : 0) : (prev.moqPack ?? 0),
+          images: (fresh.images && fresh.images.length > 0)
+            ? fresh.images
+            : ((prev.images && prev.images.length > 0) ? prev.images : (override?.images || [])),
+          tierDiscounts: (fresh.tierDiscounts && fresh.tierDiscounts.length > 0) ? fresh.tierDiscounts : prev.tierDiscounts,
+          keyTakeaways: (fresh.keyTakeaways && fresh.keyTakeaways.length > 0) ? fresh.keyTakeaways : prev.keyTakeaways,
         }));
       }
     }).catch(() => {});
@@ -791,16 +807,36 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
     setIsSaving(true);
 
     try {
+      const matchedCategory = categories.find(
+        (c) =>
+          c.slug === formData.category ||
+          String(c.id) === String(formData.category) ||
+          c.name === formData.category
+      );
+      const resolvedCategoryId =
+        matchedCategory && /^\d+$/.test(String(matchedCategory.id))
+          ? Number(matchedCategory.id)
+          : formData.category_id;
+
+      const matchedHologram = holograms.find(
+        (h) => h.title === formData.hologram || String(h.id) === String(formData.hologram_id)
+      );
+      const resolvedHologramId =
+        matchedHologram && /^\d+$/.test(String(matchedHologram.id))
+          ? Number(matchedHologram.id)
+          : formData.hologram_id;
+
       const completeProduct: CigaretteProduct & Record<string, any> = {
         id: formData.id || `prod_${Date.now()}`,
         djangoId: (product as any)?.djangoId || formData.djangoId,
-        brand_id: (product as any)?.brand_id ?? formData.brand_id,
-        category_id: (product as any)?.category_id ?? formData.category_id,
-        hologram_id: (product as any)?.hologram_id ?? formData.hologram_id,
+        brand_id: formData.brand_id ?? (product as any)?.brand_id,
+        category_id: resolvedCategoryId,
+        hologram_id: resolvedHologramId,
+        clear_main_image: !formData.image,
         nameFa: formData.nameFa.trim(),
         nameEn: formData.nameEn?.trim() || '',
         brand: formData.brand?.trim() || 'وینستون',
-        category: (formData.category || 'cigarettes') as CigaretteCategory,
+        category: (matchedCategory?.slug || formData.category || 'cigarettes') as CigaretteCategory,
         origin: formData.origin?.trim() || 'سوئیس اصل',
         tar: formData.tar?.trim() || '6 mg',
         nicotine: formData.nicotine?.trim() || '0.5 mg',
@@ -2716,8 +2752,28 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
               <span>دسته‌بندی اصلی کالا:</span>
             </label>
             <select
-              value={formData.category || 'cigarettes'}
-              onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as CigaretteCategory }))}
+              value={
+                categories.find(
+                  (c) =>
+                    c.slug === formData.category ||
+                    String(c.id) === String(formData.category) ||
+                    c.name === formData.category ||
+                    (formData.category_id && String(c.id) === String(formData.category_id))
+                )?.slug ||
+                formData.category ||
+                'cigarettes'
+              }
+              onChange={(e) => {
+                const val = e.target.value;
+                const matched = categories.find(
+                  (c) => c.slug === val || String(c.id) === String(val) || c.name === val
+                );
+                setFormData((prev: any) => ({
+                  ...prev,
+                  category: (matched?.slug || val) as CigaretteCategory,
+                  category_id: matched && /^\d+$/.test(String(matched.id)) ? Number(matched.id) : undefined,
+                }));
+              }}
               className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-500"
             >
               {categories.map((cat) => (
@@ -2736,7 +2792,15 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
             </label>
             <select
               value={formData.hologram || 'شرکتی اصل'}
-              onChange={(e) => setFormData(prev => ({ ...prev, hologram: e.target.value }))}
+              onChange={(e) => {
+                const val = e.target.value;
+                const matched = holograms.find((h) => h.title === val);
+                setFormData((prev: any) => ({
+                  ...prev,
+                  hologram: val,
+                  hologram_id: matched && /^\d+$/.test(String(matched.id)) ? Number(matched.id) : undefined,
+                }));
+              }}
               className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-500"
             >
               {holograms.map((holo) => (
