@@ -1396,23 +1396,19 @@ export const productsApi = {
     const candidateUpdateEndpoints = [
       `/products/items/${cleanId}/`,
       `/products/${cleanId}/`,
-      `/api/v1/products/items/${cleanId}/`,
-      `/api/v1/products/${cleanId}/`,
-      `/products/items/${cleanId}/update/`,
-      `/products/${cleanId}/update/`,
     ];
 
     let response: any = { success: false, status: 404 };
     for (const ep of candidateUpdateEndpoints) {
-      response = await httpClient.patch(ep, payload, { timeoutMs: 25000 });
+      response = await httpClient.patch(ep, payload, { timeoutMs: 8000 });
       if (response.success) break;
       if (response.status === 405 || (!response.success && response.status !== 404 && response.status !== 401 && response.status !== 403)) {
-        response = await httpClient.put(ep, payload, { timeoutMs: 20000 });
+        response = await httpClient.put(ep, payload, { timeoutMs: 8000 });
         if (response.success) break;
       }
       if (response.status === 401 || response.status === 403) {
         await ensureValidDjangoAdminToken(undefined, true).catch(() => '');
-        response = await httpClient.patch(ep, payload, { timeoutMs: 20000 });
+        response = await httpClient.patch(ep, payload, { timeoutMs: 8000 });
         if (response.success) break;
       }
     }
@@ -1425,8 +1421,8 @@ export const productsApi = {
       delete safeFallbackPayload.category;
       if (typeof safeFallbackPayload.brand !== 'number') delete safeFallbackPayload.brand;
       if (typeof safeFallbackPayload.hologram !== 'number' && safeFallbackPayload.hologram !== null) delete safeFallbackPayload.hologram;
-      for (const ep of candidateUpdateEndpoints.slice(0, 4)) {
-        response = await httpClient.patch(ep, safeFallbackPayload, { timeoutMs: 20000 });
+      for (const ep of candidateUpdateEndpoints) {
+        response = await httpClient.patch(ep, safeFallbackPayload, { timeoutMs: 8000 });
         if (response.success) break;
       }
     }
@@ -1434,16 +1430,19 @@ export const productsApi = {
     if (response.success && response.data) {
       const respObj = response.data.data || response.data;
       if (respObj && typeof respObj === 'object') {
-        const preservedFeaturedImage =
-          productData.image !== undefined
-            ? productData.image
-            : (respObj.main_image || respObj.image_url || respObj.image || '');
+        const resolvedBackendImage =
+          respObj.main_image ||
+          respObj.image ||
+          respObj.image_url ||
+          productData.image ||
+          '';
         const mergedRaw = {
           ...productData,
           ...respObj,
-          image: preservedFeaturedImage,
-          main_image: preservedFeaturedImage,
-          image_url: preservedFeaturedImage,
+          image: resolvedBackendImage,
+          main_image: resolvedBackendImage,
+          image_url: resolvedBackendImage,
+          imageUrl: resolvedBackendImage,
           excerpt: productData.excerpt ?? respObj.excerpt ?? '',
           full_description: productData.description ?? respObj.full_description ?? '',
           description: productData.description ?? respObj.full_description ?? respObj.description ?? '',
@@ -1453,7 +1452,9 @@ export const productsApi = {
           moq: effMoq ?? 0,
           moqBox: effMoqBox ?? 0,
           moqPack: effMoqPack ?? 0,
-          images: Array.isArray(productData.images) ? productData.images : (respObj.gallery_images || respObj.images || []),
+          images: Array.isArray(respObj.gallery_images) && respObj.gallery_images.length > 0
+            ? respObj.gallery_images
+            : (Array.isArray(productData.images) ? productData.images : (respObj.images || [])),
           appliedFeatures: (productData.appliedFeatures && productData.appliedFeatures.length > 0) ? productData.appliedFeatures : (respObj.attributes_values || []),
           is_featured: isFeaturedVal,
           isFeatured: isFeaturedVal,
