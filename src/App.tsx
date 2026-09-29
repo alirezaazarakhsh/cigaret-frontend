@@ -1843,7 +1843,10 @@ export default function App() {
           onClose={() => setIsComparisonModalOpen(false)}
           selectedProducts={products.filter(p => comparedProductIds.includes(p.id))}
           onRemoveProduct={handleToggleCompareProduct}
-          onAddToCart={handleAddToCart}
+          onAddToCart={(product, unit, quantity) => {
+            setIsComparisonModalOpen(false);
+            handleAddToCart(product, unit, quantity);
+          }}
         />
 
         {/* TAB 2: Live Price List */}

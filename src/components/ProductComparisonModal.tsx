@@ -237,7 +237,10 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
                           <div className="flex flex-wrap gap-1.5">
                             {showCarton && (
                               <button
-                                onClick={() => onAddToCart(p, 'carton', mCarton)}
+                                onClick={() => {
+                                  onAddToCart(p, 'carton', mCarton);
+                                  onClose();
+                                }}
                                 className="flex-1 py-2 px-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
                               >
                                 + سفارش کارتن
@@ -245,7 +248,10 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
                             )}
                             {showBox && (
                               <button
-                                onClick={() => onAddToCart(p, 'box', mBox)}
+                                onClick={() => {
+                                  onAddToCart(p, 'box', mBox);
+                                  onClose();
+                                }}
                                 className="flex-1 py-2 px-2.5 bg-slate-800 hover:bg-slate-900 text-white font-black text-[11px] rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
                               >
                                 + سفارش باکس
@@ -253,7 +259,10 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
                             )}
                             {showPack && (
                               <button
-                                onClick={() => onAddToCart(p, 'pack', mPack)}
+                                onClick={() => {
+                                  onAddToCart(p, 'pack', mPack);
+                                  onClose();
+                                }}
                                 className="flex-1 py-2 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
                               >
                                 + سفارش پاکت
