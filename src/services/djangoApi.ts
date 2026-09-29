@@ -4394,62 +4394,26 @@ export async function djangoPosLogoutApi(phone?: string, userId?: string | numbe
 
 // ==================== SLIDERS & BANNERS API SERVICES ====================
 
-const DEFAULT_SITE_SLIDERS: any[] = [
-  {
-    id: 'slider_1',
-    title: 'سامانه جامع پخش عمده دخانیات آذرخش',
-    highlight: 'بارگیری روزانه از انبار مرکزی',
-    badge: 'تأمین مستقیم و دست‌اول',
-    description: 'استعلام نرخ لحظه‌ای کارتن، ثبت پیش‌فاکتور رسمی و ارسال فوری ۲ ساعته به سراسر کشور',
-    image: 'https://images.unsplash.com/photo-1541689592655-f5f52825a3b8?auto=format&fit=crop&w=1200&q=80',
-    primary_btn_text: 'مشاهده نرخ لحظه‌ای سیگار',
-    primary_btn_link: '/live-prices',
-    primary_btn_action: 'live-prices',
-    secondary_btn_text: 'صدور پیش‌فاکتور آنلاین',
-    secondary_btn_link: '/invoice',
-    secondary_btn_action: 'invoice',
-    tagline: 'توزیع بنکداری و انبارداری مرکزی',
-    stat_number: '+۱۲,۵۰۰',
-    stat_label: 'کارتن تحویل‌شده این ماه',
-    is_active: true,
-    order: 1
-  },
-  {
-    id: 'slider_2',
-    title: 'فناوری جدید دستگاه‌های آیکاس و تیریا اورجینال',
-    highlight: 'ضمانت اصالت و سلامت بار',
-    badge: 'محصولات IQOS & Terea',
-    description: 'عرضه مستقیم دستگاه‌های IQOS ILUMA و انواع فیلترهای تیریا اروپایی با بهترین قیمت بنکداری',
-    image: 'https://images.unsplash.com/photo-1527016021513-b09758b777bd?auto=format&fit=crop&w=1200&q=80',
-    primary_btn_text: 'کاتالوگ آیکاس و تیریا',
-    primary_btn_link: '/catalog',
-    primary_btn_action: 'catalog',
-    secondary_btn_text: 'تماس با واحد فروش',
-    secondary_btn_link: '/contact',
-    secondary_btn_action: 'custom-link',
-    tagline: 'واردات مستقیم دستگاه‌های حرارتی',
-    stat_number: '+۵,۰۰۰',
-    stat_label: 'دستگاه تحویلی به بنکداران',
-    is_active: true,
-    order: 2
-  }
-];
+const DEFAULT_SITE_SLIDERS: any[] = [];
 
 export function getLocalSliders(): any[] {
   try {
     const saved = localStorage.getItem('sovin_site_sliders');
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        const clean = parsed.filter(item => item && !String(item.id).startsWith('slider_'));
+        return clean;
+      }
     }
   } catch {}
-  localStorage.setItem('sovin_site_sliders', JSON.stringify(DEFAULT_SITE_SLIDERS));
-  return DEFAULT_SITE_SLIDERS;
+  return [];
 }
 
 export function saveLocalSliders(sliders: any[]): void {
   try {
-    localStorage.setItem('sovin_site_sliders', JSON.stringify(sliders));
+    const cleanSliders = sliders.filter(item => item && !String(item.id).startsWith('slider_'));
+    localStorage.setItem('sovin_site_sliders', JSON.stringify(cleanSliders));
   } catch {}
 }
 
@@ -4649,6 +4613,11 @@ export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig)
 }
 
 export async function djangoUpdateSlider(id: string | number, payload: any, config?: DjangoCrmConfig): Promise<any> {
+  // If id is non-numeric or starts with slider_, it's a new or mock card; create it in Django
+  if (id === undefined || id === null || isNaN(Number(id)) || String(id).startsWith('slider_')) {
+    return djangoCreateSlider(payload, config);
+  }
+
   let token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
   const baseUrl = getBlogApiBaseUrl(config);
   const hostBase = baseUrl.replace(/\/api\/v1\/?$/, '');
