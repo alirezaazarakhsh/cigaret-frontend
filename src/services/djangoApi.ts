@@ -1960,7 +1960,8 @@ export async function syncWithDjangoApi(
               nonMockResults.map(async (item: any) => {
                 if (item && item.id && (item.full_description === undefined || item.excerpt === undefined || item.category_detail === undefined)) {
                   try {
-                    const detailUrl = `${apiPrefix}/products/items/${item.id}/?_t=${Date.now()}`;
+                    const detailBase = getBlogApiBaseUrl();
+                    const detailUrl = `${detailBase}/products/items/${item.id}/?_t=${Date.now()}`;
                     const detailHeaders = { ...headers };
                     delete detailHeaders['Authorization'];
                     const detailRes = await fetch(detailUrl, {
@@ -2476,11 +2477,11 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
   const brandId = typeof item.brand === 'number' ? item.brand : (typeof item.brand_detail?.id === 'number' ? item.brand_detail.id : (typeof item.brand_id === 'number' ? item.brand_id : undefined));
 
   const categorySlug = extractStringFromField(
-    item.category_slug || item.category_detail?.slug || (typeof item.category === 'object' ? item.category?.slug : '') || richOverride?.category_slug,
+    item.category_slug || item.category_detail?.slug || (item.category && typeof item.category === 'object' ? (item.category as any).slug : '') || richOverride?.category_slug,
     ''
   );
   const categoryName = extractStringFromField(
-    item.category_name || item.category_detail?.name || (typeof item.category === 'object' ? item.category?.name : '') || richOverride?.category_name,
+    item.category_name || item.category_detail?.name || (item.category && typeof item.category === 'object' ? (item.category as any).name : '') || richOverride?.category_name,
     ''
   );
   const categoryId = typeof item.category === 'number'
@@ -2578,18 +2579,17 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
 
   const rawCandidateMain =
     item.main_image ||
-    (typeof item.image === 'string' && !item.image.includes('products/gallery/') ? item.image : '') ||
+    item.image ||
     item.photo ||
     item.picture ||
+    item.image_url ||
+    richOverride?.image ||
     '';
   const explicitFeaturedImg = extractImageUrl(
-    rawCandidateMain ||
-      (item.main_image === undefined && item.image === undefined && richOverride?.image && !String(richOverride.image).includes('products/gallery/')
-        ? richOverride.image
-        : ''),
+    rawCandidateMain,
     ''
   );
-  // اگر تصویر شاخص تنظیم شده باشد همیشه همان نمایش داده می‌شود؛ فقط تا زمانی که تصویر شاخص نباشد از گالری خوانده می‌شود
+  // اگر تصویر شاخص تنظیم شده باشد همیشه همان نمایش داده می‌شود؛ فقط تا زمانی که تصویر شاخص نباشد از اولین عکس گالری استفاده می‌شود
   const mainImg =
     explicitFeaturedImg ||
     extractImageUrl(item.image_url, '') ||
@@ -2817,7 +2817,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     min_order_box: moqBox,
     min_order_pack: moqPack,
     image: mainImg,
-    explicitFeaturedImage: explicitFeaturedImg,
+    explicitFeaturedImage: explicitFeaturedImg || mainImg,
     images: imagesArr,
     barcode,
     badge,
@@ -3075,12 +3075,12 @@ let adminTokenRefreshPromise: Promise<string> | null = null;
 /**
  * تضمین دریافت توکن معتبر JWT ادمین برای عملیات ایجاد، ویرایش و حذف در بک‌اند جنگو
  */
-export async function ensureValidDjangoAdminToken(config?: DjangoCrmConfig): Promise<string> {
-  let currentToken = config?.apiToken || getApiToken() || (typeof localStorage !== 'undefined' ? (localStorage.getItem('sevin_api_token') || localStorage.getItem('token') || '') : '') || cachedAdminJwtToken;
+export async function ensureValidDjangoAdminToken(config?: DjangoCrmConfig, forceRefresh = false): Promise<string> {
+  let currentToken = (!forceRefresh && (config?.apiToken || getApiToken() || (typeof localStorage !== 'undefined' ? (localStorage.getItem('sevin_api_token') || localStorage.getItem('token') || '') : '') || cachedAdminJwtToken)) || '';
 
   const isJwt = currentToken && typeof currentToken === 'string' && currentToken.split('.').length === 3 && !currentToken.includes('django_superadmin_token');
 
-  if (isJwt) {
+  if (isJwt && !forceRefresh) {
     try {
       const payloadBase64 = currentToken.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
       const payloadJson = JSON.parse(atob(payloadBase64));
@@ -3094,7 +3094,7 @@ export async function ensureValidDjangoAdminToken(config?: DjangoCrmConfig): Pro
     }
   }
 
-  if (adminTokenRefreshPromise) {
+  if (adminTokenRefreshPromise && !forceRefresh) {
     return adminTokenRefreshPromise;
   }
 
@@ -4472,369 +4472,350 @@ function setWorkingSliderEndpoint(endpoint: string): void {
   } catch {}
 }
 
+function dataURLtoBlob(dataurl: string): Blob | null {
+  try {
+    const arr = dataurl.split(',');
+    const mimeMatch = arr[0].match(/:(.*?);/);
+    const mime = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+    const bstr = atob(arr[1]);
+    let n = bstr.length;
+    const u8arr = new Uint8Array(n);
+    while (n--) {
+      u8arr[n] = bstr.charCodeAt(n);
+    }
+    return new Blob([u8arr], { type: mime });
+  } catch {
+    return null;
+  }
+}
+
 export async function djangoFetchSliders(config?: DjangoCrmConfig): Promise<any[]> {
   const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const baseUrl = getBlogApiBaseUrl(config);
+  const hostBase = baseUrl.replace(/\/api\/v1\/?$/, '');
   
-  const known = getWorkingSliderEndpoint();
-  const rawCandidateGetUrls = [
-    '/api/v1/sliders/sliders/?include_inactive=true&all=1',
-    '/api/v1/sliders/slider/?include_inactive=true&all=1',
-    '/api/v1/sliders/sliders/',
-    '/api/v1/sliders/slider/',
-    '/api/v1/sliders/'
+  const candidateGetUrls = [
+    `${baseUrl}/sliders/?include_inactive=true&all=1&_t=${Date.now()}`,
+    `${baseUrl}/sliders/?_t=${Date.now()}`,
+    `/api/v1/sliders/?include_inactive=true&all=1&_t=${Date.now()}`,
+    `/api/v1/sliders/?_t=${Date.now()}`
   ];
 
-  const candidateGetUrls = known 
-    ? Array.from(new Set([`${known}?include_inactive=true&all=1`, known, ...rawCandidateGetUrls]))
-    : rawCandidateGetUrls;
-
-  let res: any = null;
+  let serverData: any[] | null = null;
   for (const url of candidateGetUrls) {
-    const attempt = await executeDjangoAxiosRequest(url, 'GET', undefined, { token, timeoutMs: 3500 });
-    if (attempt.success) {
-      setWorkingSliderEndpoint(url);
-      const data = attempt.data?.results || attempt.data?.sliders || attempt.data;
-      if (Array.isArray(data) && data.length > 0) {
-        res = { success: true, data };
-        break;
-      } else if (Array.isArray(data) && !res) {
-        res = { success: true, data };
+    try {
+      const headers: Record<string, string> = { 'Accept': 'application/json' };
+      if (token) {
+        headers['Authorization'] = token.startsWith('Bearer ') || token.startsWith('Token ') ? token : `Bearer ${token}`;
       }
-    }
+      const res = await fetch(url, { headers, cache: 'no-store' });
+      if (res.ok) {
+        const json = await res.json();
+        const items = json?.results || json?.data || (Array.isArray(json) ? json : null);
+        if (Array.isArray(items)) {
+          serverData = items;
+          break;
+        }
+      }
+    } catch {}
   }
   
-  const localList = getLocalSliders();
-  
-  if (res && res.success && Array.isArray(res.data)) {
-    const serverList = res.data;
-    const serverIdSet = new Set(serverList.map((item: any) => String(item.id)));
-    const serverTitleSet = new Set(serverList.map((item: any) => String(item.title || '').trim()));
-
-    // Mark items inactive in local state if missing from server response (Django filters out is_active=False)
-    const updatedLocal = localList.map(localItem => {
-      const matchesServerById = localItem.id && serverIdSet.has(String(localItem.id));
-      const matchesServerByTitle = localItem.title && serverTitleSet.has(String(localItem.title).trim());
-      
-      if (!matchesServerById && !matchesServerByTitle) {
-        return {
-          ...localItem,
-          is_active: false
-        };
+  if (serverData && Array.isArray(serverData)) {
+    const normalized = serverData.map((item: any, idx: number) => {
+      let img = item.image || item.imageUrl || item.image_url || '';
+      if (img && typeof img === 'string' && img.startsWith('/') && !img.startsWith('//')) {
+        img = `${hostBase}${img}`;
       }
-      return localItem;
-    });
-
-    const mergedList = [...updatedLocal];
-    
-    serverList.forEach((serverItem: any) => {
-      const existingIdx = mergedList.findIndex(localItem => 
-        String(localItem.id) === String(serverItem.id) ||
-        (localItem.title && serverItem.title && String(localItem.title).trim() === String(serverItem.title).trim())
-      );
-      
-      const normalizedServerItem = {
-        ...serverItem,
-        is_active: serverItem.is_active !== undefined ? Boolean(serverItem.is_active) : true
+      return {
+        ...item,
+        id: item.id !== undefined ? item.id : idx + 1,
+        image: img,
+        imageUrl: img,
+        is_active: item.is_active !== undefined ? Boolean(item.is_active) : true,
+        order: item.order !== undefined ? Number(item.order) : idx + 1,
+        features: Array.isArray(item.features) ? item.features : [],
       };
-
-      if (existingIdx > -1) {
-        mergedList[existingIdx] = {
-          ...mergedList[existingIdx],
-          ...normalizedServerItem,
-          id: serverItem.id
-        };
-      } else {
-        mergedList.push(normalizedServerItem);
-      }
     });
-    
-    saveLocalSliders(mergedList);
-    return mergedList;
+    saveLocalSliders(normalized);
+    return normalized;
   }
+
+  const localList = getLocalSliders();
   return localList;
 }
 
 export async function djangoCreateSlider(payload: any, config?: DjangoCrmConfig): Promise<any> {
-  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  let token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const baseUrl = getBlogApiBaseUrl(config);
+  const hostBase = baseUrl.replace(/\/api\/v1\/?$/, '');
   
-  // Explicitly keep only the fields expected by the Django model and serializer
-  const cleanPayload: any = {};
-  const allowedFields = [
-    'title',
-    'highlight',
-    'badge',
-    'description',
-    'image',
-    'primary_btn_text',
-    'primary_btn_link',
-    'primary_btn_action',
-    'secondary_btn_text',
-    'secondary_btn_link',
-    'secondary_btn_action',
-    'tagline',
-    'stat_number',
-    'stat_label',
-    'features',
-    'order',
-    'is_active'
-  ];
-
-  allowedFields.forEach(field => {
-    if (payload[field] !== undefined && payload[field] !== null) {
-      if (payload[field] === '' && (field === 'primary_btn_action' || field === 'secondary_btn_action')) {
-        cleanPayload[field] = null;
-      } else {
-        cleanPayload[field] = payload[field];
-      }
-    }
-  });
-
-  const isBase64Img = payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,');
-
-  const current = getLocalSliders();
-  const tempId = `slider_${Date.now()}`;
-  const newSlider = {
-    ...payload,
-    id: tempId,
-    is_active: payload.is_active !== undefined ? payload.is_active : true,
-    order: payload.order !== undefined ? Number(payload.order) : current.length + 1,
-    created_at: new Date().toISOString()
+  const cleanJson: Record<string, any> = {
+    title: payload.title !== undefined ? payload.title : '',
+    highlight: payload.highlight !== undefined ? payload.highlight : '',
+    badge: payload.badge !== undefined ? payload.badge : '',
+    description: payload.description !== undefined ? payload.description : '',
+    primary_btn_text: payload.primary_btn_text !== undefined ? payload.primary_btn_text : '',
+    primary_btn_link: payload.primary_btn_link !== undefined ? payload.primary_btn_link : '',
+    primary_btn_action: payload.primary_btn_action || 'live-prices',
+    secondary_btn_text: payload.secondary_btn_text !== undefined ? payload.secondary_btn_text : '',
+    secondary_btn_link: payload.secondary_btn_link !== undefined ? payload.secondary_btn_link : '',
+    secondary_btn_action: payload.secondary_btn_action || 'invoice',
+    tagline: payload.tagline !== undefined ? payload.tagline : '',
+    stat_number: payload.stat_number !== undefined ? payload.stat_number : '',
+    stat_label: payload.stat_label !== undefined ? payload.stat_label : '',
+    order: Number(payload.order) || 1,
+    is_active: payload.is_active !== undefined ? Boolean(payload.is_active) : true,
+    features: Array.isArray(payload.features) ? payload.features : []
   };
 
-  const candidatePostUrls = [
-    '/api/v1/sliders/slider/',
-    '/api/v1/sliders/sliders/',
-    '/api/v1/sliders/'
-  ];
-
-  let res: any = { success: false };
-  for (const url of candidatePostUrls) {
-    res = await executeDjangoAxiosRequest(url, 'POST', cleanPayload, { token, timeoutMs: 35000 });
-    if (res.success) break;
+  if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/')) {
+    cleanJson.image = payload.image;
   }
 
-  if (!res.success && isBase64Img) {
-    const payloadWithoutImage = { ...cleanPayload };
-    delete payloadWithoutImage.image;
-    for (const url of candidatePostUrls) {
-      res = await executeDjangoAxiosRequest(url, 'POST', payloadWithoutImage, { token, timeoutMs: 15000 });
-      if (res.success) break;
-    }
-  }
+  const targetUrl = `${baseUrl}/sliders/`;
 
-  if (res.success) {
-    const serverId = res.data?.id || res.data?.data?.id;
-    const finalSlider = {
-      ...newSlider,
-      ...(res.data || {}),
-      id: serverId || tempId
+  const doRequest = async (tokenToUse: string): Promise<Response> => {
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
     };
-    
-    // Save to local storage after successful server creation
-    const updated = [finalSlider, ...current.filter(item => item.id !== tempId)];
-    saveLocalSliders(updated);
-    return { success: true, data: finalSlider, message: 'اسلایدر با موفقیت در دیتابیس آنلاین و محلی ذخیره شد.' };
+    if (tokenToUse) {
+      headers['Authorization'] = tokenToUse.startsWith('Bearer ') || tokenToUse.startsWith('Token ') ? tokenToUse : `Bearer ${tokenToUse}`;
+    }
+    return fetch(targetUrl, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(cleanJson)
+    });
+  };
+
+  let resObj: any = null;
+  let isSuccess = false;
+  let errorMessage = '';
+
+  try {
+    let res = await doRequest(token);
+
+    if (res.status === 401 || res.status === 403) {
+      token = await ensureValidDjangoAdminToken(config, true);
+      res = await doRequest(token);
+    }
+
+    if (res.ok) {
+      resObj = await res.json();
+      isSuccess = true;
+    } else {
+      try {
+        const errJson = await res.json();
+        errorMessage = errJson.detail || errJson.error || errJson.message || JSON.stringify(errJson);
+      } catch {
+        errorMessage = `خطای سرور (${res.status})`;
+      }
+    }
+  } catch (err: any) {
+    console.error('Slider create network error:', err);
+    errorMessage = err?.message || 'خطا در ارتباط با سرور';
   }
-  
-  // Always save locally as fallback so the banner is created immediately without loss
-  const updated = [newSlider, ...current.filter(item => item.id !== tempId)];
-  saveLocalSliders(updated);
-  return { 
-    success: true, 
-    data: newSlider,
-    localOnly: true,
-    warning: res.error,
-    message: res.error 
-      ? `اسلایدر با موفقیت ذخیره گردید (پیام دیتابیس آنلاین: ${res.error})` 
-      : 'اسلایدر با موفقیت در حافظه ذخیره گردید.'
+
+  const current = getLocalSliders();
+  let serverData = resObj?.data || resObj || {};
+  if (serverData.image && typeof serverData.image === 'string' && serverData.image.startsWith('/') && !serverData.image.startsWith('//')) {
+    serverData.image = `${hostBase}${serverData.image}`;
+  }
+
+  const finalSlider = {
+    ...payload,
+    ...serverData,
+    id: serverData.id || Date.now(),
+    image: serverData.image || payload.image || '',
+    imageUrl: serverData.image || payload.image || ''
+  };
+
+  if (isSuccess) {
+    const updated = [finalSlider, ...current.filter((s: any) => String(s.id) !== String(finalSlider.id))];
+    saveLocalSliders(updated);
+  }
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sevin-cache-cleared', { detail: { timestamp: Date.now() } }));
+  }
+
+  return {
+    success: isSuccess,
+    data: finalSlider,
+    error: errorMessage || undefined,
+    message: isSuccess ? 'بنر با موفقیت در دیتابیس ثبت شد.' : (errorMessage || 'خطا در ثبت بنر در سرور.')
   };
 }
 
 export async function djangoUpdateSlider(id: string | number, payload: any, config?: DjangoCrmConfig): Promise<any> {
-  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
-  
-  // Explicitly keep only the fields expected by the Django model and serializer
-  const cleanPayload: any = {};
-  const allowedFields = [
-    'title',
-    'highlight',
-    'badge',
-    'description',
-    'image',
-    'primary_btn_text',
-    'primary_btn_link',
-    'primary_btn_action',
-    'secondary_btn_text',
-    'secondary_btn_link',
-    'secondary_btn_action',
-    'tagline',
-    'stat_number',
-    'stat_label',
-    'features',
-    'order',
-    'is_active'
-  ];
+  let token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const baseUrl = getBlogApiBaseUrl(config);
+  const hostBase = baseUrl.replace(/\/api\/v1\/?$/, '');
 
-  allowedFields.forEach(field => {
-    if (payload[field] !== undefined && payload[field] !== null) {
-      if (payload[field] === '' && (field === 'primary_btn_action' || field === 'secondary_btn_action')) {
-        cleanPayload[field] = null;
-      } else {
-        cleanPayload[field] = payload[field];
+  const cleanJson: Record<string, any> = {
+    title: payload.title !== undefined ? payload.title : '',
+    highlight: payload.highlight !== undefined ? payload.highlight : '',
+    badge: payload.badge !== undefined ? payload.badge : '',
+    description: payload.description !== undefined ? payload.description : '',
+    primary_btn_text: payload.primary_btn_text !== undefined ? payload.primary_btn_text : '',
+    primary_btn_link: payload.primary_btn_link !== undefined ? payload.primary_btn_link : '',
+    primary_btn_action: payload.primary_btn_action || 'live-prices',
+    secondary_btn_text: payload.secondary_btn_text !== undefined ? payload.secondary_btn_text : '',
+    secondary_btn_link: payload.secondary_btn_link !== undefined ? payload.secondary_btn_link : '',
+    secondary_btn_action: payload.secondary_btn_action || 'invoice',
+    tagline: payload.tagline !== undefined ? payload.tagline : '',
+    stat_number: payload.stat_number !== undefined ? payload.stat_number : '',
+    stat_label: payload.stat_label !== undefined ? payload.stat_label : '',
+    order: Number(payload.order) || 1,
+    is_active: payload.is_active !== undefined ? Boolean(payload.is_active) : true,
+    features: Array.isArray(payload.features) ? payload.features : []
+  };
+
+  // If a new base64 image was uploaded, send it in JSON so DRF Base64ImageField processes it
+  if (payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/')) {
+    cleanJson.image = payload.image;
+  } else if (payload.image === '' || payload.image === null) {
+    cleanJson.image = null;
+  }
+  // Note: If payload.image is an existing URL (starts with http/https or /media/), we omit 'image' so DRF partial=True leaves existing image intact!
+
+  const targetUrl = `${baseUrl}/sliders/${id}/`;
+
+  const doRequest = async (tokenToUse: string): Promise<Response> => {
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+      'Content-Type': 'application/json'
+    };
+    if (tokenToUse) {
+      headers['Authorization'] = tokenToUse.startsWith('Bearer ') || tokenToUse.startsWith('Token ') ? tokenToUse : `Bearer ${tokenToUse}`;
+    }
+    return fetch(targetUrl, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(cleanJson)
+    });
+  };
+
+  let resObj: any = null;
+  let isSuccess = false;
+  let errorMessage = '';
+
+  try {
+    let res = await doRequest(token);
+
+    if (res.status === 401 || res.status === 403) {
+      token = await ensureValidDjangoAdminToken(config, true);
+      res = await doRequest(token);
+    }
+
+    if (res.ok) {
+      resObj = await res.json();
+      isSuccess = true;
+    } else {
+      try {
+        const errJson = await res.json();
+        errorMessage = errJson.detail || errJson.error || errJson.message || JSON.stringify(errJson);
+      } catch {
+        errorMessage = `خطای سرور (${res.status})`;
       }
     }
-  });
-
-  const isBase64Img = payload.image && typeof payload.image === 'string' && payload.image.startsWith('data:image/') && payload.image.includes(';base64,');
-  const isExistingUrlImg = payload.image && typeof payload.image === 'string' && !payload.image.startsWith('data:image/');
-
-  if (isExistingUrlImg) {
-    delete cleanPayload.image;
+  } catch (err: any) {
+    console.error('Slider update network error:', err);
+    errorMessage = err?.message || 'خطا در ارتباط با سرور';
   }
 
   const current = getLocalSliders();
-
-  const knownBase = getWorkingSliderEndpoint();
-  const rawUpdateCandidateUrls = [
-    `/api/v1/sliders/sliders/${id}/`,
-    `/api/v1/sliders/slider/${id}/`,
-    `/api/v1/sliders/sliders/${id}/?include_inactive=true`,
-    `/api/v1/sliders/slider/${id}/?include_inactive=true`,
-    `/api/v1/sliders/${id}/`
-  ];
-
-  const updateCandidateUrls = knownBase
-    ? Array.from(new Set([
-        `${knownBase.endsWith('/') ? knownBase : knownBase + '/'}${id}/`,
-        `${knownBase.endsWith('/') ? knownBase : knownBase + '/'}${id}/?include_inactive=true`,
-        ...rawUpdateCandidateUrls
-      ]))
-    : rawUpdateCandidateUrls;
-
-  let res: any = { success: false };
-
-  // 1. Direct active status toggle via lightweight PATCH & action endpoints first if is_active is explicitly passed
-  if (cleanPayload.is_active !== undefined) {
-    const activeStatusBool = Boolean(cleanPayload.is_active);
-    const togglePayload = {
-      is_active: activeStatusBool,
-      active: activeStatusBool,
-      status: activeStatusBool ? 'active' : 'inactive'
-    };
-
-    // Try standard PATCH on candidate URLs
-    for (const url of updateCandidateUrls) {
-      const toggleRes = await executeDjangoAxiosRequest(url, 'PATCH', togglePayload, { token, timeoutMs: 3500 });
-      if (toggleRes.success) {
-        res = toggleRes;
-        setWorkingSliderEndpoint(url);
-        break;
-      }
-    }
-
-    // Try custom action routes if detail PATCH failed (e.g. if DRF detail view returns 404 for inactive queryset)
-    if (!res.success) {
-      const actionUrls = [
-        `/api/v1/sliders/slider/${id}/activate/`,
-        `/api/v1/sliders/slider/${id}/toggle/`,
-        `/api/v1/sliders/slider/${id}/toggle-active/`,
-        `/api/v1/sliders/slider/${id}/enable/`,
-        `/api/sliders/slider/${id}/activate/`,
-        `/api/sliders/slider/${id}/toggle/`,
-        `/api/sliders/slider/${id}/toggle-active/`
-      ];
-      for (const actionUrl of actionUrls) {
-        const actRes = await executeDjangoAxiosRequest(actionUrl, 'POST', togglePayload, { token, timeoutMs: 3500 });
-        if (actRes.success) {
-          res = actRes;
-          setWorkingSliderEndpoint(actionUrl);
-          break;
-        }
-      }
-    }
+  let serverData = resObj?.data || resObj || {};
+  if (serverData.image && typeof serverData.image === 'string' && serverData.image.startsWith('/') && !serverData.image.startsWith('//')) {
+    serverData.image = `${hostBase}${serverData.image}`;
   }
 
-  // 2. Full payload PATCH if not already updated by lightweight toggle
-  if (!res.success) {
-    for (const url of updateCandidateUrls) {
-      const patchRes = await executeDjangoAxiosRequest(url, 'PATCH', cleanPayload, { token, timeoutMs: 5000 });
-      if (patchRes.success) {
-        res = patchRes;
-        setWorkingSliderEndpoint(url);
-        break;
-      }
-    }
-  }
+  const mergedSlider = {
+    ...payload,
+    ...serverData,
+    id,
+    image: serverData.image || (payload.image && !payload.image.startsWith('data:image/') ? payload.image : (payload.image || '')),
+    imageUrl: serverData.image || (payload.image && !payload.image.startsWith('data:image/') ? payload.image : (payload.image || '')),
+    is_active: payload.is_active !== undefined ? Boolean(payload.is_active) : (serverData.is_active !== undefined ? Boolean(serverData.is_active) : true)
+  };
 
-  // 3. If PATCH failed and image is base64, retry PATCH without base64 image
-  if (!res.success && isBase64Img) {
-    const payloadNoImg = { ...cleanPayload };
-    delete payloadNoImg.image;
-    for (const url of updateCandidateUrls) {
-      res = await executeDjangoAxiosRequest(url, 'PATCH', payloadNoImg, { token, timeoutMs: 15000 });
-      if (res.success) break;
-    }
-  }
-
-  // 4. Fallback to PUT if PATCH didn't succeed
-  if (!res.success) {
-    const putPayload = { ...cleanPayload };
-    delete putPayload.image;
-    for (const url of updateCandidateUrls) {
-      res = await executeDjangoAxiosRequest(url, 'PUT', putPayload, { token, timeoutMs: 20000 });
-      if (res.success) break;
-    }
-  }
-
-  if (res.success) {
-    const serverData = res.data?.data || res.data || {};
-    const updated = current.map(item => 
-      item.id == id ? { ...item, ...payload, ...serverData, id } : item
+  if (isSuccess) {
+    const updated = current.map((item: any) =>
+      String(item.id) === String(id) ? mergedSlider : item
     );
     saveLocalSliders(updated);
-    return { success: true, data: { ...payload, ...serverData }, message: 'اسلایدر با موفقیت در دیتابیس آنلاین و محلی بروزرسانی شد.' };
   }
-  
-  // Fallback update locally
-  const updated = current.map(item => 
-    item.id == id ? { ...item, ...payload, id } : item
-  );
-  saveLocalSliders(updated);
-  return { 
-    success: true, 
-    data: { ...payload, id },
-    localOnly: true,
-    message: 'اسلایدر با موفقیت بروزرسانی شد.' 
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sevin-cache-cleared', { detail: { timestamp: Date.now() } }));
+  }
+
+  return {
+    success: isSuccess,
+    data: mergedSlider,
+    error: errorMessage || undefined,
+    message: isSuccess ? 'بنر با موفقیت در دیتابیس بروزرسانی شد.' : (errorMessage || 'خطا در ویرایش بنر در سرور.')
   };
 }
 
 export async function djangoDeleteSlider(id: string | number, config?: DjangoCrmConfig): Promise<any> {
-  const token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  let token = await ensureValidDjangoAdminToken(config).catch(() => getApiToken());
+  const baseUrl = getBlogApiBaseUrl(config);
   
-  const current = getLocalSliders();
-  const updated = current.filter(item => item.id != id);
-  saveLocalSliders(updated);
-  
-  const candidateDeleteUrls = [
-    `/api/v1/sliders/sliders/${id}/`,
-    `/api/v1/sliders/slider/${id}/`,
-    `/api/v1/sliders/${id}/`
-  ];
+  const targetUrl = `${baseUrl}/sliders/${id}/`;
 
-  let res: any = { success: false };
-  for (const url of candidateDeleteUrls) {
-    res = await executeDjangoAxiosRequest(url, 'DELETE', undefined, { token });
-    if (res.success) break;
+  const doDelete = async (tokenToUse: string): Promise<Response> => {
+    const headers: Record<string, string> = { 'Accept': 'application/json' };
+    if (tokenToUse) {
+      headers['Authorization'] = tokenToUse.startsWith('Bearer ') || tokenToUse.startsWith('Token ') ? tokenToUse : `Bearer ${tokenToUse}`;
+    }
+    return fetch(targetUrl, {
+      method: 'DELETE',
+      headers
+    });
+  };
+
+  let isSuccess = false;
+  let errorMessage = '';
+
+  try {
+    let res = await doDelete(token);
+
+    if (res.status === 401 || res.status === 403) {
+      token = await ensureValidDjangoAdminToken(config, true);
+      res = await doDelete(token);
+    }
+
+    if (res.ok || res.status === 204) {
+      isSuccess = true;
+    } else {
+      try {
+        const errJson = await res.json();
+        errorMessage = errJson.detail || errJson.error || errJson.message || JSON.stringify(errJson);
+      } catch {
+        errorMessage = `خطای سرور (${res.status})`;
+      }
+    }
+  } catch (err: any) {
+    console.error('Slider delete network error:', err);
+    errorMessage = err?.message || 'خطا در ارتباط با سرور';
   }
-  
-  if (res.success) {
-    return { success: true, message: 'اسلایدر با موفقیت از دیتابیس جنگو حذف گردید.' };
+
+  if (isSuccess) {
+    const current = getLocalSliders();
+    const updated = current.filter((item: any) => String(item.id) !== String(id));
+    saveLocalSliders(updated);
   }
-  
-  return { 
-    success: true, 
-    localOnly: true, 
-    message: 'اسلایدر به صورت محلی حذف گردید (عدم ارتباط با سرور).' 
+
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('sevin-cache-cleared', { detail: { timestamp: Date.now() } }));
+  }
+
+  return {
+    success: isSuccess,
+    error: errorMessage || undefined,
+    message: isSuccess ? 'اسلایدر با موفقیت از دیتابیس حذف گردید.' : (errorMessage || 'خطا در حذف اسلایدر از سرور.')
   };
 }
 

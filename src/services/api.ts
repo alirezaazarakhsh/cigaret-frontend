@@ -964,7 +964,7 @@ export const productsApi = {
     };
 
     const newProdId = product.id || `prod_${Date.now()}`;
-    const newProductFull: CigaretteProduct = {
+    const newProductFull: CigaretteProduct & Record<string, any> = {
       id: newProdId,
       nameFa: product.nameFa || 'محصول جدید',
       nameEn: product.nameEn || '',
@@ -1372,7 +1372,7 @@ export const productsApi = {
       main_image: productData.image || '',
       image: productData.image || safeImage,
       image_url: safeImage,
-      clear_main_image: Boolean((productData as any).clear_main_image || productData.image === ''),
+      ...((productData as any).clear_main_image ? { clear_main_image: true } : {}),
       images: allGalleryImages,
       gallery_images: allGalleryImages,
       full_description: productData.description ?? '',

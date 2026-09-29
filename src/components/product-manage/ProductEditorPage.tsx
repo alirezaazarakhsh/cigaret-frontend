@@ -143,12 +143,13 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         ? Math.max(0, Number(richOverride.moqPack) || 0)
         : (Number(product.moqPack || (product as any).min_order_pack || 0) > 1 ? Number(product.moqPack || (product as any).min_order_pack) : 0);
 
-      const explicitMainFromProduct =
-        (product as any).explicitFeaturedImage !== undefined
-          ? (product as any).explicitFeaturedImage
-          : (product.image && !String(product.image).includes('products/gallery/') ? product.image : '');
-      const resolvedMainImage = explicitMainFromProduct ||
-        (richOverride?.image && !String(richOverride.image).includes('products/gallery/') ? richOverride.image : '');
+      const resolvedMainImage =
+        product.image ||
+        (product as any).main_image ||
+        (product as any).image_url ||
+        (product as any).explicitFeaturedImage ||
+        richOverride?.image ||
+        '';
       const resolvedGalleryImages = (product.images && product.images.length > 0)
         ? [...product.images]
         : (richOverride?.images !== undefined && Array.isArray(richOverride.images) ? [...richOverride.images] : []);
@@ -272,17 +273,25 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
           stockCartons: fresh.stockCartons ?? prev.stockCartons,
           stockBoxes: fresh.stockBoxes ?? prev.stockBoxes,
           image:
-            (fresh as any).explicitFeaturedImage !== undefined
-              ? (fresh as any).explicitFeaturedImage
-              : (fresh.image && !String(fresh.image).includes('products/gallery/') ? fresh.image : prev.image || ''),
-          excerpt: fresh.excerpt || prev.excerpt || '',
-          description: fresh.description || prev.description || '',
+            fresh.image ||
+            (fresh as any).main_image ||
+            (fresh as any).image_url ||
+            (fresh as any).explicitFeaturedImage ||
+            override?.image ||
+            prev.image ||
+            '',
+          excerpt: fresh.excerpt || (fresh as any).short_description || prev.excerpt || '',
+          description: fresh.description || (fresh as any).full_description || prev.description || '',
+          metaDescription: fresh.metaDescription || fresh.excerpt || prev.metaDescription || '',
           moq: fresh.moq !== undefined ? (fresh.moq > 1 ? fresh.moq : 0) : (prev.moq ?? 0),
           moqBox: fresh.moqBox !== undefined ? (fresh.moqBox > 1 ? fresh.moqBox : 0) : (prev.moqBox ?? 0),
           moqPack: fresh.moqPack !== undefined ? (fresh.moqPack > 1 ? fresh.moqPack : 0) : (prev.moqPack ?? 0),
           images: (fresh.images && fresh.images.length > 0)
             ? fresh.images
             : ((prev.images && prev.images.length > 0) ? prev.images : (override?.images || [])),
+          appliedFeatures: (fresh.appliedFeatures && fresh.appliedFeatures.length > 0)
+            ? fresh.appliedFeatures
+            : ((prev.appliedFeatures && prev.appliedFeatures.length > 0) ? prev.appliedFeatures : []),
           tierDiscounts: (fresh.tierDiscounts && fresh.tierDiscounts.length > 0) ? fresh.tierDiscounts : prev.tierDiscounts,
           keyTakeaways: (fresh.keyTakeaways && fresh.keyTakeaways.length > 0) ? fresh.keyTakeaways : prev.keyTakeaways,
         }));
@@ -377,32 +386,6 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
     }
   }, [initialBarcode, product]);
 
-  // Fetch full product details (full_description, excerpt, category_detail, gallery images, features) from /products/items/:id/ when editing
-  React.useEffect(() => {
-    if (product?.id) {
-      let isMounted = true;
-      productsApi.getById(product.id).then((fresh) => {
-        if (isMounted && fresh) {
-          const override = getProductRichOverride(product.id);
-          setFormData((prev: any) => ({
-            ...prev,
-            image: prev.image || override?.image || fresh.image || '',
-            description: prev.description || fresh.description || (fresh as any).full_description || '',
-            excerpt: prev.excerpt || fresh.excerpt || (fresh as any).short_description || '',
-            metaDescription: prev.metaDescription || fresh.metaDescription || fresh.excerpt || '',
-            keyTakeaways: (prev.keyTakeaways && prev.keyTakeaways.length > 0) ? prev.keyTakeaways : (fresh.keyTakeaways || []),
-            images: (prev.images && prev.images.length > 0)
-              ? prev.images
-              : (override?.images !== undefined ? override.images : (fresh.images || [])),
-            appliedFeatures: (prev.appliedFeatures && prev.appliedFeatures.length > 0) ? prev.appliedFeatures : (fresh.appliedFeatures || []),
-          }));
-        }
-      }).catch(() => {});
-      return () => {
-        isMounted = false;
-      };
-    }
-  }, [product?.id]);
 
   // Tier Discounts UI State (Carton & Box)
   const [newTierUnit, setNewTierUnit] = useState<'carton' | 'box'>('carton');
