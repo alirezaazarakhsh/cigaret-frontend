@@ -506,19 +506,26 @@ export const SiteSettingsManagementPanel: React.FC<SiteSettingsManagementPanelPr
         const resultStr = reader.result?.toString() || '';
         if (!resultStr) return;
         
-        // Failsafe image compression to optimize base64 size and prevent API timeout
+        // If file is smaller than 2MB, use original data URL directly to preserve 100% quality and color channels
+        if (file.size < 2 * 1024 * 1024) {
+          setFormImage(resultStr);
+          return;
+        }
+
+        // Failsafe image compression only for huge images (>2MB)
         const img = new Image();
         img.onload = () => {
           try {
             const canvas = document.createElement('canvas');
-            const MAX_WIDTH = 1200;
+            const MAX_WIDTH = 1920;
             const scale = img.width > MAX_WIDTH ? MAX_WIDTH / img.width : 1;
             canvas.width = Math.round(img.width * scale);
             canvas.height = Math.round(img.height * scale);
             const ctx = canvas.getContext('2d');
             if (ctx) {
               ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-              const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.82);
+              const outputMime = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+              const compressedDataUrl = canvas.toDataURL(outputMime, 0.90);
               setFormImage(compressedDataUrl);
               return;
             }
