@@ -189,12 +189,15 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {invoice.items.map((item, idx) => {
-                  const unitPrice = item.unit === 'carton' ? item.product.cartonPrice : item.product.boxPrice;
+                  const packsPerBox = item.product.packsPerBox || 10;
+                  const pPrice = item.product.packPrice || (item.product.boxPrice ? Math.round(item.product.boxPrice / packsPerBox) : 0);
+                  const unitPrice = item.unit === 'carton' ? item.product.cartonPrice : item.unit === 'box' ? item.product.boxPrice : pPrice;
                   const rowSubtotal = calculateItemSubtotal(
                     item.product.cartonPrice,
                     item.product.boxPrice,
                     item.unit,
-                    item.quantity
+                    item.quantity,
+                    pPrice
                   );
                   const discountPercent = getApplicableDiscount(item.unit, item.quantity, item.product.tierDiscounts);
                   const discountVal = (rowSubtotal * discountPercent) / 100;
@@ -208,7 +211,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
                         <div className="text-[10px] text-slate-400 font-mono" dir="ltr">{item.product.brand} - {item.product.origin}</div>
                       </td>
                       <td className="p-2.5 text-center font-bold">
-                        {item.unit === 'carton' ? `کارتن (${item.product.boxesPerCarton} باکسی)` : 'باکس (۱۰ پاکت)'}
+                        {item.unit === 'carton'
+                          ? `کارتن (${formatNumberFa(item.product.boxesPerCarton || 50)} باکسی)`
+                          : item.unit === 'box'
+                          ? `باکس (${formatNumberFa(packsPerBox)} پاکت)`
+                          : 'پاکت'}
                       </td>
                       <td className="p-2.5 text-center font-black text-slate-900 ">{formatNumberFa(item.quantity)}</td>
                       <td className="p-2.5 text-left font-medium">{formatToman(unitPrice)}</td>

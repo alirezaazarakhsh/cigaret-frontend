@@ -2,6 +2,7 @@ import { toPng, toJpeg } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { CigaretteProduct, OrderInvoice, PosReceiptInvoice } from '../types';
 import { formatToman, formatNumberFa } from './formatters';
+import { getProductRichOverride } from '../services/djangoApi';
 
 /**
  * Gets the current system configuration from localStorage or returns default values.
@@ -90,7 +91,7 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
                     🏢 سامانه پخش عمده دخانیات سرو | لیست رسمی نرخ روز
                   </div>
                   <div style="font-size: 10px; color: #2563eb; font-weight: bold;">
-                    مرکز پخش کارتن و باکس سیگارهای وارداتی و شرکتی | انبار مرکزی تهران
+                    مرکز پخش کارتن، باکس و پاکت سیگارهای وارداتی و شرکتی | انبار مرکزی تهران
                   </div>
                 </td>
                 <td style="text-align: left; vertical-align: middle; padding-bottom: 8px; font-size: 9.5px; color: #334155; line-height: 1.5; width: 210px;">
@@ -105,10 +106,10 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
             <!-- Notice Bar -->
             <table style="width: 100%; border-collapse: collapse; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; margin-bottom: 10px; direction: rtl; text-align: right;">
               <tr>
-                <td style="padding: 6px 10px; font-size: 9.5px; color: #1e40af; text-align: right; width: 50%;">
-                  📌 نرخ‌ها به <strong>تومان</strong> و برای سفارشات عمده (کارتن و باکس پلمپ انبار) می‌باشد.
+                <td style="padding: 6px 10px; font-size: 9.5px; color: #1e40af; text-align: right; width: 52%;">
+                  📌 نرخ‌ها به <strong>تومان</strong> و منطبق با واحدهای فروش هر کالا (کارتن، باکس و پاکت) می‌باشد.
                 </td>
-                <td style="padding: 6px 10px; font-size: 9.5px; color: #1e40af; text-align: left; width: 50%;">
+                <td style="padding: 6px 10px; font-size: 9.5px; color: #1e40af; text-align: left; width: 48%;">
                   🚚 بارگیری از انبار مرکزی به سراسر کشور با بیجک رسمی باربری
                 </td>
               </tr>
@@ -119,16 +120,36 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
               <thead>
                 <tr style="background: #1d4ed8; color: #ffffff; font-weight: bold;">
                   <th style="padding: 6px 4px; width: 5%; text-align: center; border: 1px solid #1d4ed8;">ردیف</th>
-                  <th style="padding: 6px 6px; width: 33%; border: 1px solid #1d4ed8; text-align: right;">نام کالا و مارک</th>
-                  <th style="padding: 6px 6px; width: 18%; text-align: center; border: 1px solid #1d4ed8;">مبدأ / هولوگرام</th>
+                  <th style="padding: 6px 6px; width: 27%; border: 1px solid #1d4ed8; text-align: right;">نام کالا و مارک</th>
+                  <th style="padding: 6px 6px; width: 15%; text-align: center; border: 1px solid #1d4ed8;">مبدأ / هولوگرام</th>
                   <th style="padding: 6px 6px; width: 14%; text-align: center; border: 1px solid #1d4ed8;">بسته‌بندی</th>
-                  <th style="padding: 6px 6px; width: 15%; text-align: left; border: 1px solid #1d4ed8;">نرخ باکس (تومان)</th>
-                  <th style="padding: 6px 6px; width: 15%; text-align: left; font-weight: 900; border: 1px solid #1d4ed8;">نرخ کارتن (تومان)</th>
+                  <th style="padding: 6px 6px; width: 13%; text-align: left; border: 1px solid #1d4ed8;">نرخ پاکت (تومان)</th>
+                  <th style="padding: 6px 6px; width: 13%; text-align: left; border: 1px solid #1d4ed8;">نرخ باکس (تومان)</th>
+                  <th style="padding: 6px 6px; width: 13%; text-align: left; font-weight: 900; border: 1px solid #1d4ed8;">نرخ کارتن (تومان)</th>
                 </tr>
               </thead>
               <tbody>
                 ${pageProducts.map((p, idx) => {
                   const globalIdx = pageIdx * ITEMS_PER_PAGE + idx + 1;
+                  const richOverride = getProductRichOverride(p.id);
+                  const showCarton = (richOverride?.hasCarton ?? p.hasCarton) !== false && !(richOverride?.isBoxOnly ?? p.isBoxOnly);
+                  const showBox = (richOverride?.hasBox ?? p.hasBox) !== false;
+                  const showPack = Boolean(richOverride?.hasPack ?? p.hasPack);
+                  const packsPerBox = p.packsPerBox || 10;
+                  const boxesPerCarton = p.boxesPerCarton || 50;
+                  const effectivePackPrice = (richOverride?.packPrice && Number(richOverride.packPrice) > 0)
+                    ? Number(richOverride.packPrice)
+                    : (p.packPrice && p.packPrice > 0
+                        ? p.packPrice
+                        : (p.boxPrice ? Math.round(p.boxPrice / packsPerBox) : 0));
+                  const packagingText = showCarton
+                    ? `${formatNumberFa(boxesPerCarton)} باکس`
+                    : showBox
+                    ? `باکس (${formatNumberFa(packsPerBox)} پاکت)`
+                    : 'پاکتی';
+                  const holoText = p.hologram && p.hologram !== 'بدون هولوگرام' && p.hologram !== 'ندارد'
+                    ? `<div style="font-size: 7.5px; color: #047857; font-weight: bold;">${p.hologram}</div>`
+                    : '';
                   return `
                     <tr style="border-bottom: 1px solid #e2e8f0; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
                       <td style="padding: 4px 4px; text-align: center; color: #64748b; border: 1px solid #e2e8f0;">${globalIdx}</td>
@@ -136,10 +157,14 @@ export async function generatePriceListPdf(products: CigaretteProduct[], brandFi
                         <strong style="color: #0f172a; font-size: 9.5px;">${p.nameFa}</strong>
                         <div style="font-size: 8px; color: #64748b;">${p.nameEn || ''} • ${p.brand}</div>
                       </td>
-                      <td style="padding: 4px 4px; text-align: center; color: #334155; border: 1px solid #e2e8f0; font-size: 8.5px;">${p.origin}</td>
-                      <td style="padding: 4px 4px; text-align: center; color: #475569; border: 1px solid #e2e8f0; font-size: 8.5px;">${p.isBoxOnly ? 'تک باکس' : `${formatNumberFa(p.boxesPerCarton)} باکس`}</td>
-                      <td style="padding: 4px 6px; text-align: left; font-weight: bold; color: #1e293b; border: 1px solid #e2e8f0; font-size: 9px;">${formatToman(p.boxPrice)}</td>
-                      <td style="padding: 4px 6px; text-align: left; font-weight: 900; color: #1d4ed8; border: 1px solid #e2e8f0; font-size: 9.5px;">${p.cartonPrice > 0 ? formatToman(p.cartonPrice) : '—'}</td>
+                      <td style="padding: 4px 4px; text-align: center; color: #334155; border: 1px solid #e2e8f0; font-size: 8.5px;">
+                        <div>${p.origin || '—'}</div>
+                        ${holoText}
+                      </td>
+                      <td style="padding: 4px 4px; text-align: center; color: #475569; border: 1px solid #e2e8f0; font-size: 8.5px;">${packagingText}</td>
+                      <td style="padding: 4px 6px; text-align: left; font-weight: bold; color: ${showPack && effectivePackPrice > 0 ? '#047857' : '#94a3b8'}; border: 1px solid #e2e8f0; font-size: 8.5px;">${showPack && effectivePackPrice > 0 ? formatToman(effectivePackPrice) : '—'}</td>
+                      <td style="padding: 4px 6px; text-align: left; font-weight: bold; color: ${showBox && p.boxPrice > 0 ? '#1e293b' : '#94a3b8'}; border: 1px solid #e2e8f0; font-size: 9px;">${showBox && p.boxPrice > 0 ? formatToman(p.boxPrice) : '—'}</td>
+                      <td style="padding: 4px 6px; text-align: left; font-weight: 900; color: ${showCarton && p.cartonPrice > 0 ? '#1d4ed8' : '#94a3b8'}; border: 1px solid #e2e8f0; font-size: 9.5px;">${showCarton && p.cartonPrice > 0 ? formatToman(p.cartonPrice) : '—'}</td>
                     </tr>
                   `;
                 }).join('')}
@@ -306,8 +331,24 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
           </thead>
           <tbody>
             ${invoice.items.map((item, idx) => {
-              const unitPrice = item.unit === 'carton' ? item.product.cartonPrice : item.product.boxPrice;
+              const richOverride = getProductRichOverride(item.product.id);
+              const packsPerBox = item.product.packsPerBox || 10;
+              const pPrice = (richOverride?.packPrice && Number(richOverride.packPrice) > 0)
+                ? Number(richOverride.packPrice)
+                : (item.product.packPrice && item.product.packPrice > 0
+                    ? item.product.packPrice
+                    : (item.product.boxPrice ? Math.round(item.product.boxPrice / packsPerBox) : 0));
+              const unitPrice = item.unit === 'carton'
+                ? item.product.cartonPrice
+                : item.unit === 'box'
+                ? item.product.boxPrice
+                : pPrice;
               const itemTotal = unitPrice * item.quantity;
+              const unitText = item.unit === 'carton'
+                ? `کارتن (${formatNumberFa(item.product.boxesPerCarton || 50)} باکسی)`
+                : item.unit === 'box'
+                ? `باکس (${formatNumberFa(packsPerBox)} پاکتی)`
+                : 'پاکت';
               return `
                 <tr style="border-bottom: 1px solid #e2e8f0; background: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
                   <td style="padding: 6px 4px; text-align: center; color: #64748b; border: 1px solid #e2e8f0;">${idx + 1}</td>
@@ -315,7 +356,7 @@ export async function generateInvoicePdf(invoice: OrderInvoice): Promise<boolean
                     <strong style="color: #0f172a; font-size: 10.5px;">${item.product.nameFa}</strong>
                     <div style="font-size: 8.5px; color: #64748b;">${item.product.brand} - ${item.product.origin}</div>
                   </td>
-                  <td style="padding: 6px 4px; text-align: center; border: 1px solid #e2e8f0; font-size: 9.5px;">${item.unit === 'carton' ? `کارتن (${item.product.boxesPerCarton} باکسی)` : 'باکس (۱۰ تایی)'}</td>
+                  <td style="padding: 6px 4px; text-align: center; border: 1px solid #e2e8f0; font-size: 9.5px;">${unitText}</td>
                   <td style="padding: 6px 4px; text-align: center; font-weight: bold; font-size: 10px; border: 1px solid #e2e8f0;">${formatNumberFa(item.quantity)}</td>
                   <td style="padding: 6px 6px; text-align: left; border: 1px solid #e2e8f0; font-size: 9.5px;">${formatToman(unitPrice)}</td>
                   <td style="padding: 6px 6px; text-align: left; font-weight: bold; color: #1d4ed8; font-size: 10px; border: 1px solid #e2e8f0;">${formatToman(itemTotal)}</td>
@@ -545,13 +586,29 @@ function fallbackDownloadInvoice(invoice: OrderInvoice, config: any) {
       </thead>
       <tbody>
         ${invoice.items.map((item, idx) => {
-          const unitPrice = item.unit === 'carton' ? item.product.cartonPrice : item.product.boxPrice;
+          const richOverride = getProductRichOverride(item.product.id);
+          const packsPerBox = item.product.packsPerBox || 10;
+          const pPrice = (richOverride?.packPrice && Number(richOverride.packPrice) > 0)
+            ? Number(richOverride.packPrice)
+            : (item.product.packPrice && item.product.packPrice > 0
+                ? item.product.packPrice
+                : (item.product.boxPrice ? Math.round(item.product.boxPrice / packsPerBox) : 0));
+          const unitPrice = item.unit === 'carton'
+            ? item.product.cartonPrice
+            : item.unit === 'box'
+            ? item.product.boxPrice
+            : pPrice;
           const itemTotal = unitPrice * item.quantity;
+          const unitText = item.unit === 'carton'
+            ? `کارتن (${formatNumberFa(item.product.boxesPerCarton || 50)} باکسی)`
+            : item.unit === 'box'
+            ? `باکس (${formatNumberFa(packsPerBox)} پاکتی)`
+            : 'پاکت';
           return `
             <tr>
               <td style="text-align: center;">${idx + 1}</td>
               <td><strong>${item.product.nameFa}</strong><div style="font-size: 10px; color: #64748b;">${item.product.brand} - ${item.product.origin}</div></td>
-              <td style="text-align: center;">${item.unit === 'carton' ? `کارتن (${item.product.boxesPerCarton} باکسی)` : 'باکس (۱۰ تایی)'}</td>
+              <td style="text-align: center;">${unitText}</td>
               <td style="text-align: center; font-weight: bold;">${formatNumberFa(item.quantity)}</td>
               <td style="text-align: left;">${formatToman(unitPrice)}</td>
               <td style="text-align: left; font-weight: bold; color: #1d4ed8;">${formatToman(itemTotal)}</td>

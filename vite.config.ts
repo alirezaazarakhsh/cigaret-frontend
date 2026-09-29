@@ -2,12 +2,34 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'path';
+import { getPosSessionsRealtimeHub } from './src/server/posSessionsWs';
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
     react(),
-    tailwindcss()
+    tailwindcss(),
+    {
+      name: 'pos-sessions-realtime-ws',
+      configureServer(server) {
+        const hub = getPosSessionsRealtimeHub();
+        if (server.httpServer) {
+          hub.attachToServer(server.httpServer as any);
+        }
+        server.middlewares.use((req, res, next) => {
+          hub.handleHttpRequest(req, res, next);
+        });
+      },
+      configurePreviewServer(server) {
+        const hub = getPosSessionsRealtimeHub();
+        if (server.httpServer) {
+          hub.attachToServer(server.httpServer as any);
+        }
+        server.middlewares.use((req, res, next) => {
+          hub.handleHttpRequest(req, res, next);
+        });
+      },
+    }
   ],
   server: {
     port: 3000,

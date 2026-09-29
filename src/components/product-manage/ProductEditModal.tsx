@@ -57,7 +57,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
     moq: 1,
     image: '',
     barcode: '',
-    badge: 'بار تازه',
+    badge: '',
     hologram: 'اورجینال اروپایی',
     isAvailable: true,
     description: '',
@@ -128,7 +128,7 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
         moqBox: 0,
         image: 'https://images.unsplash.com/photo-1527061011665-3652c757a4d4?auto=format&fit=crop&w=600&q=80',
         barcode: String(Math.floor(1000000000000 + Math.random() * 9000000000000)),
-        badge: 'بار تازه',
+        badge: '',
         hologram: 'اورجینال اروپایی',
         isAvailable: true,
         tierDiscounts: [],
@@ -399,12 +399,13 @@ export const ProductEditModal: React.FC<ProductEditModalProps> = ({
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-bold text-slate-900"
                   >
                     <option value="">بدون برچسب</option>
-                    <option value="پرفروش">پرفروش</option>
-                    <option value="بار تازه">بار تازه</option>
                     <option value="وارداتی اصل">وارداتی اصل</option>
-                    <option value="تخفیف تیراژ">تخفیف تیراژ</option>
+                    <option value="پیشنهاد ویژه">پیشنهاد ویژه</option>
+                    <option value="پرفروش‌ترین">پرفروش‌ترین</option>
+                    <option value="تخفیف ویژه">تخفیف ویژه</option>
+                    <option value="جدیدترین">جدیدترین</option>
+                    <option value="بار تازه">بار تازه</option>
                     <option value="موجودی محدود">موجودی محدود</option>
-                    <option value="جدید">جدید</option>
                   </select>
                 </div>
               </div>

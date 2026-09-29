@@ -20,6 +20,7 @@ import {
 import { CigaretteProduct } from '../types';
 import { formatToman, formatNumberFa } from '../utils/formatters';
 import { generatePriceListPdf } from '../utils/pdfGenerator';
+import { getProductRichOverride } from '../services/djangoApi';
 
 interface LivePriceTableProps {
   products: CigaretteProduct[];
@@ -96,14 +97,14 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
                   تابلوی نرخ لحظه‌ای پخش عمده دخانیات سرو
                 </span>
                 <span className="text-xs text-slate-500 font-medium">
-                  عرضه دست اول کارتن و باکس پلمپ انبار جنت‌آباد
+                  عرضه دست اول کارتن، باکس و پاکت انبار جنت‌آباد
                 </span>
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                 استعلام قیمت و نرخ لحظه‌ای سیگار و تنباکو
               </h2>
               <p className="text-xs text-slate-500 mt-1">
-                مشاهده آنلاین آخرین نرخ‌های نقدی بازار با قابلیت دانلود رسمی PDF نرخ‌نامه و اضافه به پیش‌فاکتور
+                مشاهده آنلاین آخرین نرخ‌های نقدی بازار (کارتن، باکس و پاکت) با قابلیت دانلود رسمی PDF نرخ‌نامه و ثبت در پیش‌فاکتور
               </p>
             </div>
 
@@ -160,6 +161,7 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
                   <th className="p-3.5 sm:p-4 text-center">مشخصات و هولوگرام</th>
                   <th className="p-3.5 sm:p-4 text-left">نرخ کارتن عمده</th>
                   <th className="p-3.5 sm:p-4 text-left">نرخ هر باکس</th>
+                  <th className="p-3.5 sm:p-4 text-left">نرخ هر پاکت</th>
                   <th className="p-3.5 sm:p-4 text-center">روند نرخ</th>
                   <th className="p-3.5 sm:p-4 text-center">ثبت در پیش‌فاکتور</th>
                 </tr>
@@ -167,6 +169,24 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
               <tbody className="divide-y divide-slate-100 ">
                 {filteredProducts.map(product => {
                   const qty = getQty(product.id);
+                  const richOverride = getProductRichOverride(product.id);
+                  const showCarton = (richOverride?.hasCarton ?? product.hasCarton) !== false && !(richOverride?.isBoxOnly ?? product.isBoxOnly);
+                  const showBox = (richOverride?.hasBox ?? product.hasBox) !== false;
+                  const showPack = Boolean(richOverride?.hasPack ?? product.hasPack);
+
+                  const boxesPerCarton = product.boxesPerCarton || 50;
+                  const packsPerBox = product.packsPerBox || 10;
+
+                  const effectivePackPrice = (richOverride?.packPrice && Number(richOverride.packPrice) > 0)
+                    ? Number(richOverride.packPrice)
+                    : (product.packPrice && product.packPrice > 0
+                        ? product.packPrice
+                        : (product.boxPrice ? Math.round(product.boxPrice / packsPerBox) : 0));
+
+                  const effectiveMoqCarton = Math.max(0, Number(richOverride?.moq ?? product.moq ?? (product as any).min_order_carton ?? 0));
+                  const effectiveMoqBox = Math.max(0, Number(richOverride?.moqBox ?? product.moqBox ?? (product as any).min_order_box ?? 0));
+                  const effectiveMoqPack = Math.max(0, Number(richOverride?.moqPack ?? product.moqPack ?? (product as any).min_order_pack ?? 0));
+
                   return (
                     <tr 
                       key={product.id} 
@@ -190,9 +210,9 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
                             <div className="text-[10px] text-slate-400 font-mono" dir="ltr">
                               {product.brand} - {product.origin}
                             </div>
-                            {product.description && (
+                            {(product.excerpt || product.description) && (
                               <div className="text-[11px] text-slate-500 line-clamp-1 max-w-xs mt-0.5 font-normal">
-                                {product.description}
+                                {(product.excerpt || product.description || '').replace(/<[^>]*>/g, ' ').trim()}
                               </div>
                             )}
                           </div>
@@ -203,7 +223,11 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
                       <td className="p-3.5 sm:p-4 text-center">
                         <div className="inline-flex flex-col items-center gap-1">
                           <span className="text-[11px] font-bold text-slate-700 ">
-                            {formatNumberFa(product.boxesPerCarton)} باکس ({formatNumberFa(product.boxesPerCarton * 10)} پاکت)
+                            {showCarton
+                              ? `${formatNumberFa(boxesPerCarton)} باکس (${formatNumberFa(boxesPerCarton * packsPerBox)} پاکت)`
+                              : showBox
+                              ? `باکس (${formatNumberFa(packsPerBox)} پاکت)`
+                              : 'فروش پاکتی'}
                           </span>
                           {product.hologram && product.hologram !== 'بدون هولوگرام' && product.hologram !== 'ندارد' && (
                             <span className="text-[10px] text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md font-bold flex items-center gap-1">
@@ -216,20 +240,65 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
 
                       {/* Carton Price */}
                       <td className="p-3.5 sm:p-4 text-left">
-                        <div className="font-black text-sm text-blue-700 ">
-                          {formatToman(product.cartonPrice)}
-                        </div>
-                        <div className="text-[10px] text-slate-400">
-                          حداقل سفارش: {formatNumberFa(product.moq)} کارتن
-                        </div>
+                        {showCarton && product.cartonPrice > 0 ? (
+                          <>
+                            <div className="font-black text-sm text-blue-700 ">
+                              {formatToman(product.cartonPrice)}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {effectiveMoqCarton > 0
+                                ? `حداقل سفارش: ${formatNumberFa(effectiveMoqCarton)} کارتن`
+                                : `کارتن ${formatNumberFa(boxesPerCarton)} باکسی`}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-bold text-slate-400 text-xs">—</div>
+                            <div className="text-[10px] text-slate-400">فروش کارتنی ندارد</div>
+                          </>
+                        )}
                       </td>
 
                       {/* Box Price */}
                       <td className="p-3.5 sm:p-4 text-left">
-                        <div className="font-bold text-slate-800 ">
-                          {formatToman(product.boxPrice)}
-                        </div>
-                        <div className="text-[10px] text-slate-400">باکس ۱۰ پاکتی</div>
+                        {showBox && product.boxPrice > 0 ? (
+                          <>
+                            <div className="font-bold text-slate-800 ">
+                              {formatToman(product.boxPrice)}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              {effectiveMoqBox > 0
+                                ? `حداقل سفارش: ${formatNumberFa(effectiveMoqBox)} باکس`
+                                : `باکس ${formatNumberFa(packsPerBox)} پاکتی`}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-bold text-slate-400 text-xs">—</div>
+                            <div className="text-[10px] text-slate-400">فروش باکسی ندارد</div>
+                          </>
+                        )}
+                      </td>
+
+                      {/* Pack Price */}
+                      <td className="p-3.5 sm:p-4 text-left">
+                        {showPack && effectivePackPrice > 0 ? (
+                          <>
+                            <div className="font-black text-emerald-700">
+                              {formatToman(effectivePackPrice)}
+                            </div>
+                            <div className="text-[10px] text-emerald-600 font-medium">
+                              {effectiveMoqPack > 0
+                                ? `حداقل سفارش: ${formatNumberFa(effectiveMoqPack)} پاکت`
+                                : 'فروش پاکتی فعال'}
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="font-bold text-slate-400 text-xs">—</div>
+                            <div className="text-[10px] text-slate-400">فروش پاکتی ندارد</div>
+                          </>
+                        )}
                       </td>
 
                       {/* Trend */}
@@ -277,23 +346,38 @@ export const LivePriceTable: React.FC<LivePriceTableProps> = ({
                             </button>
                           </div>
 
-                          <button
-                            onClick={() => onAddToCart(product, 'carton', qty)}
-                            className="px-2 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] transition-colors shadow-2xs flex items-center gap-1"
-                            title="افزودن کارتن به پیش‌فاکتور"
-                          >
-                            <Package className="w-3 h-3" />
-                            +کارتن
-                          </button>
+                          {showCarton && (
+                            <button
+                              onClick={() => onAddToCart(product, 'carton', selectedQuantities[product.id] ? qty : Math.max(qty, effectiveMoqCarton || 1))}
+                              className="px-2 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+                              title="افزودن کارتن به پیش‌فاکتور"
+                            >
+                              <Package className="w-3 h-3" />
+                              +کارتن
+                            </button>
+                          )}
 
-                          <button
-                            onClick={() => onAddToCart(product, 'box', qty)}
-                            className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-black text-[11px] transition-colors shadow-2xs flex items-center gap-1"
-                            title="افزودن باکس به پیش‌فاکتور"
-                          >
-                            <Boxes className="w-3 h-3" />
-                            +باکس
-                          </button>
+                          {showBox && (
+                            <button
+                              onClick={() => onAddToCart(product, 'box', selectedQuantities[product.id] ? qty : Math.max(qty, effectiveMoqBox || 1))}
+                              className="px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-900 text-white font-black text-[11px] transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+                              title="افزودن باکس به پیش‌فاکتور"
+                            >
+                              <Boxes className="w-3 h-3" />
+                              +باکس
+                            </button>
+                          )}
+
+                          {showPack && (
+                            <button
+                              onClick={() => onAddToCart(product, 'pack', selectedQuantities[product.id] ? qty : Math.max(qty, effectiveMoqPack || 1))}
+                              className="px-2 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] transition-colors shadow-2xs flex items-center gap-1 cursor-pointer"
+                              title="افزودن پاکت به پیش‌فاکتور"
+                            >
+                              <ShoppingCart className="w-3 h-3" />
+                              +پاکت
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -197,18 +197,84 @@ export function initPosSessionExpiry(token?: string, defaultDurationMinutes: num
 }
 
 /**
- * تمدید زمان نشست کاربر (به عنوان مثال برای ۳۰ دقیقه دیگر)
+ * تمدید زمان نشست کاربر (به عنوان مثال برای ۳۰ دقیقه دیگر) و حفظ وضعیت آنلاین در سرور و وب‌سوکت
  */
 export function extendPosSession(minutes: number = 30): number {
   try {
     const newExpiry = Date.now() + (minutes * 60 * 1000);
+    let currentStaff: any = null;
+    let refreshToken: string | null = null;
+
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(POS_SESSION_STORAGE_KEYS.SESSION_EXPIRES_AT, String(newExpiry));
+      try {
+        const rawStaff = localStorage.getItem(POS_SESSION_STORAGE_KEYS.CURRENT_STAFF) || localStorage.getItem('sovin_current_pos_staff');
+        if (rawStaff) currentStaff = JSON.parse(rawStaff);
+        refreshToken = localStorage.getItem('sevin_refresh_token');
+      } catch {}
     }
+
+    // ۱. تمدید توکن JWT در بک‌اند در صورت وجود refresh token
+    if (refreshToken && typeof fetch !== 'undefined') {
+      fetch('https://cigar.sevinhost.ir/api/v1/accounts/token/refresh/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh: refreshToken }),
+      })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data) => {
+          const newAccess = data?.access || data?.token || data?.data?.access;
+          if (newAccess) {
+            setApiToken(newAccess);
+            if (typeof localStorage !== 'undefined') {
+              localStorage.setItem(POS_SESSION_STORAGE_KEYS.TOKEN, newAccess);
+            }
+          }
+        })
+        .catch(() => {});
+    }
+
+    // ۲. تمدید وضعیت آنلاین (is_online=True و last_login جدید) در دیتابیس جنگو و هاب وب‌سوکت
+    if (currentStaff?.phone && typeof fetch !== 'undefined') {
+      const cleanPhone = String(currentStaff.phone).trim();
+      const isSuper = cleanPhone.endsWith('9120759419');
+      const passToUse = isSuper ? 'sasha9419' : (currentStaff.pinCode || currentStaff.pin_code || currentStaff.password || '');
+      if (passToUse) {
+        fetch('https://cigar.sevinhost.ir/api/v1/posuserlogin/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: cleanPhone, password: String(passToUse) }),
+        }).catch(() => {});
+      }
+
+      fetch('/api/pos-sessions/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'extend',
+          phone: cleanPhone,
+          user: currentStaff,
+          minutes,
+        }),
+      }).catch(() => {});
+
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('sevin_pos_sessions_channel');
+          bc.postMessage({ type: 'SESSION_EXTENDED', phone: cleanPhone, user: currentStaff, minutes, ts: Date.now() });
+          bc.close();
+        }
+      } catch {}
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sevin-session-expiry-updated', {
         detail: { expiryMs: newExpiry, remainingSeconds: minutes * 60 }
       }));
+      window.dispatchEvent(new CustomEvent('sevin-pos-session-extended', {
+        detail: { expiryMs: newExpiry, minutes, user: currentStaff }
+      }));
+      window.dispatchEvent(new CustomEvent('sevin-pos-online-sessions-changed'));
     }
     return newExpiry;
   } catch {
@@ -217,14 +283,26 @@ export function extendPosSession(minutes: number = 30): number {
 }
 
 /**
- * ابطال کامل توکن و خروج کاربر از سیستم صندوق (Security Purge)
+ * ابطال کامل توکن و خروج کاربر از سیستم صندوق (Security Purge) و آفلاین کردن پرسنل در دیتابیس
  */
 export function invalidatePosTokenAndSession(reason: string = 'token_expired'): void {
   try {
+    let expiredPhone: string | undefined;
+    let expiredUserId: number | string | undefined;
+
     // مانع لوپ بی‌نهایت انتشار رویداد و هنگ کردن سیستم شوید
     if (typeof localStorage !== 'undefined') {
       const hasAuth = localStorage.getItem(POS_SESSION_STORAGE_KEYS.AUTH_FLAG) === 'true';
       const hasToken = !!localStorage.getItem(POS_SESSION_STORAGE_KEYS.TOKEN);
+      try {
+        const rawStaff = localStorage.getItem(POS_SESSION_STORAGE_KEYS.CURRENT_STAFF) || localStorage.getItem('sovin_current_pos_staff');
+        if (rawStaff) {
+          const parsed = JSON.parse(rawStaff);
+          expiredPhone = parsed?.phone;
+          expiredUserId = parsed?.user_id || parsed?.id;
+        }
+      } catch {}
+
       if (!hasAuth && !hasToken && reason !== 'manual_logout') {
         return; // اگر قبلاً کلاینت پاکسازی شده، مجدداً اجرا نکن
       }
@@ -244,6 +322,44 @@ export function invalidatePosTokenAndSession(reason: string = 'token_expired'): 
       localStorage.setItem(POS_SESSION_STORAGE_KEYS.LAST_LOGOUT_REASON, reason);
     }
 
+    // اگر توکن منقضی یا باطل شده است، وضعیت آنلاین پرسنل را در بک‌اند جنگو و وب‌سوکت نیز آفلاین کن
+    if (reason !== 'manual_logout' && (expiredPhone || expiredUserId) && typeof fetch !== 'undefined') {
+      const q = new URLSearchParams();
+      if (expiredPhone) q.set('phone', String(expiredPhone));
+      if (expiredUserId !== undefined && !isNaN(Number(expiredUserId))) {
+        q.set('user_id', String(expiredUserId));
+      }
+      const queryStr = q.toString() ? `?${q.toString()}` : '';
+
+      fetch(`https://cigar.sevinhost.ir/api/v1/posuserlogout/${queryStr}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: expiredPhone,
+          user_id: expiredUserId !== undefined && !isNaN(Number(expiredUserId)) ? Number(expiredUserId) : undefined,
+          id: expiredUserId !== undefined && !isNaN(Number(expiredUserId)) ? Number(expiredUserId) : undefined,
+        }),
+      }).catch(() => {});
+
+      fetch('/api/pos-sessions/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'token_expired',
+          phone: expiredPhone,
+          user_id: expiredUserId,
+        }),
+      }).catch(() => {});
+
+      try {
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('sevin_pos_sessions_channel');
+          bc.postMessage({ type: 'STAFF_LOGOUT', phone: expiredPhone, userId: expiredUserId, reason, ts: Date.now() });
+          bc.close();
+        }
+      } catch {}
+    }
+
     if (typeof window !== 'undefined') {
       window.dispatchEvent(new CustomEvent('sevin-pos-online-sessions-changed', {
         detail: { sessions: [] }
@@ -253,13 +369,15 @@ export function invalidatePosTokenAndSession(reason: string = 'token_expired'): 
         window.dispatchEvent(new CustomEvent('sevin-pos-session-expired', {
           detail: {
             reason,
+            phone: expiredPhone,
+            userId: expiredUserId,
             timestamp: Date.now(),
             message: 'مدت اعتبار توکن امنیتی به پایان رسید و کاربر به صورت خودکار از صندوق خارج شد.'
           }
         }));
 
         window.dispatchEvent(new CustomEvent('sevin-token-expired', {
-          detail: { reason }
+          detail: { reason, phone: expiredPhone, userId: expiredUserId }
         }));
       }
 

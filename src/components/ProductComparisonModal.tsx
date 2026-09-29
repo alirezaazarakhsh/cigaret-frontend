@@ -1,6 +1,7 @@
 import React from 'react';
 import { CigaretteProduct } from '../types';
 import { formatToman, formatNumberFa } from '../utils/formatters';
+import { getProductRichOverride } from '../services/djangoApi';
 import { X, Check, XCircle, ShieldCheck } from 'lucide-react';
 
 interface ProductComparisonModalProps {
@@ -8,7 +9,7 @@ interface ProductComparisonModalProps {
   onClose: () => void;
   selectedProducts: CigaretteProduct[];
   onRemoveProduct: (productId: string) => void;
-  onAddToCart: (product: CigaretteProduct, unit: 'carton' | 'box', quantity: number) => void;
+  onAddToCart: (product: CigaretteProduct, unit: 'carton' | 'box' | 'pack', quantity: number) => void;
 }
 
 export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
@@ -149,50 +150,119 @@ export const ProductComparisonModal: React.FC<ProductComparisonModalProps> = ({
                   </tr>
                   <tr>
                     <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">نرخ کارتن پلمپ</td>
-                    {selectedProducts.map((p) => (
-                      <td key={p.id} className="p-4 font-black text-blue-600 text-sm">{formatToman(p.cartonPrice)}</td>
-                    ))}
+                    {selectedProducts.map((p) => {
+                      const ov = getProductRichOverride(p.id);
+                      const showCarton = (ov?.hasCarton ?? p.hasCarton) !== false && !(ov?.isBoxOnly ?? p.isBoxOnly);
+                      return (
+                        <td key={p.id} className="p-4 font-black text-blue-600 text-sm">
+                          {showCarton && p.cartonPrice > 0 ? formatToman(p.cartonPrice) : '—'}
+                        </td>
+                      );
+                    })}
                   </tr>
                   <tr>
                     <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">تعداد در کارتن</td>
                     {selectedProducts.map((p) => (
-                      <td key={p.id} className="p-4 font-bold text-slate-800">{formatNumberFa(p.boxesPerCarton)} باکس در کارتن</td>
+                      <td key={p.id} className="p-4 font-bold text-slate-800">{formatNumberFa(p.boxesPerCarton || 50)} باکس ({formatNumberFa((p.boxesPerCarton || 50) * (p.packsPerBox || 10))} پاکت)</td>
                     ))}
                   </tr>
                   <tr>
                     <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">نرخ هر باکس</td>
-                    {selectedProducts.map((p) => (
-                      <td key={p.id} className="p-4 font-bold text-slate-800">{formatToman(p.boxPrice)}</td>
-                    ))}
+                    {selectedProducts.map((p) => {
+                      const ov = getProductRichOverride(p.id);
+                      const showBox = (ov?.hasBox ?? p.hasBox) !== false;
+                      return (
+                        <td key={p.id} className="p-4 font-bold text-slate-800">
+                          {showBox && p.boxPrice > 0 ? formatToman(p.boxPrice) : '—'}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                  <tr>
+                    <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">نرخ هر پاکت</td>
+                    {selectedProducts.map((p) => {
+                      const ov = getProductRichOverride(p.id);
+                      const showPack = Boolean(ov?.hasPack ?? p.hasPack);
+                      const pPrice = (ov?.packPrice && Number(ov.packPrice) > 0)
+                        ? Number(ov.packPrice)
+                        : (p.packPrice || (p.boxPrice ? Math.round(p.boxPrice / (p.packsPerBox || 10)) : 0));
+                      return (
+                        <td key={p.id} className="p-4 font-black text-emerald-700">
+                          {showPack && pPrice > 0 ? formatToman(pPrice) : '—'}
+                        </td>
+                      );
+                    })}
                   </tr>
                   <tr>
                     <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">حداقل سفارش (MOQ)</td>
-                    {selectedProducts.map((p) => (
-                      <td key={p.id} className="p-4 font-bold text-slate-700">{formatNumberFa(p.moq || 1)} کارتن</td>
-                    ))}
+                    {selectedProducts.map((p) => {
+                      const ov = getProductRichOverride(p.id);
+                      const showCarton = (ov?.hasCarton ?? p.hasCarton) !== false && !(ov?.isBoxOnly ?? p.isBoxOnly);
+                      const showBox = (ov?.hasBox ?? p.hasBox) !== false;
+                      const showPack = Boolean(ov?.hasPack ?? p.hasPack);
+                      const mCarton = Math.max(1, Number(ov?.moq ?? p.moq ?? 1));
+                      const mBox = Math.max(1, Number(ov?.moqBox ?? p.moqBox ?? 1));
+                      const mPack = Math.max(1, Number(ov?.moqPack ?? p.moqPack ?? 1));
+                      return (
+                        <td key={p.id} className="p-4 font-bold text-slate-700 space-y-1">
+                          {showCarton && <div>کارتن: {formatNumberFa(mCarton)} عدد</div>}
+                          {showBox && <div>باکس: {formatNumberFa(mBox)} عدد</div>}
+                          {showPack && <div className="text-emerald-700">پاکت: {formatNumberFa(mPack)} عدد</div>}
+                        </td>
+                      );
+                    })}
                   </tr>
                   <tr>
                     <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">وضعیت اصالت و هولوگرام</td>
                     {selectedProducts.map((p) => (
                       <td key={p.id} className="p-4">
                         <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-xl">
-                          <ShieldCheck className="w-3.5 h-3.5" /> اورجینال و تست‌نشده
+                          <ShieldCheck className="w-3.5 h-3.5" /> {p.hologram && p.hologram !== 'بدون هولوگرام' ? p.hologram : 'اورجینال و تست‌نشده'}
                         </span>
                       </td>
                     ))}
                   </tr>
                   <tr>
                     <td className="p-4 font-bold text-slate-600 bg-slate-50 sticky right-0">اقدام سریع</td>
-                    {selectedProducts.map((p) => (
-                      <td key={p.id} className="p-4">
-                        <button
-                          onClick={() => onAddToCart(p, 'carton', p.moq || 1)}
-                          className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
-                        >
-                          افزودن کارتن به سبد خرید
-                        </button>
-                      </td>
-                    ))}
+                    {selectedProducts.map((p) => {
+                      const ov = getProductRichOverride(p.id);
+                      const showCarton = (ov?.hasCarton ?? p.hasCarton) !== false && !(ov?.isBoxOnly ?? p.isBoxOnly);
+                      const showBox = (ov?.hasBox ?? p.hasBox) !== false;
+                      const showPack = Boolean(ov?.hasPack ?? p.hasPack);
+                      const mCarton = Math.max(1, Number(ov?.moq ?? p.moq ?? 1));
+                      const mBox = Math.max(1, Number(ov?.moqBox ?? p.moqBox ?? 1));
+                      const mPack = Math.max(1, Number(ov?.moqPack ?? p.moqPack ?? 1));
+                      return (
+                        <td key={p.id} className="p-4">
+                          <div className="flex flex-wrap gap-1.5">
+                            {showCarton && (
+                              <button
+                                onClick={() => onAddToCart(p, 'carton', mCarton)}
+                                className="flex-1 py-2 px-2.5 bg-blue-600 hover:bg-blue-700 text-white font-black text-[11px] rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                + سفارش کارتن
+                              </button>
+                            )}
+                            {showBox && (
+                              <button
+                                onClick={() => onAddToCart(p, 'box', mBox)}
+                                className="flex-1 py-2 px-2.5 bg-slate-800 hover:bg-slate-900 text-white font-black text-[11px] rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                + سفارش باکس
+                              </button>
+                            )}
+                            {showPack && (
+                              <button
+                                onClick={() => onAddToCart(p, 'pack', mPack)}
+                                className="flex-1 py-2 px-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black text-[11px] rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+                              >
+                                + سفارش پاکت
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      );
+                    })}
                   </tr>
                 </tbody>
               </table>

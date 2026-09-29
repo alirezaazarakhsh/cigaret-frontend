@@ -41,12 +41,9 @@ class ProductBrandListCreateAPIView(APIView):
     """
     اندپوینت مدیریت برندها با قابلیت آپلود فایل لوگو (MultiPartParser) و مشاهده پیش‌نمایش لوگو
     """
+    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
-
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsAdminUser()]
-        return [AllowAny()]
+    serializer_class = ProductBrandSerializer
 
     @swagger_auto_schema(
         operation_summary="دریافت لیست برندهای کالا (عمومی)",
@@ -82,12 +79,9 @@ class ProductBrandDetailUpdateDeleteAPIView(APIView):
     """
     اندپوینت مشاهده، ویرایش (شامل جایگزینی فایل لوگو) و حذف برند
     """
+    permission_classes = [AllowAny]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
-
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsAdminUser()]
-        return [AllowAny()]
+    serializer_class = ProductBrandSerializer
 
     @swagger_auto_schema(
         operation_summary="دریافت جزئیات برند",
@@ -114,6 +108,9 @@ class ProductBrandDetailUpdateDeleteAPIView(APIView):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def patch(self, request, pk):
+        return self.put(request, pk)
+
     @swagger_auto_schema(
         operation_summary="حذف برند (مدیریت)",
         responses={200: openapi.Response('حذف موفقیت‌آمیز')}
@@ -139,8 +136,6 @@ class BrandViewSet(ModelViewSet):
         return context
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
         return [AllowAny()]
 
 
@@ -149,10 +144,9 @@ BrandDetailUpdateDeleteAPIView = ProductBrandDetailUpdateDeleteAPIView
 
 
 class CategoryListCreateAPIView(APIView):
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsAdminUser()]
-        return [AllowAny()]
+    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    serializer_class = CategorySerializer
 
     @swagger_auto_schema(
         operation_summary="دریافت لیست دسته‌بندی‌های کالاها (عمومی)",
@@ -185,10 +179,9 @@ class CategoryListCreateAPIView(APIView):
 
 
 class CategoryDetailUpdateDeleteAPIView(APIView):
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsAdminUser()]
-        return [AllowAny()]
+    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    serializer_class = CategorySerializer
 
     @swagger_auto_schema(
         operation_summary="دریافت جزئیات دسته‌بندی",
@@ -215,6 +208,9 @@ class CategoryDetailUpdateDeleteAPIView(APIView):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def patch(self, request, pk):
+        return self.put(request, pk)
+
     @swagger_auto_schema(
         operation_summary="حذف دسته‌بندی (مدیریت)",
         responses={200: openapi.Response('حذف موفقیت‌آمیز')}
@@ -226,10 +222,9 @@ class CategoryDetailUpdateDeleteAPIView(APIView):
 
 
 class HologramListCreateAPIView(APIView):
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsAdminUser()]
-        return [AllowAny()]
+    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    serializer_class = ProductHologramSerializer
 
     @swagger_auto_schema(
         operation_summary="دریافت لیست هولوگرام‌های اصالت کالا",
@@ -262,10 +257,9 @@ class HologramListCreateAPIView(APIView):
 
 
 class HologramDetailUpdateDeleteAPIView(APIView):
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsAdminUser()]
-        return [AllowAny()]
+    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    serializer_class = ProductHologramSerializer
 
     @swagger_auto_schema(
         operation_summary="دریافت جزئیات هولوگرام اصالت",
@@ -292,6 +286,9 @@ class HologramDetailUpdateDeleteAPIView(APIView):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def patch(self, request, pk):
+        return self.put(request, pk)
+
     @swagger_auto_schema(
         operation_summary="حذف هولوگرام اصالت (مدیریت)",
         responses={200: openapi.Response('حذف موفقیت‌آمیز')}
@@ -303,10 +300,9 @@ class HologramDetailUpdateDeleteAPIView(APIView):
 
 
 class ProductAttributeListCreateAPIView(APIView):
-    def get_permissions(self):
-        if self.request.method == 'POST':
-            return [IsAdminUser()]
-        return [AllowAny()]
+    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    serializer_class = ProductAttributeSerializer
 
     @swagger_auto_schema(
         operation_summary="دریافت لیست ویژگی‌ها و مشخصات فنی کالا",
@@ -339,10 +335,9 @@ class ProductAttributeListCreateAPIView(APIView):
 
 
 class ProductAttributeDetailUpdateDeleteAPIView(APIView):
-    def get_permissions(self):
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsAdminUser()]
-        return [AllowAny()]
+    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    serializer_class = ProductAttributeSerializer
 
     @swagger_auto_schema(
         operation_summary="دریافت جزئیات تعریف ویژگی",
@@ -369,6 +364,9 @@ class ProductAttributeDetailUpdateDeleteAPIView(APIView):
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+    def patch(self, request, pk):
+        return self.put(request, pk)
+
     @swagger_auto_schema(
         operation_summary="حذف تعریف ویژگی (مدیریت)",
         responses={200: openapi.Response('حذف موفقیت‌آمیز')}
@@ -380,7 +378,8 @@ class ProductAttributeDetailUpdateDeleteAPIView(APIView):
 
 
 class ProductAttributeValuesSetAPIView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @swagger_auto_schema(
         operation_summary="ثبت و بروزرسانی مقادیر ویژگی‌های فنی یک کالا (مدیریت)",
@@ -521,6 +520,8 @@ class ProductFeaturedAPIView(APIView):
 
 class ProductCreateAPIView(APIView):
     permission_classes = [AllowAny]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    serializer_class = ProductCreateUpdateSerializer
 
     @swagger_auto_schema(
         operation_summary="دریافت ساختار اولیه فرم افزودن محصول",
@@ -733,7 +734,7 @@ class ProductSyncPosStockAPIView(APIView):
 
 
 class ProductDeleteAPIView(APIView):
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
 
     @swagger_auto_schema(
         operation_summary="حذف محصول از کاتالوگ (مدیریت)",

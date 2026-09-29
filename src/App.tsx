@@ -617,19 +617,21 @@ export default function App() {
   const handleOnlineOrderDeductStock = (orderItems: CartItem[]) => {
     setProducts(prevProducts => {
       const updated = prevProducts.map(p => {
-        const item = orderItems.find(it => it.product.id === p.id);
-        if (!item) return p;
+        const matchingItems = orderItems.filter(it => it.product.id === p.id);
+        if (matchingItems.length === 0) return p;
 
         const boxesPerCarton = p.boxesPerCarton || 50;
         const packsPerBox = p.packsPerBox || 10;
 
         let deltaCartons = 0;
-        if (item.unit === 'carton') {
-          deltaCartons = item.quantity;
-        } else if (item.unit === 'box') {
-          deltaCartons = item.quantity / boxesPerCarton;
-        } else {
-          deltaCartons = item.quantity / (boxesPerCarton * packsPerBox);
+        for (const item of matchingItems) {
+          if (item.unit === 'carton') {
+            deltaCartons += item.quantity;
+          } else if (item.unit === 'box') {
+            deltaCartons += item.quantity / boxesPerCarton;
+          } else {
+            deltaCartons += item.quantity / (boxesPerCarton * packsPerBox);
+          }
         }
 
         const newStockCartons = Math.max(0, Math.round((p.stockCartons - deltaCartons) * 1000) / 1000);

@@ -22,6 +22,7 @@ import {
 import { CigaretteProduct } from '../../types';
 import { ProductCategoryItem, ProductHologramItem } from './types';
 import { formatNumberFa, formatToman } from '../../utils/formatters';
+import { mapBadgeFromDjango } from '../../services/djangoApi';
 
 interface ProductListProps {
   products: CigaretteProduct[];
@@ -553,15 +554,15 @@ export const ProductList: React.FC<ProductListProps> = ({
                                     <span className="text-slate-500">{product.origin}</span>
                                   </>
                                 )}
-                                {(product.isFeatured || (product as any).is_featured || product.badge === 'پیشنهاد ویژه') && (
+                                {(product.isFeatured || (product as any).is_featured || mapBadgeFromDjango(product.badge) === 'پیشنهاد ویژه') && (
                                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-800 text-[10px] font-black border border-amber-300">
                                     <Sparkles className="w-2.5 h-2.5 text-amber-600" />
                                     <span>پیشنهاد ویژه</span>
                                   </span>
                                 )}
-                                {product.badge && product.badge !== 'پیشنهاد ویژه' && (
+                                {mapBadgeFromDjango(product.badge) && mapBadgeFromDjango(product.badge) !== 'پیشنهاد ویژه' && (
                                   <span className="px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
-                                    {product.badge}
+                                    {mapBadgeFromDjango(product.badge)}
                                   </span>
                                 )}
                                 {product.isPosOnly ? (

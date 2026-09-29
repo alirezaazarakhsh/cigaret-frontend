@@ -37,7 +37,7 @@ import { calculateProductYoastSeo, ProductYoastSeoReport } from './seoUtils';
 import { formatNumberFa, formatTomanInWords } from '../../utils/formatters';
 import { getFrontendDomain } from '../../services/apiConfig';
 import { attributesApi, tierDiscountTemplatesApi, productsApi } from '../../services/api';
-import { sanitizeSlug, normalizeCigaretteSizeForDjango, normalizeFilterTypeForDjango, getProductRichOverride } from '../../services/djangoApi';
+import { sanitizeSlug, normalizeCigaretteSizeForDjango, normalizeFilterTypeForDjango, getProductRichOverride, mapBadgeFromDjango } from '../../services/djangoApi';
 
 interface ProductEditorPageProps {
   product: CigaretteProduct | null;
@@ -143,15 +143,23 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         ? Math.max(0, Number(richOverride.moqPack) || 0)
         : (Number(product.moqPack || (product as any).min_order_pack || 0) > 1 ? Number(product.moqPack || (product as any).min_order_pack) : 0);
 
-      const resolvedMainImage = (richOverride?.image !== undefined && richOverride.image !== '')
-        ? richOverride.image
-        : (product.image || '');
-      const resolvedGalleryImages = (richOverride?.images !== undefined && Array.isArray(richOverride.images))
-        ? [...richOverride.images]
-        : (product.images && product.images.length > 0 ? [...product.images] : []);
+      const explicitMainFromProduct =
+        (product as any).explicitFeaturedImage !== undefined
+          ? (product as any).explicitFeaturedImage
+          : (product.image && !String(product.image).includes('products/gallery/') ? product.image : '');
+      const resolvedMainImage = explicitMainFromProduct ||
+        (richOverride?.image && !String(richOverride.image).includes('products/gallery/') ? richOverride.image : '');
+      const resolvedGalleryImages = (product.images && product.images.length > 0)
+        ? [...product.images]
+        : (richOverride?.images !== undefined && Array.isArray(richOverride.images) ? [...richOverride.images] : []);
+
+      const initialBadge = product.badge !== undefined
+        ? mapBadgeFromDjango(product.badge)
+        : (richOverride?.badgeExplicit !== undefined ? mapBadgeFromDjango(richOverride.badgeExplicit) : mapBadgeFromDjango((product as any).badge));
 
       return {
         ...product,
+        badge: initialBadge,
         image: resolvedMainImage,
         barcode: product.barcode || initialBarcode || '',
         purchasePrice: product.purchasePrice !== undefined ? Number(product.purchasePrice) : 0,
@@ -202,7 +210,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
       barcode: initialBarcode || '',
       flavor: 'طعم کلاسیک توتون',
       filterType: 'white',
-      badge: 'بار تازه',
+      badge: '',
       priceTrend: 'stable',
       lastPriceUpdate: new Date().toLocaleDateString('fa-IR'),
       hologram: 'شرکتی اصل',
@@ -263,7 +271,10 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
           purchasePrice: fresh.purchasePrice ?? prev.purchasePrice,
           stockCartons: fresh.stockCartons ?? prev.stockCartons,
           stockBoxes: fresh.stockBoxes ?? prev.stockBoxes,
-          image: fresh.image !== undefined ? fresh.image : (prev.image || override?.image || ''),
+          image:
+            (fresh as any).explicitFeaturedImage !== undefined
+              ? (fresh as any).explicitFeaturedImage
+              : (fresh.image && !String(fresh.image).includes('products/gallery/') ? fresh.image : prev.image || ''),
           excerpt: fresh.excerpt || prev.excerpt || '',
           description: fresh.description || prev.description || '',
           moq: fresh.moq !== undefined ? (fresh.moq > 1 ? fresh.moq : 0) : (prev.moq ?? 0),
@@ -860,9 +871,7 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
         images: Array.isArray(formData.images) ? formData.images : (product?.images || []),
         barcode: formData.barcode?.trim() || '',
         flavor: formData.flavor?.trim() || 'ساده',
-        badge: (!formData.isFeatured && (formData.badge === 'پیشنهاد ویژه' || formData.badge === 'special' || formData.badge === 'تخفیف ویژه'))
-          ? 'بار تازه'
-          : (formData.badge || 'بار تازه'),
+        badge: mapBadgeFromDjango(formData.badge),
         priceTrend: formData.priceTrend || 'stable',
         lastPriceUpdate: new Date().toLocaleDateString('fa-IR'),
         hologram: formData.hologram || 'شرکتی اصل',
@@ -2821,16 +2830,18 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                 نشان ویژه / برچسب تجاری (Badge):
               </label>
               <select
-                value={formData.badge || 'بار تازه'}
+                value={mapBadgeFromDjango(formData.badge)}
                 onChange={(e) => setFormData(prev => ({ ...prev, badge: e.target.value }))}
                 className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:border-blue-500"
               >
-                <option value="بار تازه">بار تازه</option>
-                <option value="پرفروش">پرفروش بازار</option>
-                <option value="وارداتی اصل">وارداتی اصل</option>
-                <option value="تخفیف تیراژ">تخفیف تیراژ ویژه</option>
-                <option value="موجودی محدود">موجودی محدود</option>
-                <option value="جدید">جدید</option>
+                <option value="">بدون نشان (None)</option>
+                <option value="وارداتی اصل">وارداتی اصل (Original Import)</option>
+                <option value="پیشنهاد ویژه">پیشنهاد ویژه (Special Offer)</option>
+                <option value="پرفروش‌ترین">پرفروش‌ترین (Best Seller)</option>
+                <option value="تخفیف ویژه">تخفیف ویژه / تیراژ (Special Discount)</option>
+                <option value="جدیدترین">جدیدترین (Newest)</option>
+                <option value="بار تازه">بار تازه (Fresh Stock)</option>
+                <option value="موجودی محدود">موجودی محدود (Limited Stock)</option>
               </select>
             </div>
 
@@ -2884,8 +2895,8 @@ export const ProductEditorPage: React.FC<ProductEditorPageProps> = ({
                       ...prev, 
                       isFeatured: checked,
                       badge: checked
-                        ? ((!prev.badge || prev.badge === 'بار تازه') ? 'پیشنهاد ویژه' : prev.badge)
-                        : ((prev.badge === 'پیشنهاد ویژه' || prev.badge === 'special' || prev.badge === 'تخفیف ویژه' || prev.badge === 'تخفیف تیراژ') ? 'بار تازه' : prev.badge)
+                        ? (!prev.badge ? 'پیشنهاد ویژه' : prev.badge)
+                        : (prev.badge === 'پیشنهاد ویژه' ? '' : prev.badge)
                     }));
                   }}
                   className="rounded border-slate-300 text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"

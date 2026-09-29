@@ -26,7 +26,7 @@ import { CartItem, CustomerInfo, OrderInvoice, UserProfile, CigaretteProduct } f
 import { DEFAULT_SHIPPING_OPTIONS } from '../data/shippingOptions';
 import { formatToman, formatNumberFa, calculateItemSubtotal, getApplicableDiscount } from '../utils/formatters';
 import { generateInvoicePdf } from '../utils/pdfGenerator';
-import { submitOrderToDjango } from '../services/djangoApi';
+import { submitOrderToDjango, getProductRichOverride } from '../services/djangoApi';
 
 interface ProformaInvoicePageProps {
   cartItems: CartItem[];
@@ -128,10 +128,21 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
 
   // State for direct inline product addition
   const [selectedAddProduct, setSelectedAddProduct] = useState<CigaretteProduct | null>(null);
-  const [addUnit, setAddUnit] = useState<'carton' | 'box'>('carton');
+  const [addUnit, setAddUnit] = useState<'carton' | 'box' | 'pack'>('carton');
   const [addQuantity, setAddQuantity] = useState<number>(1);
   const [productSearchTerm, setProductSearchTerm] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState<boolean>(false);
+
+  const selectedAddOverride = selectedAddProduct ? getProductRichOverride(selectedAddProduct.id) : undefined;
+  const canAddCarton = selectedAddProduct
+    ? (selectedAddOverride?.hasCarton ?? selectedAddProduct.hasCarton) !== false && !(selectedAddOverride?.isBoxOnly ?? selectedAddProduct.isBoxOnly)
+    : true;
+  const canAddBox = selectedAddProduct
+    ? (selectedAddOverride?.hasBox ?? selectedAddProduct.hasBox) !== false
+    : true;
+  const canAddPack = selectedAddProduct
+    ? Boolean(selectedAddOverride?.hasPack ?? selectedAddProduct.hasPack)
+    : false;
 
   const filteredSuggestions = useMemo(() => {
     if (!productSearchTerm) return [];
@@ -564,40 +575,73 @@ export const ProformaInvoicePage: React.FC<ProformaInvoicePageProps> = ({
                       {/* Suggestion Dropdown */}
                       {isDropdownOpen && filteredSuggestions.length > 0 && (
                         <div className="absolute right-0 left-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-slate-100">
-                          {filteredSuggestions.map((prod) => (
-                            <button
-                              key={prod.id}
-                              type="button"
-                              onClick={() => {
-                                setSelectedAddProduct(prod);
-                                setProductSearchTerm(prod.nameFa);
-                                setIsDropdownOpen(false);
-                              }}
-                              className="w-full text-right px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between text-xs"
-                            >
-                              <div>
-                                <span className="font-black text-slate-900">{prod.nameFa}</span>
-                                <span className="text-[10px] text-slate-400 mr-2">({prod.brand})</span>
-                              </div>
-                              <div className="text-left font-mono text-blue-700 font-bold">
-                                {formatNumberFa(prod.cartonPrice)} تومان
-                              </div>
-                            </button>
-                          ))}
+                          {filteredSuggestions.map((prod) => {
+                            const ov = getProductRichOverride(prod.id);
+                            const pCarton = (ov?.hasCarton ?? prod.hasCarton) !== false && !(ov?.isBoxOnly ?? prod.isBoxOnly);
+                            const pBox = (ov?.hasBox ?? prod.hasBox) !== false;
+                            const pPack = Boolean(ov?.hasPack ?? prod.hasPack);
+                            const pPackPrice = (ov?.packPrice && Number(ov.packPrice) > 0)
+                              ? Number(ov.packPrice)
+                              : (prod.packPrice || (prod.boxPrice ? Math.round(prod.boxPrice / (prod.packsPerBox || 10)) : 0));
+                            return (
+                              <button
+                                key={prod.id}
+                                type="button"
+                                onClick={() => {
+                                  setSelectedAddProduct(prod);
+                                  setProductSearchTerm(prod.nameFa);
+                                  setIsDropdownOpen(false);
+                                  const nextUnit: 'carton' | 'box' | 'pack' = pCarton ? 'carton' : pBox ? 'box' : pPack ? 'pack' : 'carton';
+                                  setAddUnit(nextUnit);
+                                  const nextMoq = nextUnit === 'carton'
+                                    ? Math.max(1, Number(ov?.moq ?? prod.moq ?? 1))
+                                    : nextUnit === 'box'
+                                    ? Math.max(1, Number(ov?.moqBox ?? prod.moqBox ?? 1))
+                                    : Math.max(1, Number(ov?.moqPack ?? prod.moqPack ?? 1));
+                                  setAddQuantity(nextMoq);
+                                }}
+                                className="w-full text-right px-4 py-2.5 hover:bg-slate-50 transition-colors flex items-center justify-between text-xs"
+                              >
+                                <div>
+                                  <span className="font-black text-slate-900">{prod.nameFa}</span>
+                                  <span className="text-[10px] text-slate-400 mr-2">({prod.brand})</span>
+                                </div>
+                                <div className="text-left font-mono text-blue-700 font-bold">
+                                  {pCarton && prod.cartonPrice > 0
+                                    ? `${formatNumberFa(prod.cartonPrice)} تومان (کارتن)`
+                                    : pBox && prod.boxPrice > 0
+                                    ? `${formatNumberFa(prod.boxPrice)} تومان (باکس)`
+                                    : `${formatNumberFa(pPackPrice)} تومان (پاکت)`}
+                                </div>
+                              </button>
+                            );
+                          })}
                         </div>
                       )}
                     </div>
 
                     {/* Unit Select */}
-                    <div className="w-full sm:w-36 shrink-0">
+                    <div className="w-full sm:w-40 shrink-0">
                       <label className="block text-[10px] font-bold text-slate-600 mb-1">واحد سفارش:</label>
                       <select
                         value={addUnit}
-                        onChange={(e) => setAddUnit(e.target.value as 'carton' | 'box')}
+                        onChange={(e) => {
+                          const u = e.target.value as 'carton' | 'box' | 'pack';
+                          setAddUnit(u);
+                          if (selectedAddProduct) {
+                            const m = u === 'carton'
+                              ? Math.max(1, Number(selectedAddOverride?.moq ?? selectedAddProduct.moq ?? 1))
+                              : u === 'box'
+                              ? Math.max(1, Number(selectedAddOverride?.moqBox ?? selectedAddProduct.moqBox ?? 1))
+                              : Math.max(1, Number(selectedAddOverride?.moqPack ?? selectedAddProduct.moqPack ?? 1));
+                            setAddQuantity(m);
+                          }
+                        }}
                         className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:border-blue-600 focus:outline-none"
                       >
-                        <option value="carton">کارتن (۵۰ باکس)</option>
-                        <option value="box">باکس (تکی)</option>
+                        {canAddCarton && <option value="carton">کارتن ({formatNumberFa(selectedAddProduct?.boxesPerCarton || 50)} باکس)</option>}
+                        {canAddBox && <option value="box">باکس ({formatNumberFa(selectedAddProduct?.packsPerBox || 10)} پاکت)</option>}
+                        {canAddPack && <option value="pack">پاکت (تکی)</option>}
                       </select>
                     </div>
 

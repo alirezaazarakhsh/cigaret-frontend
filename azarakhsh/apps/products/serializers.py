@@ -373,23 +373,47 @@ class ProductSerializer(serializers.ModelSerializer):
             'updated_at'
         ]
 
-    def get_image_url(self, obj):
+    def get_explicit_featured_image(self, obj):
         request = self.context.get('request')
         if obj.main_image:
             raw_main = str(obj.main_image).strip()
-            if raw_main.startswith(('http://', 'https://', 'data:')):
+            if raw_main:
+                if raw_main.startswith(('http://', 'https://', 'data:')):
+                    return raw_main
+                if hasattr(obj.main_image, 'url'):
+                    url = obj.main_image.url
+                    return request.build_absolute_uri(url) if request is not None else url
+                if raw_main.startswith('/'):
+                    return request.build_absolute_uri(raw_main) if request is not None else raw_main
                 return raw_main
-            if hasattr(obj.main_image, 'url'):
-                url = obj.main_image.url
-                return request.build_absolute_uri(url) if request is not None else url
-            if raw_main.startswith('/'):
-                return request.build_absolute_uri(raw_main) if request is not None else raw_main
         if obj.image:
             raw_img = str(obj.image).strip()
-            if raw_img:
+            # اگر از قبل مسیر گالری به اشتباه در فیلد image ذخیره شده باشد، به عنوان تصویر شاخص در نظر گرفته نشود
+            if raw_img and 'products/gallery/' not in raw_img:
                 if raw_img.startswith('/') and request is not None:
                     return request.build_absolute_uri(raw_img)
                 return raw_img
+        return None
+
+    def get_image_url(self, obj):
+        # ۱. اگر تصویر شاخص تنظیم شده است، همیشه همان تصویر شاخص نمایش داده شود
+        explicit_main = self.get_explicit_featured_image(obj)
+        if explicit_main:
+            return explicit_main
+        # ۲. فقط تا زمانی که هیچ تصویر شاخصی تنظیم نشده است، برای نمایش از اولین عکس گالری خوانده شود
+        request = self.context.get('request')
+        if hasattr(obj, 'gallery'):
+            first_gal = obj.gallery.first()
+            if first_gal and first_gal.image:
+                raw_g = str(first_gal.image).strip()
+                if raw_g.startswith(('http://', 'https://', 'data:')):
+                    return raw_g
+                if hasattr(first_gal.image, 'url'):
+                    url = first_gal.image.url
+                    return request.build_absolute_uri(url) if request is not None else url
+                if raw_g.startswith('/') and request is not None:
+                    return request.build_absolute_uri(raw_g)
+                return raw_g
         return None
 
     def get_images(self, obj):
@@ -414,9 +438,13 @@ class ProductSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        resolved_img = self.get_image_url(instance)
-        data['image'] = resolved_img or ''
-        data['image_url'] = resolved_img
+        explicit_main = self.get_explicit_featured_image(instance)
+        display_img = self.get_image_url(instance)
+        # فیلدهای main_image و image فقط تصویر شاخص واقعی را نگه می‌دارند تا در فرم ویرایش با گالری قاطی نشوند
+        data['main_image'] = explicit_main
+        data['image'] = explicit_main or ''
+        # فیلد image_url در صورت وجود تصویر شاخص آن را برمی‌گرداند و فقط در صورت عدم وجود تصویر شاخص از گالری می‌خواند
+        data['image_url'] = display_img
         return data
 
     def get_brand_logo(self, obj):
@@ -445,6 +473,7 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
     """
     slug = serializers.SlugField(allow_unicode=True, required=False, allow_blank=True)
     name_fa = serializers.CharField(write_only=True, required=False, allow_blank=True)
+    badge = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     brand = serializers.PrimaryKeyRelatedField(queryset=ProductBrand.objects.all(), required=False, allow_null=True)
     category = serializers.PrimaryKeyRelatedField(queryset=Category.objects.all(), required=False, allow_null=True)
     hologram = serializers.PrimaryKeyRelatedField(queryset=ProductHologram.objects.all(), required=False, allow_null=True)
@@ -779,41 +808,52 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
                 candidate_url = ''
                 for u in (raw_img_url, raw_main_img, extra_img_url):
                     if isinstance(u, str) and u.strip() and not u.strip().startswith('data:image'):
-                        candidate_url = u.strip()
-                        break
+                        u_clean = u.strip()
+                        # نادیده گرفتن مسیرهای گالری که در نسخه‌های قبلی داخل فیلد image افتاده بودند
+                        if 'products/gallery/' not in u_clean:
+                            candidate_url = u_clean
+                            break
 
                 if clear_main_image_flag:
                     data_dict['main_image'] = None
                     data_dict['image'] = ''
                 elif candidate_url:
                     if self.instance and self.instance.main_image:
-                        inst_rel = normalize_media_path(str(self.instance.main_image))
+                        inst_main_rel = normalize_media_path(str(self.instance.main_image))
+                        inst_img_rel = normalize_media_path(str(self.instance.image or ''))
                         cand_rel = normalize_media_path(candidate_url)
-                        if inst_rel and cand_rel and inst_rel == cand_rel:
-                            # همان تصویر شاخص قبلی است؛ حفظ فایل اصلی
+                        if (inst_main_rel and cand_rel == inst_main_rel) or (inst_img_rel and cand_rel == inst_img_rel):
+                            # کاربر فیلد متنی image را در فرم تغییر نداده است؛ حفظ قطعی فایل main_image
                             data_dict['image'] = self.instance.main_image.url if hasattr(self.instance.main_image, 'url') else str(self.instance.main_image)
                         else:
-                            # کاربر یک آدرس URL جدید برای تصویر شاخص وارد کرده است
+                            # کاربر صراحتاً یک آدرس URL جدید برای تصویر شاخص وارد کرده است
                             data_dict['image'] = candidate_url[:500]
                             data_dict['main_image'] = None
                     else:
                         data_dict['image'] = candidate_url[:500]
                 else:
                     # در صورت خالی بودن فیلد در فرم، تصویر شاخص قبلی کالا حفظ شود
-                    data_dict.pop('image', None)
+                    if self.instance and self.instance.main_image:
+                        data_dict['image'] = self.instance.main_image.url if hasattr(self.instance.main_image, 'url') else str(self.instance.main_image)
+                    elif self.instance and self.instance.image and 'products/gallery/' in str(self.instance.image):
+                        data_dict['image'] = ''
+                    else:
+                        data_dict.pop('image', None)
 
         # استانداردسازی فیلدهای انتخابی (badge, cigarette_size, filter_type)
         if 'badge' in data_dict:
             b_str = str(data_dict.get('badge') or '').strip()
             badge_map = {
-                'none': 'none', '': 'none', 'بدون نشان': 'none', 'ندارد': 'none',
-                'bestseller': 'bestseller', 'پرفروش': 'bestseller', 'پرفروش‌ترین': 'bestseller', 'پرفروشترین': 'bestseller',
-                'special': 'special', 'پیشنهاد ویژه': 'special', 'ویژه': 'special',
-                'new': 'new', 'جدید': 'new', 'جدیدترین': 'new', 'بار تازه': 'new', 'بار تازه دخانیات سرو': 'new',
-                'discount': 'discount', 'تخفیف ویژه': 'discount', 'تخفیف تیراژ': 'discount',
+                'none': 'none', '': 'none', 'بدون نشان': 'none', 'عادی': 'none', 'ندارد': 'none',
+                'bestseller': 'bestseller', 'best_seller': 'bestseller', 'پرفروش': 'bestseller', 'پرفروش‌ترین': 'bestseller', 'پرفروشترین': 'bestseller',
+                'special': 'special', 'special_offer': 'special', 'پیشنهاد ویژه': 'special', 'فروش ویژه': 'special', 'ویژه': 'special',
+                'fresh': 'fresh', 'new': 'new', 'بار تازه': 'fresh', 'بار تازه دخانیات سرو': 'fresh',
+                'new_arrival': 'new_arrival', 'جدید': 'new_arrival', 'جدیدترین': 'new_arrival', 'محصول جدید': 'new_arrival',
+                'discount': 'discount', 'special_discount': 'discount', 'تخفیف ویژه': 'discount', 'تخفیف تیراژ': 'discount',
+                'limited': 'limited', 'rare': 'limited', 'کمیاب': 'limited', 'محدود': 'limited', 'کمیاب و کلکسیونی': 'limited',
                 'import': 'import', 'وارداتی اصل': 'import', 'وارداتی': 'import', 'اورجینال': 'import',
             }
-            data_dict['badge'] = badge_map.get(b_str, badge_map.get(b_str.lower(), 'none'))
+            data_dict['badge'] = badge_map.get(b_str, badge_map.get(b_str.lower(), b_str[:30] if b_str else 'none'))
 
         if 'cigarette_size' in data_dict or 'packSize' in data_dict:
             cs_raw = data_dict.pop('packSize', None) or data_dict.get('cigarette_size')
@@ -1147,12 +1187,13 @@ class ProductCreateUpdateSerializer(serializers.ModelSerializer):
             for idx, f_obj in enumerate(uploaded_files):
                 ProductImage.objects.create(product=product, image=f_obj, order=start_order + idx)
 
-        # همگام‌سازی فیلد image محصول با تصویر اصلی ذخیره شده (فقط در صورت آپلود فایل جدید یا خالی بودن image)
-        if getattr(self, '_new_main_image_uploaded', False) and product.main_image and hasattr(product.main_image, 'url'):
-            product.image = product.main_image.url
-            product.save(update_fields=['image'])
-        elif not product.image and product.main_image and hasattr(product.main_image, 'url'):
-            product.image = product.main_image.url
+        # همگام‌سازی فیلد image محصول با تصویر اصلی ذخیره شده و پاکسازی مسیرهای گالری قدیمی از فیلد image
+        if product.main_image and hasattr(product.main_image, 'url'):
+            if product.image != product.main_image.url:
+                product.image = product.main_image.url
+                product.save(update_fields=['image'])
+        elif product.image and 'products/gallery/' in str(product.image):
+            product.image = ''
             product.save(update_fields=['image'])
 
         # ۴. ذخیره‌سازی نکات کلیدی

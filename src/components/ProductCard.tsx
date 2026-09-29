@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { CigaretteProduct } from '../types';
 import { formatToman, formatNumberFa, getApplicableDiscount, getProductStockInfo } from '../utils/formatters';
-import { getProductRichOverride } from '../services/djangoApi';
+import { getProductRichOverride, mapBadgeFromDjango } from '../services/djangoApi';
 
 interface ProductCardProps {
   product: CigaretteProduct;
@@ -192,9 +192,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     (showBox && boxQty > 0 ? 1 : 0) +
     (showPack && packQty > 0 ? 1 : 0);
 
-  const displayBadge = (!product.isFeatured && (product.badge === 'پیشنهاد ویژه' || product.badge === 'special' || product.badge === 'تخفیف ویژه'))
-    ? ''
-    : product.badge;
+  const displayBadge = mapBadgeFromDjango(product.badge);
 
   return (
     <div 

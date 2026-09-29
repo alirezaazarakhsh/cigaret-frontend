@@ -845,10 +845,8 @@ export const productsApi = {
       } catch {}
     }
 
-    const effectiveBadge = (!isFeaturedVal && (product.badge === 'پیشنهاد ویژه' || product.badge === 'special'))
-      ? 'بار تازه'
-      : product.badge;
-    const normalizedBadge = normalizeBadgeForDjango(effectiveBadge);
+    const effectiveBadge = mapBadgeFromDjango(product.badge);
+    const normalizedBadge = normalizeBadgeForDjango(effectiveBadge || product.badge);
     const normalizedCigaretteSize = normalizeCigaretteSizeForDjango(product.cigaretteSize || product.packSize);
     const normalizedFilterType = normalizeFilterTypeForDjango(product.filterType);
 
@@ -1089,6 +1087,7 @@ export const productsApi = {
         appliedFeatures: product.appliedFeatures || [],
         isFeatured: isFeaturedVal,
         badge: effectiveBadge || '',
+        badgeExplicit: effectiveBadge || '',
         hasCarton: product.hasCarton !== false,
         hasBox: product.hasBox !== false,
         hasPack: Boolean(product.hasPack),
@@ -1125,9 +1124,7 @@ export const productsApi = {
       ? Boolean(productData.isFeatured) 
       : Boolean(productData.badge === 'پیشنهاد ویژه' || productData.badge === 'special');
 
-    const effectiveBadge = (!isFeaturedVal && (productData.badge === 'پیشنهاد ویژه' || productData.badge === 'special' || productData.badge === 'تخفیف ویژه'))
-      ? 'بار تازه'
-      : productData.badge;
+    const effectiveBadge = mapBadgeFromDjango(productData.badge);
 
     const effMoq = productData.moq !== undefined ? Math.max(0, Number(productData.moq) || 0) : undefined;
     const effMoqBox = productData.moqBox !== undefined ? Math.max(0, Number(productData.moqBox) || 0) : undefined;
@@ -1202,6 +1199,7 @@ export const productsApi = {
       appliedFeatures: Array.isArray(productData.appliedFeatures) ? productData.appliedFeatures : undefined,
       isFeatured: isFeaturedVal,
       badge: effectiveBadge ?? '',
+      badgeExplicit: effectiveBadge ?? '',
       hasCarton: productData.hasCarton,
       hasBox: productData.hasBox,
       hasPack: productData.hasPack,
@@ -1454,7 +1452,7 @@ export const productsApi = {
           appliedFeatures: (productData.appliedFeatures && productData.appliedFeatures.length > 0) ? productData.appliedFeatures : (respObj.attributes_values || []),
           is_featured: isFeaturedVal,
           isFeatured: isFeaturedVal,
-          badge: effectiveBadge,
+          badge: normalizedBadge,
           has_carton: productData.hasCarton !== false,
           has_box: productData.hasBox !== false,
           has_pack: Boolean(productData.hasPack),

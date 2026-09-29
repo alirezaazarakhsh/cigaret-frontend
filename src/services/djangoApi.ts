@@ -2261,12 +2261,12 @@ export function parseNumeric(val: any, fallback: number = 0): number {
 export function normalizeBadgeForDjango(badge?: string): string {
   if (!badge) return 'none';
   const b = badge.trim().toLowerCase();
-  if (b === 'original_import' || b === 'import' || b.includes('وارداتی') || b.includes('اصل')) return 'import';
-  if (b === 'special' || b === 'special_offer' || b.includes('پیشنهاد') || b.includes('ویژه')) return 'special';
-  if (b === 'bestseller' || b.includes('پرفروش')) return 'bestseller';
-  if (b === 'newest' || b === 'new' || b.includes('جدید') || b.includes('تازه')) return 'new';
-  if (b === 'special_discount' || b === 'discount' || b.includes('تخفیف')) return 'discount';
   if (b === 'none' || b.includes('بدون') || b === '') return 'none';
+  if (b === 'special_discount' || b === 'discount' || b.includes('تخفیف')) return 'discount';
+  if (b === 'original_import' || b === 'import' || b.includes('وارداتی') || b.includes('اصل')) return 'import';
+  if (b === 'bestseller' || b === 'best_seller' || b.includes('پرفروش')) return 'bestseller';
+  if (b === 'special' || b === 'special_offer' || b.includes('پیشنهاد')) return 'special';
+  if (b === 'newest' || b === 'new' || b.includes('جدید') || b.includes('تازه')) return 'new';
   return 'none';
 }
 
@@ -2276,13 +2276,15 @@ export function normalizeBadgeForDjango(badge?: string): string {
 export function mapBadgeFromDjango(badgeCode?: string): string {
   if (!badgeCode) return '';
   const b = badgeCode.trim().toLowerCase();
-  if (b === 'import') return 'وارداتی اصل';
-  if (b === 'special') return 'پیشنهاد ویژه';
-  if (b === 'bestseller') return 'پرفروش‌ترین';
-  if (b === 'new') return 'جدیدترین';
-  if (b === 'discount') return 'تخفیف ویژه';
-  if (b === 'none') return '';
-  return badgeCode;
+  if (b === 'none' || b === 'بدون نشان' || b === 'بدون برچسب') return '';
+  if (b === 'import' || b === 'original_import' || b === 'وارداتی اصل') return 'وارداتی اصل';
+  if (b === 'special' || b === 'special_offer' || b === 'پیشنهاد ویژه') return 'پیشنهاد ویژه';
+  if (b === 'bestseller' || b === 'best_seller' || b === 'پرفروش' || b === 'پرفروش بازار' || b === 'پرفروش‌ترین' || b === 'پرفروش ترین') return 'پرفروش‌ترین';
+  if (b === 'discount' || b === 'special_discount' || b === 'تخفیف تیراژ' || b === 'تخفیف تیراژ ویژه' || b === 'تخفیف ویژه') return 'تخفیف ویژه';
+  if (b === 'new' || b === 'newest' || b === 'جدید' || b === 'جدیدترین') return 'جدیدترین';
+  if (b === 'بار تازه') return 'بار تازه';
+  if (b === 'موجودی محدود') return 'موجودی محدود';
+  return badgeCode.trim();
 }
 
 /**
@@ -2389,6 +2391,7 @@ export interface ProductRichOverride {
   appliedFeatures?: any[];
   isFeatured?: boolean;
   badge?: string;
+  badgeExplicit?: string;
   hasCarton?: boolean;
   hasBox?: boolean;
   hasPack?: boolean;
@@ -2522,10 +2525,15 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     item.box_price ?? item.boxPrice ?? item.price_box,
     cartonPrice > 0 ? Math.round(cartonPrice / safeBoxesPerCarton) : 0
   );
-  const packPrice = parseNumeric(
-    item.pack_price ?? item.packPrice ?? item.price_pack ?? richOverride?.packPrice,
-    boxPrice > 0 ? Math.round(boxPrice / safePacksPerBox) : 0
+  const rawPackPrice = parseNumeric(
+    item.pack_price ?? item.packPrice ?? item.price_pack,
+    0
   );
+  const packPrice = rawPackPrice > 0
+    ? rawPackPrice
+    : (richOverride?.packPrice !== undefined && Number(richOverride.packPrice) > 0
+        ? parseNumeric(richOverride.packPrice, 0)
+        : (boxPrice > 0 ? Math.round(boxPrice / safePacksPerBox) : 0));
   const purchasePrice = parseNumeric(
     item.purchase_price ?? item.purchasePrice ?? item.price_purchase,
     0
@@ -2571,15 +2579,25 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     imagesArr = richOverride.images.map((img: any) => extractImageUrl(img, '')).filter(Boolean);
   }
 
-  const backendMainImg = extractImageUrl(
-    item.main_image || item.image_url || item.image || item.photo || item.picture || '',
+  const rawCandidateMain =
+    item.main_image ||
+    (typeof item.image === 'string' && !item.image.includes('products/gallery/') ? item.image : '') ||
+    item.photo ||
+    item.picture ||
+    '';
+  const explicitFeaturedImg = extractImageUrl(
+    rawCandidateMain ||
+      (item.main_image === undefined && item.image === undefined && richOverride?.image && !String(richOverride.image).includes('products/gallery/')
+        ? richOverride.image
+        : ''),
     ''
   );
-  const mainImg = backendMainImg || (
-    (item.main_image === undefined && item.image_url === undefined && item.image === undefined && richOverride?.image)
-      ? extractImageUrl(richOverride.image, '')
-      : ''
-  );
+  // اگر تصویر شاخص تنظیم شده باشد همیشه همان نمایش داده می‌شود؛ فقط تا زمانی که تصویر شاخص نباشد از گالری خوانده می‌شود
+  const mainImg =
+    explicitFeaturedImg ||
+    extractImageUrl(item.image_url, '') ||
+    imagesArr[0] ||
+    '';
 
   // Barcode & Badge
   const barcode = extractStringFromField(
@@ -2587,10 +2605,18 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     ''
   );
   const rawBadge = extractStringFromField(
-    item.badge || item.badge_text,
+    item.badge || (item as any).badge_display || item.badge_text,
     ''
   );
-  let badge = rawBadge ? mapBadgeFromDjango(rawBadge) : (richOverride?.badge !== undefined ? richOverride.badge : mapBadgeFromDjango(rawBadge));
+  const mappedFromDjango = mapBadgeFromDjango(rawBadge);
+  let badge = mappedFromDjango;
+  if (rawBadge === 'new' && richOverride?.badgeExplicit === 'بار تازه') {
+    badge = 'بار تازه';
+  } else if ((!rawBadge || rawBadge === 'none') && richOverride?.badgeExplicit === 'موجودی محدود') {
+    badge = 'موجودی محدود';
+  } else if (!rawBadge && richOverride?.badgeExplicit !== undefined) {
+    badge = mapBadgeFromDjango(richOverride.badgeExplicit);
+  }
 
   // Price Trend
   const priceTrend: 'up' | 'down' | 'stable' = 
@@ -2605,25 +2631,21 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
       ? Boolean(richOverride.isFeatured)
       : Boolean(item.isFeatured || badge === 'پیشنهاد ویژه' || rawBadge === 'special'));
 
-  if (!isFeatured && (badge === 'پیشنهاد ویژه' || badge === 'special' || badge === 'تخفیف ویژه')) {
-    badge = 'بار تازه';
-  }
-
   const isPosOnly = item.is_pos_only !== undefined
     ? Boolean(item.is_pos_only)
     : (richOverride?.isPosOnly !== undefined ? Boolean(richOverride.isPosOnly) : Boolean(item.isPosOnly || item.is_pos_exclusive));
-  const isBoxOnly = item.is_box_only !== undefined
-    ? Boolean(item.is_box_only)
-    : (richOverride?.isBoxOnly !== undefined ? Boolean(richOverride.isBoxOnly) : Boolean(item.isBoxOnly));
-  const hasCarton = item.has_carton !== undefined
-    ? Boolean(item.has_carton)
-    : (richOverride?.hasCarton !== undefined ? Boolean(richOverride.hasCarton) : item.hasCarton !== false);
-  const hasBox = item.has_box !== undefined
-    ? Boolean(item.has_box)
-    : (richOverride?.hasBox !== undefined ? Boolean(richOverride.hasBox) : item.hasBox !== false);
-  const hasPack = item.has_pack !== undefined
-    ? Boolean(item.has_pack)
-    : (richOverride?.hasPack !== undefined ? Boolean(richOverride.hasPack) : Boolean(item.hasPack));
+  const isBoxOnly = richOverride?.isBoxOnly !== undefined
+    ? Boolean(richOverride.isBoxOnly)
+    : (item.is_box_only !== undefined ? Boolean(item.is_box_only) : Boolean(item.isBoxOnly));
+  const hasCarton = richOverride?.hasCarton !== undefined
+    ? Boolean(richOverride.hasCarton)
+    : (item.has_carton !== undefined ? Boolean(item.has_carton) : item.hasCarton !== false);
+  const hasBox = richOverride?.hasBox !== undefined
+    ? Boolean(richOverride.hasBox)
+    : (item.has_box !== undefined ? Boolean(item.has_box) : item.hasBox !== false);
+  const hasPack = richOverride?.hasPack !== undefined
+    ? Boolean(richOverride.hasPack)
+    : (item.has_pack !== undefined ? Boolean(item.has_pack) : Boolean(item.hasPack));
 
   // Descriptions & SEO (Strictly separate Excerpt vs Full TinyMCE Description & clean &nbsp;)
   const cleanHtmlNbsp = (str: string): string =>
@@ -2802,6 +2824,7 @@ export function mapDjangoItemToProduct(rawItem: any, index: number = 0): Cigaret
     min_order_box: moqBox,
     min_order_pack: moqPack,
     image: mainImg,
+    explicitFeaturedImage: explicitFeaturedImg,
     images: imagesArr,
     barcode,
     badge,

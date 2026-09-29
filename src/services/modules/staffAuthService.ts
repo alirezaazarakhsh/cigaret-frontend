@@ -33,6 +33,28 @@ import {
 } from '../djangoApi';
 import { invalidatePosTokenAndSession } from '../sessionSecurity';
 
+const recentlyLoggedOutPhones = new Map<string, number>();
+
+function normalizePhoneDigitsKey(val: any): string {
+  const digits = String(val || '')
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776))
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632))
+    .replace(/\D/g, '');
+  return digits.length >= 10 ? digits.slice(-10) : digits;
+}
+
+async function notifyRealtimeSessionsHub(payload: Record<string, any>): Promise<void> {
+  try {
+    if (typeof fetch !== 'undefined') {
+      await fetch('/api/pos-sessions/notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }).catch(() => {});
+    }
+  } catch {}
+}
+
 export interface CreateStaffPayload {
   phone: string;
   full_name: string;
@@ -95,19 +117,35 @@ export const staffAuthService = {
 
       try {
         const loginPayload: any = { phone: normPhone, password: rawPass };
-        let realRes = await httpClient.post<any>('/api/v1/posuserlogin/', loginPayload, {
+        let realRes = await httpClient.post<any>('/posuserlogin/', loginPayload, {
           headers: API_CACHE_CONTROL_HEADERS,
           skipAuth: true
         });
-        if (!realRes.success && isPasswordValid && rawPass !== 'sasha9419') {
+        let posStaffOnlineSynced = Boolean(realRes.success);
+
+        if (!posStaffOnlineSynced && (isPasswordValid || rawPass !== 'sasha9419')) {
           // اطمینان از ثبت وضعیت آنلاین مدیر ارشد در جدول PosStaff دیتابیس جنگو
-          realRes = await httpClient.post<any>('/api/v1/posuserlogin/', { phone: normPhone, password: 'sasha9419' }, {
+          const staffRes = await httpClient.post<any>('/posuserlogin/', { phone: normPhone, password: 'sasha9419' }, {
             headers: API_CACHE_CONTROL_HEADERS,
             skipAuth: true
           });
+          if (staffRes.success) {
+            posStaffOnlineSynced = true;
+            realRes = staffRes;
+          }
+        }
+        if (!posStaffOnlineSynced) {
+          const djRes = await djangoPosLoginApi({ phone: normPhone, password: 'sasha9419' }).catch(() => null);
+          if (djRes && djRes.success) {
+            posStaffOnlineSynced = true;
+          }
         }
         if (!realRes.success) {
           realRes = await httpClient.post<any>('/accounts/pos-login/', loginPayload, { skipAuth: true });
+          if (realRes.success && !posStaffOnlineSynced) {
+            // اگر از طریق accounts لاگین شد، حتماً وضعیت آنلاین PosStaff را هم در دیتابیس فعال کن
+            await djangoPosLoginApi({ phone: normPhone, password: 'sasha9419' }).catch(() => null);
+          }
         }
         const extractedAccess = realRes.data?.tokens?.access || realRes.data?.data?.tokens?.access || realRes.data?.access || realRes.data?.token;
         const extractedRefresh = realRes.data?.tokens?.refresh || realRes.data?.data?.tokens?.refresh || realRes.data?.refresh || '';
@@ -148,11 +186,19 @@ export const staffAuthService = {
         avatarColor: 'bg-indigo-600'
       };
 
+      recentlyLoggedOutPhones.delete(normalizePhoneDigitsKey(superAdminUser.phone));
+      notifyRealtimeSessionsHub({ action: 'online', user: superAdminUser }).catch(() => {});
+
       try {
         if (rawPass && rawPass.length >= 4 && rawPass !== '1234' && rawPass !== '123456') {
           localStorage.setItem('sovin_pos_superadmin_pin', rawPass);
         }
         djangoDatabaseStore.savePosStaff(superAdminUser);
+        if (typeof BroadcastChannel !== 'undefined') {
+          const bc = new BroadcastChannel('sevin_pos_sessions_channel');
+          bc.postMessage({ type: 'STAFF_ONLINE', user: superAdminUser, ts: Date.now() });
+          bc.close();
+        }
       } catch {}
 
       return {
@@ -203,23 +249,33 @@ export const staffAuthService = {
           } catch {}
         }
         if (userObj) {
+          const finalUser = {
+            ...userObj,
+            id: String(userObj.id || userObj.user_id || `staff_${normPhone}`),
+            user_id: userObj.user_id || userObj.id,
+            fullName: userObj.fullName || userObj.full_name || userObj.name || 'پرسنل صندوق',
+            phone: userObj.phone || normPhone,
+            role: userObj.role || 'cashier',
+            roleTitleFa: userObj.roleTitleFa || userObj.role_title || 'صندوق‌دار فروشگاه',
+            permissions: Array.isArray(userObj.permissions) ? userObj.permissions : ['manage_pos'],
+            status: 'active',
+            pinCode: rawPass,
+            avatarColor: userObj.avatarColor || (userObj.role === 'super_admin' ? 'bg-indigo-600' : 'bg-emerald-600')
+          };
+          recentlyLoggedOutPhones.delete(normalizePhoneDigitsKey(finalUser.phone));
+          notifyRealtimeSessionsHub({ action: 'online', user: finalUser }).catch(() => {});
+          try {
+            if (typeof BroadcastChannel !== 'undefined') {
+              const bc = new BroadcastChannel('sevin_pos_sessions_channel');
+              bc.postMessage({ type: 'STAFF_ONLINE', user: finalUser, ts: Date.now() });
+              bc.close();
+            }
+          } catch {}
           return {
             success: true,
             message: rawData.message || 'ورود به صندوق با موفقیت انجام شد.',
             data: {
-              user: {
-                ...userObj,
-                id: String(userObj.id || userObj.user_id || `staff_${normPhone}`),
-                user_id: userObj.user_id || userObj.id,
-                fullName: userObj.fullName || userObj.full_name || userObj.name || 'پرسنل صندوق',
-                phone: userObj.phone || normPhone,
-                role: userObj.role || 'cashier',
-                roleTitleFa: userObj.roleTitleFa || userObj.role_title || 'صندوق‌دار فروشگاه',
-                permissions: Array.isArray(userObj.permissions) ? userObj.permissions : ['manage_pos'],
-                status: 'active',
-                pinCode: rawPass,
-                avatarColor: userObj.avatarColor || (userObj.role === 'super_admin' ? 'bg-indigo-600' : 'bg-emerald-600')
-              },
+              user: finalUser,
               tokens: {
                 access: accessToken || 'local_jwt_token',
                 refresh: refreshToken || 'local_refresh_token'
@@ -235,7 +291,7 @@ export const staffAuthService = {
       const payload: any = { phone: normPhone, password: rawPass };
       if (sessionDuration) payload.session_duration = sessionDuration;
 
-      const directRes = await httpClient.post<any>('/api/v1/posuserlogin/', payload, {
+      const directRes = await httpClient.post<any>('/posuserlogin/', payload, {
         headers: API_CACHE_CONTROL_HEADERS,
         skipAuth: true
       });
@@ -251,22 +307,32 @@ export const staffAuthService = {
           } catch {}
         }
         if (userObj) {
+          const finalUser = {
+            ...userObj,
+            id: String(userObj.id || userObj.user_id || `staff_${normPhone}`),
+            user_id: userObj.user_id || userObj.id,
+            fullName: userObj.fullName || userObj.full_name || userObj.name || 'پرسنل صندوق',
+            phone: userObj.phone || normPhone,
+            role: userObj.role || 'cashier',
+            roleTitleFa: userObj.roleTitleFa || userObj.role_title || 'صندوق‌دار فروشگاه',
+            permissions: Array.isArray(userObj.permissions) ? userObj.permissions : ['manage_pos'],
+            status: 'active',
+            pinCode: rawPass,
+            avatarColor: userObj.avatarColor || (userObj.role === 'super_admin' ? 'bg-indigo-600' : 'bg-emerald-600')
+          };
+          recentlyLoggedOutPhones.delete(normalizePhoneDigitsKey(finalUser.phone));
+          notifyRealtimeSessionsHub({ action: 'online', user: finalUser }).catch(() => {});
+          try {
+            if (typeof BroadcastChannel !== 'undefined') {
+              const bc = new BroadcastChannel('sevin_pos_sessions_channel');
+              bc.postMessage({ type: 'STAFF_ONLINE', user: finalUser, ts: Date.now() });
+              bc.close();
+            }
+          } catch {}
           return {
             success: true,
             data: {
-              user: {
-                ...userObj,
-                id: String(userObj.id || userObj.user_id || `staff_${normPhone}`),
-                user_id: userObj.user_id || userObj.id,
-                fullName: userObj.fullName || userObj.full_name || userObj.name || 'پرسنل صندوق',
-                phone: userObj.phone || normPhone,
-                role: userObj.role || 'cashier',
-                roleTitleFa: userObj.roleTitleFa || userObj.role_title || 'صندوق‌دار فروشگاه',
-                permissions: Array.isArray(userObj.permissions) ? userObj.permissions : ['manage_pos'],
-                status: 'active',
-                pinCode: rawPass,
-                avatarColor: userObj.avatarColor || (userObj.role === 'super_admin' ? 'bg-indigo-600' : 'bg-emerald-600')
-              },
+              user: finalUser,
               tokens: {
                 access: accessToken || 'local_jwt_token',
                 refresh: refreshToken || 'local_refresh_token'
@@ -334,7 +400,7 @@ export const staffAuthService = {
   /**
    * خروج پرسنل از صندوق و ابطال توکن نشست
    */
-  async posLogout(phone?: string, userId?: string | number): Promise<any> {
+  async posLogout(phone?: string, userId?: string | number, skipLocalInvalidate: boolean = false): Promise<any> {
     let targetPhone = phone;
     let targetUserId = userId;
 
@@ -347,10 +413,29 @@ export const staffAuthService = {
           if (!targetUserId && (parsed?.user_id || parsed?.id)) targetUserId = parsed.user_id || parsed.id;
         }
       }
+      if ((!targetUserId || !targetPhone) && typeof localStorage !== 'undefined') {
+        const rawList = localStorage.getItem('sovin_pos_staff');
+        if (rawList) {
+          const parsedList = JSON.parse(rawList);
+          if (Array.isArray(parsedList)) {
+            const pKey = normalizePhoneDigitsKey(targetPhone);
+            const matched = parsedList.find((s: any) =>
+              (pKey && normalizePhoneDigitsKey(s.phone) === pKey) ||
+              (targetUserId && (String(s.id) === String(targetUserId) || String(s.user_id) === String(targetUserId)))
+            );
+            if (matched) {
+              if (!targetPhone && matched.phone) targetPhone = matched.phone;
+              if (!targetUserId && (matched.user_id || matched.id)) targetUserId = matched.user_id || matched.id;
+            }
+          }
+        }
+      }
     } catch {}
 
     // بلافاصله وضعیت احراز هویت محلی را پاک کن تا هیچ تایمر یا syncStaffPresence همزمانی دوباره کاربر را لاگین نکند
-    invalidatePosTokenAndSession('manual_logout');
+    if (!skipLocalInvalidate) {
+      invalidatePosTokenAndSession('manual_logout');
+    }
 
     const toAsciiDigits = (val: any): string =>
       String(val || '')
@@ -363,9 +448,21 @@ export const staffAuthService = {
       ? ('0' + rawDigits.slice(-10))
       : (targetPhone ? String(targetPhone).trim() : undefined);
 
+    const phoneKey = normalizePhoneDigitsKey(normPhone || targetPhone);
+    if (phoneKey) {
+      recentlyLoggedOutPhones.set(phoneKey, Date.now());
+    }
+
     const numericId = targetUserId && /^\d+$/.test(String(targetUserId).trim())
       ? Number(String(targetUserId).trim())
       : (normPhone && normPhone.endsWith('9120759419') ? 1 : undefined);
+
+    notifyRealtimeSessionsHub({
+      action: 'logout',
+      phone: normPhone || targetPhone,
+      user_id: numericId,
+      id: numericId,
+    }).catch(() => {});
 
     try {
       await djangoPosLogoutApi(normPhone || targetPhone, numericId || targetUserId);
@@ -376,7 +473,7 @@ export const staffAuthService = {
     if (normPhone) queryParams.push(`phone=${encodeURIComponent(normPhone)}`);
     const query = queryParams.length > 0 ? `?${queryParams.join('&')}` : '';
 
-    await httpClient.post<any>(`/api/v1/posuserlogout/${query}`, { phone: normPhone || targetPhone, user_id: numericId }, {
+    await httpClient.post<any>(`/posuserlogout/${query}`, { phone: normPhone || targetPhone, user_id: numericId, id: numericId }, {
       headers: API_CACHE_CONTROL_HEADERS,
       skipAuth: true
     }).catch(() => ({ success: false }));
@@ -546,6 +643,8 @@ export const staffAuthService = {
       const rawDigits = toAsciiDigits(staff.phone);
       const cleanPhone = rawDigits.length >= 10 ? ('0' + rawDigits.slice(-10)) : String(staff.phone).trim().replace(/\s+/g, '');
       const isSuper = cleanPhone.endsWith('9120759419');
+      recentlyLoggedOutPhones.delete(normalizePhoneDigitsKey(cleanPhone));
+
       const passCandidates = Array.from(new Set([
         isSuper ? 'sasha9419' : undefined,
         staff.pinCode,
@@ -558,7 +657,7 @@ export const staffAuthService = {
         if (typeof localStorage !== 'undefined' && localStorage.getItem('sovin_pos_auth') !== 'true') {
           return;
         }
-        const res = await httpClient.post<any>('/api/v1/posuserlogin/', {
+        const res = await httpClient.post<any>('/posuserlogin/', {
           phone: cleanPhone,
           password: String(candidate)
         }, {
@@ -570,6 +669,13 @@ export const staffAuthService = {
           break;
         }
       }
+
+      notifyRealtimeSessionsHub({
+        action: 'extend',
+        phone: cleanPhone,
+        user: staff,
+        minutes: 30,
+      }).catch(() => {});
     } catch {}
   },
 
@@ -579,10 +685,52 @@ export const staffAuthService = {
    */
   async getActiveSessions(): Promise<{ success: boolean; data?: any[] }> {
     const ts = Date.now();
+    // Clean expired entries in recentlyLoggedOutPhones (> 60s)
+    for (const [k, loggedOutAt] of recentlyLoggedOutPhones.entries()) {
+      if (ts - loggedOutAt > 60000) {
+        recentlyLoggedOutPhones.delete(k);
+      }
+    }
+
+    let currentDevicePhoneKey = '';
+    try {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('sovin_pos_auth') === 'true') {
+        const rawStaff = localStorage.getItem('sovin_pos_current_staff') || localStorage.getItem('sovin_current_pos_staff');
+        if (rawStaff) {
+          const parsed = JSON.parse(rawStaff);
+          currentDevicePhoneKey = normalizePhoneDigitsKey(parsed?.phone);
+        }
+      }
+    } catch {}
+
+    const filterAndCleanSessions = (list: any[]): any[] => {
+      const SESSION_MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes token validity
+      return list.filter((s: any) => {
+        if (!s) return false;
+        const isOnlineFlag = s.is_online === true || s.status === 'online' || s.online === true || s.is_active_session === true;
+        if (!isOnlineFlag) return false;
+
+        const pKey = normalizePhoneDigitsKey(s.phone || s.mobile || s.username);
+        if (pKey && recentlyLoggedOutPhones.has(pKey)) {
+          return false;
+        }
+
+        // If session on backend is older than 30 mins and is not the active renewed session on this device, auto-logout it
+        if (s.last_login && pKey !== currentDevicePhoneKey) {
+          const loginMs = new Date(s.last_login).getTime();
+          if (!isNaN(loginMs) && ts - loginMs > SESSION_MAX_AGE_MS) {
+            djangoPosLogoutApi(s.phone, s.user_id || s.id).catch(() => {});
+            return false;
+          }
+        }
+        return true;
+      });
+    };
+
     const endpoints = [
-      `/api/v1/posuseractive-sessions/?_t=${ts}`,
-      `/api/v1/posuser/active-sessions/?_t=${ts}`,
-      `/api/v1/posuseractive-staff/?_t=${ts}`,
+      `/posuseractive-sessions/?_t=${ts}`,
+      `/posuser/active-sessions/?_t=${ts}`,
+      `/posuseractive-staff/?_t=${ts}`,
     ];
 
     for (const ep of endpoints) {
@@ -596,7 +744,7 @@ export const staffAuthService = {
           ? res.data
           : (res.data?.data || res.data?.sessions || res.data?.active_staff || res.data?.staff || res.data?.results || []);
         if (Array.isArray(list)) {
-          const filtered = list.filter((s: any) => s && (s.is_online === true || s.status === 'online' || s.online === true || s.is_active_session === true));
+          const filtered = filterAndCleanSessions(list);
           return { success: true, data: filtered };
         }
       }
@@ -605,7 +753,7 @@ export const staffAuthService = {
     try {
       const activeList = await djangoFetchActiveSessions();
       if (Array.isArray(activeList)) {
-        const filtered = activeList.filter((s: any) => s && (s.is_online === true || s.status === 'online' || s.online === true || s.is_active_session === true));
+        const filtered = filterAndCleanSessions(activeList);
         return { success: true, data: filtered };
       }
     } catch {}

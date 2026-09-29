@@ -4,7 +4,7 @@
  */
 
 import { getApiBaseUrl, getApiToken, setApiToken } from './apiConfig';
-import { invalidatePosTokenAndSession } from './sessionSecurity';
+import { invalidatePosTokenAndSession, isPosSessionExpired } from './sessionSecurity';
 
 export interface ApiResponse<T = any> {
   success: boolean;
@@ -58,7 +58,10 @@ async function request<T = any>(
   options: RequestOptions = {}
 ): Promise<ApiResponse<T>> {
   const baseUrl = getApiBaseUrl();
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  let cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+  if (baseUrl.endsWith('/api/v1') && cleanEndpoint.startsWith('/api/v1/')) {
+    cleanEndpoint = cleanEndpoint.slice('/api/v1'.length);
+  }
   
   // Add automatic cache-busting timestamp to GET requests to guarantee zero stale cache
   let finalEndpoint = cleanEndpoint;
@@ -118,7 +121,8 @@ async function request<T = any>(
       // If token expired or invalid, try to refresh it silently using the refresh token first!
       if ((response.status === 401 || (response.status === 403 && method === 'GET')) && !options._isRetry) {
         const storedRefreshToken = typeof localStorage !== 'undefined' ? localStorage.getItem('sevin_refresh_token') : null;
-        if (storedRefreshToken && response.status === 401) {
+        const sessionExpired = isPosSessionExpired();
+        if (storedRefreshToken && response.status === 401 && !sessionExpired) {
           try {
             const baseUrl = getApiBaseUrl();
             const rootBase = baseUrl.replace(/\/api\/v1\/?$/, '');
@@ -132,12 +136,10 @@ async function request<T = any>(
               const refreshData = await refreshRes.json();
               const newAccessToken = refreshData?.access;
               if (newAccessToken) {
-                // Save new access token
+                // Save new access token without extending POS session timer unless user explicitly renewed
                 setApiToken(newAccessToken);
                 if (typeof localStorage !== 'undefined') {
                   localStorage.setItem('sevin_api_token', newAccessToken);
-                  // Also extend the session security expires_at time in localStorage
-                  localStorage.setItem('sovin_pos_session_expires_at', String(Date.now() + 30 * 60 * 1000));
                 }
                 // Retry the original request with the new token
                 const retryHeaders = { ...headers, 'Authorization': `Bearer ${newAccessToken}` };
@@ -155,7 +157,7 @@ async function request<T = any>(
           }
         }
 
-        if (response.status === 401 && responseData?.code === 'token_not_valid') {
+        if (response.status === 401 && (responseData?.code === 'token_not_valid' || sessionExpired)) {
           try {
             invalidatePosTokenAndSession('token_invalid_or_expired');
           } catch {}

@@ -275,11 +275,16 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
       return;
     }
 
-    // Check MOQ for all items (carton and box)
+    // Check MOQ for all items (carton, box, and pack)
     for (const item of cartItems) {
-      const moq = item.unit === 'carton' ? (item.product.moq || 0) : (item.product.moqBox || 0);
+      const moq = item.unit === 'carton'
+        ? (item.product.moq || 0)
+        : item.unit === 'box'
+        ? (item.product.moqBox || 0)
+        : (item.product.moqPack || 0);
+      const unitLabel = item.unit === 'carton' ? 'کارتن' : item.unit === 'box' ? 'باکس' : 'پاکت';
       if (moq > 0 && item.quantity < moq) {
-        setSubmitErrorMsg(`حداقل سفارش برای «${item.product.nameFa}» تعداد ${formatNumberFa(moq)} ${item.unit === 'carton' ? 'کارتن' : 'باکس'} است.`);
+        setSubmitErrorMsg(`حداقل سفارش برای «${item.product.nameFa}» تعداد ${formatNumberFa(moq)} ${unitLabel} است.`);
         return;
       }
     }
@@ -516,7 +521,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                     const itemDiscount = (itemRawTotal * discountPercent) / 100;
                     const itemFinal = itemRawTotal - itemDiscount;
 
-                    const itemMoq = item.unit === 'carton' ? (item.product.moq || 0) : item.unit === 'box' ? (item.product.moqBox || 0) : 0;
+                    const itemMoq = item.unit === 'carton' ? (item.product.moq || 0) : item.unit === 'box' ? (item.product.moqBox || 0) : (item.product.moqPack || 0);
                     const isBelowMoq = itemMoq > 0 && item.quantity < itemMoq;
 
                     return (
@@ -545,7 +550,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                               <div className={`text-[10px] font-bold mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded ${
                                 isBelowMoq ? 'bg-red-100 text-red-700' : 'bg-slate-200/70 text-slate-700'
                               }`}>
-                                {isBelowMoq ? '⚠️ کمتر از حداقل مجاز:' : 'حداقل سفارش:'} {formatNumberFa(itemMoq)} {item.unit === 'carton' ? 'کارتن' : 'باکس'}
+                                {isBelowMoq ? '⚠️ کمتر از حداقل مجاز:' : 'حداقل سفارش:'} {formatNumberFa(itemMoq)} {item.unit === 'carton' ? 'کارتن' : item.unit === 'box' ? 'باکس' : 'پاکت'}
                               </div>
                             )}
                           </div>

@@ -91,10 +91,15 @@ class ProductHologram(models.Model):
 class Product(models.Model):
     BADGE_CHOICES = (
         ('none', _('بدون نشان')),
-        ('bestseller', _('پرفروشترین')),
+        ('fresh', _('بار تازه')),
+        ('bestseller', _('پرفروش')),
         ('special', _('پیشنهاد ویژه')),
-        ('new', _('جدیدترین')),
+        ('special_offer', _('پیشنهاد ویژه')),
+        ('new', _('بار تازه')),
+        ('new_arrival', _('جدید')),
         ('discount', _('تخفیف ویژه')),
+        ('limited', _('کمیاب')),
+        ('rare', _('کمیاب')),
         ('import', _('وارداتی اصل')),
     )
 

@@ -970,6 +970,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
 
   const isLoggingOutRef = useRef<boolean>(false);
   const lastPresenceSyncRef = useRef<number>(0);
+  const wsRef = useRef<WebSocket | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -1132,6 +1133,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
             setTimeout(() => {
               if (isMounted) loadActiveSessions();
             }, 400);
+          } else if (ev.data?.type === 'STAFF_ONLINE' || ev.data?.type === 'SESSION_EXTENDED') {
+            loadActiveSessions();
           } else {
             loadActiveSessions();
           }
@@ -1144,24 +1147,30 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       if (!isAuthenticated || isLoggingOutRef.current) return;
       try {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        let host = window.location.host;
-        if (!host || host.includes('localhost') || host.includes('127.0.0.1')) {
-          host = 'cigar.sevinhost.ir';
-        }
-        
+        const host = window.location.host || 'localhost:3000';
         const wsUrl = `${protocol}//${host}/ws/sessions/`;
         ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
 
         ws.onopen = () => {
           if (isAuthenticated && !isLoggingOutRef.current && currentStaff?.phone) {
-            ws?.send(JSON.stringify({ action: 'subscribe_sessions', phone: currentStaff?.phone }));
+            ws?.send(JSON.stringify({
+              action: 'subscribe_sessions',
+              phone: currentStaff?.phone,
+              user: currentStaff
+            }));
           }
         };
 
         ws.onmessage = (event) => {
+          if (!isMounted || isLoggingOutRef.current) return;
           try {
             const data = JSON.parse(event.data);
-            const sessionsPayload = data.sessions || data.data || data;
+            if (data.type === 'STAFF_LOGOUT' && data.phone) {
+              const outKey = normalizePhoneKey(data.phone);
+              setOnlineSessions(prev => prev.filter(s => normalizePhoneKey(s.phone) !== outKey));
+            }
+            const sessionsPayload = data.sessions || data.data || (Array.isArray(data) ? data : null);
             if (Array.isArray(sessionsPayload)) {
               processSessionsList(sessionsPayload);
             }
@@ -1169,16 +1178,21 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
         };
 
         ws.onerror = () => {
-          if (ws) ws.close();
+          try {
+            if (ws) ws.close();
+          } catch {}
         };
 
         ws.onclose = () => {
+          if (wsRef.current === ws) {
+            wsRef.current = null;
+          }
           if (!isMounted || !isAuthenticated || isLoggingOutRef.current) return;
-          reconnectTimeout = setTimeout(connectWebSocket, 10000);
+          reconnectTimeout = setTimeout(connectWebSocket, 5000);
         };
       } catch {
         if (isMounted && isAuthenticated && !isLoggingOutRef.current) {
-          reconnectTimeout = setTimeout(connectWebSocket, 15000);
+          reconnectTimeout = setTimeout(connectWebSocket, 8000);
         }
       }
     };
@@ -1187,8 +1201,8 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       connectWebSocket();
     }
 
-    // 3. Poll active sessions every 12s so concurrent logins/logouts across devices stay in sync without flooding the network
-    fallbackInterval = setInterval(loadActiveSessions, 12000);
+    // 3. Poll active sessions every 10s so concurrent logins/logouts across devices stay in sync
+    fallbackInterval = setInterval(loadActiveSessions, 10000);
 
     return () => {
       isMounted = false;
@@ -1201,7 +1215,10 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
       }
       if (ws) {
         ws.onclose = null;
-        ws.close();
+        try { ws.close(); } catch {}
+        if (wsRef.current === ws) {
+          wsRef.current = null;
+        }
       }
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
       if (fallbackInterval) clearInterval(fallbackInterval);
@@ -1413,16 +1430,32 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
   // تابع خروج خودکار امنیتی کاربر از صندوق به محض پایان زمان توکن
   const handleAutoLogoutDueToExpiration = (reason: string = 'token_expired') => {
     if (!isAuthenticated) return; // مانع لوپ بی‌نهایت و هنگ کردن صفحه شوید
+    isLoggingOutRef.current = true;
 
-    // ۱. ابطال کامل توکن در حافظه، هدرها و LocalStorage
+    const logoutPhone = currentStaff?.phone;
+    const logoutUserId = (currentStaff as any)?.user_id || currentStaff?.id;
+
+    // ارسال رویداد انقضای توکن از طریق وب‌سوکت
+    try {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          action: 'token_expired',
+          phone: logoutPhone,
+          user_id: logoutUserId,
+        }));
+      }
+    } catch {}
+
+    // ۱. ابطال کامل توکن در حافظه، هدرها و LocalStorage و آفلاین کردن در دیتابیس
     invalidatePosTokenAndSession(reason);
+    api.accounts.posLogout(logoutPhone, logoutUserId).catch(() => {});
 
     // ۲. خروج کاربر از وضعیت احراز هویت صندوق و بستن دسترسی‌ها
     setIsAuthenticated(false);
 
     // ۳. پاکسازی پرسنل از لیست نشست‌های فعال آنلاین
-    if (currentStaff?.phone) {
-      setOnlineSessions(prev => prev.filter(s => s.phone !== currentStaff.phone));
+    if (logoutPhone) {
+      setOnlineSessions(prev => prev.filter(s => s.phone !== logoutPhone));
     }
 
     // ۴. ثبت پیام هشدار شفاف در صفحه ورود
@@ -1533,6 +1566,15 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
               ...prev
             ];
           });
+          try {
+            if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+              wsRef.current.send(JSON.stringify({
+                action: 'staff_online',
+                phone: res.data.user.phone,
+                user: res.data.user
+              }));
+            }
+          } catch {}
           staffAuthService.getActiveSessions().then(activeRes => {
             if (activeRes && activeRes.success && Array.isArray(activeRes.data) && activeRes.data.length > 0) {
               window.dispatchEvent(new CustomEvent('sevin-pos-online-sessions-changed'));
@@ -1563,6 +1605,17 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     const logoutPhone = currentStaff?.phone;
     const logoutUserId = (currentStaff as any)?.user_id || currentStaff?.id;
 
+    // اطلاع‌رسانی آنی خروج از طریق وب‌سوکت
+    try {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          action: 'staff_logout',
+          phone: logoutPhone,
+          user_id: logoutUserId,
+        }));
+      }
+    } catch {}
+
     // ۱. پاکسازی فوری نشست در حافظه کلاینت تا هیچ تایمر یا افکتی دوباره لاگین نکند
     invalidatePosTokenAndSession('manual_logout');
 
@@ -1591,6 +1644,52 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
     extendPosSession(minutes);
     setSessionRemainingSeconds(getRemainingSessionSeconds());
     setShowExtendNotice(false);
+
+    if (currentStaff?.phone) {
+      staffAuthService.syncStaffPresence(currentStaff).catch(() => {});
+      try {
+        if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({
+            action: 'session_extended',
+            phone: currentStaff.phone,
+            user: currentStaff,
+            minutes
+          }));
+        }
+      } catch {}
+    }
+  };
+
+  const handleSwitchCurrentStaff = async (newStaff: WarehouseStaffUser) => {
+    const prevStaff = currentStaff;
+    const prevPhone = prevStaff?.phone;
+    const prevUserId = (prevStaff as any)?.user_id || prevStaff?.id;
+
+    setCurrentStaff(newStaff);
+    initPosSessionExpiry();
+    setSessionRemainingSeconds(getRemainingSessionSeconds());
+
+    try {
+      localStorage.setItem('sovin_pos_auth', 'true');
+      localStorage.setItem('sovin_pos_current_staff', JSON.stringify(newStaff));
+    } catch {}
+
+    if (prevPhone && prevPhone !== newStaff.phone) {
+      setOnlineSessions(prev => prev.filter(s => s.phone !== prevPhone));
+      await staffAuthService.posLogout(prevPhone, prevUserId, true).catch(() => {});
+    }
+
+    await staffAuthService.syncStaffPresence(newStaff).catch(() => {});
+    try {
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        wsRef.current.send(JSON.stringify({
+          action: 'staff_online',
+          phone: newStaff.phone,
+          user: newStaff
+        }));
+      }
+    } catch {}
+    window.dispatchEvent(new CustomEvent('sevin-pos-online-sessions-changed'));
   };
 
   // Add Product to POS Cart by Product Object
@@ -4260,7 +4359,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
                 staffList={staffList}
                 currentStaff={currentStaff}
                 onUpdateStaffList={setStaffList}
-                onSwitchCurrentStaff={setCurrentStaff}
+                onSwitchCurrentStaff={handleSwitchCurrentStaff}
                 onClose={() => setActiveSubTab('pos')}
                 onlineSessions={onlineSessions}
               />
@@ -5524,7 +5623,7 @@ export const AccountingPosPanel: React.FC<AccountingPosPanelProps> = ({
           staffList={staffList}
           currentStaff={currentStaff}
           onUpdateStaffList={setStaffList}
-          onSwitchCurrentStaff={setCurrentStaff}
+          onSwitchCurrentStaff={handleSwitchCurrentStaff}
           onClose={() => setShowStaffModal(false)}
           onlineSessions={onlineSessions}
         />
