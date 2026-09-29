@@ -1393,10 +1393,30 @@ export const productsApi = {
     };
 
     // Attempt remote PATCH / PUT
-    let response = await httpClient.patch(`/products/items/${cleanId}/update/`, payload, { timeoutMs: 25000 });
-    if (!response.success && response.status !== 0 && response.status !== 400 && response.status !== 500) {
-      response = await httpClient.put(`/products/items/${cleanId}/update/`, payload, { timeoutMs: 20000 });
+    const candidateUpdateEndpoints = [
+      `/products/items/${cleanId}/`,
+      `/products/${cleanId}/`,
+      `/api/v1/products/items/${cleanId}/`,
+      `/api/v1/products/${cleanId}/`,
+      `/products/items/${cleanId}/update/`,
+      `/products/${cleanId}/update/`,
+    ];
+
+    let response: any = { success: false, status: 404 };
+    for (const ep of candidateUpdateEndpoints) {
+      response = await httpClient.patch(ep, payload, { timeoutMs: 25000 });
+      if (response.success) break;
+      if (response.status === 405 || (!response.success && response.status !== 404 && response.status !== 401 && response.status !== 403)) {
+        response = await httpClient.put(ep, payload, { timeoutMs: 20000 });
+        if (response.success) break;
+      }
+      if (response.status === 401 || response.status === 403) {
+        await ensureValidDjangoAdminToken(undefined, true).catch(() => '');
+        response = await httpClient.patch(ep, payload, { timeoutMs: 20000 });
+        if (response.success) break;
+      }
     }
+
     // Retry 1 on 0/400/500: remove slug/barcode/category FK while keeping gallery_images & descriptions
     if (!response.success && (response.status === 0 || response.status === 400 || response.status === 500)) {
       const safeFallbackPayload = { ...payload };
@@ -1405,26 +1425,10 @@ export const productsApi = {
       delete safeFallbackPayload.category;
       if (typeof safeFallbackPayload.brand !== 'number') delete safeFallbackPayload.brand;
       if (typeof safeFallbackPayload.hologram !== 'number' && safeFallbackPayload.hologram !== null) delete safeFallbackPayload.hologram;
-      response = await httpClient.patch(`/products/items/${cleanId}/update/`, safeFallbackPayload, { timeoutMs: 20000 });
-
-      // Retry 2 on 0/400/500: also replace base64 gallery images with safe URLs in case server serializer is older
-      if (!response.success && (response.status === 0 || response.status === 400 || response.status === 500)) {
-        const ultraSafePayload = {
-          ...safeFallbackPayload,
-          image: safeImage,
-          image_url: safeImage,
-          images: safeImages,
-          gallery_images: safeImages,
-        };
-        delete (ultraSafePayload as any).main_image;
-        response = await httpClient.patch(`/products/items/${cleanId}/update/`, ultraSafePayload, { timeoutMs: 20000 });
+      for (const ep of candidateUpdateEndpoints.slice(0, 4)) {
+        response = await httpClient.patch(ep, safeFallbackPayload, { timeoutMs: 20000 });
+        if (response.success) break;
       }
-    }
-    if (!response.success && response.status === 404) {
-      response = await httpClient.patch(`/products/${cleanId}/update/`, payload);
-    }
-    if (!response.success && response.status === 404) {
-      response = await httpClient.patch(`/products/${cleanId}/`, payload);
     }
 
     if (response.success && response.data) {
