@@ -236,26 +236,32 @@ export const ProductManagementPanel: React.FC<ProductManagementPanelProps> = ({
   };
 
   const handleSaveProduct = async (savedProd: CigaretteProduct) => {
-    const exists = products.some((p) => p.id === savedProd.id);
-
-    // 1. Brief pause to display the loading state on the "ثبت نهایی در انبار" button as requested
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    const exists = products.some((p) => 
+      p.id === savedProd.id || 
+      String(p.id) === String(savedProd.id) || 
+      (p.djangoId !== undefined && savedProd.djangoId !== undefined && String(p.djangoId) === String(savedProd.djangoId))
+    );
 
     try {
       if (exists) {
-        const finalProd = await productsApi.update(savedProd.id, savedProd);
+        const finalProd = await productsApi.update(String(savedProd.id), savedProd);
         const mergedSaved = {
           ...savedProd,
           ...finalProd,
-          image: savedProd.image || finalProd.image || '',
-          images: Array.isArray(savedProd.images) ? savedProd.images : (finalProd.images || []),
+          image: finalProd.image || savedProd.image || '',
+          imageUrl: finalProd.image || savedProd.image || '',
+          images: Array.isArray(finalProd.images) && finalProd.images.length > 0 ? finalProd.images : (Array.isArray(savedProd.images) ? savedProd.images : []),
           excerpt: savedProd.excerpt ?? finalProd.excerpt ?? '',
           description: savedProd.description ?? finalProd.description ?? '',
           moq: Math.max(0, Number(savedProd.moq ?? finalProd.moq ?? 0) || 0),
           moqBox: Math.max(0, Number(savedProd.moqBox ?? finalProd.moqBox ?? 0) || 0),
           moqPack: Math.max(0, Number(savedProd.moqPack ?? finalProd.moqPack ?? 0) || 0),
         };
-        const updatedList = products.map(p => p.id === savedProd.id ? mergedSaved : p);
+        const updatedList = products.map(p => 
+          (p.id === savedProd.id || String(p.id) === String(savedProd.id) || (p.djangoId !== undefined && savedProd.djangoId !== undefined && String(p.djangoId) === String(savedProd.djangoId)))
+            ? mergedSaved 
+            : p
+        );
         onUpdateProducts(updatedList);
         try {
           localStorage.setItem('wholesale_products', JSON.stringify(updatedList));
